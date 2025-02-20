@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source "../views";
+
+@theme {
+    --color-body: #f3f8ff;
+    --color-primary: #599cff;
+    --color-secondary: #e5edf9;
+    --color-primary-text: #283544;
+    --color-input-border: #94a8c1;
+    --color-input-text: #486388;
+    --color-flat-primary: #83b5ff;
+    --color-flat-border: #cad8ee;
+    --color-selected-project-card: #a1c7ff;
+    --color-table-cell: #d0ddee;
+    --color-table-column: #212a35;
+}
+
+/* Scrollbar */
+/* width */
+.pretty-scroll::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+/* Track */
+.pretty-scroll::-webkit-scrollbar-track {
+    background: #e5edf9;
+    border-radius: 5px;
+}
+
+/* Handle */
+.pretty-scroll::-webkit-scrollbar-thumb {
+    background: #599cff;
+    border-radius: 5px;
+    position: relative;
+}
+
+/* Handle on hover */
+.pretty-scroll::-webkit-scrollbar-thumb:hover {
+    background: #83b5ff;
+}
+
+.treeitem:before {
+    content: "";
+    width: 1px;
+    position: absolute;
+    top: calc(var(--spacing) * -2);
+    height: calc(100% + var(--spacing) * 4);
+    background-color: #cad8ee;
+    display: block;
+    left: calc(var(--spacing) * -2);
+}
+
+.treeitem:last-child::before {
+    height: calc(var(--spacing) * 8);
+}
+
+.treeitem > .arrow {
+    position: absolute;
+    top: 50%;
+    top: 0;
+    left: 0;
+}
+
+.treeitem > .arrow:before {
+    position: absolute;
+    content: "";
+    left: calc(var(--spacing) * -2);
+    top: calc(var(--spacing) * 6);
+    bottom: 50%;
+    height: 1px;
+    width: calc(var(--spacing) * 2);
+    background-color: #cad8ee;
+}
+
+.treeitem > .arrow:after {
+    content: "";
+    position: absolute;
+    top: calc(var(--spacing) * 6 - 2px);
+
+    left: -5px;
+    width: 0;
+
+    border-style: solid;
+    border-width: 3px 0 3px 5px;
+    border-color: transparent transparent transparent #cad8ee;
+}
