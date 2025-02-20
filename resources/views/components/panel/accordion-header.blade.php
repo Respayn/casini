@@ -6,6 +6,9 @@
         {{ $slot }}
     </div>
     <div>
-        <x-icons.accordion-arrow x-bind:class="{ 'rotate-180': isOpen }" />
+        <x-icons.accordion-arrow
+            class="transition-transform duration-300"
+            x-bind:class="{ 'rotate-180': isOpen }"
+        />
     </div>
 </div>

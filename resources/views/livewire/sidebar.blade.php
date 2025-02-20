@@ -1,4 +1,4 @@
-<div class="flex h-screen max-h-screen min-w-[355px] max-w-[355px] flex-col bg-white pe-[30px] ps-5 pt-[39px]">
+<div class="fixed flex h-screen max-h-screen min-w-[355px] max-w-[355px] flex-col bg-white pe-[30px] ps-5 pt-[39px]">
     <div class="mb-[60px] flex">
         <a href="{{ route('demo') }}">
             <x-icons.logo />
@@ -6,17 +6,21 @@
     </div>
 
     <x-form.input-text
+        class="mb-5"
         label="Поиск:"
         icon="resources/svg/search.svg"
         wire:model.live.debounce="searchQuery"
+        placeholder="Начните вводить"
     />
 
-    <x-button.button
-        type="link"
-        label="Все клиенты"
-        icon="v2.icons.client"
-        wire:click="resetSelectedProject"
-    />
+    <div class="mb-4">
+        <x-button.button
+            variant="link"
+            label="Все клиенты"
+            icon="icons.client"
+            wire:click="resetSelectedProject"
+        />
+    </div>
 
     <x-form.select
         label="Сортировать по:"

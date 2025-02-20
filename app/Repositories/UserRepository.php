@@ -2,13 +2,12 @@
 
 namespace App\Repositories;
 
-class UserRepository extends Repository
+use App\Models\User;
+
+class UserRepository extends EloquentRepository
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct()
+    public function model(): string
     {
-        //
+        return User::class;
     }
 }

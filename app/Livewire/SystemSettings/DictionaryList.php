@@ -4,10 +4,10 @@ namespace App\Livewire\SystemSettings;
 
 use Livewire\Component;
 
-class Dictionaries extends Component
+class DictionaryList extends Component
 {
     public function render()
     {
-        return view('livewire.system-settings.dictionaries');
+        return view('livewire.system-settings.dictionary-list');
     }
 }

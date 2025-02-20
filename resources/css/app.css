@@ -8,6 +8,9 @@
     --color-primary: #599cff;
     --color-secondary: #e5edf9;
     --color-primary-text: #283544;
+    --color-default-button: #283544;
+    --color-default-button-disabled: #486388;
+    --color-secondary-text: #94a8c1;
     --color-input-border: #94a8c1;
     --color-input-text: #486388;
     --color-flat-primary: #83b5ff;
@@ -15,6 +18,7 @@
     --color-selected-project-card: #a1c7ff;
     --color-table-cell: #d0ddee;
     --color-table-column: #212a35;
+    --color-modal-backdrop: #212a35;
 }
 
 /* Scrollbar */

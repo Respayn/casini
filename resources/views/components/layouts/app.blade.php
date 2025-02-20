@@ -13,7 +13,7 @@
         <body class="flex gap-5 font-sans bg-body">
             <livewire:sidebar />
             
-            <div class="flex flex-col w-full gap-[25px]">
+            <div class="flex flex-col w-full gap-[25px] pl-[375px]">
                 <livewire:header />
 
                 <x-menu.breadcrumb />

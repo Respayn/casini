@@ -1,14 +1,27 @@
 @props([
-    'label' => '',
-    'placeholder' => 'Начните вводить',
+    'label' => null,
+    'placeholder' => '',
     'icon' => null,
+    'required' => false,
 ])
 
-<div class="flex flex-col gap-2 mb-5">
-    <label class="text-sm font-semibold text-primary-text">{{ $label }}</label>
+<div {{ $attributes->class(['flex flex-col gap-2']) }}>
+    @if ($label)
+        <label class="text-primary-text text-sm font-semibold">{{ $label }}</label>
+    @endif
     <div class="relative">
-        <input class="border rounded-[5px] border-input-border min-h-[42px] ps-[39px] pe-3  w-full" type="text"
-            {{ $attributes->wire('model') }} placeholder="{{ $placeholder }}" />
+        <input
+            type="text"
+            @class([
+                'border-input-border min-h-[42px] w-full rounded-[5px] border pe-3',
+                'ps-[39px]' => isset($icon),
+                'ps-3' => !isset($icon),
+            ])
+            {{ $attributes->wire('model') }}
+            {{ $attributes->whereStartsWith('x-') }}
+            placeholder="{{ $placeholder }}"
+            @required($required)
+        />
         @if ($icon)
             <span class="absolute left-[13px] top-1/2 -translate-y-1/2">
                 <x-icons.search />
