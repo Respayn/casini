@@ -102,7 +102,7 @@
         </x-slot>
 
         <x-slot:body>
-            <x-form.form>
+            <x-form.form class="mb-7">
                 <x-form.form-field>
                     <x-form.form-label required>Название</x-form.form-label>
                     <div>

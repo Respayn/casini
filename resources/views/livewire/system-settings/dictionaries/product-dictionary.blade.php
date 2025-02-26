@@ -124,7 +124,7 @@ new class extends Component {
 
     <x-overlay.modal name="product-dictionary-notification-edit-modal">
         <x-slot:body>
-            <x-form.form>
+            <x-form.form class="mb-7">
                 <x-form.form-field>
                     <x-form.form-label
                         class="self-baseline"

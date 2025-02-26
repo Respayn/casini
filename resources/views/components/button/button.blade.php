@@ -4,18 +4,36 @@
     'label' => '',
     'rounded' => false,
     'disabled' => false,
+    'href' => null,
 ])
 
 @if ($rounded)
-    <button class="border-input-border rounded-full border p-[10px]">
-        @if ($icon)
-            <x-dynamic-component
-                class="text-secondary-text"
-                :component="$icon"
-            />
-        @endif
-        {{ $label }}
-    </button>
+    @if ($href)
+        <a
+            class="inline-flex border-input-border hover:border-primary active:bg-primary group cursor-pointer rounded-full border p-[10px]"
+            href="{{ $href }}"
+        >
+            @if ($icon)
+                <x-dynamic-component
+                    class="text-secondary-text group-hover:text-primary group-active:text-white"
+                    :component="$icon"
+                />
+            @endif
+            {{ $label }}
+        </a>
+    @else
+        <button
+            class="border-input-border hover:border-primary active:bg-primary group cursor-pointer rounded-full border p-[10px]"
+        >
+            @if ($icon)
+                <x-dynamic-component
+                    class="text-secondary-text group-hover:text-primary group-active:text-white"
+                    :component="$icon"
+                />
+            @endif
+            {{ $label }}
+        </button>
+    @endif
 @else
     @switch ($variant)
         @case('link')
@@ -38,11 +56,11 @@
             <button
                 {{ $attributes->whereStartsWith('wire:click') }}
                 {{ $attributes->whereStartsWith('x-on:') }}
-                @class([
+                {{ $attributes->class([
                     'inline-flex items-center justify-center hover:not-disabled:bg-transparent bg-primary border-primary disabled:text-default-button-disabled hover:not-disabled:text-primary not-disabled:cursor-pointer disabled:bg-secondary rounded-lg border text-white disabled:cursor-not-allowed disabled:border-0',
                     'w-10 h-10' => empty($label),
                     'px-3.5 py-2.5' => !empty($label),
-                ])
+                ]) }}
                 @disabled($disabled)
             >
                 @if ($icon)

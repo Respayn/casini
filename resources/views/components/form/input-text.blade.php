@@ -13,7 +13,7 @@
         <input
             type="text"
             @class([
-                'border-input-border min-h-[42px] w-full rounded-[5px] border pe-3',
+                'border-input-border min-h-[42px] w-full rounded-[5px] border pe-3 disabled:bg-secondary',
                 'ps-[39px]' => isset($icon),
                 'ps-3' => !isset($icon),
             ])
