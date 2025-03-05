@@ -91,3 +91,7 @@
     border-width: 3px 0 3px 5px;
     border-color: transparent transparent transparent #cad8ee;
 }
+
+h1 {
+    @apply text-primary-text text-xl font-semibold;
+}

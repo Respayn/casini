@@ -1,5 +1,5 @@
 <div>
-    <h1 class="text-primary-text pb-[30px] text-xl font-semibold">Справочники</h1>
+    <h1 class="pb-[30px]">Справочники</h1>
 
     <x-panel.accordion class="max-w-1/2">
         <x-panel.accordion-panel>

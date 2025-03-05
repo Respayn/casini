@@ -1,12 +1,18 @@
 <?php
 
 use App\Livewire\Demo;
+use App\Livewire\SystemSettings\ClientAndProjects;
+use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
+use App\Livewire\SystemSettings\ClientAndProjects\CreateClientProject;
 use App\Livewire\SystemSettings\DictionaryList;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
     Route::prefix('system-settings')->name('system-settings.')->group(function () {
         Route::get('/dictionaries', DictionaryList::class)->name('dictionaries');
+        Route::get('/clients-and-projects', ClientAndProjects::class)->name('clients-and-projects');
+        Route::get('/clients-and-projects/project/create', CreateClientProject::class)->name('clients-and-projects.projects.create');
+        Route::get('/clients-and-projects/client/create', CreateClient::class)->name('clients-and-projects.clients.create');
     });
 
     Route::get('/', Demo::class)->name('demo');
