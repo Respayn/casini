@@ -54,7 +54,7 @@
             </x-panel.accordion-content>
         </x-panel.accordion-panel>
 
-        <x-panel.accordion-panel open>
+        <x-panel.accordion-panel>
             <x-panel.accordion-header>Портфель продуктов</x-panel.accordion-header>
             <x-panel.accordion-content>
                 <livewire:system-settings.dictionaries.product-dictionary />
