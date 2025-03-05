@@ -22,7 +22,7 @@
 ## Развертывание
 1. Склонировать репозиторий проекта
 ```sh
-git clone https://github.com/Respayn/casini.git
+git clone git@code.softorium.pro:siteactive/casini.git
 ```
 
 2. Установить зависимости
