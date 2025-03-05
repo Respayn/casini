@@ -83,10 +83,9 @@ new class extends Component {
                         </div>
                     </x-data.table-cell>
                     <x-data.table-cell class="text-center">
-                        <input
-                            type="checkbox"
+                        <x-form.toggle-switch
                             wire:model="products.{{ $index }}.isRestricted"
-                            wire:click="updateProduct({{ $product->id }})"
+                            wire:click.debounce="updateProduct({{ $product->id }})"
                         />
                     </x-data.table-cell>
                     <x-data.table-cell>
