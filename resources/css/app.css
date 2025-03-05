@@ -95,3 +95,7 @@
 h1 {
     @apply text-primary-text text-xl font-semibold;
 }
+
+h2 {
+    @apply text-primary-text text-lg font-semibold;
+}
