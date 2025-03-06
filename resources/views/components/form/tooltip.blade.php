@@ -1,5 +1,7 @@
 <div class="relative inline-block cursor-pointer">
-    <x-icons.tooltip/>
+    <span class="tooltip-icon">
+        <x-icons.tooltip/>
+    </span>
     <div class="tooltip">
         {{ $slot }}
     </div>
@@ -21,10 +23,12 @@
         border-radius: 0.375rem;
         padding: 0.25rem 0.5rem;
         opacity: 0;
+        visibility: hidden;
         transition: opacity 0.2s ease-in-out;
     }
 
-    .relative:hover .tooltip {
+    .relative:has(.tooltip-icon:hover) .tooltip {
+        visibility: visible;
         opacity: 1;
     }
 </style>
