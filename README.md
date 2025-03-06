@@ -22,12 +22,13 @@
 ## Развертывание
 1. Склонировать репозиторий проекта
 ```sh
-git clone https://github.com/Respayn/casini.git
+git clone git@code.softorium.pro:siteactive/casini.git
 ```
 
 2. Установить зависимости
 ```sh
 composer install
+npm install
 ```
 
 3. Создать и настроить файл окружения .env
@@ -46,3 +47,7 @@ php artisan db:seed
 ```
 composer run dev
 ```
+
+## Авторизация в системе
+
+По-умолчанию доступен пользователь admin, пароль: 123123
