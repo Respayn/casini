@@ -35,6 +35,7 @@
                         <x-form.form-label
                             class="self-baseline"
                             required
+                            tooltip="Чтобы клиент был в выпадающем списке нужно его добавить в Клиенты и клиенто-проекты"
                         >Выберите клиента</x-form.form-label>
                         <x-form.select wire:model="clientProjectForm.client" placeholder="-"></x-form.select>
                     </x-form.form-field>
@@ -43,6 +44,7 @@
                         <x-form.form-label
                             class="self-baseline"
                             required
+                            tooltip="Укажите основное зеркало сайта - как оно прописано в robots.txt"
                         >URL-адрес сайта</x-form.form-label>
                         <div>
                             <x-form.input-text wire:model="clientProjectForm.url"></x-form.input-text>
@@ -52,6 +54,7 @@
                     <x-form.form-field>
                         <x-form.form-label
                             class="self-baseline"
+                            tooltip="Менеджер указывается на уровне настроек клиента в Клиенты и клиенто-проекты"
                         >Менеджер</x-form.form-label>
                         <x-form.select wire:model="clientProjectForm.manager" placeholder="Выберите менеджера"/>
                     </x-form.form-field>
@@ -100,6 +103,7 @@
                         <x-form.form-label
                             class="self-baseline"
                             required
+                            tooltip="Отметьте если проект “свой”, в этом случае колонка Акты в продукте Каналы будет заполнятся по итогам месяца автоматически на основе поля Чек-клиента"
                         >Тип клиенто-проекта</x-form.form-label>
                         <x-form.select wire:model="clientProjectForm.type" placeholder="-"></x-form.select>
                     </x-form.form-field>
@@ -120,6 +124,7 @@
                         <x-form.form-label
                             class="self-baseline"
                             required
+                            tooltip="На основе указанных данных мы будем подсказывать среднерыночные показатели при медиапланировании, данные храним в обезличенном виде"
                         >Регион продвижения</x-form.form-label>
 
                         <div class="flex flex-col gap-1 items-start">
