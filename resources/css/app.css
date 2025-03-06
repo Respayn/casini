@@ -22,6 +22,8 @@
 
     --color-toggle-switch-bg: #d0ddee;
     --color-toggle-switch-handle-bg: #486388;
+
+    --color-warning-red: #ff3d00;
 }
 
 /* Scrollbar */
@@ -104,7 +106,7 @@ h2 {
 }
 
 form.form_normalized {
-    &>*>.form-field {
+    .form-field {
         &>*:last-child {
             @apply lg:min-w-[305px];
         }

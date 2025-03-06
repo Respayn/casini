@@ -29,12 +29,13 @@
                 const selectedOption = this.options.find(
                     option => option['{{ $valueKey }}'] === this.selected
                 );
-                return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{ $placeholder }}' ?? 'Выберите значение');
+                return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{$placeholder}}' ?? 'Выберите значение');
             }
-            return 'Выберите значение';
+            return '{{$placeholder}}' ?? 'Выберите значение';
         }
     }"
     {{ $attributes }}
+    class="flex flex-col"
 >
     <label class="text-primary-text text-sm font-semibold">
         {{ $label }}
@@ -43,7 +44,11 @@
     <div class="text-input-text relative select-none">
         <div class="group">
             <div
-                class="border-input-border flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4"
+                @class([
+                'flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4',
+                'border-input-border' => !$errors->has($wireModel),
+                'border-warning-red' => $errors->has($wireModel),
+                ])
                 x-ref="button"
                 x-on:click="open = !open"
                 x-bind:class="{
@@ -65,7 +70,8 @@
         </div>
 
         <div
-            class="z-1000 border-input-border w-full rounded-b-[5px] border border-t-0"
+            class="z-1000 w-full rounded-b-[5px] border border-t-0"
+
             x-cloak
             x-show="open"
             x-anchor="$refs.button"
@@ -81,4 +87,7 @@
             @endforeach
         </div>
     </div>
+    @error($wireModel)
+    <span class="text-warning-red text-[12px]">{{ $message }}</span>
+    @enderror
 </div>
