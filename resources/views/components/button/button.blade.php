@@ -52,6 +52,23 @@
             </div>
         @break
 
+        @case('action')
+            <div
+                class="text-primary group inline-flex cursor-pointer items-center relative"
+                {{ $attributes->whereStartsWith('wire:click') }}
+                {{ $attributes->whereStartsWith('x-on:') }}
+            >
+                @if ($icon)
+                    <x-dynamic-component
+                        class="mr-4"
+                        :component="$icon"
+                    />
+                @endif
+                    <span class="text-[16px] font-semibold">{{ $label }}</span>
+                    <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-primary" style="border-width: 0.5px;"></span>
+            </div>
+        @break
+
         @case('primary')
             <button
                 {{ $attributes->whereStartsWith('wire:click') }}

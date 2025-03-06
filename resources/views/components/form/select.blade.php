@@ -3,6 +3,7 @@
     'options' => [],
     'labelKey' => 'label',
     'valueKey' => 'value',
+    'placeholder' => ''
 ])
 
 @php
@@ -12,7 +13,6 @@
 @endphp
 
 <div
-    class="mb-5 flex flex-col gap-2"
     x-data="{
         options: {{ json_encode($options) }},
         open: false,
@@ -23,13 +23,13 @@
             this.selected = $wire.get('{{ $wireModel }}');
             $dispatch('change');
         },
-    
+
         getDisplayText() {
             if (!this.open && this.selected) {
                 const selectedOption = this.options.find(
                     option => option['{{ $valueKey }}'] === this.selected
                 );
-                return selectedOption ? selectedOption['{{ $labelKey }}'] : 'Выберите значение';
+                return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{ $placeholder }}' ?? 'Выберите значение');
             }
             return 'Выберите значение';
         }

@@ -102,3 +102,11 @@ h1 {
 h2 {
     @apply text-primary-text text-lg font-semibold;
 }
+
+form.form_normalized {
+    &>*>.form-field {
+        &>*:last-child {
+            @apply lg:min-w-[305px];
+        }
+    }
+}
