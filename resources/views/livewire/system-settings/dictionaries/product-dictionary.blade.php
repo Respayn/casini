@@ -2,6 +2,7 @@
 
 use App\Services\ProductService;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Computed;
 use Livewire\Volt\Component;
 
 new class extends Component {
@@ -28,11 +29,26 @@ new class extends Component {
         $this->productService->updateProduct($product);
     }
 
+    public function updateAllProducts()
+    {
+        foreach ($this->products as $product) {
+            $this->productService->updateProduct($product);
+        }
+    }
+
     public function updateNotification()
     {
-        $product = $this->products->firstWhere('id', $this->pull('selectedProductId'));
-        $product->notification = trim($this->pull('notificationText'));
-        $this->productService->updateProduct($product);
+        if ($this->selectedProductId === 0) {
+            foreach ($this->products as $product) {
+                $product->notification = trim($this->notificationText);
+                $this->productService->updateProduct($product);
+            }
+            $this->reset('notificationText');
+        } else {
+            $product = $this->products->firstWhere('id', $this->pull('selectedProductId'));
+            $product->notification = trim($this->pull('notificationText'));
+            $this->productService->updateProduct($product);
+        }
         $this->dispatch('modal-hide', name: 'product-dictionary-notification-edit-modal');
     }
 }; ?>
@@ -83,10 +99,9 @@ new class extends Component {
                         </div>
                     </x-data.table-cell>
                     <x-data.table-cell class="text-center">
-                        <input
-                            type="checkbox"
+                        <x-form.toggle-switch
                             wire:model="products.{{ $index }}.isRestricted"
-                            wire:click="updateProduct({{ $product->id }})"
+                            wire:click.debounce="updateProduct({{ $product->id }})"
                         />
                     </x-data.table-cell>
                     <x-data.table-cell>
@@ -108,11 +123,20 @@ new class extends Component {
                     Все продукты
                 </x-data.table-cell>
                 <x-data.table-cell class="text-center">
-                    <input type="checkbox" />
+                    <x-form.toggle-switch
+                        x-on:click="$wire.products.forEach(product => product.isRestricted = $event.target.checked); $wire.updateAllProducts()"
+                    />
                 </x-data.table-cell>
                 <x-data.table-cell>
                     <div class="flex justify-center">
-                        <x-icons.chat />
+                        <x-overlay.modal-trigger name="product-dictionary-notification-edit-modal">
+                            <x-button.button
+                                icon="icons.chat"
+                                variant="ghost"
+                                x-on:click="$wire.selectedProductId = 0; $wire.notificationText = ''"
+                            >
+                            </x-button.button>
+                        </x-overlay.modal-trigger>
                     </div>
                 </x-data.table-cell>
             </x-data.table-row>
@@ -122,7 +146,10 @@ new class extends Component {
         Добавление новых продуктов через программиста
     </div>
 
-    <x-overlay.modal name="product-dictionary-notification-edit-modal">
+    <x-overlay.modal
+        name="product-dictionary-notification-edit-modal"
+        title="Пользовательское уведомление"
+    >
         <x-slot:body>
             <x-form.form class="mb-7">
                 <x-form.form-field>

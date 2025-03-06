@@ -27,19 +27,31 @@ class RateService
 
         $rates = $this->rateRepository->all(with: ['values']);
         $rates = $rates->map(function ($rate) use ($today) {
-            $rate->values = $rate->values->sortByDesc('startDate');
+            $rate->values = $rate->values->sortByDesc('startDate')->values();
+
+            $rate->values = $this->setRateValuesEndDates($rate->values);
+
             foreach ($rate->values as $rateValue) {
+                $rate->actualValue = $rateValue->value;
+                $rate->actualStartDate = $rateValue->startDate;
+                $rate->actualEndDate = $rateValue->endDate;
                 if ($rateValue->startDate->lte($today)) {
-                    $rate->actualValue = $rateValue->value;
-                    $rate->actualStartDate = $rateValue->startDate;
-                    $rate->actualEndDate = $rateValue->endDate;
+                    break;
                 }
-                break;
             }
             return $rate;
         });
 
         return $rates;
+    }
+
+    private function setRateValuesEndDates(Collection $rateValues): Collection
+    {
+        for ($i = 0; $i < $rateValues->count() - 1; $i++) {
+            $rateValues[$i + 1]->endDate = $rateValues[$i]->startDate->subDay();
+        }
+
+        return $rateValues;
     }
 
     public function createRate(CreateRateForm $form)

@@ -30,10 +30,10 @@
                         {{ $rate->name }}
                     </x-data.table-cell>
                     <x-data.table-cell
-                        x-text="$wire.historyExpandedStates[{{ $rate->id }}] ? '{{ $rate->values->first()->value }}' : '{{ $rate->actualValue }}'"
+                        x-text="$wire.historyExpandedStates[{{ $rate->id }}] ? '{{ $rate->values->first()->value }}' : '{{ $rate->actualValue ?? '-' }}'"
                     />
                     <x-data.table-cell
-                        x-text="$wire.historyExpandedStates[{{ $rate->id }}] ? '{{ $rate->values->first()->startDate->format('d.m.Y') }}' : '{{ $rate->actualStartDate->format('d.m.Y') }}'"
+                        x-text="$wire.historyExpandedStates[{{ $rate->id }}] ? '{{ $rate->values->first()->startDate->format('d.m.Y') ?? '-' }}' : '{{ $rate->actualStartDate?->format('d.m.Y') ?? '-' }}'"
                     />
                     <x-data.table-cell
                         x-text="$wire.historyExpandedStates[{{ $rate->id }}] ? '{{ $rate->values->first()->endDate?->format('d.m.Y') ?? '-' }}' : '{{ $rate->actualEndDate?->format('d.m.Y') ?? '-' }}'"
@@ -130,15 +130,6 @@
                         @enderror
                     </div>
                 </x-form.form-field>
-                <x-form.form-field>
-                    <x-form.form-label>До (включительно):</x-form.form-label>
-                    <div>
-                        <x-form.date-picker wire:model="form.endDate"></x-form.date-picker>
-                        @error('form.endDate')
-                            <span class="text-red-500">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </x-form.form-field>
             </x-form.form>
             <div class="flex justify-between">
                 <x-button.button
@@ -188,7 +179,6 @@
                     $wire.form.name = '';
                     $wire.form.value = '';
                     $wire.form.startDate = '';
-                    $wire.form.endDate = '';
                     $wire.selectedRateId = 0;
                 },
                 selectRate(rate) {
@@ -196,9 +186,6 @@
                     $wire.form.value = rate.values?.[0]?.value;
                     $wire.form.startDate = rate.values?.[0]?.startDate ?
                         new Date(rate.values?.[0]?.startDate).toISOString().split('T')[0] :
-                        null;
-                    $wire.form.endDate = rate.values?.[0]?.endDate ?
-                        new Date(rate.values?.[0]?.endDate).toISOString().split('T')[0] :
                         null;
                     $wire.selectedRateId = rate.id;
                 }

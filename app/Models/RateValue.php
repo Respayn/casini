@@ -10,15 +10,13 @@ class RateValue extends Model
     protected $fillable = [
         'rate_id',
         'value',
-        'start_date',
-        'end_date'
+        'start_date'
     ];
 
     protected function casts(): array
     {
         return [
-            'start_date' => 'date',
-            'end_date' => 'date'
+            'start_date' => 'date'
         ];
     }
 
