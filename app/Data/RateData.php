@@ -16,7 +16,7 @@ class RateData extends Data implements Wireable
 	public string $name;
 	public ?CarbonImmutable $createdAt;
 	public ?CarbonImmutable $updatedAt;
-	public int $actualValue;
+	public ?int $actualValue;
 	public ?CarbonImmutable $actualStartDate;
 	public ?CarbonImmutable $actualEndDate;
 

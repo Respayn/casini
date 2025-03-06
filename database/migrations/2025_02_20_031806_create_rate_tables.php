@@ -23,7 +23,6 @@ return new class extends Migration
             $table->foreignId('rate_id');
             $table->integer('value');
             $table->date('start_date');
-            $table->date('end_date')->nullable(true);
         });
     }
 

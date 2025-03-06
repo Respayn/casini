@@ -19,6 +19,9 @@
     --color-table-cell: #d0ddee;
     --color-table-column: #212a35;
     --color-modal-backdrop: #212a35;
+
+    --color-toggle-switch-bg: #d0ddee;
+    --color-toggle-switch-handle-bg: #486388;
 }
 
 /* Scrollbar */
