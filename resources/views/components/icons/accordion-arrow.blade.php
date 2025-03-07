@@ -8,6 +8,6 @@
 >
     <path
         d="M5 8L0.669872 0.500001L9.33013 0.5L5 8Z"
-        fill="#283544"
+        fill="currentColor"
     />
 </svg>
