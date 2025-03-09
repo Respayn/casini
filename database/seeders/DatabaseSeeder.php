@@ -17,7 +17,9 @@ class DatabaseSeeder extends Seeder
             TooltipSeeder::class,
             ProductSeeder::class,
             ProductNotificationSeeder::class,
-            IntegrationSeeder::class
+            IntegrationSeeder::class,
+            DepartmentsTableSeeder::class,
+            ProjectTypesTableSeeder::class,
         ]);
     }
 }
