@@ -96,7 +96,12 @@
                             class="self-baseline"
                             required
                         >Отдел</x-form.form-label>
-                        <x-form.select wire:model="clientProjectForm.department" placeholder="-"></x-form.select>
+                        <x-form.select
+                            wire:model.live="clientProjectForm.department"
+                            :options="$departments->map(function ($item) {
+                                return ['label' => $item->description, 'value' => $item->id];
+                            })"
+                        ></x-form.select>
                     </x-form.form-field>
 
                     <x-form.form-field>

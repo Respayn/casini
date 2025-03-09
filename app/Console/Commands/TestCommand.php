@@ -3,6 +3,8 @@
 namespace App\Console\Commands;
 
 use App\Models\Client;
+use App\Models\Department;
+use App\Repositories\DepartmentRepository;
 use Illuminate\Console\Command;
 
 class TestCommand extends Command
@@ -11,9 +13,8 @@ class TestCommand extends Command
 
     protected $description = 'Команда для вариативного тестирования методов';
 
-    public function handle()
+    public function handle(DepartmentRepository $departmentRepository)
     {
-        $clients = Client::query()->get();
-        dd($clients[0]);
+        dd($departmentRepository->all());
     }
 }

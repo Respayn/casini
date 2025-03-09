@@ -20,14 +20,14 @@
         select(value) {
             $wire.set('{{ $wireModel }}', value);
             this.open = false;
-            this.selected = $wire.get('{{ $wireModel }}');
+            this.selected = value;
             $dispatch('change');
         },
 
         getDisplayText() {
             if (!this.open && this.selected) {
                 const selectedOption = this.options.find(
-                    option => option['{{ $valueKey }}'] === this.selected
+                    option => option['{{ $valueKey }}'] == this.selected
                 );
                 return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{$placeholder}}' ?? 'Выберите значение');
             }
@@ -80,7 +80,7 @@
             @foreach ($options as $option)
                 <div
                     class="hover:bg-primary flex min-h-[42px] items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                    x-on:click="select('{{ $option[$valueKey] }}')"
+                    x-on:click="select({{ json_encode($option[$valueKey]) }})"
                 >
                     {{ $option[$labelKey] }}
                 </div>
