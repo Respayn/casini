@@ -136,7 +136,7 @@
                         >Свой проект</x-form.form-label>
                         <div class="flex items-center justify-end gap-3">
                             <label>Проект клиента</label>
-                            <x-form.toggle-switch wire:model="clientProjectForm.ownerStatus"></x-form.toggle-switch>
+                            <x-form.toggle-switch wire:model="clientProjectForm.is_internal"></x-form.toggle-switch>
                         </div>
                     </x-form.form-field>
                 </div>

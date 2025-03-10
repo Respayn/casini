@@ -4,6 +4,7 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Models\Project;
+use App\Models\ProjectStatusHistory;
 use App\Services\ClientService;
 use App\Services\DepartmentService;
 use App\Services\PromotionRegionService;
@@ -67,6 +68,7 @@ class ClientProjectFormModel extends Component
             $this->clientProjectForm->promotionRegions = $project->promotionRegions->pluck('id')->toArray();
             $this->clientProjectForm->promotionTopics = $project->promotionTopics->pluck('id')->toArray();
         } else {
+            $this->clientProjectForm->is_active = true;
             $this->clientProjectForm->promotionRegions[] = null;
             $this->clientProjectForm->promotionTopics[] = null;
         }
@@ -112,6 +114,8 @@ class ClientProjectFormModel extends Component
             } else {
                 $project = new Project();
             }
+
+            $originalStatus = $project->is_active;
 
             $project->fill([
                 'name' => $this->clientProjectForm->name,
@@ -159,6 +163,17 @@ class ClientProjectFormModel extends Component
                 $project->promotionTopics()->sync($promotionTopicIds);
             } else {
                 $project->promotionTopics()->detach();
+            }
+
+            if ($originalStatus != $project->is_active) {
+                ProjectStatusHistory::query()->insert([
+                    'project_id' => $project->id,
+                    'changed_by' => auth()->id(),
+                    'changed_at' => now(),
+                    'field' => 'is_active',
+                    'old_value' => $originalStatus,
+                    'new_value' => $project->is_active,
+                ]);
             }
 
             DB::commit();
