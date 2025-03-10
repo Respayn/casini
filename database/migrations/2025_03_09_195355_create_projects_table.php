@@ -19,7 +19,7 @@ return new class extends Migration
             $table->foreignId('specialist_id')->nullable()->constrained('users')->nullOnDelete()->comment('ID специалиста');
             $table->foreignId('manager_id')->nullable()->constrained('users')->nullOnDelete()->comment('ID менеджера');
             $table->foreignId('department_id')->constrained()->comment('ID департамента');
-            $table->foreignId('project_type_id')->constrained()->comment('ID типа проекта');
+            $table->enum('project_type', ['context_ad', 'seo_promotion'])->comment('Тип проекта');
             $table->enum('service_type', ['to_top', 'traffic', 'order', 'kr'])->comment('Тип сервиса');
             $table->string('kpi', 45)->default('simple')->comment('KPI');
             $table->boolean('is_internal')->default(false)->comment('Флаг внутреннего проекта');
@@ -42,7 +42,7 @@ return new class extends Migration
             $table->index('specialist_id');
             $table->index('manager_id');
             $table->index('department_id');
-            $table->index('project_type_id');
+            $table->index('project_type');
         });
     }
 

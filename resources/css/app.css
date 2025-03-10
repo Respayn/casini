@@ -107,6 +107,7 @@ h2 {
 
 form.form_normalized {
     .form-field {
+        @apply items-start;
         &>*:last-child {
             @apply lg:min-w-[305px];
         }

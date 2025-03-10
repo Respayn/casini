@@ -8,6 +8,6 @@ class CreateClient extends Component
 {
     public function render()
     {
-        return view('livewire.system-settings.client-and-porjects.create-client');
+        return view('livewire.system-settings.client-and-projects.create-client');
     }
 }

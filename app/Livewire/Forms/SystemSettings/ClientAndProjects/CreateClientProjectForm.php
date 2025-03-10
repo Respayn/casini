@@ -7,8 +7,9 @@ use Livewire\Form;
 
 class CreateClientProjectForm extends Form
 {
+    public ?int $id = null;
     #[Validate('required|boolean', message: 'Статус клиенто-проекта обязателен')]
-    public bool $status = false;
+    public bool $is_active = false;
 
     #[Validate('required|string|max:255', message: 'Название клиенто-проекта обязательно')]
     public string $name = '';
@@ -16,13 +17,14 @@ class CreateClientProjectForm extends Form
     #[Validate('required|exists:clients,id', message: 'Выберите клиента')]
     public int $client;
 
-    #[Validate('nullable|url|max:255', message: 'Введите корректный URL-адрес')]
-    public ?string $url = null;
+    #[Validate('required|url|max:255', message: 'Введите корректный URL-адрес')]
+    public string $domain;
 
     #[Validate('nullable|exists:users,id', message: 'Укажите менеджера')]
     public ?int $manager = null;
 
-    #[Validate('required|exists:users,id', message: 'Укажите специалиста')]
+    // TODO: required (когда появится пользователь)
+    #[Validate('nullable|exists:users,id', message: 'Укажите специалиста')]
     public int $specialist;
 
     #[Validate('array', message: 'Помощники должны быть массивом')]
@@ -35,10 +37,10 @@ class CreateClientProjectForm extends Form
     public string $department = '';
 
     #[Validate('required|string|max:255', message: 'Тип клиенто-проекта обязателен')]
-    public string $type = '';
+    public string $projectType = '';
 
     #[Validate('nullable|string|max:255')]
-    public ?string $ownerStatus = null;
+    public ?string $is_internal = null;
 
     #[Validate('required|array', message: 'Выберите хотя бы один регион продвижения')]
     public array $promotionRegions = [];

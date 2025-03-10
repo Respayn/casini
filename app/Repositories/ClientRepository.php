@@ -2,14 +2,14 @@
 
 namespace App\Repositories;
 
-use App\Models\Department;
+use App\Models\Client;
 use App\Repositories\Interfaces\RepositoryInterface;
 
-class DepartmentRepository extends EloquentRepository implements RepositoryInterface
+class ClientRepository extends EloquentRepository implements RepositoryInterface
 {
     public function model()
     {
-        return Department::class;
+        return Client::class;
     }
 
     public function all(array $with = [])
@@ -20,12 +20,12 @@ class DepartmentRepository extends EloquentRepository implements RepositoryInter
 
     public function find(int $id)
     {
-        return Department::from($this->model->find($id));
+        return Client::from($this->model->find($id));
     }
 
     public function findBy(string $column, mixed $value)
     {
-        return Department::from($this->model->where($column, $value)->get());
+        return Client::from($this->model->where($column, $value)->get());
 
     }
 }

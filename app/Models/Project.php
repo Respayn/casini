@@ -2,39 +2,41 @@
 
 namespace App\Models;
 
+use App\Enums\ProjectType;
 use App\Enums\ServiceType;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 
 /**
+ * @property int $id
  * @property string $name
  * @property string $domain
  * @property int $client_id
  * @property int $specialist_id
  * @property int $manager_id
  * @property int $department_id
- * @property int $project_type_id
- * @property string $service_type
- * @property string $kpi
- * @property string $is_internal
- * @property string $is_active
- * @property string $traffic_attribution
- * @property string $metrika_counter
- * @property string $metrika_targets
- * @property string $google_ads_client_id
- * @property string $contract_number
- * @property string $additional_contract_number
- * @property string $recomendation_url
- * @property string $legal_entity
- * @property string $inn
- * @property string $created_at
- * @property string $updated_at
+ * @property ProjectType $project_type
+ * @property ServiceType $service_type
+ * @property $kpi
+ * @property $is_internal
+ * @property $is_active
+ * @property $traffic_attribution
+ * @property $metrika_counter
+ * @property $metrika_targets
+ * @property $google_ads_client_id
+ * @property $contract_number
+ * @property $additional_contract_number
+ * @property $recomendation_url
+ * @property $legal_entity
+ * @property $inn
+ * @property $created_at
+ * @property $updated_at
  *
  * @property Client $client
  * @property User $specialist
  * @property User $manager
  * @property Department $department
- * @property ProjectType $projectType
  * @property Collection<ProjectStatusHistory> $statusHistories
  */
 class Project extends Model
@@ -46,7 +48,7 @@ class Project extends Model
         'specialist_id',
         'manager_id',
         'department_id',
-        'project_type_id',
+        'project_type',
         'service_type',
         'kpi',
         'is_internal',
@@ -65,6 +67,7 @@ class Project extends Model
     ];
 
     protected $casts = [
+        'project_type' => ProjectType::class,
         'service_type' => ServiceType::class,
     ];
 
@@ -88,13 +91,18 @@ class Project extends Model
         return $this->belongsTo(Department::class);
     }
 
-    public function projectType()
-    {
-        return $this->belongsTo(ProjectType::class);
-    }
-
     public function statusHistories()
     {
         return $this->hasMany(ProjectStatusHistory::class);
+    }
+
+    public function promotionRegions(): BelongsToMany
+    {
+        return $this->belongsToMany(PromotionRegion::class);
+    }
+
+    public function promotionTopics(): BelongsToMany
+    {
+        return $this->belongsToMany(PromotionTopic::class);
     }
 }
