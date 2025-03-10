@@ -2,15 +2,39 @@
     'icon' => null,
     'variant' => null,
     'label' => '',
-    'rounded' => false,
-    'disabled' => false,
+    'rounded' => null,
+    'disabled' => null,
     'href' => null,
+    'size' => null,
+    'iconClasses' => '',
+    'square' => null,
+    'type' => 'button',
 ])
+
+@php
+    $square ??= empty($label);
+
+    $buttonClasses = ['inline-flex items-center justify-center cursor-pointer'];
+    $buttonClasses[] = 'disabled:cursor-not-allowed';
+    $buttonClasses[] = match ($variant) {
+        'primary'
+            => 'hover:not-disabled:bg-transparent bg-primary border-primary disabled:text-default-button-disabled hover:not-disabled:text-primary disabled:bg-secondary border text-white disabled:border-0',
+        'ghost'
+            => 'text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary',
+        default
+            => 'border-default-button text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary border disabled:border-0',
+    };
+    $buttonClasses[] = match ($size) {
+        'xs' => 'h-6 text-sm rounded-md' . ' ' . ($square ? 'w-6' : 'px-3.5'),
+        'sm' => 'h-8 rounded-md' . ' ' . ($square ? 'w-8' : 'px-3.5'),
+        default => 'h-10 rounded-lg' . ' ' . ($square ? 'w-10' : 'px-3.5'),
+    };
+@endphp
 
 @if ($rounded)
     @if ($href)
         <a
-            class="inline-flex border-input-border hover:border-primary active:bg-primary group cursor-pointer rounded-full border p-[10px]"
+            class="border-input-border hover:border-primary active:bg-primary group inline-flex cursor-pointer rounded-full border p-[10px]"
             href="{{ $href }}"
         >
             @if ($icon)
@@ -34,26 +58,22 @@
             {{ $label }}
         </button>
     @endif
-@else
-    @switch ($variant)
-        @case('link')
-            <div
-                class="text-primary-text hover:text-primary group inline-flex cursor-pointer items-center"
-                {{ $attributes->whereStartsWith('wire:click') }}
-                {{ $attributes->whereStartsWith('x-on:') }}
-            >
-                @if ($icon)
-                    <x-dynamic-component
-                        class="mr-4"
-                        :component="$icon"
-                    />
-                @endif
-                <span class="font-semibold group-hover:underline">{{ $label }}</span>
-            </div>
-        @break
-
-        @case('action')
-            <div
+@elseif ($variant === 'link')
+    <div
+        class="text-primary-text hover:text-primary group inline-flex cursor-pointer items-center"
+        {{ $attributes->whereStartsWith('wire:click') }}
+        {{ $attributes->whereStartsWith('x-on:') }}
+    >
+        @if ($icon)
+            <x-dynamic-component
+                class="mr-4"
+                :component="$icon"
+            />
+        @endif
+        <span class="font-semibold group-hover:underline">{{ $label }}</span>
+    </div>
+@elseif ($variant === 'action')
+    <div
                 class="text-primary group inline-flex cursor-pointer items-center relative"
                 {{ $attributes->whereStartsWith('wire:click') }}
                 {{ $attributes->whereStartsWith('x-on:') }}
@@ -67,10 +87,8 @@
                     <span class="text-[16px] font-semibold">{{ $label }}</span>
                     <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-primary" style="border-width: 0.5px;"></span>
             </div>
-        @break
-
-        @case('primary')
-            <button
+@elseif ($variant === 'primary')
+    <button
                 {{ $attributes->whereStartsWith('wire:click') }}
                 {{ $attributes->whereStartsWith('x-on:') }}
                 {{ $attributes->class([
@@ -90,10 +108,8 @@
                 @endif
                 {{ $label }}
             </button>
-        @break
-
-        @case('ghost')
-            <button
+@elseif ($variant === 'ghost')
+    <button
                 @class([
                     'inline-flex items-center justify-center text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white not-disabled:cursor-pointer disabled:bg-secondary rounded-lg disabled:cursor-not-allowed',
                     'w-10 h-10' => empty($label),
@@ -112,28 +128,19 @@
                 @endif
                 {{ $label }}
             </button>
-        @break
-
-        @default
-            <button
-                @class([
-                    'inline-flex items-center justify-center border-default-button text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white not-disabled:cursor-pointer disabled:bg-secondary rounded-lg border disabled:cursor-not-allowed disabled:border-0',
-                    'w-10 h-10' => empty($label),
-                    'px-3.5 py-2.5' => !empty($label),
-                ])
-                {{ $attributes->whereStartsWith('wire:click') }}
-                {{ $attributes->whereStartsWith('x-on:') }}
-                @disabled($disabled)
-            >
-                @if ($icon)
-                    <x-dynamic-component
-                        @class([
-                            'mr-4' => !empty($label),
-                        ])
-                        :component="$icon"
-                    />
-                @endif
-                {{ $label }}
-            </button>
-    @endswitch
+@else
+    <button
+        type="{{ $type }}"
+        {{ $attributes->class($buttonClasses) }}
+        {{ $attributes }}
+        @disabled($disabled)
+    >
+        @if ($icon)
+            <x-dynamic-component
+                @class([$iconClasses, 'mr-4' => !empty($label)])
+                :component="$icon"
+            />
+        @endif
+        {{ $label }}
+    </button>
 @endif
