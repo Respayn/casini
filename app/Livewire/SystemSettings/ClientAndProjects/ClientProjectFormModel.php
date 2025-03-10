@@ -4,6 +4,7 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Models\Project;
+use App\Models\ProjectBonusCondition;
 use App\Models\ProjectStatusHistory;
 use App\Services\ClientService;
 use App\Services\DepartmentService;
@@ -48,29 +49,19 @@ class ClientProjectFormModel extends Component
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
 
         if ($projectId) {
-            $project = Project::with(['assistants', 'promotionRegions', 'promotionTopics'])->findOrFail($projectId);
+            $project = Project::with([
+                'assistants',
+                'promotionRegions',
+                'promotionTopics',
+                'bonusCondition.intervals'
+            ])->findOrFail($projectId);
 
-            // Заполняем свойства формы из модели проекта
-            $this->clientProjectForm->id = $project->id;
-            $this->clientProjectForm->name = $project->name;
-            $this->clientProjectForm->domain = $project->domain;
-            $this->clientProjectForm->client = $project->client_id;
-            $this->clientProjectForm->specialist = $project->specialist_id;
-            $this->clientProjectForm->manager = $project->manager_id;
-            $this->clientProjectForm->department = $project->department_id;
-            $this->clientProjectForm->projectType = $project->project_type;
-//            $this->clientProjectForm->service_type = $project->service_type;
-            $this->clientProjectForm->kpi = $project->kpi;
-            $this->clientProjectForm->is_internal = $project->is_internal;
-            $this->clientProjectForm->is_active = $project->is_active;
-
-            $this->clientProjectForm->assistants = $project->assistants->pluck('id')->toArray();
-            $this->clientProjectForm->promotionRegions = $project->promotionRegions->pluck('id')->toArray();
-            $this->clientProjectForm->promotionTopics = $project->promotionTopics->pluck('id')->toArray();
+            $this->clientProjectForm->fillFromModel($project);
         } else {
             $this->clientProjectForm->is_active = true;
             $this->clientProjectForm->promotionRegions[] = null;
             $this->clientProjectForm->promotionTopics[] = null;
+            $this->clientProjectForm->bonusGuaranteeForm->bonuses_enabled = true;
         }
     }
 
@@ -103,7 +94,12 @@ class ClientProjectFormModel extends Component
 
     public function save()
     {
+//        dd($this->clientProjectForm->bonusGuaranteeForm);
+
+
         $this->clientProjectForm->validate();
+
+//        dd($this->clientProjectForm->bonusGuaranteeForm);
 
         DB::beginTransaction();
 
@@ -163,6 +159,27 @@ class ClientProjectFormModel extends Component
                 $project->promotionTopics()->sync($promotionTopicIds);
             } else {
                 $project->promotionTopics()->detach();
+            }
+
+            // Сохранение бонусных настроек
+            $bonusData = [
+                'bonuses_enabled' => $this->clientProjectForm->bonusGuaranteeForm->bonuses_enabled,
+                'calculate_in_percentage' => $this->clientProjectForm->bonusGuaranteeForm->calculate_in_percentage,
+                'client_payment' => $this->clientProjectForm->bonusGuaranteeForm->client_payment,
+                'start_month' => $this->clientProjectForm->bonusGuaranteeForm->start_month,
+            ];
+
+            $bonusCondition = ProjectBonusCondition::updateOrCreate(
+                ['project_id' => $project->id],
+                $bonusData
+            );
+
+            // Удаляем старые интервалы
+            $bonusCondition->intervals()->delete();
+
+            // Сохраняем новые интервалы
+            foreach ($this->clientProjectForm->bonusGuaranteeForm->intervals as $intervalData) {
+                $bonusCondition->intervals()->create($intervalData);
             }
 
             if ($originalStatus != $project->is_active) {

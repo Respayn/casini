@@ -221,6 +221,124 @@
                         </div>
                     </x-form.form-field>
                 </div>
+                <div class="flex flex-col gap-4 mt-4">
+                    <!-- Бонусы и гарантии -->
+                    <h2>Бонусы и гарантии</h2>
+
+                    <x-form.form-field>
+                        <x-form.form-label tooltip="Если за выполнение плана в договоре с клиентом предусмотрен бонус и/или прописаны гарантии - задайте логику расчета бонуса и/или гарантии">
+                            В договоре предусмотрены бонусы и/или гарантии
+                        </x-form.form-label>
+                        <div class="flex items-center justify-end gap-3">
+                            <label>Да</label>
+                            <x-form.toggle-switch wire:model.live="clientProjectForm.bonusGuaranteeForm.bonuses_enabled" />
+                        </div>
+                    </x-form.form-field>
+
+                    @if ($clientProjectForm->bonusGuaranteeForm->bonuses_enabled)
+                        <!-- Расчет в % от суммы чека клиента -->
+                        <x-form.form-field>
+                            <x-form.form-label>
+                                Бонус и/или гарантия рассчитывается в % от суммы чека клиента
+                            </x-form.form-label>
+                            <div class="flex items-center justify-end gap-3">
+                                <label>Да</label>
+                                <x-form.toggle-switch wire:model.live="clientProjectForm.bonusGuaranteeForm.calculate_in_percentage" />
+                            </div>
+                        </x-form.form-field>
+
+                        <!-- С какого месяца начинать считать бонусы и/или гарантию -->
+                        <x-form.form-field>
+                            <x-form.form-label required>
+                                С какого месяца начинать считать бонусы и/или гарантию?
+                            </x-form.form-label>
+                            <x-form.select
+                                wire:model="clientProjectForm.bonusGuaranteeForm.start_month"
+                                :options="[
+                                ['label' => 'Начиная с 1-го месяца работы', 'value' => 1],
+                                ['label' => 'Начиная со 2-го месяца работы', 'value' => 2],
+                                ['label' => 'Начиная с 3-го месяца работы', 'value' => 3],
+                            ]"
+                                placeholder="Выберите вариант"
+                            />
+                        </x-form.form-field>
+
+                        <!-- Чек клиента -->
+                        <x-form.form-field>
+                            <x-form.form-label tooltip="Сколько клиент платит за ведение клиенто-проекта.">
+                                Чек клиента
+                            </x-form.form-label>
+                            <x-form.input-text
+                                type="number"
+                                wire:model="clientProjectForm.bonusGuaranteeForm.client_payment"
+                                placeholder="Сумма в рублях"
+                                suffix="₽"
+                            />
+                        </x-form.form-field>
+
+                        <div class="flex flex-col gap-4 mt-4">
+                            <!-- Логика расчета бонуса и/или гарантии -->
+                            <h2>Задайте логику расчета бонуса и/или гарантии</h2>
+
+                            <x-form.form-field>
+                                <x-form.form-label required>Выполнение плана в % (включительно)</x-form.form-label>
+
+                                {{-- Таблица с логикой расчета --}}
+                                <div class="grid grid-cols-4 grid-cols-[30px_auto_30px_auto] max-w-[489px] text-[14px] items-center gap-x-1 gap-y-2">
+                                    <div></div>
+                                    <div class="max-w-xs text-secondary-text">Выполнение плана в % (включительно)</div>
+                                    <div></div>
+                                    <div class="max-w-xs text-secondary-text">Бонус и/или гарантия в % от чека клиента</div>
+
+                                    @foreach ($clientProjectForm->bonusGuaranteeForm->intervals as $index => $interval)
+                                        <div class="text-center text-secondary-text">От</div>
+                                        <div class="flex items-center gap-2">
+                                            <x-form.input-text
+                                                type="number"
+                                                wire:model="clientProjectForm.bonusGuaranteeForm.intervals.{{ $index }}.from_percentage"
+                                                placeholder="От"
+                                                suffix="%"
+                                            />
+                                            <span class="text-secondary-text">
+                                                До
+                                            </span>
+                                            <x-form.input-text
+                                                type="number"
+                                                wire:model="clientProjectForm.bonusGuaranteeForm.intervals.{{ $index }}.to_percentage"
+                                                placeholder="До"
+                                                suffix="%"
+                                            />
+                                        </div>
+                                        <div class="text-center text-secondary-text">-</div>
+                                        <div class="flex items-center gap-2">
+                                            <x-form.input-text
+                                                type="number"
+                                                wire:model="clientProjectForm.bonusGuaranteeForm.intervals.{{ $index }}.bonus_amount"
+                                                placeholder="Сумма в рублях"
+                                            />
+                                            <x-button.button
+                                                type="button"
+                                                wire:click.prevent="removeInterval({{ $index }})"
+                                                variant="action"
+                                            >
+                                                <x-slot:label>Удалить</x-slot:label>
+                                            </x-button.button>
+                                        </div>
+                                        <div class="col-span-4 flex items-center justify-center">
+                                            <x-button.button
+                                                type="button"
+                                                wire:click.prevent="addInterval"
+                                                variant="action"
+                                            >
+                                                <x-slot:label>Добавить диапазон</x-slot:label>
+                                            </x-button.button>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </x-form.form-field>
+                        </div>
+                    @endif
+                </div>
         </div>
         <div class="flex justify-between">
             <x-button.button
