@@ -62,7 +62,7 @@ class CreateClientProjectForm extends Form
     {
         return array_merge(
             [
-                'is_active' => 'required|boolean',
+                'isActive' => 'required|boolean',
                 'name' => 'required|string|max:255',
                 'client' => 'required|exists:clients,id',
                 'domain' => 'required|url|max:255',
@@ -72,7 +72,7 @@ class CreateClientProjectForm extends Form
                 'kpi' => 'required|string|max:255',
                 'department' => 'required|string|max:255',
                 'projectType' => 'required|string|max:255',
-                'is_internal' => 'nullable|string|max:255',
+                'isInternal' => 'nullable|string|max:255',
                 'promotionRegions' => 'required|array',
                 'promotionTopics' => 'required|array',
             ],
@@ -98,8 +98,8 @@ class CreateClientProjectForm extends Form
         $this->department = $project->department_id;
         $this->projectType = $project->project_type;
         $this->kpi = $project->kpi;
-        $this->is_internal = $project->is_internal;
-        $this->is_active = $project->is_active;
+        $this->isInternal = $project->is_internal;
+        $this->isActive = $project->is_active;
 
         $this->assistants = $project->assistants->pluck('id')->toArray();
         $this->promotionRegions = $project->promotionRegions->pluck('id')->toArray();
