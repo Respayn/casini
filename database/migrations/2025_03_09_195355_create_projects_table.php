@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('domain')->comment('URL проекта');
             $table->foreignId('client_id')->nullable()->constrained()->nullOnDelete()->comment('ID клиента');
             $table->foreignId('specialist_id')->nullable()->constrained('users')->nullOnDelete()->comment('ID специалиста');
-            $table->foreignId('manager_id')->nullable()->constrained('users')->nullOnDelete()->comment('ID менеджера');
             $table->foreignId('department_id')->constrained()->comment('ID департамента');
             $table->enum('project_type', ['context_ad', 'seo_promotion'])->comment('Тип проекта');
             $table->enum('service_type', ['to_top', 'traffic', 'order', 'kr'])->comment('Тип сервиса');
@@ -30,7 +29,7 @@ return new class extends Migration
             $table->string('google_ads_client_id')->nullable()->comment('ID клиента Google Ads');
             $table->string('contract_number')->nullable()->comment('Номер договора');
             $table->string('additional_contract_number')->nullable()->comment('Номер дополнительного соглашения');
-            $table->string('recomendation_url')->nullable()->comment('URL рекомендаций');
+            $table->string('recommendation_url')->nullable()->comment('URL рекомендаций');
             $table->string('legal_entity')->nullable()->comment('Юридическое лицо');
             $table->string('inn')->nullable()->comment('ИНН');
             $table->timestamps();
@@ -40,7 +39,6 @@ return new class extends Migration
             $table->index('is_active');
             $table->index('client_id');
             $table->index('specialist_id');
-            $table->index('manager_id');
             $table->index('department_id');
             $table->index('project_type');
         });

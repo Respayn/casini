@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Data\ClientData;
 use App\Repositories\ClientRepository;
+use Illuminate\Support\Collection;
 
 class ClientService
 {
@@ -11,7 +13,10 @@ class ClientService
     ) {
     }
 
-    public function getClients(): \Illuminate\Support\Collection
+    /**
+     * @return Collection<\App\Data\ClientData>
+     */
+    public function getClients(): Collection
     {
         return collect($this->repository->all());
     }

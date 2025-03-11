@@ -2,6 +2,7 @@
 
 namespace App\Repositories;
 
+use App\Data\ClientData;
 use App\Models\Client;
 use App\Repositories\Interfaces\RepositoryInterface;
 
@@ -14,18 +15,24 @@ class ClientRepository extends EloquentRepository implements RepositoryInterface
 
     public function all(array $with = [])
     {
-        $query = $this->queryWith($with);
-        return $query->get();
+        $clients = Client::with($with)->get();
+        return ClientData::collect($clients);
     }
 
-    public function find(int $id)
+    public function find(int $id): ?ClientData
     {
-        return Client::from($this->model->find($id));
+        $client = Client::with('manager')->find($id);
+
+        if ($client) {
+            return ClientData::from($client);
+        }
+
+        return null;
     }
 
     public function findBy(string $column, mixed $value)
     {
-        return Client::from($this->model->where($column, $value)->get());
+        return ClientData::from($this->model->where($column, $value)->get());
 
     }
 }

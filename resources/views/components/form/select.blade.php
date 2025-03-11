@@ -70,7 +70,7 @@
         </div>
 
         <div
-            class="z-1000 w-full rounded-b-[5px] border border-t-0"
+            class="z-1000 border-input-border w-full rounded-b-[5px] border border-t-0"
 
             x-cloak
             x-show="open"

@@ -12,7 +12,7 @@
                         >Статус клиенто-проекта</x-form.form-label>
                         <div>
                             <div class="ml-auto flex items-center justify-between w-[126px]">
-                                <x-form.toggle-switch wire:model="clientProjectForm.is_active">
+                                <x-form.toggle-switch wire:model="clientProjectForm.isActive">
                                 </x-form.toggle-switch>
                                 <label>
                                     Активен
@@ -136,7 +136,7 @@
                         >Свой проект</x-form.form-label>
                         <div class="flex items-center justify-end gap-3">
                             <label>Проект клиента</label>
-                            <x-form.toggle-switch wire:model="clientProjectForm.is_internal"></x-form.toggle-switch>
+                            <x-form.toggle-switch wire:model="clientProjectForm.isInternal"></x-form.toggle-switch>
                         </div>
                     </x-form.form-field>
                 </div>
@@ -185,7 +185,6 @@
                         <x-form.form-label
                             class="self-baseline"
                             required
-                            tooltip="..."
                         >Тематика продвижения</x-form.form-label>
 
                         <div class="flex flex-col gap-1 items-start">

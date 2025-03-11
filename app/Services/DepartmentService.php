@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Data\DepartmentData;
 use App\Repositories\DepartmentRepository;
+use Illuminate\Support\Collection;
 
 class DepartmentService
 {
@@ -11,7 +13,10 @@ class DepartmentService
     ) {
     }
 
-    public function getDepartments()
+    /**
+     * @return Collection<DepartmentData>
+     */
+    public function getDepartments(): Collection
     {
         return collect($this->repository->all());
     }
