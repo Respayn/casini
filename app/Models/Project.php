@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ProjectType;
 use App\Enums\ServiceType;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 
@@ -14,7 +15,6 @@ use Illuminate\Support\Collection;
  * @property string $domain
  * @property int $client_id
  * @property int $specialist_id
- * @property int $manager_id
  * @property int $department_id
  * @property ProjectType $project_type
  * @property ServiceType $service_type
@@ -27,7 +27,7 @@ use Illuminate\Support\Collection;
  * @property $google_ads_client_id
  * @property $contract_number
  * @property $additional_contract_number
- * @property $recomendation_url
+ * @property $recommendation_url
  * @property $legal_entity
  * @property $inn
  * @property $created_at
@@ -37,7 +37,7 @@ use Illuminate\Support\Collection;
  * @property User $specialist
  * @property User $manager
  * @property Department $department
- * @property Collection<ProjectStatusHistory> $statusHistories
+ * @property Collection<ProjectFieldHistory> $fieldHistories
  */
 class Project extends Model
 {
@@ -46,7 +46,6 @@ class Project extends Model
         'domain',
         'client_id',
         'specialist_id',
-        'manager_id',
         'department_id',
         'project_type',
         'service_type',
@@ -59,7 +58,7 @@ class Project extends Model
         'google_ads_client_id',
         'contract_number',
         'additional_contract_number',
-        'recomendation_url',
+        'recommendation_url',
         'legal_entity',
         'inn',
         'created_at',
@@ -71,7 +70,7 @@ class Project extends Model
         'service_type' => ServiceType::class,
     ];
 
-    public function client()
+    public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
     }
@@ -81,19 +80,14 @@ class Project extends Model
         return $this->belongsTo(User::class, 'specialist_id');
     }
 
-    public function manager()
-    {
-        return $this->belongsTo(User::class, 'manager_id');
-    }
-
     public function department()
     {
         return $this->belongsTo(Department::class);
     }
 
-    public function statusHistories()
+    public function fieldHistories()
     {
-        return $this->hasMany(ProjectStatusHistory::class);
+        return $this->hasMany(ProjectFieldHistory::class);
     }
 
     public function promotionRegions(): BelongsToMany

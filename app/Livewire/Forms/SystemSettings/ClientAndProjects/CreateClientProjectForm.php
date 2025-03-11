@@ -9,7 +9,7 @@ class CreateClientProjectForm extends Form
 {
     public ?int $id = null;
     #[Validate('required|boolean', message: 'Статус клиенто-проекта обязателен')]
-    public bool $is_active = false;
+    public bool $isActive = false;
 
     #[Validate('required|string|max:255', message: 'Название клиенто-проекта обязательно')]
     public string $name = '';
@@ -40,7 +40,7 @@ class CreateClientProjectForm extends Form
     public string $projectType = '';
 
     #[Validate('nullable|string|max:255')]
-    public ?string $is_internal = null;
+    public ?string $isInternal = null;
 
     #[Validate('required|array', message: 'Выберите хотя бы один регион продвижения')]
     public array $promotionRegions = [];

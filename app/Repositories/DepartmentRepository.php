@@ -2,6 +2,8 @@
 
 namespace App\Repositories;
 
+use App\Data\DepartmentData;
+use App\Models\Client;
 use App\Models\Department;
 use App\Repositories\Interfaces\RepositoryInterface;
 
@@ -14,18 +16,18 @@ class DepartmentRepository extends EloquentRepository implements RepositoryInter
 
     public function all(array $with = [])
     {
-        $query = $this->queryWith($with);
-        return $query->get();
+        $clients = Department::with($with)->get();
+        return DepartmentData::collect($clients);
     }
 
-    public function find(int $id)
+    public function find(int $id): ?DepartmentData
     {
-        return Department::from($this->model->find($id));
+        return DepartmentData::from($this->model->find($id));
     }
 
     public function findBy(string $column, mixed $value)
     {
-        return Department::from($this->model->where($column, $value)->get());
+        return DepartmentData::from($this->model->where($column, $value)->get());
 
     }
 }

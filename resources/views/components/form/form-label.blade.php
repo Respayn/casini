@@ -8,8 +8,8 @@
         {{ $slot }}
     </label>
     @if($tooltip)
-        <x-form.tooltip>
+        <x-overlay.tooltip>
             {{ $tooltip }}
-        </x-form.tooltip>
+        </x-overlay.tooltip>
     @endif
 </div>

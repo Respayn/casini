@@ -2,6 +2,7 @@
 
 namespace App\Data\Sidebar;
 
+use App\Data\ClientData;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;
 use Spatie\LaravelData\Data;

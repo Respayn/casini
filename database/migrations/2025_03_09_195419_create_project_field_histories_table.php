@@ -11,7 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('project_status_histories', function (Blueprint $table) {
+        Schema::create('project_field_histories', function (Blueprint $table) {
             $table->id();
             $table->foreignId('project_id')->constrained()->cascadeOnDelete()->comment('ID проекта');
             $table->foreignId('changed_by')->nullable()->constrained('users')->nullOnDelete()->comment('Кем изменено');
@@ -32,6 +32,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('project_status_histories');
+        Schema::dropIfExists('project_field_histories');
     }
 };

@@ -4,7 +4,7 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Models\Project;
-use App\Models\ProjectStatusHistory;
+use App\Models\ProjectFieldHistory;
 use App\Services\ClientService;
 use App\Services\DepartmentService;
 use App\Services\PromotionRegionService;
@@ -13,6 +13,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
+// TODO: Сделать получение данных и сохранение через сервисный слой
 class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;
@@ -56,19 +57,19 @@ class ClientProjectFormModel extends Component
             $this->clientProjectForm->domain = $project->domain;
             $this->clientProjectForm->client = $project->client_id;
             $this->clientProjectForm->specialist = $project->specialist_id;
-            $this->clientProjectForm->manager = $project->manager_id;
+            $this->clientProjectForm->manager = $project->client->manager_id;
             $this->clientProjectForm->department = $project->department_id;
             $this->clientProjectForm->projectType = $project->project_type;
 //            $this->clientProjectForm->service_type = $project->service_type;
             $this->clientProjectForm->kpi = $project->kpi;
-            $this->clientProjectForm->is_internal = $project->is_internal;
-            $this->clientProjectForm->is_active = $project->is_active;
+            $this->clientProjectForm->isInternal = $project->isInternal;
+            $this->clientProjectForm->isActive = $project->isActive;
 
             $this->clientProjectForm->assistants = $project->assistants->pluck('id')->toArray();
             $this->clientProjectForm->promotionRegions = $project->promotionRegions->pluck('id')->toArray();
             $this->clientProjectForm->promotionTopics = $project->promotionTopics->pluck('id')->toArray();
         } else {
-            $this->clientProjectForm->is_active = true;
+            $this->clientProjectForm->isActive = true;
             $this->clientProjectForm->promotionRegions[] = null;
             $this->clientProjectForm->promotionTopics[] = null;
         }
@@ -122,20 +123,19 @@ class ClientProjectFormModel extends Component
                 'domain' => $this->clientProjectForm->domain ?? null,
                 'client_id' => $this->clientProjectForm->client,
                 'specialist_id' => $this->clientProjectForm->specialist ?? null,
-                'manager_id' => $this->clientProjectForm->manager ?? null,
                 'department_id' => $this->clientProjectForm->department,
                 'project_type' => $this->clientProjectForm->projectType ?? null,
                 'kpi' => $this->clientProjectForm->kpi,
-                'is_active' => $this->clientProjectForm->is_active ?? true,
-                'is_internal' => $this->clientProjectForm->is_internal ?? false,
-                'traffic_attribution' => $this->clientProjectForm->traffic_attribution ?? null,
-                'metrika_counter' => $this->clientProjectForm->metrika_counter ?? null,
-                'metrika_targets' => $this->clientProjectForm->metrika_targets ?? null,
-                'google_ads_client_id' => $this->clientProjectForm->google_ads_client_id ?? null,
-                'contract_number' => $this->clientProjectForm->contract_number ?? null,
-                'additional_contract_number' => $this->clientProjectForm->additional_contract_number ?? null,
-                'recomendation_url' => $this->clientProjectForm->recomendation_url ?? null,
-                'legal_entity' => $this->clientProjectForm->legal_entity ?? null,
+                'is_active' => $this->clientProjectForm->isActive ?? true,
+                'is_internal' => $this->clientProjectForm->isInternal ?? false,
+                'traffic_attribution' => $this->clientProjectForm->trafficAttribution ?? null,
+                'metrika_counter' => $this->clientProjectForm->metrikaCounter ?? null,
+                'metrika_targets' => $this->clientProjectForm->metrikaTargets ?? null,
+                'google_ads_client_id' => $this->clientProjectForm->googleAdsClientId ?? null,
+                'contract_number' => $this->clientProjectForm->contractNumber ?? null,
+                'additional_contract_number' => $this->clientProjectForm->additionalContractNumber ?? null,
+                'recommendation_url' => $this->clientProjectForm->recommendationUrl ?? null,
+                'legal_entity' => $this->clientProjectForm->legalEntity ?? null,
                 'inn' => $this->clientProjectForm->inn ?? null,
             ]);
 
@@ -166,7 +166,7 @@ class ClientProjectFormModel extends Component
             }
 
             if ($originalStatus != $project->is_active) {
-                ProjectStatusHistory::query()->insert([
+                ProjectFieldHistory::query()->insert([
                     'project_id' => $project->id,
                     'changed_by' => auth()->id(),
                     'changed_at' => now(),

@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Date;
 
 /**
@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Date;
  * @property Project $project
  * @property User $changedBy
  */
-class ProjectStatusHistory extends Model
+class ProjectFieldHistory extends Model
 {
     protected $fillable = [
         'project_id',
@@ -32,7 +32,7 @@ class ProjectStatusHistory extends Model
 
     protected array $dates = ['changed_at'];
 
-    public function project()
+    public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
     }
