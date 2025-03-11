@@ -9,42 +9,42 @@ use Livewire\Form;
 class ProjectBonusGuaranteeForm extends Form
 {
     #[Validate('boolean')]
-    public bool $bonuses_enabled = false;
+    public bool $bonusesEnabled = false;
 
     #[Validate('boolean')]
-    public bool $calculate_in_percentage = false;
+    public bool $calculateInPercentage = false;
 
     #[Validate('nullable|numeric|min:0')]
-    public ?float $client_payment = null;
+    public ?float $clientPayment = null;
 
-    #[Validate('required_if:bonuses_enabled,true|integer|in:1,2,3')]
-    public int $start_month = 1;
+    #[Validate('required_if:bonusesEnabled,true|integer|in:1,2,3')]
+    public int $startMonth = 1;
 
     public array $intervals = [
         [
-            'from_percentage' => '',
-            'to_percentage' => '',
-            'bonus_amount' => '',
-            'bonus_percentage' => '',
+            'fromPercentage' => '',
+            'toPercentage' => '',
+            'bonusAmount' => '',
+            'bonusPercentage' => '',
         ],
     ];
 
     public function rules()
     {
         $rules = [
-            'bonuses_enabled' => 'boolean',
-            'calculate_in_percentage' => 'boolean',
-            'client_payment' => 'nullable|numeric|min:0',
-            'start_month' => 'required_if:bonuses_enabled,true|integer|in:1,2,3',
-            'intervals' => 'required_if:bonuses_enabled,true|array|min:1',
-            'intervals.*.from_percentage' => 'required|numeric|min:0|max:100',
-            'intervals.*.to_percentage' => 'required|numeric|min:0|max:100|gte:intervals.*.from_percentage',
+            'bonusesEnabled' => 'boolean',
+            'calculateInPercentage' => 'boolean',
+            'clientPayment' => 'nullable|numeric|min:0',
+            'startMonth' => 'required_if:bonusesEnabled,true|integer|in:1,2,3',
+            'intervals' => 'required_if:bonusesEnabled,true|array|min:1',
+            'intervals.*.fromPercentage' => 'required|numeric',
+            'intervals.*.toPercentage' => 'required|numeric|gte:intervals.*.fromPercentage',
         ];
 
-        if (!$this->calculate_in_percentage) {
-            $rules['intervals.*.bonus_amount'] = 'required|numeric';
+        if (!$this->calculateInPercentage) {
+            $rules['intervals.*.bonusAmount'] = 'required|numeric';
         } else {
-            $rules['intervals.*.bonus_percentage'] = 'required|numeric|min:-100|max:100';
+            $rules['intervals.*.bonusPercentage'] = 'required|numeric';
         }
 
         return $rules;
@@ -58,16 +58,16 @@ class ProjectBonusGuaranteeForm extends Form
      */
     public function fillFromModel(ProjectBonusCondition $bonusCondition)
     {
-        $this->bonuses_enabled = $bonusCondition->bonuses_enabled;
-        $this->calculate_in_percentage = $bonusCondition->calculate_in_percentage;
-        $this->client_payment = $bonusCondition->client_payment;
-        $this->start_month = $bonusCondition->start_month;
+        $this->bonusesEnabled = $bonusCondition->bonuses_enabled;
+        $this->calculateInPercentage = $bonusCondition->calculate_in_percentage;
+        $this->clientPayment = $bonusCondition->client_payment;
+        $this->startMonth = $bonusCondition->start_month;
         $this->intervals = $bonusCondition->intervals()->get()->toArray() ?: [
             [
-                'from_percentage' => '',
-                'to_percentage' => '',
-                'bonus_amount' => '',
-                'bonus_percentage' => '',
+                'fromPercentage' => '',
+                'toPercentage' => '',
+                'bonusAmount' => '',
+                'bonusPercentage' => '',
             ],
         ];
     }

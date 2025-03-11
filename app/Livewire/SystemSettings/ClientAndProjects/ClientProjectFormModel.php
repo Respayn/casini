@@ -2,12 +2,14 @@
 
 namespace App\Livewire\SystemSettings\ClientAndProjects;
 
+use App\Data\BonusData;
+use App\Data\ProjectData;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
+use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Models\Project;
-use App\Models\ProjectBonusCondition;
-use App\Models\ProjectFieldHistory;
 use App\Services\ClientService;
 use App\Services\DepartmentService;
+use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use Illuminate\Support\Collection;
@@ -18,6 +20,7 @@ use Livewire\Component;
 class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;
+    public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
 
     private DepartmentService $departmentService;
     private ClientService $clientService;
@@ -62,7 +65,7 @@ class ClientProjectFormModel extends Component
             $this->clientProjectForm->isActive = true;
             $this->clientProjectForm->promotionRegions[] = null;
             $this->clientProjectForm->promotionTopics[] = null;
-            $this->clientProjectForm->bonusGuaranteeForm->bonuses_enabled = true;
+            $this->bonusGuaranteeForm->bonusesEnabled = true;
         }
     }
 
@@ -96,97 +99,78 @@ class ClientProjectFormModel extends Component
     public function save()
     {
         $this->clientProjectForm->validate();
+        $this->bonusGuaranteeForm->validate();
 
         DB::beginTransaction();
 
         try {
-            /** @var Project $project */
-            if (isset($this->clientProjectForm->id)) {
-                $project = Project::findOrFail($this->clientProjectForm->id);
+            // Инициализируем сервис
+            $projectService = new ProjectService();
+
+            // Подготовка данных для проекта
+            $projectData = new ProjectData(
+                id: $this->clientProjectForm->id ?? null,
+                name: $this->clientProjectForm->name,
+                domain: $this->clientProjectForm->domain ?? null,
+                clientId: $this->clientProjectForm->client,
+                specialistId: $this->clientProjectForm->specialist ?? null,
+                departmentId: $this->clientProjectForm->department,
+                projectType: $this->clientProjectForm->projectType ?? null,
+                kpi: $this->clientProjectForm->kpi,
+                isActive: $this->clientProjectForm->isActive ?? true,
+                isInternal: $this->clientProjectForm->isInternal ?? false,
+                trafficAttribution: $this->clientProjectForm->trafficAttribution ?? null,
+                metrikaCounter: $this->clientProjectForm->metrikaCounter ?? null,
+                metrikaTargets: $this->clientProjectForm->metrikaTargets ?? null,
+                googleAdsClientId: $this->clientProjectForm->googleAdsClientId ?? null,
+                contractNumber: $this->clientProjectForm->contractNumber ?? null,
+                additionalContractNumber: $this->clientProjectForm->additionalContractNumber ?? null,
+                recommendationUrl: $this->clientProjectForm->recommendationUrl ?? null,
+                legalEntity: $this->clientProjectForm->legalEntity ?? null,
+                inn: $this->clientProjectForm->inn ?? null,
+            );
+
+            // Сохраняем проект через сервис
+            $project = $projectService->createOrUpdateProject($projectData);
+
+            // Сохраняем оригинальный статус проекта
+            $originalStatus = $project->getOriginal('is_active');
+
+            // Синхронизация помощников
+            if (!empty($this->clientProjectForm->assistants)) {
+                $assistantIds = collect($this->clientProjectForm->assistants)->filter()->all();
+                $projectService->syncAssistants($project, $assistantIds);
             } else {
-                $project = new Project();
+                $projectService->syncAssistants($project, []);
             }
 
-            $originalStatus = $project->is_active;
-
-            $project->fill([
-                'name' => $this->clientProjectForm->name,
-                'domain' => $this->clientProjectForm->domain ?? null,
-                'client_id' => $this->clientProjectForm->client,
-                'specialist_id' => $this->clientProjectForm->specialist ?? null,
-                'department_id' => $this->clientProjectForm->department,
-                'project_type' => $this->clientProjectForm->projectType ?? null,
-                'kpi' => $this->clientProjectForm->kpi,
-                'is_active' => $this->clientProjectForm->isActive ?? true,
-                'is_internal' => $this->clientProjectForm->isInternal ?? false,
-                'traffic_attribution' => $this->clientProjectForm->trafficAttribution ?? null,
-                'metrika_counter' => $this->clientProjectForm->metrikaCounter ?? null,
-                'metrika_targets' => $this->clientProjectForm->metrikaTargets ?? null,
-                'google_ads_client_id' => $this->clientProjectForm->googleAdsClientId ?? null,
-                'contract_number' => $this->clientProjectForm->contractNumber ?? null,
-                'additional_contract_number' => $this->clientProjectForm->additionalContractNumber ?? null,
-                'recommendation_url' => $this->clientProjectForm->recommendationUrl ?? null,
-                'legal_entity' => $this->clientProjectForm->legalEntity ?? null,
-                'inn' => $this->clientProjectForm->inn ?? null,
-            ]);
-
-            $project->save();
-
-            // TODO: Синхронизация помощников
-//            if (!empty($this->clientProjectForm->assistants)) {
-//                $assistantIds = collect($this->clientProjectForm->assistants)->filter()->all();
-//                $project->assistants()->sync($assistantIds);
-//            } else {
-//                $project->assistants()->detach();
-//            }
-//
             // Синхронизация регионов продвижения
             if (!empty($this->clientProjectForm->promotionRegions)) {
                 $promotionRegionIds = collect($this->clientProjectForm->promotionRegions)->filter()->all();
-                $project->promotionRegions()->sync($promotionRegionIds);
+                $projectService->syncPromotionRegions($project, $promotionRegionIds);
             } else {
-                $project->promotionRegions()->detach();
+                $projectService->syncPromotionRegions($project, []);
             }
 
             // Синхронизация тематик продвижения
             if (!empty($this->clientProjectForm->promotionTopics)) {
                 $promotionTopicIds = collect($this->clientProjectForm->promotionTopics)->filter()->all();
-                $project->promotionTopics()->sync($promotionTopicIds);
+                $projectService->syncPromotionTopics($project, $promotionTopicIds);
             } else {
-                $project->promotionTopics()->detach();
+                $projectService->syncPromotionTopics($project, []);
             }
 
-            // Сохранение бонусных настроек
-            $bonusData = [
-                'bonuses_enabled' => $this->clientProjectForm->bonusGuaranteeForm->bonuses_enabled,
-                'calculate_in_percentage' => $this->clientProjectForm->bonusGuaranteeForm->calculate_in_percentage,
-                'client_payment' => $this->clientProjectForm->bonusGuaranteeForm->client_payment,
-                'start_month' => $this->clientProjectForm->bonusGuaranteeForm->start_month,
-            ];
-
-            $bonusCondition = ProjectBonusCondition::updateOrCreate(
-                ['project_id' => $project->id],
-                $bonusData
+            // Подготовка данных для бонусных настроек
+            $bonusData = new BonusData(
+                bonusesEnabled: $this->bonusGuaranteeForm->bonusesEnabled,
+                calculateInPercentage: $this->bonusGuaranteeForm->calculateInPercentage,
+                clientPayment: $this->bonusGuaranteeForm->clientPayment,
+                startMonth: $this->bonusGuaranteeForm->startMonth,
+                intervals: $this->bonusGuaranteeForm->intervals,
             );
 
-            // Удаляем старые интервалы
-            $bonusCondition->intervals()->delete();
-
-            // Сохраняем новые интервалы
-            foreach ($this->clientProjectForm->bonusGuaranteeForm->intervals as $intervalData) {
-                $bonusCondition->intervals()->create($intervalData);
-            }
-
-            if ($originalStatus != $project->is_active) {
-                ProjectFieldHistory::query()->insert([
-                    'project_id' => $project->id,
-                    'changed_by' => auth()->id(),
-                    'changed_at' => now(),
-                    'field' => 'is_active',
-                    'old_value' => $originalStatus,
-                    'new_value' => $project->is_active,
-                ]);
-            }
+            // Сохраняем бонусные настройки через сервис
+            $projectService->saveBonusSettings($project, $bonusData);
 
             DB::commit();
 
@@ -195,6 +179,7 @@ class ClientProjectFormModel extends Component
         } catch (\Exception $e) {
             DB::rollBack();
 
+            // Обработка исключения, можно добавить сообщение об ошибке
             throw $e;
         }
     }

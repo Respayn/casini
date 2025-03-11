@@ -49,15 +49,6 @@ class CreateClientProjectForm extends Form
     #[Validate('required|array', message: 'Выберите хотя бы одну тематику продвижения')]
     public array $promotionTopics = [];
 
-    public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
-
-    public function __construct(Component $component, $propertyName)
-    {
-        parent::__construct($component, $propertyName);
-
-        $this->bonusGuaranteeForm = new ProjectBonusGuaranteeForm($component, $propertyName);
-    }
-
     public function rules()
     {
         return array_merge(
@@ -76,8 +67,6 @@ class CreateClientProjectForm extends Form
                 'promotionRegions' => 'required|array',
                 'promotionTopics' => 'required|array',
             ],
-
-            $this->bonusGuaranteeForm->prefixedRules('bonusGuaranteeForm.')
         );
     }
 
@@ -104,9 +93,5 @@ class CreateClientProjectForm extends Form
         $this->assistants = $project->assistants->pluck('id')->toArray();
         $this->promotionRegions = $project->promotionRegions->pluck('id')->toArray();
         $this->promotionTopics = $project->promotionTopics->pluck('id')->toArray();
-
-        if ($project->bonusCondition) {
-            $this->bonusGuaranteeForm->fillFromModel($project->bonusCondition);
-        }
     }
 }

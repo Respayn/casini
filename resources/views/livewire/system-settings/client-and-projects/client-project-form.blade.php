@@ -230,11 +230,11 @@
                         </x-form.form-label>
                         <div class="flex items-center justify-end gap-3">
                             <label>Да</label>
-                            <x-form.toggle-switch wire:model.live="clientProjectForm.bonusGuaranteeForm.bonuses_enabled" />
+                            <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.bonusesEnabled" />
                         </div>
                     </x-form.form-field>
 
-                    @if ($clientProjectForm->bonusGuaranteeForm->bonuses_enabled)
+                    @if ($bonusGuaranteeForm->bonusesEnabled)
                         <!-- Расчет в % от суммы чека клиента -->
                         <x-form.form-field>
                             <x-form.form-label>
@@ -242,7 +242,7 @@
                             </x-form.form-label>
                             <div class="flex items-center justify-end gap-3">
                                 <label>Да</label>
-                                <x-form.toggle-switch wire:model.live="clientProjectForm.bonusGuaranteeForm.calculate_in_percentage" />
+                                <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.calculateInPercentage" />
                             </div>
                         </x-form.form-field>
 
@@ -252,7 +252,7 @@
                                 С какого месяца начинать считать бонусы и/или гарантию?
                             </x-form.form-label>
                             <x-form.select
-                                wire:model="clientProjectForm.bonusGuaranteeForm.start_month"
+                                wire:model="bonusGuaranteeForm.startMonth"
                                 :options="[
                                 ['label' => 'Начиная с 1-го месяца работы', 'value' => 1],
                                 ['label' => 'Начиная со 2-го месяца работы', 'value' => 2],
@@ -269,7 +269,7 @@
                             </x-form.form-label>
                             <x-form.input-text
                                 type="number"
-                                wire:model="clientProjectForm.bonusGuaranteeForm.client_payment"
+                                wire:model="bonusGuaranteeForm.clientPayment"
                                 placeholder="Сумма в рублях"
                                 suffix="₽"
                             />
@@ -289,12 +289,12 @@
                                     <div></div>
                                     <div class="max-w-xs text-secondary-text">Бонус и/или гарантия в % от чека клиента</div>
 
-                                    @foreach ($clientProjectForm->bonusGuaranteeForm->intervals as $index => $interval)
+                                    @foreach ($bonusGuaranteeForm->intervals as $index => $interval)
                                         <div class="text-center text-secondary-text">От</div>
                                         <div class="flex items-center gap-2">
                                             <x-form.input-text
                                                 type="number"
-                                                wire:model="clientProjectForm.bonusGuaranteeForm.intervals.{{ $index }}.from_percentage"
+                                                wire:model="bonusGuaranteeForm.intervals.{{ $index }}.fromPercentage"
                                                 placeholder="От"
                                                 suffix="%"
                                             />
@@ -303,7 +303,7 @@
                                             </span>
                                             <x-form.input-text
                                                 type="number"
-                                                wire:model="clientProjectForm.bonusGuaranteeForm.intervals.{{ $index }}.to_percentage"
+                                                wire:model="bonusGuaranteeForm.intervals.{{ $index }}.toPercentage"
                                                 placeholder="До"
                                                 suffix="%"
                                             />
@@ -312,7 +312,7 @@
                                         <div class="flex items-center gap-2">
                                             <x-form.input-text
                                                 type="number"
-                                                wire:model="clientProjectForm.bonusGuaranteeForm.intervals.{{ $index }}.bonus_amount"
+                                                wire:model="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
                                                 placeholder="Сумма в рублях"
                                             />
                                             <x-button.button
