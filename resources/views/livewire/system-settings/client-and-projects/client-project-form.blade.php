@@ -349,6 +349,119 @@
                         </div>
                     @endif
                 </div>
+                <div class="flex flex-col gap-4 mt-4">
+                    <h1>Настройка параметров</h1>
+
+                    <x-form.form-field>
+                        <x-form.form-label class="font-bold">Фактические параметры</x-form.form-label>
+                        <x-form.form-label class="font-bold">Схема расчета параметра</x-form.form-label>
+                    </x-form.form-field>
+
+                    @if(empty($clientProjectForm->projectType) || empty($clientProjectForm->kpi))
+                        {{-- KPI: Трафик; Тип канала: Контекст --}}
+                        <span class="flex items-center justify-center text-[18px] text-default-button-disabled italic">
+                            Выберите KPI и Тип клиенто-проекта
+                        </span>
+                    @elseif($clientProjectForm->kpi === \App\Enums\KPI::TRAFFIC->value && $clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
+                        {{-- KPI: Трафик; Тип канала: Контекст --}}
+                        <x-form.form-field>
+                            <x-form.form-label>CPС</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Директ, расходы / Яндекс Директ, клики'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                        <x-form.form-field>
+                            <x-form.form-label>Рекламный бюджет</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Директ, расходы'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">Визитов</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Директ, клики'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                    @elseif($clientProjectForm->kpi === \App\Enums\KPI::LEADS->value && $clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
+                        {{-- KPI: Лиды; Тип канала: Контекст --}}
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">CPL</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Директ, расходы / (Calibri, ЕЖЛ + Яндекс Метрика, достижение целей из отчета UTM-метки)'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">Рекламный бюджет</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Директ, расходы'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">Лиды</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Метрика, достижение целей из отчета UTM-метки, ЕЖЛ'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                    @elseif($clientProjectForm->kpi === \App\Enums\KPI::POSITIONS->value && $clientProjectForm->projectType === \App\Enums\ProjectType::SEO_PROMOTION->value)
+                        {{-- KPI: Позиции; Тип канала: SEO --}}
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">% позиций в топ 10</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Yandex Search API'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">Конверсии</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Метрика, достижение целей из отчета Поисковые системы'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                    @elseif($clientProjectForm->kpi === \App\Enums\KPI::TRAFFIC->value && $clientProjectForm->projectType === \App\Enums\ProjectType::SEO_PROMOTION->value)
+                        {{-- KPI: Трафик; Тип канала: SEO --}}
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">Объем визитов</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Метрика, переходы из отчета Поисковые системы'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                        <x-form.form-field>
+                            <x-form.form-label class="font-bold">Конверсии</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                            <span class="text-[14px]">
+                                Данные из интеграций поступают с учетом заданных настроек
+                            </span>
+                                <x-form.input-text :value="'Яндекс Метрика, достижение целей из отчета Поисковые системы'" disabled/>
+                            </div>
+                        </x-form.form-field>
+                    @endif
+                </div>
         </div>
         <div class="flex justify-between mt-4">
             <x-button.button

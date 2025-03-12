@@ -4,6 +4,7 @@
     'icon' => null,
     'required' => false,
     'suffix' => null,
+    'disabled' => false,
 ])
 
 @php
@@ -12,25 +13,25 @@
     $suffix = $suffix ?? '';
 @endphp
 
-<div {{ $attributes->class(['flex flex-col gap-2']) }}>
+<div {{ $attributes->class(['flex flex-col gap-2'])->except('wire:model') }}>
     @if ($label)
         <label class="text-primary-text text-sm font-semibold">{{ $label }}</label>
     @endif
     <div class="relative">
         <div class="flex flex-col justify-start">
-            @switch($attributes['type'])
+            @switch($attributes->get('type'))
                 @case('number')
                     <input
                         type="text"
                         @class([
-                            'min-h-[42px] w-full rounded-[5px] border pe-3 disabled:bg-secondary',
+                            'min-h-[42px] w-full rounded-[5px] border pe-3',
                             'border-input-border' => !$errors->has($wireModel),
                             'border-warning-red' => $errors->has($wireModel),
                             'ps-[39px]' => isset($icon),
                             'ps-3' => !isset($icon),
+                            'disabled:bg-secondary' => $disabled,
                         ])
-                        {{ $attributes->wire('model') }}
-                        {{ $attributes->whereStartsWith('x-') }}
+                        wire:model="{{ $wireModel }}"
                         placeholder="{{ $placeholder }}"
                         value="{{ $inputValue }}"
                         onfocus="this.value = this.value.replace(/ /g, '').replace(new RegExp('{{ preg_quote($suffix, '/') }}', 'g'), '');"
@@ -42,24 +43,26 @@
                                 this.value = '';
                             }
                         "
-                        @required($required)
-                    />
+                    @required($required)
+                    @disabled($disabled)
+                    {{ $attributes->except('wire:model', 'type') }}
                     @break
                 @default
                     <input
                         type="text"
                         @class([
-                            'min-h-[42px] w-full rounded-[5px] border pe-3 disabled:bg-secondary',
+                            'min-h-[42px] w-full rounded-[5px] border pe-3',
                             'border-input-border' => !$errors->has($wireModel),
                             'border-warning-red' => $errors->has($wireModel),
                             'ps-[39px]' => isset($icon),
                             'ps-3' => !isset($icon),
+                            'disabled:bg-secondary' => $disabled,
                         ])
-                        {{ $attributes->wire('model') }}
-                        {{ $attributes->whereStartsWith('x-') }}
+                        wire:model="{{ $wireModel }}"
                         placeholder="{{ $placeholder }}"
-                        @required($required)
-                    />
+                    @required($required)
+                    @disabled($disabled)
+                    {{ $attributes->except('wire:model', 'type') }}
             @endswitch
             @error($wireModel)
             <span class="text-warning-red text-[12px]">{{ $message }}</span>
