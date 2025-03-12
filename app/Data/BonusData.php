@@ -6,11 +6,18 @@ use Spatie\LaravelData\Data;
 
 class BonusData extends Data
 {
+    /**
+     * @var IntervalData[]
+     */
+    public array $intervals;
+
     public function __construct(
-        public bool $bonusesEnabled,
-        public bool $calculateInPercentage,
-        public ?float $clientPayment,
-        public int $startMonth,
-        public array $intervals,
-    ) {}
+        public bool $bonuses_enabled,
+        public bool $calculate_in_percentage,
+        public ?float $client_payment,
+        public int $start_month,
+        array $intervals,
+    ) {
+        $this->intervals = $intervals;
+    }
 }

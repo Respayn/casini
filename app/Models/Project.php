@@ -70,31 +70,71 @@ class Project extends Model
         'service_type' => ServiceType::class,
     ];
 
+    /**
+     * Связанный клиент.
+     *
+     * @return BelongsTo
+     */
     public function client(): BelongsTo
     {
         return $this->belongsTo(Client::class);
     }
 
+    /**
+     * Связанные помощники.
+     *
+     * @return BelongsTo
+     */
+    public function assistants()
+    {
+        return $this->belongsTo(User::class, 'specialist_id');
+    }
+
+    /**
+     * Связанные специалисты.
+     *
+     * @return BelongsTo
+     */
     public function specialist()
     {
         return $this->belongsTo(User::class, 'specialist_id');
     }
 
+    /**
+     * Связанные отделы.
+     *
+     * @return BelongsTo
+     */
     public function department()
     {
         return $this->belongsTo(Department::class);
     }
 
+    /**
+     * Связанные записи об изменении полей.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
     public function fieldHistories()
     {
         return $this->hasMany(ProjectFieldHistory::class);
     }
 
+    /**
+     * Связанные регионы продвижения.
+     *
+     * @return BelongsToMany
+     */
     public function promotionRegions(): BelongsToMany
     {
         return $this->belongsToMany(PromotionRegion::class);
     }
 
+    /**
+     * Связанные тематики продвижения.
+     *
+     * @return BelongsToMany
+     */
     public function promotionTopics(): BelongsToMany
     {
         return $this->belongsToMany(PromotionTopic::class);

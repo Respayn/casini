@@ -3,10 +3,10 @@
 namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Data\BonusData;
+use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
-use App\Models\Project;
 use App\Services\ClientService;
 use App\Services\DepartmentService;
 use App\Services\ProjectService;
@@ -16,7 +16,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
-// TODO: Сделать получение данных и сохранение через сервисный слой
 class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;
@@ -53,19 +52,11 @@ class ClientProjectFormModel extends Component
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
 
         if ($projectId) {
-            $project = Project::with([
-                'assistants',
-                'promotionRegions',
-                'promotionTopics',
-                'bonusCondition.intervals'
-            ])->findOrFail($projectId);
-
-            $this->clientProjectForm->fillFromModel($project);
+            // TODO: Определить получение данных
         } else {
             $this->clientProjectForm->isActive = true;
             $this->clientProjectForm->promotionRegions[] = null;
             $this->clientProjectForm->promotionTopics[] = null;
-            $this->bonusGuaranteeForm->bonusesEnabled = true;
         }
     }
 
@@ -96,6 +87,17 @@ class ClientProjectFormModel extends Component
         $this->clientProjectForm->promotionTopics = array_values($this->clientProjectForm->promotionTopics);
     }
 
+    public function addInterval()
+    {
+        $this->bonusGuaranteeForm->intervals[] = [];
+    }
+
+    public function removeInterval($index)
+    {
+        unset($this->bonusGuaranteeForm->intervals[$index]);
+
+    }
+
     public function save()
     {
         $this->clientProjectForm->validate();
@@ -112,29 +114,26 @@ class ClientProjectFormModel extends Component
                 id: $this->clientProjectForm->id ?? null,
                 name: $this->clientProjectForm->name,
                 domain: $this->clientProjectForm->domain ?? null,
-                clientId: $this->clientProjectForm->client,
-                specialistId: $this->clientProjectForm->specialist ?? null,
-                departmentId: $this->clientProjectForm->department,
-                projectType: $this->clientProjectForm->projectType ?? null,
+                client_id: $this->clientProjectForm->client,
+                specialist_id: $this->clientProjectForm->specialist ?? null,
+                department_id: $this->clientProjectForm->department,
+                project_type: $this->clientProjectForm->projectType ?? null,
                 kpi: $this->clientProjectForm->kpi,
                 isActive: $this->clientProjectForm->isActive ?? true,
                 isInternal: $this->clientProjectForm->isInternal ?? false,
-                trafficAttribution: $this->clientProjectForm->trafficAttribution ?? null,
-                metrikaCounter: $this->clientProjectForm->metrikaCounter ?? null,
-                metrikaTargets: $this->clientProjectForm->metrikaTargets ?? null,
-                googleAdsClientId: $this->clientProjectForm->googleAdsClientId ?? null,
-                contractNumber: $this->clientProjectForm->contractNumber ?? null,
-                additionalContractNumber: $this->clientProjectForm->additionalContractNumber ?? null,
-                recommendationUrl: $this->clientProjectForm->recommendationUrl ?? null,
-                legalEntity: $this->clientProjectForm->legalEntity ?? null,
+                traffic_attribution: $this->clientProjectForm->trafficAttribution ?? null,
+                metrika_counter: $this->clientProjectForm->metrikaCounter ?? null,
+                metrika_targets: $this->clientProjectForm->metrikaTargets ?? null,
+                google_ads_client_id: $this->clientProjectForm->googleAdsClientId ?? null,
+                contract_number: $this->clientProjectForm->contractNumber ?? null,
+                additional_contract_number: $this->clientProjectForm->additionalContractNumber ?? null,
+                recommendation_url: $this->clientProjectForm->recommendationUrl ?? null,
+                legal_entity: $this->clientProjectForm->legalEntity ?? null,
                 inn: $this->clientProjectForm->inn ?? null,
             );
 
             // Сохраняем проект через сервис
             $project = $projectService->createOrUpdateProject($projectData);
-
-            // Сохраняем оригинальный статус проекта
-            $originalStatus = $project->getOriginal('is_active');
 
             // Синхронизация помощников
             if (!empty($this->clientProjectForm->assistants)) {
@@ -161,12 +160,22 @@ class ClientProjectFormModel extends Component
             }
 
             // Подготовка данных для бонусных настроек
+            $intervals = array_map(function ($intervalData) {
+                return new IntervalData(
+                    from_percentage: (float)$intervalData['fromPercentage'],
+                    to_percentage: (float)$intervalData['toPercentage'],
+                    bonus_amount: isset($intervalData['bonusAmount']) ? (float)$intervalData['bonusAmount'] : null,
+                    bonus_percentage: isset($intervalData['bonusPercentage']) ? (float)$intervalData['bonusPercentage'] : null,
+                );
+            }, $this->bonusGuaranteeForm->intervals);
+
+            // Подготовка данных для бонусных настроек
             $bonusData = new BonusData(
-                bonusesEnabled: $this->bonusGuaranteeForm->bonusesEnabled,
-                calculateInPercentage: $this->bonusGuaranteeForm->calculateInPercentage,
-                clientPayment: $this->bonusGuaranteeForm->clientPayment,
-                startMonth: $this->bonusGuaranteeForm->startMonth,
-                intervals: $this->bonusGuaranteeForm->intervals,
+                bonuses_enabled: $this->bonusGuaranteeForm->bonusesEnabled,
+                calculate_in_percentage: $this->bonusGuaranteeForm->calculateInPercentage,
+                client_payment: $this->bonusGuaranteeForm->clientPayment,
+                start_month: $this->bonusGuaranteeForm->startMonth,
+                intervals: $intervals,
             );
 
             // Сохраняем бонусные настройки через сервис

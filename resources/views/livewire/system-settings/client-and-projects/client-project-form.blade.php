@@ -310,11 +310,22 @@
                                         </div>
                                         <div class="text-center text-secondary-text">-</div>
                                         <div class="flex items-center gap-2">
-                                            <x-form.input-text
-                                                type="number"
-                                                wire:model="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
-                                                placeholder="Сумма в рублях"
-                                            />
+                                            @if($bonusGuaranteeForm->calculateInPercentage)
+                                                <x-form.input-text
+                                                    type="number"
+                                                    wire:model="bonusGuaranteeForm.intervals.{{ $index }}.bonusPercentage"
+                                                    placeholder="Сумма в процентах"
+                                                    suffix="%"
+                                                />
+                                            @else
+                                                <x-form.input-text
+                                                    type="number"
+                                                    wire:model="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
+                                                    placeholder="Сумма в рублях"
+                                                    suffix="₽"
+                                                />
+                                            @endif
+
                                             <x-button.button
                                                 type="button"
                                                 wire:click.prevent="removeInterval({{ $index }})"
@@ -323,23 +334,23 @@
                                                 <x-slot:label>Удалить</x-slot:label>
                                             </x-button.button>
                                         </div>
-                                        <div class="col-span-4 flex items-center justify-center">
-                                            <x-button.button
-                                                type="button"
-                                                wire:click.prevent="addInterval"
-                                                variant="action"
-                                            >
-                                                <x-slot:label>Добавить диапазон</x-slot:label>
-                                            </x-button.button>
-                                        </div>
                                     @endforeach
+                                    <div class="col-span-4 flex items-center justify-center">
+                                        <x-button.button
+                                            type="button"
+                                            wire:click.prevent="addInterval"
+                                            variant="action"
+                                        >
+                                            <x-slot:label>Добавить диапазон</x-slot:label>
+                                        </x-button.button>
+                                    </div>
                                 </div>
                             </x-form.form-field>
                         </div>
                     @endif
                 </div>
         </div>
-        <div class="flex justify-between">
+        <div class="flex justify-between mt-4">
             <x-button.button
                 variant="primary"
                 type="submit"

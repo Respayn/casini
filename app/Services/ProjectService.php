@@ -13,6 +13,24 @@ use Illuminate\Support\Facades\DB;
 class ProjectService
 {
     /**
+     * Получает данные проекта по его ID.
+     *
+     * @param int $projectId
+     * @return ProjectData
+     */
+    public function getProjectDataById(int $projectId): ProjectData
+    {
+        $project = Project::with([
+            'assistants',
+            'promotionRegions',
+            'promotionTopics',
+            'bonusCondition.intervals',
+        ])->findOrFail($projectId);
+
+        return ProjectData::from($project);
+    }
+
+    /**
      * Создает или обновляет проект.
      *
      * @param ProjectData $data
@@ -62,7 +80,8 @@ class ProjectService
      */
     public function syncAssistants(Project $project, array $assistantIds): void
     {
-        $project->assistants()->sync($assistantIds);
+        // TODO: синхронизация помощников
+//        $project->assistants()->sync($assistantIds);
     }
 
     /**
@@ -101,10 +120,10 @@ class ProjectService
         $bonusCondition = ProjectBonusCondition::updateOrCreate(
             ['project_id' => $project->id],
             [
-                'bonuses_enabled' => $bonusData->bonusesEnabled,
-                'calculate_in_percentage' => $bonusData->calculateInPercentage,
-                'client_payment' => $bonusData->clientPayment,
-                'start_month' => $bonusData->startMonth,
+                'bonuses_enabled' => $bonusData->bonuses_enabled,
+                'calculate_in_percentage' => $bonusData->calculate_in_percentage,
+                'client_payment' => $bonusData->client_payment,
+                'start_month' => $bonusData->start_month,
             ]
         );
 
@@ -114,41 +133,11 @@ class ProjectService
         // Добавляем новые интервалы
         foreach ($bonusData->intervals as $interval) {
             $bonusCondition->intervals()->create([
-                'from_percentage' => $interval['fromPercentage'],
-                'to_percentage' => $interval['toPercentage'],
-                'bonus_amount' => $interval['bonusAmount'] ?? null,
-                'bonus_percentage' => $interval['bonusPercentage'] ?? null,
+                'from_percentage' => $interval->from_percentage,
+                'to_percentage' => $interval->to_percentage,
+                'bonus_amount' => !$bonusData->calculate_in_percentage ? $interval->bonus_amount : null,
+                'bonus_percentage' => $bonusData->calculate_in_percentage ? $interval->bonus_percentage : null,
             ]);
         }
-    }
-
-    /**
-     * Рассчитывает бонусы на основе процентного выполнения.
-     *
-     * @param ProjectBonusCondition $bonusCondition
-     * @param float $performancePercentage
-     * @return float
-     */
-    public function calculateBonuses(ProjectBonusCondition $bonusCondition, float $performancePercentage): float
-    {
-        if (!$bonusCondition->bonuses_enabled) {
-            return 0.0; // Бонусы не включены
-        }
-
-        $interval = $bonusCondition->intervals()
-            ->where('from_percentage', '<=', $performancePercentage)
-            ->where('to_percentage', '>=', $performancePercentage)
-            ->first();
-
-        if ($interval) {
-            if ($bonusCondition->calculate_in_percentage) {
-                $bonusPercentage = $interval->bonus_percentage ?? 0.0;
-                return $bonusCondition->client_payment * ($bonusPercentage / 100);
-            } else {
-                return $interval->bonus_amount ?? 0.0;
-            }
-        }
-
-        return 0.0;
     }
 }
