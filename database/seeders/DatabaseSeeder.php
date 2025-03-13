@@ -19,7 +19,6 @@ class DatabaseSeeder extends Seeder
             ProductNotificationSeeder::class,
             IntegrationSeeder::class,
             DepartmentsTableSeeder::class,
-            ProjectTypesTableSeeder::class,
         ]);
     }
 }
