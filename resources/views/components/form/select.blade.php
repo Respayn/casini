@@ -31,11 +31,11 @@
                 );
                 return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{$placeholder}}' ?? 'Выберите значение');
             }
-            return '{{$placeholder}}' ?? 'Выберите значение';
+            return '{{$placeholder}}' || 'Выберите значение';
         }
     }"
     {{ $attributes }}
-    class="flex flex-col"
+    class="flex flex-col gap-2"
 >
     <label class="text-primary-text text-sm font-semibold">
         {{ $label }}

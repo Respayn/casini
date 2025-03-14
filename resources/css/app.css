@@ -113,3 +113,17 @@ form.form_normalized {
         }
     }
 }
+
+.fill-hover-gray {
+    @apply border-gray-400;
+    path {
+        @apply fill-gray-400;
+    }
+
+    &:hover {
+        @apply bg-gray-400;
+        path {
+            fill: white;
+        }
+    }
+}
