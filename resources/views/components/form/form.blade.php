@@ -1,8 +1,7 @@
 @props([
-    'is-normalized' => false
+    'isNormalized' => false
 ])
-<form class="form {{ ($isNormalized ?? false) ? 'form_normalized' : '' }}"
-    {{ $attributes->class(["text-primary-text flex flex-col gap-5"]) }}
->
+
+<form {{ $attributes->merge(['class' => 'form ' . ($isNormalized ? 'form_normalized' : '') . ' text-primary-text flex flex-col gap-5']) }}>
     {{ $slot }}
 </form>

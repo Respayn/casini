@@ -9,6 +9,8 @@
             <x-button.button
                 href="{{ route('system-settings.dictionaries') }}"
                 icon="icons.gear"
+                variant="gray"
+                class="fill-hover-gray"
                 rounded
                 wire:navigate
             />

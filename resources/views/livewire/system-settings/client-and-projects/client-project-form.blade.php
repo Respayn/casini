@@ -473,7 +473,8 @@
                 </x-slot:label>
             </x-button.button>
             <x-button.button
-                wire:click="back"
+                href="javascript:void(0);"
+                onclick="window.history.back()"
             >
                 <x-slot:label>
                     Отменить
