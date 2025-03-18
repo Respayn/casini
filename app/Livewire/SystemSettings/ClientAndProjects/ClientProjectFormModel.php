@@ -18,24 +18,20 @@ class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;
 
-    private DepartmentService $departmentService;
     private ClientService $clientService;
     private PromotionRegionService $promotionRegionService;
     private PromotionTopicService $promotionTopicService;
 
-    public Collection $departments;
     public Collection $clients;
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
     public function boot(
-        DepartmentService $departmentService,
         ClientService $clientService,
         PromotionRegionService $promotionRegionService,
         PromotionTopicService $promotionTopicService,
     )
     {
-        $this->departmentService = $departmentService;
         $this->clientService = $clientService;
         $this->promotionRegionService = $promotionRegionService;
         $this->promotionTopicService = $promotionTopicService;
@@ -43,7 +39,6 @@ class ClientProjectFormModel extends Component
 
     public function mount($projectId = null)
     {
-        $this->departments = $this->departmentService->getDepartments();
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
@@ -58,7 +53,6 @@ class ClientProjectFormModel extends Component
             $this->clientProjectForm->client = $project->client_id;
             $this->clientProjectForm->specialist = $project->specialist_id;
             $this->clientProjectForm->manager = $project->client->manager_id;
-            $this->clientProjectForm->department = $project->department_id;
             $this->clientProjectForm->projectType = $project->project_type;
 //            $this->clientProjectForm->service_type = $project->service_type;
             $this->clientProjectForm->kpi = $project->kpi;
@@ -123,7 +117,6 @@ class ClientProjectFormModel extends Component
                 'domain' => $this->clientProjectForm->domain ?? null,
                 'client_id' => $this->clientProjectForm->client,
                 'specialist_id' => $this->clientProjectForm->specialist ?? null,
-                'department_id' => $this->clientProjectForm->department,
                 'project_type' => $this->clientProjectForm->projectType ?? null,
                 'kpi' => $this->clientProjectForm->kpi,
                 'is_active' => $this->clientProjectForm->isActive ?? true,

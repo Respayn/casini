@@ -15,7 +15,6 @@ use Illuminate\Support\Collection;
  * @property string $domain
  * @property int $client_id
  * @property int $specialist_id
- * @property int $department_id
  * @property ProjectType $project_type
  * @property ServiceType $service_type
  * @property $kpi
@@ -36,7 +35,6 @@ use Illuminate\Support\Collection;
  * @property Client $client
  * @property User $specialist
  * @property User $manager
- * @property Department $department
  * @property Collection<ProjectFieldHistory> $fieldHistories
  */
 class Project extends Model
@@ -46,7 +44,6 @@ class Project extends Model
         'domain',
         'client_id',
         'specialist_id',
-        'department_id',
         'project_type',
         'service_type',
         'kpi',
@@ -78,11 +75,6 @@ class Project extends Model
     public function specialist()
     {
         return $this->belongsTo(User::class, 'specialist_id');
-    }
-
-    public function department()
-    {
-        return $this->belongsTo(Department::class);
     }
 
     public function fieldHistories()

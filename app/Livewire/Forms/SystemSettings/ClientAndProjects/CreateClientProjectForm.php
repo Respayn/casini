@@ -33,9 +33,6 @@ class CreateClientProjectForm extends Form
     #[Validate('required|string|max:255', message: 'KPI обязателен')]
     public string $kpi = '';
 
-    #[Validate('required|string|max:255', message: 'Отдел обязателен')]
-    public string $department = '';
-
     #[Validate('required|string|max:255', message: 'Тип клиенто-проекта обязателен')]
     public string $projectType = '';
 
