@@ -15,7 +15,6 @@ class ProjectData extends Data
         public ?string $domain,
         public int $client_id,
         public ?int $specialist_id,
-        public int $department_id,
         public ?string $project_type,
         public ?string $kpi,
         public bool $isActive,

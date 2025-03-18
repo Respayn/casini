@@ -37,14 +37,14 @@ class ProjectBonusGuaranteeForm extends Form
             'clientPayment' => 'nullable|numeric|min:0',
             'startMonth' => 'required_if:bonusesEnabled,true|integer|in:1,2,3',
             'intervals' => 'required_if:bonusesEnabled,true|array|min:1',
-            'intervals.*.fromPercentage' => 'required|numeric',
-            'intervals.*.toPercentage' => 'required|numeric|gte:intervals.*.fromPercentage',
+            'intervals.*.fromPercentage' => 'required_if:bonusesEnabled,true|numeric',
+            'intervals.*.toPercentage' => 'required_if:bonusesEnabled,true|numeric|gte:intervals.*.fromPercentage',
         ];
 
         if (!$this->calculateInPercentage) {
-            $rules['intervals.*.bonusAmount'] = 'required|numeric';
+            $rules['intervals.*.bonusAmount'] = 'required_if:bonusesEnabled,true|numeric';
         } else {
-            $rules['intervals.*.bonusPercentage'] = 'required|numeric';
+            $rules['intervals.*.bonusPercentage'] = 'required_if:bonusesEnabled,true|numeric';
         }
 
         return $rules;

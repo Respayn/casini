@@ -58,7 +58,6 @@ class CreateClientProjectForm extends Form
                 'specialist' => 'nullable|exists:users,id',
                 'assistants' => 'array',
                 'kpi' => 'required|string|max:255',
-                'department' => 'required|string|max:255',
                 'projectType' => 'required|string|max:255',
                 'isInternal' => 'nullable|string|max:255',
                 'promotionRegions' => 'required|array',
@@ -81,7 +80,6 @@ class CreateClientProjectForm extends Form
         $this->client = $project->client_id;
         $this->specialist = $project->specialist_id;
         $this->manager = $project->manager_id;
-        $this->department = $project->department_id;
         $this->projectType = $project->project_type;
         $this->kpi = $project->kpi;
         $this->isInternal = $project->is_internal;
