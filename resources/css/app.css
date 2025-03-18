@@ -68,7 +68,6 @@
 
 .treeitem > .arrow {
     position: absolute;
-    top: 50%;
     top: 0;
     left: 0;
 }
@@ -110,6 +109,20 @@ form.form_normalized {
         @apply items-start;
         &>*:last-child {
             @apply lg:min-w-[305px];
+        }
+    }
+}
+
+.settings-button {
+    @apply border-gray-400;
+    path {
+        @apply fill-gray-400;
+    }
+
+    &:hover {
+        @apply bg-primary border-primary;
+        path {
+            fill: white;
         }
     }
 }

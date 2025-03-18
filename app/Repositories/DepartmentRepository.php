@@ -3,7 +3,6 @@
 namespace App\Repositories;
 
 use App\Data\DepartmentData;
-use App\Models\Client;
 use App\Models\Department;
 use App\Repositories\Interfaces\RepositoryInterface;
 

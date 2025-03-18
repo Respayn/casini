@@ -108,19 +108,6 @@
                         <x-form.form-label
                             class="self-baseline"
                             required
-                        >Отдел</x-form.form-label>
-                        <x-form.select
-                            wire:model.live="clientProjectForm.department"
-                            :options="$departments->map(function ($item) {
-                                return ['label' => $item->description, 'value' => $item->id];
-                            })"
-                        ></x-form.select>
-                    </x-form.form-field>
-
-                    <x-form.form-field>
-                        <x-form.form-label
-                            class="self-baseline"
-                            required
                             tooltip="Отметьте если проект “свой”, в этом случае колонка Акты в продукте Каналы будет заполнятся по итогам месяца автоматически на основе поля Чек-клиента"
                         >Тип клиенто-проекта</x-form.form-label>
                         <x-form.select
@@ -473,7 +460,8 @@
                 </x-slot:label>
             </x-button.button>
             <x-button.button
-                wire:click="back"
+                href="javascript:void(0);"
+                onclick="window.history.back()"
             >
                 <x-slot:label>
                     Отменить
