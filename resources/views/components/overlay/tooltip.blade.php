@@ -1,6 +1,8 @@
+@props(['class' => ''])
+
 <div x-data="{ open: false }" class="relative inline-block cursor-pointer">
     <span @mouseenter="open = true" @mouseleave="open = false" class="tooltip-icon">
-        <x-icons.tooltip/>
+        <x-icons.tooltip class="{{ $class }}" />
     </span>
     <div x-show="open"
          x-transition:enter="transition ease-out duration-200"
