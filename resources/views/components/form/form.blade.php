@@ -2,6 +2,13 @@
     'isNormalized' => false
 ])
 
-<form {{ $attributes->merge(['class' => 'form ' . ($isNormalized ? 'form_normalized' : '') . ' text-primary-text flex flex-col gap-5']) }}>
+<form {{ $attributes->class([
+        'form',
+        'form_normalized' => $isNormalized,
+        'text-primary-text',
+        'flex',
+        'flex-col',
+        'gap-5'
+    ]) }}>
     {{ $slot }}
 </form>

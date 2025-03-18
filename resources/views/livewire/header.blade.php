@@ -10,7 +10,7 @@
                 href="{{ route('system-settings.dictionaries') }}"
                 icon="icons.gear"
                 variant="gray"
-                class="fill-hover-gray"
+                class="settings-button"
                 rounded
                 wire:navigate
             />
