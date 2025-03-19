@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Forms\SystemSettings\ClientAndProjects;
 
+use App\Data\ProjectData;
+use App\Models\Project;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\Form;
@@ -26,7 +28,7 @@ class CreateClientProjectForm extends Form
 
     // TODO: required (когда появится пользователь)
     #[Validate('nullable|exists:users,id', message: 'Укажите специалиста')]
-    public int $specialist;
+    public ?int $specialist = null;
 
     #[Validate('array', message: 'Помощники должны быть массивом')]
     public array $assistants = [];
@@ -38,7 +40,7 @@ class CreateClientProjectForm extends Form
     public string $projectType = '';
 
     #[Validate('nullable|string|max:255')]
-    public ?string $isInternal = null;
+    public ?bool $isInternal = null;
 
     #[Validate('required|array', message: 'Выберите хотя бы один регион продвижения')]
     public array $promotionRegions = [];
@@ -69,24 +71,21 @@ class CreateClientProjectForm extends Form
     /**
      * Метод для заполнения данных формы из модели проекта.
      *
-     * @param $project
+     * @param ProjectData $project
      * @return void
      */
-    public function fillFromModel($project)
+    public function from($project)
     {
         $this->id = $project->id;
         $this->name = $project->name;
         $this->domain = $project->domain;
         $this->client = $project->client_id;
         $this->specialist = $project->specialist_id;
-        $this->manager = $project->manager_id;
-        $this->projectType = $project->project_type;
+        $this->projectType = $project->project_type->value;
         $this->kpi = $project->kpi;
-        $this->isInternal = $project->is_internal;
         $this->isActive = $project->is_active;
-
-        $this->assistants = $project->assistants->pluck('id')->toArray();
-        $this->promotionRegions = $project->promotionRegions->pluck('id')->toArray();
-        $this->promotionTopics = $project->promotionTopics->pluck('id')->toArray();
+        $this->isInternal = $project->is_internal;
+        $this->promotionRegions = $project->promotionRegions->toArray();
+        $this->promotionTopics = $project->promotionTopics->toArray();
     }
 }

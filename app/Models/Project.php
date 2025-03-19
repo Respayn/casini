@@ -7,6 +7,7 @@ use App\Enums\ServiceType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
 
 /**
@@ -125,5 +126,15 @@ class Project extends Model
     public function promotionTopics(): BelongsToMany
     {
         return $this->belongsToMany(PromotionTopic::class);
+    }
+
+    /**
+     * Связанное условие
+     *
+     * @return HasOne
+     */
+    public function bonusCondition(): HasOne
+    {
+        return $this->hasOne(ProjectBonusCondition::class);
     }
 }

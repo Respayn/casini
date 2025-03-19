@@ -26,6 +26,11 @@ class ClientAndProjects extends Component
         $this->clients = $this->clientService->getClients(['projects']);
     }
 
+    public function clientForm(int $clientId)
+    {
+        dump($clientId);
+    }
+
     public function createClient()
     {
         // TODO: Логика для создания клиента

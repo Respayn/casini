@@ -27,6 +27,9 @@ class ProjectService
             'bonusCondition.intervals',
         ])->findOrFail($projectId);
 
+//        dd($project->bonusCondition->intervals);
+//        dd(ProjectData::from($project));
+
         return ProjectData::from($project);
     }
 

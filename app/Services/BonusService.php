@@ -20,10 +20,10 @@ class BonusService
         $bonusCondition = ProjectBonusCondition::updateOrCreate(
             ['project_id' => $project->id],
             [
-                'bonuses_enabled' => $bonusData->bonusesEnabled,
-                'calculateInPercentage' => $bonusData->calculateInPercentage,
-                'client_payment' => $bonusData->clientPayment,
-                'start_month' => $bonusData->startMonth,
+                'bonuses_enabled' => $bonusData->bonuses_enabled,
+                'calculateInPercentage' => $bonusData->calculate_in_percentage,
+                'client_payment' => $bonusData->client_payment,
+                'start_month' => $bonusData->start_month,
             ]
         );
 
@@ -35,8 +35,8 @@ class BonusService
             $bonusCondition->intervals()->create([
                 'from_percentage' => $interval->fromPercentage,
                 'to_percentage' => $interval->toPercentage,
-                'bonus_amount' => $bonusData->calculateInPercentage ? null : $interval->bonusAmount,
-                'bonus_percentage' => $bonusData->calculateInPercentage ? $interval->bonusPercentage : null,
+                'bonus_amount' => $bonusData->calculate_in_percentage ? null : $interval->bonusAmount,
+                'bonus_percentage' => $bonusData->calculate_in_percentage ? $interval->bonusPercentage : null,
             ]);
         }
     }

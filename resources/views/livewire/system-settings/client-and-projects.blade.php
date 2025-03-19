@@ -8,14 +8,15 @@
                 + Создать клиента
             </a>
             <!-- Здесь будет логика для отображения списка клиенто-проектов -->
-            <a href="{{ route('system-settings.clients-and-projects.projects.create') }}" class="btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2">
+            <a href="{{ route('system-settings.clients-and-projects.projects.manage') }}" class="btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2">
                 + Создать клиенто-проект
             </a>
         </div>
     </div>
     <div>
-        <x-data.table>
+        <x-data.table class="w-full">
             <x-data.table-columns>
+                <!-- Ваши заголовки колонок -->
                 <x-data.table-column>
                     Клиент
                     <x-overlay.tooltip class="text-white">
@@ -23,7 +24,7 @@
                     </x-overlay.tooltip>
                 </x-data.table-column>
                 <x-data.table-column>
-                    Инн
+                    ИНН
                     <x-overlay.tooltip class="text-white">
                         С помощью ИНН мы можем автоматически определять операции по клиенту
                     </x-overlay.tooltip>
@@ -47,27 +48,48 @@
 
             <x-data.table-rows>
                 <?php /** @var \App\Data\ClientData $client */ ?>
-                @foreach ($clients as $index => $client)
-                    <x-data.table-row wire:key="key-0">
-                        <x-data.table-cell>
-                            {{ $client->name }}
-                        </x-data.table-cell>
-                        <x-data.table-cell>
-                            {{ $client->inn }}
-                        </x-data.table-cell>
-                        <x-data.table-cell>
-                            <?php /** @var \App\Data\ProjectData $project */ ?>
-                            @foreach($client->projects as $projectKey => $project)
-                                <x-data.table-cell wire:key="project-{{$projectKey}}">
-                                    {{ $project->name }}
+                @foreach ($clients as $clientIndex => $client)
+                    @if(count($client->projects) > 0)
+                        @foreach($client->projects as $projectIndex => $project)
+                            <x-data.table-row wire:key="client-{{ $clientIndex }}-project-{{ $projectIndex }}">
+                                @if($projectIndex === 0)
+                                    <x-data.table-cell :rowspan="count($client->projects)">
+                                        <button wire:click="clientForm({{ $client->id }})" class="link">
+                                            {{ $client->name }}
+                                        </button>
+                                    </x-data.table-cell>
+                                    <x-data.table-cell :rowspan="count($client->projects)">
+                                        {{ $client->inn }}
+                                    </x-data.table-cell>
+                                @endif
+                                <x-data.table-cell>
+                                    <a href="{{ route('system-settings.clients-and-projects.projects.manage', $project->id) }}" class="link">
+                                        {{ $project->name }}
+                                    </a>
                                 </x-data.table-cell>
-                            @endforeach
-                        </x-data.table-cell>
-                        <x-data.table-cell>
-                        </x-data.table-cell>
-                        <x-data.table-cell>
-                        </x-data.table-cell>
-                    </x-data.table-row>
+                                <x-data.table-cell>
+                                    {{ $project->project_type->label() }}
+                                </x-data.table-cell>
+                                <x-data.table-cell>
+                                    {{ '-' }}
+                                </x-data.table-cell>
+                            </x-data.table-row>
+                        @endforeach
+                    @else
+                        <x-data.table-row wire:key="client-{{ $clientIndex }}">
+                            <x-data.table-cell>
+                                <button wire:click="clientForm({{ $client->id }})" class="link">
+                                    {{ $client->name }}
+                                </button>
+                            </x-data.table-cell>
+                            <x-data.table-cell>
+                                {{ $client->inn }}
+                            </x-data.table-cell>
+                            <x-data.table-cell colspan="3">
+                                Нет проектов
+                            </x-data.table-cell>
+                        </x-data.table-row>
+                    @endif
                 @endforeach
             </x-data.table-rows>
         </x-data.table>

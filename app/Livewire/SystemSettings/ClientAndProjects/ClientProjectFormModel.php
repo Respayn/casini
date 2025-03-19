@@ -5,6 +5,7 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 use App\Data\BonusData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
+use App\Enums\ProjectType;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Services\ClientService;
@@ -22,6 +23,7 @@ class ClientProjectFormModel extends Component
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
 
     private ClientService $clientService;
+    private ProjectService $projectService;
     private PromotionRegionService $promotionRegionService;
     private PromotionTopicService $promotionTopicService;
 
@@ -31,11 +33,13 @@ class ClientProjectFormModel extends Component
 
     public function boot(
         ClientService $clientService,
+        ProjectService $projectService,
         PromotionRegionService $promotionRegionService,
         PromotionTopicService $promotionTopicService,
     )
     {
         $this->clientService = $clientService;
+        $this->projectService = $projectService;
         $this->promotionRegionService = $promotionRegionService;
         $this->promotionTopicService = $promotionTopicService;
     }
@@ -47,10 +51,19 @@ class ClientProjectFormModel extends Component
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
 
         if ($projectId) {
-            // TODO: Определить получение данных
+            // Получение данных
+            $project = $this->projectService->getProjectDataById($projectId);
+            $this->clientProjectForm->from($project);
+            $this->bonusGuaranteeForm->from($project->bonusCondition);
         } else {
             $this->clientProjectForm->isActive = true;
+        }
+
+        if (empty($this->clientProjectForm->promotionRegions)) {
             $this->clientProjectForm->promotionRegions[] = null;
+        }
+
+        if (empty($this->clientProjectForm->promotionTopics)) {
             $this->clientProjectForm->promotionTopics[] = null;
         }
     }
@@ -111,10 +124,10 @@ class ClientProjectFormModel extends Component
                 domain: $this->clientProjectForm->domain ?? null,
                 client_id: $this->clientProjectForm->client,
                 specialist_id: $this->clientProjectForm->specialist ?? null,
-                project_type: $this->clientProjectForm->projectType ?? null,
+                project_type: $this->clientProjectForm->projectType ? ProjectType::from($this->clientProjectForm->projectType) : null,
                 kpi: $this->clientProjectForm->kpi,
-                isActive: $this->clientProjectForm->isActive ?? true,
-                isInternal: $this->clientProjectForm->isInternal ?? false,
+                is_active: $this->clientProjectForm->isActive ?? true,
+                is_internal: $this->clientProjectForm->isInternal ?? false,
                 traffic_attribution: $this->clientProjectForm->trafficAttribution ?? null,
                 metrika_counter: $this->clientProjectForm->metrikaCounter ?? null,
                 metrika_targets: $this->clientProjectForm->metrikaTargets ?? null,
