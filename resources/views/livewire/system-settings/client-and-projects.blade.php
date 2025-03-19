@@ -25,13 +25,13 @@
                 </x-data.table-column>
                 <x-data.table-column>
                     ИНН
-                    <x-overlay.tooltip class="text-white">
+                    <x-overlay.tooltip>
                         С помощью ИНН мы можем автоматически определять операции по клиенту
                     </x-overlay.tooltip>
                 </x-data.table-column>
                 <x-data.table-column>
                     Клиенто-проект
-                    <x-overlay.tooltip class="text-white">
+                    <x-overlay.tooltip>
                         Клиенто-проекты привязываются клиенты в настройках клиенто-проекта
                     </x-overlay.tooltip>
                 </x-data.table-column>
@@ -40,7 +40,7 @@
                 </x-data.table-column>
                 <x-data.table-column>
                     Начальный баланс
-                    <x-overlay.tooltip class="text-white">
+                    <x-overlay.tooltip>
                         Поле учитывается при формировании сверки бюджетов, значение может быть как положительное (нам должны), так и отрицательным (мы должны)
                     </x-overlay.tooltip>
                 </x-data.table-column>
