@@ -33,8 +33,11 @@
         'ghost'   => 'text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary',
         'link'    => 'text-primary-text hover:text-primary items-center group hover:underline font-semibold',
         'action'  => 'text-primary items-center group relative font-semibold',
+        'outlined' => 'border border-input-border hover:border-primary active:bg-primary active:border-primary group text-secondary-text hover:text-primary active:text-white',
         default   => 'border-default-button text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary border disabled:border-0',
     };
+
+    // TODO: добавить severity для изменения цветовой темы. Пример - https://primevue.org/button/#severity
 
     $buttonClasses[] = match ($size) {
         'none' => '',

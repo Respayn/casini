@@ -112,17 +112,3 @@ form.form_normalized {
         }
     }
 }
-
-.settings-button {
-    @apply border-gray-400;
-    path {
-        @apply fill-gray-400;
-    }
-
-    &:hover {
-        @apply bg-primary border-primary;
-        path {
-            fill: white;
-        }
-    }
-}
