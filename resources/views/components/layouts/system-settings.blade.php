@@ -14,15 +14,16 @@
     @livewireStyles
 </head>
 
-<body class="bg-body text-primary-text flex gap-5 font-sans">
+<body class="bg-body flex gap-5 font-sans text-primary-text">
     <livewire:sidebar />
 
     <div class="flex w-full flex-col gap-[25px] pl-[375px]">
         <livewire:header />
 
-        {{-- <x-menu.breadcrumb /> --}}
-
-        <x-menu.navbar :items="[]" />
+        <x-menu.navbar :items="[
+            ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
+            ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
+        ]" />
 
         <div class="rounded-l-2xl bg-white p-5">
             {{ $slot }}

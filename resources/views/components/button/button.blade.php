@@ -25,6 +25,7 @@
         'cursor-pointer',
         'disabled:cursor-not-allowed',
         'relative',
+        'transition'
     ];
 
     // Классы, зависящие от варианта кнопки
@@ -54,7 +55,9 @@
 
 @if ($href)
     <a href="{{ $href }}"
-        {{ $attributes->merge(['class' => implode(' ', $buttonClasses)]) }}>
+        {{ $attributes->merge(['class' => implode(' ', $buttonClasses)]) }}
+        wire:navigate
+    >
         @if ($icon)
             <x-dynamic-component class="{{ $iconClasses }}" :component="$icon" />
         @endif

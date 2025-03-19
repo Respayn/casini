@@ -13,9 +13,11 @@ use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 // TODO: Сделать получение данных и сохранение через сервисный слой
+#[Layout('components.layouts.system-settings')]
 class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;

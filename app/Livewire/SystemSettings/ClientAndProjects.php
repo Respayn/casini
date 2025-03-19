@@ -6,8 +6,10 @@ use App\Data\ProjectData;
 use App\Models\Project;
 use App\Services\ClientService;
 use Illuminate\Support\Collection;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('components.layouts.system-settings')]
 class ClientAndProjects extends Component
 {
     private ClientService $clientService;
