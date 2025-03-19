@@ -120,6 +120,13 @@ form.form_normalized {
     }
 
     &:hover {
+        @apply bg-inherit border-primary;
+        path {
+            @apply fill-primary;
+        }
+    }
+
+    &:active {
         @apply bg-primary border-primary;
         path {
             fill: white;
