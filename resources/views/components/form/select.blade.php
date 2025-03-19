@@ -3,7 +3,7 @@
     'options' => [],
     'labelKey' => 'label',
     'valueKey' => 'value',
-    'placeholder' => ''
+    'placeholder' => '',
 ])
 
 @php
@@ -13,6 +13,7 @@
 @endphp
 
 <div
+    class="flex flex-col gap-2 w-full"
     x-data="{
         options: {{ json_encode($options) }},
         open: false,
@@ -23,31 +24,32 @@
             this.selected = value;
             $dispatch('change');
         },
-
+    
         getDisplayText() {
             if (!this.open && this.selected) {
                 const selectedOption = this.options.find(
                     option => option['{{ $valueKey }}'] == this.selected
                 );
-                return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{$placeholder}}' ?? 'Выберите значение');
+                return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{ $placeholder }}' ?? 'Выберите значение');
             }
-            return '{{$placeholder}}' || 'Выберите значение';
+            return '{{ $placeholder }}' || 'Выберите значение';
         }
     }"
     {{ $attributes }}
-    class="flex flex-col gap-2"
 >
-    <label class="text-primary-text text-sm font-semibold">
-        {{ $label }}
-    </label>
+    @if ($label)
+        <label class="text-primary-text text-sm font-semibold">
+            {{ $label }}
+        </label>
+    @endif
 
     <div class="text-input-text relative select-none">
         <div class="group">
             <div
                 @class([
-                'flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4',
-                'border-input-border' => !$errors->has($wireModel),
-                'border-warning-red' => $errors->has($wireModel),
+                    'flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4',
+                    'border-input-border' => !$errors->has($wireModel),
+                    'border-warning-red' => $errors->has($wireModel),
                 ])
                 x-ref="button"
                 x-on:click="open = !open"
@@ -71,7 +73,6 @@
 
         <div
             class="z-1000 border-input-border w-full rounded-b-[5px] border border-t-0"
-
             x-cloak
             x-show="open"
             x-anchor="$refs.button"
@@ -88,6 +89,6 @@
         </div>
     </div>
     @error($wireModel)
-    <span class="text-warning-red text-[12px]">{{ $message }}</span>
+        <span class="text-warning-red text-[12px]">{{ $message }}</span>
     @enderror
 </div>
