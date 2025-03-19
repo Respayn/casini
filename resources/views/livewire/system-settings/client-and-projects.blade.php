@@ -102,7 +102,7 @@
     </div>
     <x-overlay.modal
         name="client-modal"
-        title="{{ empty($activeClientIndex) ? 'Создание' : 'Редактирование' }}  клиента"
+        title="{{ $activeClientIndex === null ? 'Создание' : 'Редактирование' }}  клиента"
     >
         <x-slot:body>
             <x-form.form :is-normalized="true" wire:submit.prevent="saveClient" class="min-w-[723px]">
