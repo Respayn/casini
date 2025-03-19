@@ -40,7 +40,7 @@ class ProjectService
      * @param int|null $projectId
      * @return Project
      */
-    public function createOrUpdateProject(ProjectData $data): Project
+    public function updateOrCreateProject(ProjectData $data): ProjectData
     {
         return DB::transaction(function () use ($data) {
             if ($data->id) {
@@ -58,7 +58,7 @@ class ProjectService
                 // Можно добавить запись истории создания, если это необходимо
             }
 
-            return $project;
+            return ProjectData::from($project);
         });
     }
 
@@ -114,11 +114,11 @@ class ProjectService
     /**
      * Сохраняет бонусные настройки проекта.
      *
-     * @param Project $project
+     * @param ProjectData $project
      * @param BonusData $bonusData
      * @return void
      */
-    public function saveBonusSettings(Project $project, BonusData $bonusData): void
+    public function saveBonusSettings(ProjectData $project, BonusData $bonusData): void
     {
         $bonusCondition = ProjectBonusCondition::updateOrCreate(
             ['project_id' => $project->id],

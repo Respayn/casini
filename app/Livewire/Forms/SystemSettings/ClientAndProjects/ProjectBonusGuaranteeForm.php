@@ -4,21 +4,22 @@ namespace App\Livewire\Forms\SystemSettings\ClientAndProjects;
 
 use App\Data\BonusConditionData;
 use App\Models\ProjectBonusCondition;
+use Livewire\Attributes\Rule;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
 class ProjectBonusGuaranteeForm extends Form
 {
-    #[Validate('boolean')]
+    #[Rule('boolean')]
     public bool $bonusesEnabled = false;
 
-    #[Validate('boolean')]
+    #[Rule('boolean')]
     public bool $calculateInPercentage = false;
 
-    #[Validate('nullable|numeric|min:0')]
+    #[Rule('nullable|numeric|min:0')]
     public ?float $clientPayment = null;
 
-    #[Validate('required_if:bonusesEnabled,true|integer|in:1,2,3')]
+    #[Rule('required_if:bonusesEnabled,true|integer|in:1,2,3')]
     public int $startMonth = 1;
 
     public array $intervals = [

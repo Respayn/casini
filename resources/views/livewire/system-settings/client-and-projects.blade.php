@@ -4,9 +4,11 @@
 
         <div class="flex gap-2 items-center">
             <!-- Здесь будет логика для отображения списка клиентов -->
-            <a href="{{ route('system-settings.clients-and-projects.clients.create') }}" class="btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2">
-                + Создать клиента
-            </a>
+            <x-overlay.modal-trigger name="client-modal">
+                <span class="cursor-pointer btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2" wire:click="initClientForm">
+                    + Создать клиента
+                </span>
+            </x-overlay.modal-trigger>
             <!-- Здесь будет логика для отображения списка клиенто-проектов -->
             <a href="{{ route('system-settings.clients-and-projects.projects.manage') }}" class="btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2">
                 + Создать клиенто-проект
@@ -54,9 +56,11 @@
                             <x-data.table-row wire:key="client-{{ $clientIndex }}-project-{{ $projectIndex }}">
                                 @if($projectIndex === 0)
                                     <x-data.table-cell :rowspan="count($client->projects)">
-                                        <button wire:click="clientForm({{ $client->id }})" class="link">
-                                            {{ $client->name }}
-                                        </button>
+                                        <x-overlay.modal-trigger name="client-modal">
+                                            <button wire:click="initClientForm({{ $clientIndex }})" class="link">
+                                                {{ $client->name }}
+                                            </button>
+                                        </x-overlay.modal-trigger>
                                     </x-data.table-cell>
                                     <x-data.table-cell :rowspan="count($client->projects)">
                                         {{ $client->inn }}
@@ -78,9 +82,11 @@
                     @else
                         <x-data.table-row wire:key="client-{{ $clientIndex }}">
                             <x-data.table-cell>
-                                <button wire:click="clientForm({{ $client->id }})" class="link">
-                                    {{ $client->name }}
-                                </button>
+                                <x-overlay.modal-trigger name="client-modal">
+                                    <button wire:click="initClientForm({{ $clientIndex }})" class="link">
+                                        {{ $client->name }}
+                                    </button>
+                                </x-overlay.modal-trigger>
                             </x-data.table-cell>
                             <x-data.table-cell>
                                 {{ $client->inn }}
@@ -94,4 +100,77 @@
             </x-data.table-rows>
         </x-data.table>
     </div>
+    <x-overlay.modal
+        name="client-modal"
+        title="{{ empty($activeClientIndex) ? 'Создание' : 'Редактирование' }}  клиента"
+    >
+        <x-slot:body>
+            <x-form.form :is-normalized="true" wire:submit.prevent="saveClient" class="min-w-[723px]">
+                <x-form.form-field>
+                    <x-form.form-label
+                        class="self-baseline"
+                        required
+                        tooltip="Заполните название клиента, так клиент будет отображаться во всех продуктах. Обязательное поле для заполнени"
+                    >Клиент</x-form.form-label>
+                    <div>
+                        <x-form.input-text wire:model="clientForm.name"></x-form.input-text>
+                    </div>
+                </x-form.form-field>
+                <x-form.form-field>
+                    <x-form.form-label
+                        class="self-baseline"
+                        required
+                        tooltip="С помощью ИНН мы можем автоматически определять операции по клиенту"
+                    >ИНН</x-form.form-label>
+                    <div>
+                        <x-form.input-text placeholder="-" wire:model="clientForm.inn"></x-form.input-text>
+                    </div>
+                </x-form.form-field>
+                <x-form.form-field>
+                    <x-form.form-label
+                        class="self-baseline"
+                        required
+                        tooltip="Выберите менеджера, все клиенто-проекты этого клиента будут привязаны к этому менеджеру"
+                    >Менеджер</x-form.form-label>
+                    <div>
+                        <x-form.select
+                            placeholder="Не выбрано"
+                            :options="$managers->map(function ($item) {
+                                return ['label' => $item->name, 'value' => $item->id];
+                            })"
+                            wire:model="clientForm.manager"
+                            class="w-full"
+                        ></x-form.select>
+                    </div>
+                </x-form.form-field>
+                <x-form.form-field>
+                    <x-form.form-label
+                        class="self-baseline"
+                        required
+                        tooltip="Поле учитывается при формировании сверки бюджетов, значение может быть как положительное (мы должны), так и отрицательным (нам должны)"
+                    >Начальная статистика взаиморасчетов</x-form.form-label>
+                    <div>
+                        <x-form.input-text type="number" wire:model="clientForm.initial_balance"></x-form.input-text>
+                    </div>
+                </x-form.form-field>
+                <div class="flex justify-between">
+                    <x-button.button
+                        icon="icons.check"
+                        variant="primary"
+                        type="submit"
+                    >
+                        <x-slot:label>
+                            Создать
+                        </x-slot>
+                    </x-button.button>
+
+                    <x-button.button wire:click="$dispatch('modal-hide', { name: 'client-modal' })">
+                        <x-slot:label>
+                            Отменить
+                        </x-slot>
+                    </x-button.button>
+                </div>
+            </x-form.form>
+        </x-slot:body>
+    </x-overlay.modal>
 </div>

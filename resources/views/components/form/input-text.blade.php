@@ -35,7 +35,7 @@
                         placeholder="{{ $placeholder }}"
                         value="{{ $inputValue }}"
                         onfocus="this.value = this.value.replace(/ /g, '').replace(new RegExp('{{ preg_quote($suffix, '/') }}', 'g'), '');"
-                        oninput="this.value = this.value.replace(/[^0-9]/g, '');"
+                        oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/(?!^)-/g, '');"
                         onblur="
                         let numValue = parseFloat(this.value.replace(/\s/g, ''));if (!isNaN(numValue)) {
                                 this.value = numValue.toLocaleString('ru-RU') + ' {{ $suffix }}';

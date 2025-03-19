@@ -2,9 +2,7 @@
 
 namespace App\Data;
 
-use App\Models\Client;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use Livewire\Wireable;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Concerns\WireableData;
@@ -19,11 +17,11 @@ class ClientData extends Data implements Wireable
         public ?int $id,
         public string $name,
         public string $inn,
-        public float $initialBalance,
-        public int $managerId,
-        public ?UserData $manager,
-        public CarbonImmutable $createdAt,
-        public CarbonImmutable $updatedAt,
+        public float $initial_balance,
+        public int $manager_id,
+        public ?UserData $manager = null,
+        public ?CarbonImmutable $createdAt = null,
+        public ?CarbonImmutable $updatedAt = null,
         #[DataCollectionOf(ProjectData::class)]
         public ?DataCollection $projects = null
     ) {}

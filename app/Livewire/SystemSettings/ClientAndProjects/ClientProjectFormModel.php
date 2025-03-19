@@ -140,31 +140,7 @@ class ClientProjectFormModel extends Component
             );
 
             // Сохраняем проект через сервис
-            $project = $projectService->createOrUpdateProject($projectData);
-
-            // Синхронизация помощников
-            if (!empty($this->clientProjectForm->assistants)) {
-                $assistantIds = collect($this->clientProjectForm->assistants)->filter()->all();
-                $projectService->syncAssistants($project, $assistantIds);
-            } else {
-                $projectService->syncAssistants($project, []);
-            }
-
-            // Синхронизация регионов продвижения
-            if (!empty($this->clientProjectForm->promotionRegions)) {
-                $promotionRegionIds = collect($this->clientProjectForm->promotionRegions)->filter()->all();
-                $projectService->syncPromotionRegions($project, $promotionRegionIds);
-            } else {
-                $projectService->syncPromotionRegions($project, []);
-            }
-
-            // Синхронизация тематик продвижения
-            if (!empty($this->clientProjectForm->promotionTopics)) {
-                $promotionTopicIds = collect($this->clientProjectForm->promotionTopics)->filter()->all();
-                $projectService->syncPromotionTopics($project, $promotionTopicIds);
-            } else {
-                $projectService->syncPromotionTopics($project, []);
-            }
+            $project = $projectService->updateOrCreateProject($projectData);
 
             // Подготовка данных для бонусных настроек
             $intervals = array_map(function ($intervalData) {

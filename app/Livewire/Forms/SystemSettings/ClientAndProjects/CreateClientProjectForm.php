@@ -3,9 +3,7 @@
 namespace App\Livewire\Forms\SystemSettings\ClientAndProjects;
 
 use App\Data\ProjectData;
-use App\Models\Project;
 use Livewire\Attributes\Validate;
-use Livewire\Component;
 use Livewire\Form;
 
 class CreateClientProjectForm extends Form
@@ -39,7 +37,7 @@ class CreateClientProjectForm extends Form
     #[Validate('required|string|max:255', message: 'Тип клиенто-проекта обязателен')]
     public string $projectType = '';
 
-    #[Validate('nullable|string|max:255')]
+    #[Validate('nullable|bool|max:255')]
     public ?bool $isInternal = null;
 
     #[Validate('required|array', message: 'Выберите хотя бы один регион продвижения')]

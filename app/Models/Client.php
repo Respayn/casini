@@ -24,6 +24,7 @@ class Client extends Model
     use HasFactory;
 
     protected $fillable = [
+      'id',
       'name',
       'inn',
       'initial_balance',
