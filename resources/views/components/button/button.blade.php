@@ -66,11 +66,13 @@
         @if ($icon)
             <x-dynamic-component class="{{ $iconClasses }}" :component="$icon" />
         @endif
-        <span class="relative">
+        @if($label)
+            <span class="relative">
             <span>{{ $label }}</span>
             @if ($variant === 'action')
                 <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-primary" style="border-width: 0.5px;"></span>
             @endif
         </span>
+        @endif
     </button>
 @endif

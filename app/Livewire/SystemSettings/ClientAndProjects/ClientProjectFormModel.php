@@ -8,7 +8,6 @@ use App\Data\ProjectData;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Services\ClientService;
-use App\Services\DepartmentService;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
@@ -16,29 +15,26 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
+// TODO: Сделать получение данных и сохранение через сервисный слой
 class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
 
-    private DepartmentService $departmentService;
     private ClientService $clientService;
     private PromotionRegionService $promotionRegionService;
     private PromotionTopicService $promotionTopicService;
 
-    public Collection $departments;
     public Collection $clients;
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
     public function boot(
-        DepartmentService $departmentService,
         ClientService $clientService,
         PromotionRegionService $promotionRegionService,
         PromotionTopicService $promotionTopicService,
     )
     {
-        $this->departmentService = $departmentService;
         $this->clientService = $clientService;
         $this->promotionRegionService = $promotionRegionService;
         $this->promotionTopicService = $promotionTopicService;
@@ -46,7 +42,6 @@ class ClientProjectFormModel extends Component
 
     public function mount($projectId = null)
     {
-        $this->departments = $this->departmentService->getDepartments();
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
@@ -116,7 +111,6 @@ class ClientProjectFormModel extends Component
                 domain: $this->clientProjectForm->domain ?? null,
                 client_id: $this->clientProjectForm->client,
                 specialist_id: $this->clientProjectForm->specialist ?? null,
-                department_id: $this->clientProjectForm->department,
                 project_type: $this->clientProjectForm->projectType ?? null,
                 kpi: $this->clientProjectForm->kpi,
                 isActive: $this->clientProjectForm->isActive ?? true,

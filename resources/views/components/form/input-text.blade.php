@@ -25,8 +25,8 @@
                         type="text"
                         @class([
                             'min-h-[42px] w-full rounded-[5px] border pe-3',
-                            'border-input-border' => !$errors->has($wireModel),
-                            'border-warning-red' => $errors->has($wireModel),
+                            'border-input-border' => $wireModel ? !$errors->has($wireModel) : false,
+                            'border-warning-red' => $wireModel ? $errors->has($wireModel) : false,
                             'ps-[39px]' => isset($icon),
                             'ps-3' => !isset($icon),
                             'disabled:bg-secondary' => $disabled,
@@ -52,8 +52,8 @@
                         type="text"
                         @class([
                             'min-h-[42px] w-full rounded-[5px] border pe-3',
-                            'border-input-border' => !$errors->has($wireModel),
-                            'border-warning-red' => $errors->has($wireModel),
+                            'border-input-border' => $wireModel ? !$errors->has($wireModel) : false,
+                            'border-warning-red' => $wireModel ? $errors->has($wireModel) : false,
                             'ps-[39px]' => isset($icon),
                             'ps-3' => !isset($icon),
                             'disabled:bg-secondary' => $disabled,
@@ -64,7 +64,7 @@
                     @disabled($disabled)
                     {{ $attributes->except('wire:model', 'type') }}
             @endswitch
-            @error($wireModel)
+            @error(!empty($wireModel))
             <span class="text-warning-red text-[12px]">{{ $message }}</span>
             @enderror
         </div>

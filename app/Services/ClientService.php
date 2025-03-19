@@ -16,8 +16,8 @@ class ClientService
     /**
      * @return Collection<\App\Data\ClientData>
      */
-    public function getClients(): Collection
+    public function getClients(array $with = []): Collection
     {
-        return collect($this->repository->all());
+        return collect($this->repository->all($with));
     }
 }

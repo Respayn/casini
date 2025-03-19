@@ -68,7 +68,6 @@
 
 .treeitem > .arrow {
     position: absolute;
-    top: 50%;
     top: 0;
     left: 0;
 }
@@ -114,14 +113,14 @@ form.form_normalized {
     }
 }
 
-.fill-hover-gray {
+.settings-button {
     @apply border-gray-400;
     path {
         @apply fill-gray-400;
     }
 
     &:hover {
-        @apply bg-gray-400;
+        @apply bg-primary border-primary;
         path {
             fill: white;
         }

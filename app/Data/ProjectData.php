@@ -2,9 +2,8 @@
 
 namespace App\Data;
 
-use Illuminate\Support\Str;
-use Livewire\Wireable;
-use Spatie\LaravelData\Concerns\WireableData;
+use App\Enums\ProjectType;
+use App\Models\Project;
 use Spatie\LaravelData\Data;
 
 class ProjectData extends Data
@@ -15,8 +14,7 @@ class ProjectData extends Data
         public ?string $domain,
         public int $client_id,
         public ?int $specialist_id,
-        public int $department_id,
-        public ?string $project_type,
+        public ?ProjectType $project_type,
         public ?string $kpi,
         public bool $isActive,
         public bool $isInternal,
@@ -29,5 +27,7 @@ class ProjectData extends Data
         public ?string $recommendation_url,
         public ?string $legal_entity,
         public ?string $inn,
+        public ?ClientData $client = null,
+        public ?UserData $specialist = null,
     ) {}
 }
