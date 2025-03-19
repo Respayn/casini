@@ -8,6 +8,7 @@
     --color-primary: #599cff;
     --color-secondary: #e5edf9;
     --color-primary-text: #283544;
+    --color-caption-text: #486388;
     --color-default-button: #283544;
     --color-default-button-disabled: #486388;
     --color-secondary-text: #94a8c1;
@@ -24,6 +25,8 @@
     --color-toggle-switch-handle-bg: #486388;
 
     --color-warning-red: #ff3d00;
+
+    --color-card-border: #94a8c1;
 }
 
 /* Scrollbar */
@@ -107,7 +110,7 @@ h2 {
 form.form_normalized {
     .form-field {
         @apply items-start;
-        &>*:last-child {
+        & > *:last-child {
             @apply lg:min-w-[305px];
         }
     }

@@ -114,7 +114,7 @@
         x-bind:value="formattedDate"
     />
     <div
-        class="flex flex-col items-center gap-2 rounded-md bg-white p-1 shadow z-10"
+        class="flex flex-col items-center gap-2 rounded-md bg-white p-1 shadow"
         x-anchor="$refs.input"
         x-show="showDatepicker"
         x-on:click.outside="showDatepicker = false"

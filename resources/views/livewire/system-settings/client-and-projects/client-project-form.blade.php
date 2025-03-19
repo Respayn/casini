@@ -361,6 +361,50 @@
                     </div>
                 @endif
             </div>
+
+            <div class="mt-4 flex flex-col gap-4">
+                <h1>Интеграции</h1>
+                <div class="text-caption-text">Подключите сервисы для автоматической работы с рекламными инструментами, финансами и аналитикой вашего клиенто-проекта</div>
+
+                <div class="flex gap-2.5">
+                    <x-panel.card class="flex-1">
+                        <x-slot:title>Инструменты</x-slot:title>
+                        <x-slot:content>
+                            <div class="text-caption-text">
+                                Подключите рекламные инструменты, например Яндекс Директ
+                            </div>
+                        </x-slot:content>
+                        <x-slot:footer>
+                            <x-overlay.modal-trigger name="tools-integrations-modal">
+                                <x-button.button variant="primary" label="Добавить интеграцию" icon="icons.plus" class="w-full" />
+                            </x-overlay.modal-trigger>
+                        </x-slot:footer>
+                    </x-panel.card>
+                    <x-panel.card class="flex-1">
+                        <x-slot:title>Деньги</x-slot:title>
+                        <x-slot:content>
+                            <div class="text-caption-text">
+                                Настройте интеграцию для получения информации по деньгам и актам в канале
+                            </div>
+                        </x-slot:content>
+                        <x-slot:footer>
+                            <x-button.button variant="primary" label="Добавить интеграцию" icon="icons.plus" class="w-full" />
+                        </x-slot:footer>
+                    </x-panel.card>
+                    <x-panel.card class="flex-1">
+                        <x-slot:title>Аналитика</x-slot:title>
+                        <x-slot:content>
+                            <div class="text-caption-text">
+                                Интеграции, с помощью которых будете получать количество визитов, конверсий или позиции
+                            </div>
+                        </x-slot:content>
+                        <x-slot:footer>
+                            <x-button.button variant="primary" label="Добавить интеграцию" icon="icons.plus" class="w-full" />
+                        </x-slot:footer>
+                    </x-panel.card>
+                </div>
+            </div>
+
             <div class="mt-4 flex flex-col gap-4">
                 <h1>Настройка параметров</h1>
 
@@ -532,4 +576,10 @@
             </x-button.button>
         </div>
     </x-form.form>
+
+    <x-overlay.modal name="tools-integrations-modal" title="Интеграции">
+        <x-slot:body>
+            
+        </x-slot:body>
+    </x-overlay.modal>
 </div>

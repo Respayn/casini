@@ -16,47 +16,47 @@ class IntegrationSeeder extends Seeder
         DB::table('integrations')->insert([
             [
                 'name' => '1С акты',
-                'category' => 'Деньги',
+                'category' => 'money',
                 'code' => '1c_acts'
             ],
             [
                 'name' => '1С движение рекламных средств',
-                'category' => 'Деньги',
+                'category' => 'money',
                 'code' => '1c_ad_budget_flow'
             ],
             [
                 'name' => '1С сверка',
-                'category' => 'Деньги',
+                'category' => 'money',
                 'code' => '1c_check'
             ],
             [
                 'name' => 'Yandex Search API',
-                'category' => 'Аналитика',
+                'category' => 'analytics',
                 'code' => 'yandex_search_api'
             ],
             [
                 'name' => 'Google Таблицы',
-                'category' => 'Аналитика',
+                'category' => 'analytics',
                 'code' => 'google__sheets'
             ],
             [
                 'name' => 'Мегаплан',
-                'category' => 'Аналитика',
+                'category' => 'analytics',
                 'code' => 'megaplan'
             ],
             [
                 'name' => 'Яндекс Директ',
-                'category' => 'Инструменты',
+                'category' => 'tools',
                 'code' => 'yandex_direct'
             ],
             [
                 'name' => 'Яндекс Метрика',
-                'category' => 'Аналитика',
+                'category' => 'analytics',
                 'code' => 'yandex_metrika'
             ],
             [
                 'name' => 'Callibri',
-                'category' => 'Аналитика',
+                'category' => 'analytics',
                 'code' => 'callibri'
             ]
         ]);

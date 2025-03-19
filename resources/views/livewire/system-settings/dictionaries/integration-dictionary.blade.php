@@ -46,7 +46,7 @@ new class extends Component {
                         {{ $integration->name }}
                     </x-data.table-cell>
                     <x-data.table-cell>
-                        {{ $integration->category }}
+                        {{ $integration->category->label() }}
                     </x-data.table-cell>
                     <x-data.table-cell class="text-center">
                         <x-overlay.modal-trigger name="integration-notification-edit-modal">
@@ -76,7 +76,9 @@ new class extends Component {
                     <x-form.form-label
                         class="self-baseline"
                         required
-                    >Содержание уведомления</x-form.form-label>
+                    >
+                        Содержание уведомления
+                    </x-form.form-label>
                     <div>
                         <x-form.textarea wire:model="notificationText"></x-form.input-text>
                     </div>

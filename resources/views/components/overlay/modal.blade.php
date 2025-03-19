@@ -1,6 +1,7 @@
 @props([
     'title' => '',
     'name',
+    'body' => null
 ])
 
 <div
