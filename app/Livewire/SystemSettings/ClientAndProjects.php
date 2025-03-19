@@ -45,6 +45,8 @@ class ClientAndProjects extends Component
             $client = $this->clients[$clientIndex];
             $this->clientForm->from($client);
         }
+
+        $this->dispatch('modal-show', name: 'client-modal');
     }
 
     public function saveClient()
@@ -68,12 +70,12 @@ class ClientAndProjects extends Component
 
             if (!empty($this->clientForm->id)) {
                 $this->clients[$this->activeClientIndex] = $clientData;
-                $this->dispatch('modal-hide', name: 'client-modal');
+                return $this->dispatch('modal-hide', name: 'client-modal');
             } else {
                 return redirect()->route('system-settings.clients-and-projects');
             }
         } catch (\Exception $e) {
-//            DB::rollBack();
+            DB::rollBack();
 
             throw $e;
         }

@@ -4,11 +4,9 @@
 
         <div class="flex gap-2 items-center">
             <!-- Здесь будет логика для отображения списка клиентов -->
-            <x-overlay.modal-trigger name="client-modal">
-                <span class="cursor-pointer btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2" wire:click="initClientForm">
-                    + Создать клиента
-                </span>
-            </x-overlay.modal-trigger>
+            <span class="cursor-pointer btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2" wire:click="initClientForm">
+                + Создать клиента
+            </span>
             <!-- Здесь будет логика для отображения списка клиенто-проектов -->
             <a href="{{ route('system-settings.clients-and-projects.projects.manage') }}" class="btn inline-flex items-center justify-center bg-primary text-white hover:bg-primary-dark rounded-lg px-4 py-2">
                 + Создать клиенто-проект
@@ -56,11 +54,9 @@
                             <x-data.table-row wire:key="client-{{ $clientIndex }}-project-{{ $projectIndex }}">
                                 @if($projectIndex === 0)
                                     <x-data.table-cell :rowspan="count($client->projects)">
-                                        <x-overlay.modal-trigger name="client-modal">
-                                            <button wire:click="initClientForm({{ $clientIndex }})" class="link">
-                                                {{ $client->name }}
-                                            </button>
-                                        </x-overlay.modal-trigger>
+                                        <button wire:click="initClientForm({{ $clientIndex }})" class="link">
+                                            {{ $client->name }}
+                                        </button>
                                     </x-data.table-cell>
                                     <x-data.table-cell :rowspan="count($client->projects)">
                                         {{ $client->inn }}
@@ -82,11 +78,9 @@
                     @else
                         <x-data.table-row wire:key="client-{{ $clientIndex }}">
                             <x-data.table-cell>
-                                <x-overlay.modal-trigger name="client-modal">
-                                    <button wire:click="initClientForm({{ $clientIndex }})" class="link">
-                                        {{ $client->name }}
-                                    </button>
-                                </x-overlay.modal-trigger>
+                                <button wire:click="initClientForm({{ $clientIndex }})" class="link">
+                                    {{ $client->name }}
+                                </button>
                             </x-data.table-cell>
                             <x-data.table-cell>
                                 {{ $client->inn }}
