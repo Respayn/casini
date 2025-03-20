@@ -164,10 +164,9 @@ class ClientProjectFormModel extends Component
 
     public function save()
     {
-//        dd($this->utmMappingForm);
+        // Валидация обязательных форм
         $this->clientProjectForm->validate();
         $this->bonusGuaranteeForm->validate();
-        $this->utmMappingForm->validate();
 
         DB::beginTransaction();
 
@@ -207,7 +206,6 @@ class ClientProjectFormModel extends Component
                 );
             }, $this->bonusGuaranteeForm->intervals);
 
-            // Подготовка данных для бонусных настроек
             $bonusData = new BonusData(
                 bonuses_enabled: $this->bonusGuaranteeForm->bonusesEnabled,
                 calculate_in_percentage: $this->bonusGuaranteeForm->calculateInPercentage,
@@ -221,18 +219,24 @@ class ClientProjectFormModel extends Component
 
             $utmMappingsData = [];
 
-            foreach ($this->utmMappingForm->utmMappings as $utmMapping) {
-                // Подготовка данных для бонусных настроек
-                $utmMappingsData[] = new ProjectUtmMappingData(
-                    id: $utmMapping['id'],
-                    project_id: $project->id,
-                    utm_type: $utmMapping['utmType'],
-                    utm_value: $utmMapping['utmValue'],
-                    replacement_value: $utmMapping['replacementValue'],
-                );
+            // Проверяем тип проекта и обрабатываем UTM-мэппинги, если необходимо
+            if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
+                // Валидация формы UTM-мэппингов
+                $this->utmMappingForm->validate();
+
+                // Подготовка данных для UTM-мэппингов с указанием project_id
+                $utmMappingsData = array_map(function ($utmMapping) use ($project) {
+                    return new ProjectUtmMappingData(
+                        id: $utmMapping['id'],
+                        project_id: $project->id,
+                        utm_type: $utmMapping['utmType'],
+                        utm_value: $utmMapping['utmValue'],
+                        replacement_value: $utmMapping['replacementValue'],
+                    );
+                }, $this->utmMappingForm->utmMappings ?? []);
             }
 
-            // Сохраняем UTM-метки через сервис
+            // Сохраняем UTM-мэппинги через сервис
             $this->projectService->saveProjectUtmMapping($utmMappingsData, $project->id);
 
             DB::commit();
