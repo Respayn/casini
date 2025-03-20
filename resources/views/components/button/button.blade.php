@@ -14,7 +14,7 @@
 @php
     // Если параметр square не передан, делаем кнопку квадратной, если label пустой
     $square ??= empty($label);
-    $size = $variant === 'action' ? 'xs-action' : $size;
+    $size = $variant === 'action' || $variant === 'implicit-action' ? 'xs-action' : $size;
 
     // Базовые классы, применяемые ко всем кнопкам
     $buttonClasses = [
@@ -33,6 +33,7 @@
         'ghost'   => 'text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary',
         'link'    => 'text-primary-text hover:text-primary items-center group hover:underline font-semibold',
         'action'  => 'text-primary items-center group relative font-semibold relative',
+        'implicit-action'  => 'text-secondary-text items-center group relative font-semibold relative',
         'outlined' => 'border border-input-border hover:border-primary active:bg-primary active:border-primary group text-secondary-text hover:text-primary active:text-white',
         default   => 'border-default-button text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary border disabled:border-0',
     };
@@ -76,6 +77,9 @@
             <span>{{ $label }}</span>
             @if ($variant === 'action')
                 <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-primary" style="border-width: 0.5px;"></span>
+            @endif
+            @if ($variant === 'implicit-action')
+                <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-secondary-text" style="border-width: 0.5px;"></span>
             @endif
         </span>
         @endif

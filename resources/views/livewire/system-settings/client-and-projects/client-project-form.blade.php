@@ -576,6 +576,33 @@
                     </x-form.form-field>
                 @endif
             </div>
+            <div class="mt-4 flex flex-col gap-4">
+                <h1>Пересбор статистики клиенто-проекта</h1>
+                <x-form.form-field>
+                    <x-form.form-label class="font-bold" tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций">Выберите период</x-form.form-label>
+                    <div class="flex flex-col gap-2">
+                        <div class="flex flex-row gap-2 items-center">
+                            <x-form.date-picker/>
+                            {{--                        @error('form.startDate')--}}
+                            {{--                        <span class="text-red-500">{{ $message }}</span>--}}
+                            {{--                        @enderror--}}
+                            <span>-</span>
+                            <x-form.date-picker/>
+                            {{--                        @error('form.endDate')--}}
+                            {{--                        <span class="text-red-500">{{ $message }}</span>--}}
+                            {{--                        @enderror--}}
+                        </div>
+                        <x-button.button
+                            class="w-full"
+                            variant="implicit-action"
+                            label="Пересобрать статистика"
+                        />
+                        <div class="mt-5 ml-auto bg-red-100 rounded-full py-1 px-3">
+                            Не начато
+                        </div>
+                    </div>
+                </x-form.form-field>
+            </div>
         </div>
         <div class="mt-4 flex justify-between">
             <x-button.button
