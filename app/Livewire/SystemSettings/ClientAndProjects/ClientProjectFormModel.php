@@ -5,10 +5,12 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 use App\Data\BonusData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
+use App\Data\ProjectUtmMappingData;
 use App\Enums\IntegrationCategory;
 use App\Enums\ProjectType;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
+use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
@@ -20,12 +22,12 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-// TODO: Сделать получение данных и сохранение через сервисный слой
 #[Layout('components.layouts.system-settings')]
 class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
+    public ProjectUtmMappingForm $utmMappingForm;
 
     private ClientService $clientService;
     private ProjectService $projectService;
@@ -65,6 +67,7 @@ class ClientProjectFormModel extends Component
             $project = $this->projectService->getProjectDataById($projectId);
             $this->clientProjectForm->from($project);
             $this->bonusGuaranteeForm->from($project->bonusCondition);
+            $this->utmMappingForm->from($project->utmMappings->toArray());
         } else {
             $this->clientProjectForm->isActive = true;
         }
@@ -75,6 +78,10 @@ class ClientProjectFormModel extends Component
 
         if (empty($this->clientProjectForm->promotionTopics)) {
             $this->clientProjectForm->promotionTopics[] = null;
+        }
+
+        if (empty($this->utmMappingForm->utmMappings)) {
+            $this->addMapping();
         }
     }
 
@@ -143,20 +150,28 @@ class ClientProjectFormModel extends Component
     public function removeInterval($index)
     {
         unset($this->bonusGuaranteeForm->intervals[$index]);
+    }
 
+    public function addMapping()
+    {
+        $this->utmMappingForm->addMapping(); // Внутренний метод формы
+    }
+
+    public function removeMapping(int $index)
+    {
+        $this->utmMappingForm->removeMapping($index); // Внутренний метод формы
     }
 
     public function save()
     {
+//        dd($this->utmMappingForm);
         $this->clientProjectForm->validate();
         $this->bonusGuaranteeForm->validate();
+        $this->utmMappingForm->validate();
 
         DB::beginTransaction();
 
         try {
-            // Инициализируем сервис
-            $projectService = new ProjectService();
-
             // Подготовка данных для проекта
             $projectData = new ProjectData(
                 id: $this->clientProjectForm->id ?? null,
@@ -180,7 +195,7 @@ class ClientProjectFormModel extends Component
             );
 
             // Сохраняем проект через сервис
-            $project = $projectService->updateOrCreateProject($projectData);
+            $project = $this->projectService->updateOrCreateProject($projectData);
 
             // Подготовка данных для бонусных настроек
             $intervals = array_map(function ($intervalData) {
@@ -202,7 +217,23 @@ class ClientProjectFormModel extends Component
             );
 
             // Сохраняем бонусные настройки через сервис
-            $projectService->saveBonusSettings($project, $bonusData);
+            $this->projectService->saveBonusSettings($project, $bonusData);
+
+            $utmMappingsData = [];
+
+            foreach ($this->utmMappingForm->utmMappings as $utmMapping) {
+                // Подготовка данных для бонусных настроек
+                $utmMappingsData[] = new ProjectUtmMappingData(
+                    id: $utmMapping['id'],
+                    project_id: $project->id,
+                    utm_type: $utmMapping['utmType'],
+                    utm_value: $utmMapping['utmValue'],
+                    replacement_value: $utmMapping['replacementValue'],
+                );
+            }
+
+            // Сохраняем UTM-метки через сервис
+            $this->projectService->saveProjectUtmMapping($utmMappingsData, $project->id);
 
             DB::commit();
 

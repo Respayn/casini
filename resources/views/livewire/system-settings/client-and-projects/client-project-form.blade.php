@@ -592,36 +592,39 @@
                         <div></div>
                         <div class="text-secondary-text max-w-xs">Введите значение, которое отобразится в отчете</div>
 
-                        {{--                    @foreach--}}
-                        <div class="flex items-center gap-2 col-start-3">
-                            <x-form.input-text
+                        <?php /** @var \App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm $utmMappingForm */ ?>
+                        @foreach($utmMappingForm->utmMappings as $index => $utmMappingItem)
+                            <div class="flex items-center gap-2 col-start-3">
+                                <x-form.input-text
                                     placeholder="Выберите UTM-метку"
-                                    value="UTM_Campaign"
+                                    wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.utmType"
                                     disabled
-                            />
-                        </div>
-                        <div class="text-secondary-text text-center">-</div>
-                        <div class="flex items-center gap-2">
-                            <x-form.input-text
+                                />
+                            </div>
+                            <div class="text-secondary-text text-center">-</div>
+                            <div class="flex items-center gap-2">
+                                <x-form.input-text
                                     placeholder="Введите значение"
-                            />
-                        </div>
-                        <div class="text-secondary-text text-center">=</div>
-                        <x-form.input-text
+                                    wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.utmValue"
+                                />
+                            </div>
+                            <div class="text-secondary-text text-center">=</div>
+                            <x-form.input-text
                                 placeholder="Значение в отчете"
-                        />
-                        <x-button.button
+                                wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.replacementValue"
+                            />
+                            <x-button.button
                                 type="button"
-                                wire:click.prevent="removeInterval({{ $index }})"
+                                wire:click.prevent="removeMapping({{ $index }})"
                                 variant="action"
-                        >
-                            <x-slot:label>Удалить</x-slot:label>
-                        </x-button.button>
-                        {{--                    @endforeach--}}
-                        <div class="flex items-center justify-center">
+                            >
+                                <x-slot:label>Удалить</x-slot:label>
+                            </x-button.button>
+                        @endforeach
+                        <div class="flex col-start-1 items-center justify-center">
                             <x-button.button
                                     type="button"
-                                    {{--                                wire:click.prevent="addInterval"--}}
+                                    wire:click.prevent="addMapping"
                                     variant="action"
                             >
                                 <x-slot:label>Добавить условие</x-slot:label>

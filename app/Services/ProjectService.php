@@ -7,11 +7,17 @@ use App\Data\ProjectData;
 use App\Models\Project;
 use App\Models\ProjectBonusCondition;
 use App\Models\ProjectFieldHistory;
+use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class ProjectService
 {
+    public function __construct(
+        public ProjectUtmMappingRepositoryInterface $utmMappingRepository,
+    ) {
+    }
+
     /**
      * Получает данные проекта по его ID.
      *
@@ -24,11 +30,9 @@ class ProjectService
             'assistants',
             'promotionRegions',
             'promotionTopics',
+            'utmMappings',
             'bonusCondition.intervals',
         ])->findOrFail($projectId);
-
-//        dd($project->bonusCondition->intervals);
-//        dd(ProjectData::from($project));
 
         return ProjectData::from($project);
     }
@@ -37,8 +41,7 @@ class ProjectService
      * Создает или обновляет проект.
      *
      * @param ProjectData $data
-     * @param int|null $projectId
-     * @return Project
+     * @return ProjectData
      */
     public function updateOrCreateProject(ProjectData $data): ProjectData
     {
@@ -55,7 +58,6 @@ class ProjectService
                 }
             } else {
                 $project = Project::create($data->toArray());
-                // Можно добавить запись истории создания, если это необходимо
             }
 
             return ProjectData::from($project);
@@ -72,43 +74,6 @@ class ProjectService
             'old_value' => $oldStatus,
             'new_value' => $newStatus,
         ]);
-    }
-
-    /**
-     * Синхронизирует помощников проекта.
-     *
-     * @param Project $project
-     * @param array $assistantIds
-     * @return void
-     */
-    public function syncAssistants(Project $project, array $assistantIds): void
-    {
-        // TODO: синхронизация помощников
-//        $project->assistants()->sync($assistantIds);
-    }
-
-    /**
-     * Синхронизирует регионы продвижения проекта.
-     *
-     * @param Project $project
-     * @param array $regionIds
-     * @return void
-     */
-    public function syncPromotionRegions(Project $project, array $regionIds): void
-    {
-        $project->promotionRegions()->sync($regionIds);
-    }
-
-    /**
-     * Синхронизирует тематики продвижения проекта.
-     *
-     * @param Project $project
-     * @param array $topicIds
-     * @return void
-     */
-    public function syncPromotionTopics(Project $project, array $topicIds): void
-    {
-        $project->promotionTopics()->sync($topicIds);
     }
 
     /**
@@ -142,5 +107,17 @@ class ProjectService
                 'bonus_percentage' => $bonusData->calculate_in_percentage ? $interval->bonus_percentage : null,
             ]);
         }
+    }
+
+    /**
+     * Сохраняет ProjectUtmMapping.
+     *
+     * @param array $data
+     * @param $projectId
+     * @return array
+     */
+    public function saveProjectUtmMapping(array $data, $projectId): void
+    {
+        $this->utmMappingRepository->saveProjectUtmMappings($data, $projectId);
     }
 }
