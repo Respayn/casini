@@ -364,7 +364,8 @@
 
             <div class="mt-4 flex flex-col gap-4">
                 <h1>Интеграции</h1>
-                <div class="text-caption-text">Подключите сервисы для автоматической работы с рекламными инструментами, финансами и аналитикой вашего клиенто-проекта</div>
+                <div class="text-caption-text">Подключите сервисы для автоматической работы с рекламными инструментами,
+                    финансами и аналитикой вашего клиенто-проекта</div>
 
                 <div class="flex gap-2.5">
                     <x-panel.card class="flex-1">
@@ -376,7 +377,12 @@
                         </x-slot:content>
                         <x-slot:footer>
                             <x-overlay.modal-trigger name="tools-integrations-modal">
-                                <x-button.button variant="primary" label="Добавить интеграцию" icon="icons.plus" class="w-full" />
+                                <x-button.button
+                                    class="w-full"
+                                    variant="primary"
+                                    label="Добавить интеграцию"
+                                    icon="icons.plus"
+                                />
                             </x-overlay.modal-trigger>
                         </x-slot:footer>
                     </x-panel.card>
@@ -388,7 +394,14 @@
                             </div>
                         </x-slot:content>
                         <x-slot:footer>
-                            <x-button.button variant="primary" label="Добавить интеграцию" icon="icons.plus" class="w-full" />
+                            <x-overlay.modal-trigger name="money-integrations-modal">
+                                <x-button.button
+                                    class="w-full"
+                                    variant="primary"
+                                    label="Добавить интеграцию"
+                                    icon="icons.plus"
+                                />
+                            </x-overlay.modal-trigger>
                         </x-slot:footer>
                     </x-panel.card>
                     <x-panel.card class="flex-1">
@@ -399,7 +412,14 @@
                             </div>
                         </x-slot:content>
                         <x-slot:footer>
-                            <x-button.button variant="primary" label="Добавить интеграцию" icon="icons.plus" class="w-full" />
+                            <x-overlay.modal-trigger name="analytics-integrations-modal">
+                                <x-button.button
+                                    class="w-full"
+                                    variant="primary"
+                                    label="Добавить интеграцию"
+                                    icon="icons.plus"
+                                />
+                            </x-overlay.modal-trigger>
                         </x-slot:footer>
                     </x-panel.card>
                 </div>
@@ -577,9 +597,24 @@
         </div>
     </x-form.form>
 
-    <x-overlay.modal name="tools-integrations-modal" title="Интеграции">
-        <x-slot:body>
-            
-        </x-slot:body>
-    </x-overlay.modal>
+    <x-project-form.integration-list-modal
+        name="tools-integrations-modal"
+        title="Инструменты"
+        :integrations="$this->toolsIntegrations"
+    />
+
+    <x-project-form.integration-list-modal
+        name="money-integrations-modal"
+        title="Деньги"
+        :integrations="$this->moneyIntegrations"
+    />
+
+    <x-project-form.integration-list-modal
+        name="analytics-integrations-modal"
+        title="Аналитика"
+        :integrations="$this->analyticsIntegrations"
+    />
+
+    <x-project-form.integration-settings-modal :integrationCode="$selectedIntegrationCode" />
+    {{-- <livewire:system-settings.client-and-projects.integration-settings-modal /> --}}
 </div>

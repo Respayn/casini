@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\IntegrationRepository;
+use Illuminate\Support\Collection;
 
 class IntegrationService
 {
@@ -13,7 +14,7 @@ class IntegrationService
         $this->repository = $repository;
     }
 
-    public function getIntegrations()
+    public function getIntegrations(): Collection
     {
         return collect($this->repository->all());
     }

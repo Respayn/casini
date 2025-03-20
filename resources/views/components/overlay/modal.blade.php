@@ -1,7 +1,8 @@
 @props([
     'title' => '',
     'name',
-    'body' => null
+    'body' => null,
+    'sidebar' => null,
 ])
 
 <div
@@ -15,19 +16,30 @@
     x-transition
 >
     <div
-        class="fixed inset-0 bg-modal-backdrop opacity-5"
+        class="bg-modal-backdrop fixed inset-0 opacity-5"
         x-on:click="show = false"
     ></div>
-    <div class="relative inset-0 max-w-3xl p-6 m-auto bg-white rounded-2xl min-w-1/4">
-        <div class="flex items-baseline justify-between mb-7">
-            <span class="text-2xl font-semibold text-primary-text">
-                {{ $title }}
-            </span>
-            <span
-                class="cursor-pointer text-secondary-text"
-                x-on:click="show = false"
-            >Закрыть</span>
+    <div class="min-w-1/4 relative inset-0 m-auto flex max-w-3xl">
+        <div @class([
+            'rounded-2xl' => empty($sidebar),
+            'rounded-l-2xl' => !empty($sidebar),
+            'bg-white p-6 flex-1',
+        ])>
+            <div class="mb-7 flex items-baseline justify-between">
+                <span class="text-primary-text text-2xl font-semibold">
+                    {{ $title }}
+                </span>
+                <span
+                    class="text-secondary-text cursor-pointer"
+                    x-on:click="show = false"
+                >
+                    Закрыть
+                </span>
+            </div>
+            <div>{{ $body }}</div>
         </div>
-        <div>{{ $body }}</div>
+        @if (!empty($sidebar))
+            <div class="bg-modal-sidebar-background rounded-r-2xl p-6">{{ $sidebar }}</div>
+        @endif
     </div>
 </div>

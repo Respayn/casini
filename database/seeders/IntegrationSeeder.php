@@ -37,7 +37,7 @@ class IntegrationSeeder extends Seeder
             [
                 'name' => 'Google Таблицы',
                 'category' => 'analytics',
-                'code' => 'google__sheets'
+                'code' => 'google_sheets'
             ],
             [
                 'name' => 'Мегаплан',

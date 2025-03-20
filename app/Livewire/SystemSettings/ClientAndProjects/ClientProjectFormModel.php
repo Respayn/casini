@@ -5,14 +5,17 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 use App\Data\BonusData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
+use App\Enums\IntegrationCategory;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Services\ClientService;
+use App\Services\IntegrationService;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -26,20 +29,25 @@ class ClientProjectFormModel extends Component
     private ClientService $clientService;
     private PromotionRegionService $promotionRegionService;
     private PromotionTopicService $promotionTopicService;
+    private IntegrationService $integrationService;
 
     public Collection $clients;
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
+    public string $selectedIntegrationCode;
+
     public function boot(
         ClientService $clientService,
         PromotionRegionService $promotionRegionService,
         PromotionTopicService $promotionTopicService,
+        IntegrationService $integrationService,
     )
     {
         $this->clientService = $clientService;
         $this->promotionRegionService = $promotionRegionService;
         $this->promotionTopicService = $promotionTopicService;
+        $this->integrationService = $integrationService;
     }
 
     public function mount($projectId = null)
@@ -57,9 +65,39 @@ class ClientProjectFormModel extends Component
         }
     }
 
+    #[Computed(cache: true)]
+    public function integrations(): Collection
+    {
+        return $this->integrationService->getIntegrations();
+    }
+
+    #[Computed]
+    public function moneyIntegrations(): Collection
+    {
+        return $this->integrations()->filter(fn($integration) => $integration->category === IntegrationCategory::MONEY);
+    }
+
+    #[Computed]
+    public function analyticsIntegrations(): Collection
+    {
+        return $this->integrations()->filter(fn($integration) => $integration->category === IntegrationCategory::ANALYTICS);
+    }
+
+    #[Computed]
+    public function toolsIntegrations(): Collection
+    {
+        return $this->integrations()->filter(fn($integration) => $integration->category === IntegrationCategory::TOOLS);
+    }
+
     public function render()
     {
         return view('livewire.system-settings.client-and-projects.client-project-form');
+    }
+
+    public function selectIntegrationCode(string $code)
+    {
+        $this->selectedIntegrationCode = $code;
+        $this->dispatch('modal-show', name: 'integration-settings-modal');
     }
 
     public function addRegion()
