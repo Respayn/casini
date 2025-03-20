@@ -4,10 +4,8 @@ namespace App\Services;
 
 use App\Data\ClientData;
 use App\Models\Client;
-use App\Models\Project;
 use App\Repositories\ClientRepository;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ClientService
 {

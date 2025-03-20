@@ -5,7 +5,6 @@ namespace App\Livewire\Forms\SystemSettings\ClientAndProjects;
 use App\Data\BonusConditionData;
 use App\Models\ProjectBonusCondition;
 use Livewire\Attributes\Rule;
-use Livewire\Attributes\Validate;
 use Livewire\Form;
 
 class ProjectBonusGuaranteeForm extends Form
@@ -65,17 +64,5 @@ class ProjectBonusGuaranteeForm extends Form
         $this->clientPayment = $bonusCondition->client_payment;
         $this->startMonth = $bonusCondition->start_month;
         $this->intervals = $bonusCondition->intervals->toArray();
-    }
-
-    public function prefixedRules($prefix)
-    {
-        $rules = $this->rules();
-
-        $prefixedRules = [];
-        foreach ($rules as $key => $rule) {
-            $prefixedRules[$prefix . $key] = $rule;
-        }
-
-        return $prefixedRules;
     }
 }
