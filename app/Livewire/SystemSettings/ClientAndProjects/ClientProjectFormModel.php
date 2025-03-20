@@ -219,7 +219,6 @@ class ClientProjectFormModel extends Component
 
             $utmMappingsData = [];
 
-            // Проверяем тип проекта и обрабатываем UTM-мэппинги, если необходимо
             if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
                 // Валидация формы UTM-мэппингов
                 $this->utmMappingForm->validate();
