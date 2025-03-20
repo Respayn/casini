@@ -2,22 +2,24 @@
 
 namespace App\Livewire\Forms\SystemSettings\ClientAndProjects;
 
+use App\Data\BonusConditionData;
 use App\Models\ProjectBonusCondition;
+use Livewire\Attributes\Rule;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
 class ProjectBonusGuaranteeForm extends Form
 {
-    #[Validate('boolean')]
+    #[Rule('boolean')]
     public bool $bonusesEnabled = false;
 
-    #[Validate('boolean')]
+    #[Rule('boolean')]
     public bool $calculateInPercentage = false;
 
-    #[Validate('nullable|numeric|min:0')]
+    #[Rule('nullable|numeric|min:0')]
     public ?float $clientPayment = null;
 
-    #[Validate('required_if:bonusesEnabled,true|integer|in:1,2,3')]
+    #[Rule('required_if:bonusesEnabled,true|integer|in:1,2,3')]
     public int $startMonth = 1;
 
     public array $intervals = [
@@ -53,23 +55,16 @@ class ProjectBonusGuaranteeForm extends Form
     /**
      * Метод для заполнения данных формы из модели бонусных условий.
      *
-     * @param ProjectBonusCondition $bonusCondition
+     * @param BonusConditionData|ProjectBonusCondition $bonusCondition
      * @return void
      */
-    public function fillFromModel(ProjectBonusCondition $bonusCondition)
+    public function from(BonusConditionData|ProjectBonusCondition $bonusCondition)
     {
         $this->bonusesEnabled = $bonusCondition->bonuses_enabled;
         $this->calculateInPercentage = $bonusCondition->calculate_in_percentage;
         $this->clientPayment = $bonusCondition->client_payment;
         $this->startMonth = $bonusCondition->start_month;
-        $this->intervals = $bonusCondition->intervals()->get()->toArray() ?: [
-            [
-                'fromPercentage' => '',
-                'toPercentage' => '',
-                'bonusAmount' => '',
-                'bonusPercentage' => '',
-            ],
-        ];
+        $this->intervals = $bonusCondition->intervals->toArray();
     }
 
     public function prefixedRules($prefix)

@@ -2,7 +2,7 @@
 
 <div x-data="{ open: false }" class="relative inline-block cursor-pointer">
     <span @mouseenter="open = true" @mouseleave="open = false" class="tooltip-icon">
-        <x-icons.tooltip class="{{ $class }}" />
+        <x-icons.tooltip class="text-white {{ $class }}" />
     </span>
     <div x-show="open"
          x-transition:enter="transition ease-out duration-200"

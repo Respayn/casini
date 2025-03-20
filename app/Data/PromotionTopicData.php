@@ -10,7 +10,10 @@ class PromotionTopicData extends Data implements Wireable
 {
     use WireableData;
 
-    public int $id;
-    public string $category;
-    public string $topic;
+    public function __construct(
+        public int $id,
+        public string $category,
+        public string $topic,
+    ) {
+    }
 }

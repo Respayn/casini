@@ -117,3 +117,8 @@ form.form_normalized {
         }
     }
 }
+
+.link {
+    @apply cursor-pointer;
+    @apply text-blue-500 font-semibold hover:text-blue-700 active:text-red-500 transition ease-in-out duration-300 underline;
+}

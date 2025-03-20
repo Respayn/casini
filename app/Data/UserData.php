@@ -12,10 +12,9 @@ class UserData extends Data implements Wireable
     use WireableData;
 
     public function __construct(
-        public int $id,
+        public ?int $id,
         public string $name,
         public string $email,
-    )
-    {
+    ) {
     }
 }

@@ -4,10 +4,13 @@ namespace App\Data;
 
 use App\Enums\ProjectType;
 use App\Models\Project;
+use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
+use Spatie\LaravelData\DataCollection;
 
 class ProjectData extends Data
 {
+    // TODO: Связь assistants
     public function __construct(
         public ?int $id,
         public string $name,
@@ -16,8 +19,8 @@ class ProjectData extends Data
         public ?int $specialist_id,
         public ?ProjectType $project_type,
         public ?string $kpi,
-        public bool $isActive,
-        public bool $isInternal,
+        public bool $is_active,
+        public bool $is_internal,
         public ?string $traffic_attribution,
         public ?string $metrika_counter,
         public ?string $metrika_targets,
@@ -29,5 +32,11 @@ class ProjectData extends Data
         public ?string $inn,
         public ?ClientData $client = null,
         public ?UserData $specialist = null,
-    ) {}
+        public ?BonusConditionData $bonusCondition = null,
+        #[DataCollectionOf(PromotionRegionData::class)]
+        public ?DataCollection $promotionRegions = null,
+        #[DataCollectionOf(PromotionTopicData::class)]
+        public ?DataCollection $promotionTopics = null,
+    ) {
+    }
 }

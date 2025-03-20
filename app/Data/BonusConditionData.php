@@ -2,24 +2,20 @@
 
 namespace App\Data;
 
+use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
+use Spatie\LaravelData\DataCollection;
 
 class BonusConditionData extends Data
 {
-    public bool $bonusesEnabled = false;
-    public bool $calculateInPercentage = false;
-    public ?float $clientPayment = null;
-    public int $startMonth = 1; // Значение по умолчанию
 
-    /** @var BonusIntervalData[] $intervals */
-    public array $intervals = [];
-
-    public function __construct(array $data)
-    {
-        $this->bonusesEnabled = $data['bonusesEnabled'] ?? false;
-        $this->calculateInPercentage = $data['calculateInPercentage'] ?? false;
-        $this->clientPayment = $data['clientPayment'] ?? null;
-        $this->startMonth = $data['startMonth'] ?? 1;
-        $this->intervals = array_map(fn($interval) => new BonusIntervalData($interval), $data['intervals'] ?? []);
+    public function __construct(
+        public bool $bonuses_enabled = false,
+        public bool $calculate_in_percentage = false,
+        public ?float $client_payment = null,
+        public int $start_month = 1,
+        #[DataCollectionOf(BonusIntervalData::class)]
+        public ?DataCollection $intervals = null,
+    ) {
     }
 }

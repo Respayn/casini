@@ -6,6 +6,7 @@ use App\Data\BonusData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Enums\IntegrationCategory;
+use App\Enums\ProjectType;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Services\ClientService;
@@ -27,6 +28,7 @@ class ClientProjectFormModel extends Component
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
 
     private ClientService $clientService;
+    private ProjectService $projectService;
     private PromotionRegionService $promotionRegionService;
     private PromotionTopicService $promotionTopicService;
     private IntegrationService $integrationService;
@@ -39,12 +41,14 @@ class ClientProjectFormModel extends Component
 
     public function boot(
         ClientService $clientService,
+        ProjectService $projectService,
         PromotionRegionService $promotionRegionService,
         PromotionTopicService $promotionTopicService,
         IntegrationService $integrationService,
     )
     {
         $this->clientService = $clientService;
+        $this->projectService = $projectService;
         $this->promotionRegionService = $promotionRegionService;
         $this->promotionTopicService = $promotionTopicService;
         $this->integrationService = $integrationService;
@@ -57,10 +61,19 @@ class ClientProjectFormModel extends Component
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
 
         if ($projectId) {
-            // TODO: Определить получение данных
+            // Получение данных
+            $project = $this->projectService->getProjectDataById($projectId);
+            $this->clientProjectForm->from($project);
+            $this->bonusGuaranteeForm->from($project->bonusCondition);
         } else {
             $this->clientProjectForm->isActive = true;
+        }
+
+        if (empty($this->clientProjectForm->promotionRegions)) {
             $this->clientProjectForm->promotionRegions[] = null;
+        }
+
+        if (empty($this->clientProjectForm->promotionTopics)) {
             $this->clientProjectForm->promotionTopics[] = null;
         }
     }
@@ -151,10 +164,10 @@ class ClientProjectFormModel extends Component
                 domain: $this->clientProjectForm->domain ?? null,
                 client_id: $this->clientProjectForm->client,
                 specialist_id: $this->clientProjectForm->specialist ?? null,
-                project_type: $this->clientProjectForm->projectType ?? null,
+                project_type: $this->clientProjectForm->projectType ? ProjectType::from($this->clientProjectForm->projectType) : null,
                 kpi: $this->clientProjectForm->kpi,
-                isActive: $this->clientProjectForm->isActive ?? true,
-                isInternal: $this->clientProjectForm->isInternal ?? false,
+                is_active: $this->clientProjectForm->isActive ?? true,
+                is_internal: $this->clientProjectForm->isInternal ?? false,
                 traffic_attribution: $this->clientProjectForm->trafficAttribution ?? null,
                 metrika_counter: $this->clientProjectForm->metrikaCounter ?? null,
                 metrika_targets: $this->clientProjectForm->metrikaTargets ?? null,
@@ -167,31 +180,7 @@ class ClientProjectFormModel extends Component
             );
 
             // Сохраняем проект через сервис
-            $project = $projectService->createOrUpdateProject($projectData);
-
-            // Синхронизация помощников
-            if (!empty($this->clientProjectForm->assistants)) {
-                $assistantIds = collect($this->clientProjectForm->assistants)->filter()->all();
-                $projectService->syncAssistants($project, $assistantIds);
-            } else {
-                $projectService->syncAssistants($project, []);
-            }
-
-            // Синхронизация регионов продвижения
-            if (!empty($this->clientProjectForm->promotionRegions)) {
-                $promotionRegionIds = collect($this->clientProjectForm->promotionRegions)->filter()->all();
-                $projectService->syncPromotionRegions($project, $promotionRegionIds);
-            } else {
-                $projectService->syncPromotionRegions($project, []);
-            }
-
-            // Синхронизация тематик продвижения
-            if (!empty($this->clientProjectForm->promotionTopics)) {
-                $promotionTopicIds = collect($this->clientProjectForm->promotionTopics)->filter()->all();
-                $projectService->syncPromotionTopics($project, $promotionTopicIds);
-            } else {
-                $projectService->syncPromotionTopics($project, []);
-            }
+            $project = $projectService->updateOrCreateProject($projectData);
 
             // Подготовка данных для бонусных настроек
             $intervals = array_map(function ($intervalData) {
