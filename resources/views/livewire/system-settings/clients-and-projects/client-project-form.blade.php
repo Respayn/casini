@@ -616,5 +616,5 @@
     />
 
     <x-project-form.integration-settings-modal :integrationCode="$selectedIntegrationCode" />
-    {{-- <livewire:system-settings.client-and-projects.integration-settings-modal /> --}}
+    {{-- <livewire:system-settings.clients-and-projects.integration-settings-modal /> --}}
 </div>

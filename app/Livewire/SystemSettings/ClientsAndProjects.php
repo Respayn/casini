@@ -12,7 +12,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Component;
 
 #[Layout('components.layouts.system-settings')]
-class ClientAndProjects extends Component
+class ClientsAndProjects extends Component
 {
     public ClientForm $clientForm;
     private ClientService $clientService;
