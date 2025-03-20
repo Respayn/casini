@@ -576,6 +576,60 @@
                     </x-form.form-field>
                 @endif
             </div>
+
+            @if($clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
+                <div class="mt-4 flex flex-col gap-4">
+                    <h1>Генерация клиентских отчетов</h1>
+
+                    {{-- Таблица с логикой расчета --}}
+                    <div
+                            class="grid w-full grid-cols-8 grid-cols-[auto_30px_auto_30px_auto_30px_auto_100px] items-center gap-x-1 gap-y-2 text-[14px]">
+                        <div class="text-secondary-text max-w-xs">Задайте условия подмены UTM-меток в отчетах</div>
+                        <div></div>
+                        <div class="text-secondary-text max-w-xs">Выберите UTM-метку</div>
+                        <div></div>
+                        <div class="text-secondary-text max-w-xs">Введите значение подменяемой UTM-метки</div>
+                        <div></div>
+                        <div class="text-secondary-text max-w-xs">Введите значение, которое отобразится в отчете</div>
+
+                        {{--                    @foreach--}}
+                        <div class="flex items-center gap-2 col-start-3">
+                            <x-form.input-text
+                                    placeholder="Выберите UTM-метку"
+                                    value="UTM_Campaign"
+                                    disabled
+                            />
+                        </div>
+                        <div class="text-secondary-text text-center">-</div>
+                        <div class="flex items-center gap-2">
+                            <x-form.input-text
+                                    placeholder="Введите значение"
+                            />
+                        </div>
+                        <div class="text-secondary-text text-center">=</div>
+                        <x-form.input-text
+                                placeholder="Значение в отчете"
+                        />
+                        <x-button.button
+                                type="button"
+                                wire:click.prevent="removeInterval({{ $index }})"
+                                variant="action"
+                        >
+                            <x-slot:label>Удалить</x-slot:label>
+                        </x-button.button>
+                        {{--                    @endforeach--}}
+                        <div class="flex items-center justify-center">
+                            <x-button.button
+                                    type="button"
+                                    {{--                                wire:click.prevent="addInterval"--}}
+                                    variant="action"
+                            >
+                                <x-slot:label>Добавить условие</x-slot:label>
+                            </x-button.button>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
         <div class="mt-4 flex justify-between">
             <x-button.button
