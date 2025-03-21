@@ -43,10 +43,12 @@
                                 this.value = '';
                             }
                         "
-                    @required($required)
-                    @disabled($disabled)
-                    {{ $attributes->except('wire:model', 'type') }}
-                    @break
+                        @required($required)
+                        @disabled($disabled)
+                        {{ $attributes->except('wire:model', 'type') }}
+                    />
+                @break
+
                 @default
                     <input
                         type="text"
@@ -58,14 +60,14 @@
                             'ps-3' => !isset($icon),
                             'disabled:bg-secondary' => $disabled,
                         ])
-                        wire:model="{{ $wireModel }}"
                         placeholder="{{ $placeholder }}"
-                    @required($required)
-                    @disabled($disabled)
-                    {{ $attributes->except('wire:model', 'type') }}
+                        @required($required)
+                        @disabled($disabled)
+                        {{ $attributes->except('type') }}
+                    />
             @endswitch
-            @error(!empty($wireModel))
-            <span class="text-warning-red text-[12px]">{{ $message }}</span>
+            @error($wireModel)
+                <span class="text-warning-red text-[12px]">{{ $message }}</span>
             @enderror
         </div>
         @if ($icon)
