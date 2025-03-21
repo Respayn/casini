@@ -615,6 +615,5 @@
         :integrations="$this->analyticsIntegrations"
     />
 
-    <x-project-form.integration-settings-modal :integrationCode="$selectedIntegrationCode" />
-    {{-- <livewire:system-settings.client-and-projects.integration-settings-modal /> --}}
+    <x-project-form.integration-settings-modal :integration="$selectedIntegration" />
 </div>

@@ -1,3 +1,3 @@
-<div class="form-field flex items-center justify-between gap-3">
+<div {{ $attributes->class(['form-field flex justify-between gap-3']) }}>
     {{ $slot }}
 </div>

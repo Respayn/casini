@@ -3,6 +3,7 @@
 namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Data\BonusData;
+use App\Data\IntegrationData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Enums\IntegrationCategory;
@@ -37,7 +38,7 @@ class ClientProjectFormModel extends Component
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
-    public string $selectedIntegrationCode;
+    public IntegrationData $selectedIntegration;
 
     public function boot(
         ClientService $clientService,
@@ -109,7 +110,8 @@ class ClientProjectFormModel extends Component
 
     public function selectIntegrationCode(string $code)
     {
-        $this->selectedIntegrationCode = $code;
+        $integration = $this->integrations()->firstWhere('code', $code);
+        $this->selectedIntegration = $integration;
         $this->dispatch('modal-show', name: 'integration-settings-modal');
     }
 
