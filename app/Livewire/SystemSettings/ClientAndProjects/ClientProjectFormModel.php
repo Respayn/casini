@@ -112,7 +112,7 @@ class ClientProjectFormModel extends Component
 
     public function render()
     {
-        return view('livewire.system-settings.client-and-projects.client-project-form');
+        return view('livewire.system-settings.clients-and-projects.client-project-form');
     }
 
     public function selectIntegrationCode(string $code)
