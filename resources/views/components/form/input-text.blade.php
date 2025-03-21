@@ -25,7 +25,7 @@
                         type="text"
                         @class([
                             'min-h-[42px] w-full rounded-[5px] border pe-3',
-                            'border-input-border' => $wireModel ? !$errors->has($wireModel) : true,
+                            'border-input-border',
                             'border-warning-red' => $wireModel ? $errors->has($wireModel) : false,
                             'ps-[39px]' => isset($icon),
                             'ps-3' => !isset($icon),
@@ -52,7 +52,7 @@
                         type="text"
                         @class([
                             'min-h-[42px] w-full rounded-[5px] border pe-3',
-                            'border-input-border' => $wireModel ? !$errors->has($wireModel) : true,
+                            'border-input-border',
                             'border-warning-red' => $wireModel ? $errors->has($wireModel) : false,
                             'ps-[39px]' => isset($icon),
                             'ps-3' => !isset($icon),

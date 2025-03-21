@@ -37,6 +37,8 @@ class ProjectData extends Data
         public ?DataCollection $promotionRegions = null,
         #[DataCollectionOf(PromotionTopicData::class)]
         public ?DataCollection $promotionTopics = null,
+        #[DataCollectionOf(ProjectUtmMappingData::class)]
+        public ?DataCollection $utmMappings = null,
     ) {
     }
 }

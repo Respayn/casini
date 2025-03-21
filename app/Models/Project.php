@@ -37,6 +37,7 @@ use Illuminate\Support\Collection;
  * @property User $specialist
  * @property User $manager
  * @property Collection<ProjectFieldHistory> $fieldHistories
+ * @property Collection<ProjectUtmMapping> $utmMappings
  */
 class Project extends Model
 {
@@ -129,12 +130,22 @@ class Project extends Model
     }
 
     /**
-     * Связанное условие
+     * Связанное условие.
      *
      * @return HasOne
      */
     public function bonusCondition(): HasOne
     {
         return $this->hasOne(ProjectBonusCondition::class);
+    }
+
+    /**
+     * Связанные UTM-метки.
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function utmMappings()
+    {
+        return $this->hasMany(ProjectUtmMapping::class);
     }
 }

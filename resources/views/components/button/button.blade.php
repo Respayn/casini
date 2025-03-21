@@ -74,7 +74,7 @@
         @endif
         @if($label)
             <span class="relative">
-            <span>{{ $label }}</span>
+            <span class="{{ $variant === 'action' ? 'whitespace-nowrap' : '' }}">{{ $label }}</span>
             @if ($variant === 'action')
                 <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-primary" style="border-width: 0.5px;"></span>
             @endif
