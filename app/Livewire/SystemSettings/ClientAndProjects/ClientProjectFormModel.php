@@ -4,11 +4,14 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Data\BonusData;
 use App\Data\IntegrationData;
+use App\Data\IntegrationSettingsData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
+use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Data\ProjectUtmMappingData;
 use App\Enums\IntegrationCategory;
 use App\Enums\ProjectType;
+use App\Factories\IntegrationSettingsFactory;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
@@ -40,7 +43,10 @@ class ClientProjectFormModel extends Component
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
-    public IntegrationData $selectedIntegration;
+    public ProjectIntegrationData $selectedIntegration;
+    // public IntegrationData $selectedIntegration;
+    // public ?IntegrationSettingsData $selectedIntegrationSettings;
+    public Collection $integrationSettings;
 
     public function boot(
         ClientService $clientService,
@@ -62,6 +68,7 @@ class ClientProjectFormModel extends Component
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
+        $this->integrationSettings = collect();
 
         if ($projectId) {
             // Получение данных
@@ -69,6 +76,7 @@ class ClientProjectFormModel extends Component
             $this->clientProjectForm->from($project);
             $this->bonusGuaranteeForm->from($project->bonusCondition);
             $this->utmMappingForm->from($project->utmMappings->toArray());
+            $this->integrationSettings = $this->integrationService->getIntegrationSettingsForProject($projectId);
         } else {
             $this->clientProjectForm->isActive = true;
         }
@@ -79,10 +87,6 @@ class ClientProjectFormModel extends Component
 
         if (empty($this->clientProjectForm->promotionTopics)) {
             $this->clientProjectForm->promotionTopics[] = null;
-        }
-
-        if (empty($this->utmMappingForm->utmMappings)) {
-            $this->addMapping();
         }
     }
 
@@ -95,19 +99,46 @@ class ClientProjectFormModel extends Component
     #[Computed]
     public function moneyIntegrations(): Collection
     {
-        return $this->integrations()->filter(fn($integration) => $integration->category === IntegrationCategory::MONEY);
+        return $this->integrations()
+            ->filter(fn($integration) => $integration->category === IntegrationCategory::MONEY)
+            ->filter(fn($integration) => !$this->integrationSettings->keys()->contains($integration->id));
     }
 
     #[Computed]
     public function analyticsIntegrations(): Collection
     {
-        return $this->integrations()->filter(fn($integration) => $integration->category === IntegrationCategory::ANALYTICS);
+        return $this->integrations()
+            ->filter(fn($integration) => $integration->category === IntegrationCategory::ANALYTICS)
+            ->filter(fn($integration) => !$this->integrationSettings->keys()->contains($integration->id));
     }
 
     #[Computed]
     public function toolsIntegrations(): Collection
     {
-        return $this->integrations()->filter(fn($integration) => $integration->category === IntegrationCategory::TOOLS);
+        return $this->integrations()
+            ->filter(fn($integration) => $integration->category === IntegrationCategory::TOOLS)
+            ->filter(fn($integration) => !$this->integrationSettings->keys()->contains($integration->id));
+    }
+
+    #[Computed]
+    public function configuredMoneyIntegrations(): Collection
+    {
+        $moneyIntegrationIds = $this->moneyIntegrations()->pluck('id');
+        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $moneyIntegrationIds->contains($integrationId));
+    }
+
+    #[Computed]
+    public function configuredAnalyticsIntegrations(): Collection
+    {
+        $analyticsIntegrationIds = $this->analyticsIntegrations()->pluck('id');
+        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $analyticsIntegrationIds->contains($integrationId));
+    }
+
+    #[Computed]
+    public function configuredToolsIntegrations(): Collection
+    {
+        $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
+        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
     }
 
     public function render()
@@ -115,11 +146,45 @@ class ClientProjectFormModel extends Component
         return view('livewire.system-settings.clients-and-projects.client-project-form');
     }
 
-    public function selectIntegrationCode(string $code)
+    public function selectIntegration(string $code)
     {
         $integration = $this->integrations()->firstWhere('code', $code);
-        $this->selectedIntegration = $integration;
+
+        if ($this->integrationSettings->has($integration->id)) {
+            $this->selectedIntegration = $this->integrationSettings->get($integration->id);
+        } else {
+            $integrationSettingsDactory = new IntegrationSettingsFactory();
+            $selectedIntegration = new ProjectIntegrationData();
+            $selectedIntegration->integration = IntegrationData::from($integration);
+            $selectedIntegration->isEnabled = false;
+            $selectedIntegration->settings = $integrationSettingsDactory->create($code)->toArray();
+            $this->selectedIntegration = $selectedIntegration;
+        }
+        
         $this->dispatch('modal-show', name: 'integration-settings-modal');
+    }
+
+    public function setIntegrationSettings(int $integrationId, array $settings)
+    {
+        $integration = $this->integrations()->firstWhere('id', $integrationId);
+
+        $projectIntegrationData = new ProjectIntegrationData();
+        $projectIntegrationData->integration = IntegrationData::from($integration);
+        $settingsCollection = collect($settings);
+        $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
+        $projectIntegrationData->settings = $settingsCollection->toArray();
+
+        $this->integrationSettings[$integrationId] = $projectIntegrationData;
+    }
+
+    public function removeIntegration(int $integrationId)
+    {
+        $this->integrationSettings->forget($integrationId);
+    }
+
+    public function setIntegrationEnabled(int $integrationId, bool $isEnabled)
+    {
+        $this->integrationSettings[$integrationId]->isEnabled = $isEnabled;
     }
 
     public function addRegion()
@@ -239,6 +304,8 @@ class ClientProjectFormModel extends Component
 
             // Сохраняем UTM-мэппинги через сервис
             $this->projectService->saveProjectUtmMapping($utmMappingsData, $project->id);
+
+            $this->integrationService->updateIntegrationsSettings($project->id, $this->integrationSettings);
 
             DB::commit();
 

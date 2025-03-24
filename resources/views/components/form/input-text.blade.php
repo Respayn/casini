@@ -8,7 +8,7 @@
 ])
 
 @php
-    $wireModel = $attributes->get('wire:model');
+    $wireModel = $attributes->whereStartsWith('wire:model')->first();
     $inputValue = is_array(old($wireModel)) ? '' : old($wireModel) ?? '';
     $suffix = $suffix ?? '';
 @endphp
@@ -23,6 +23,7 @@
                 @case('number')
                     <input
                         type="text"
+                        value="{{ $inputValue }}"
                         @class([
                             'min-h-[42px] w-full rounded-[5px] border pe-3',
                             'border-input-border',
@@ -33,7 +34,6 @@
                         ])
                         wire:model="{{ $wireModel }}"
                         placeholder="{{ $placeholder }}"
-                        value="{{ $inputValue }}"
                         onfocus="this.value = this.value.replace(/ /g, '').replace(new RegExp('{{ preg_quote($suffix, '/') }}', 'g'), '');"
                         oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/(?!^)-/g, '');"
                         onblur="
@@ -66,9 +66,11 @@
                         {{ $attributes->except('type') }}
                     />
             @endswitch
-            @error($wireModel)
-                <span class="text-warning-red text-[12px]">{{ $message }}</span>
-            @enderror
+            @if ($wireModel)
+                @error($wireModel)
+                    <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                @enderror
+            @endif
         </div>
         @if ($icon)
             <span class="absolute left-[13px] top-1/2 -translate-y-1/2">

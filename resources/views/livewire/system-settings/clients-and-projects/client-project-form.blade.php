@@ -368,60 +368,24 @@
                     финансами и аналитикой вашего клиенто-проекта</div>
 
                 <div class="flex gap-2.5">
-                    <x-panel.card class="flex-1">
-                        <x-slot:title>Инструменты</x-slot:title>
-                        <x-slot:content>
-                            <div class="text-caption-text">
-                                Подключите рекламные инструменты, например Яндекс Директ
-                            </div>
-                        </x-slot:content>
-                        <x-slot:footer>
-                            <x-overlay.modal-trigger name="tools-integrations-modal">
-                                <x-button.button
-                                    class="w-full"
-                                    variant="primary"
-                                    label="Добавить интеграцию"
-                                    icon="icons.plus"
-                                />
-                            </x-overlay.modal-trigger>
-                        </x-slot:footer>
-                    </x-panel.card>
-                    <x-panel.card class="flex-1">
-                        <x-slot:title>Деньги</x-slot:title>
-                        <x-slot:content>
-                            <div class="text-caption-text">
-                                Настройте интеграцию для получения информации по деньгам и актам в канале
-                            </div>
-                        </x-slot:content>
-                        <x-slot:footer>
-                            <x-overlay.modal-trigger name="money-integrations-modal">
-                                <x-button.button
-                                    class="w-full"
-                                    variant="primary"
-                                    label="Добавить интеграцию"
-                                    icon="icons.plus"
-                                />
-                            </x-overlay.modal-trigger>
-                        </x-slot:footer>
-                    </x-panel.card>
-                    <x-panel.card class="flex-1">
-                        <x-slot:title>Аналитика</x-slot:title>
-                        <x-slot:content>
-                            <div class="text-caption-text">
-                                Интеграции, с помощью которых будете получать количество визитов, конверсий или позиции
-                            </div>
-                        </x-slot:content>
-                        <x-slot:footer>
-                            <x-overlay.modal-trigger name="analytics-integrations-modal">
-                                <x-button.button
-                                    class="w-full"
-                                    variant="primary"
-                                    label="Добавить интеграцию"
-                                    icon="icons.plus"
-                                />
-                            </x-overlay.modal-trigger>
-                        </x-slot:footer>
-                    </x-panel.card>
+                    <x-project-form.integration-settings-card
+                        title="Инструменты"
+                        description="Подключите рекламные инструменты, например Яндекс Директ"
+                        :configured-integrations="$this->configuredToolsIntegrations"
+                        modal-trigger-name="tools-integrations-modal"
+                    />
+                    <x-project-form.integration-settings-card
+                        title="Деньги"
+                        description="Настройте интеграцию для получения информации по деньгам и актам в канале"
+                        :configured-integrations="$this->configuredMoneyIntegrations"
+                        modal-trigger-name="money-integrations-modal"
+                    />
+                    <x-project-form.integration-settings-card
+                        title="Аналитика"
+                        description="Интеграции, с помощью которых будете получать количество визитов, конверсий или позиции"
+                        :configured-integrations="$this->configuredAnalyticsIntegrations"
+                        modal-trigger-name="analytics-integrations-modal"
+                    />
                 </div>
             </div>
 
@@ -580,38 +544,41 @@
             <div class="mt-4 flex flex-col gap-4">
                 <h1>Пересбор статистики клиенто-проекта</h1>
                 <x-form.form-field>
-                    <x-form.form-label class="font-bold" tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций">Выберите период</x-form.form-label>
+                    <x-form.form-label
+                        class="font-bold"
+                        tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций"
+                    >Выберите период</x-form.form-label>
                     <div class="flex flex-col gap-2">
-                        <div class="flex flex-row gap-2 items-center">
-                            <x-form.date-picker/>
-                            {{--                        @error('form.startDate')--}}
-                            {{--                        <span class="text-red-500">{{ $message }}</span>--}}
-                            {{--                        @enderror--}}
+                        <div class="flex flex-row items-center gap-2">
+                            <x-form.date-picker />
+                            {{--                        @error('form.startDate') --}}
+                            {{--                        <span class="text-red-500">{{ $message }}</span> --}}
+                            {{--                        @enderror --}}
                             <span>-</span>
-                            <x-form.date-picker/>
-                            {{--                        @error('form.endDate')--}}
-                            {{--                        <span class="text-red-500">{{ $message }}</span>--}}
-                            {{--                        @enderror--}}
+                            <x-form.date-picker />
+                            {{--                        @error('form.endDate') --}}
+                            {{--                        <span class="text-red-500">{{ $message }}</span> --}}
+                            {{--                        @enderror --}}
                         </div>
                         <x-button.button
                             class="w-full"
                             variant="implicit-action"
                             label="Пересобрать статистику"
                         />
-                        <div class="mt-5 ml-auto bg-red-100 rounded-full py-1 px-3">
+                        <div class="ml-auto mt-5 rounded-full bg-red-100 px-3 py-1">
                             Не начато
                         </div>
                     </div>
                 </x-form.form-field>
             </div>
 
-            @if($clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
+            @if ($clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
                 <div class="mt-4 flex flex-col gap-4">
                     <h1>Генерация клиентских отчетов</h1>
 
                     {{-- Таблица с логикой расчета --}}
                     <div
-                            class="grid w-full grid-cols-8 grid-cols-[auto_30px_auto_30px_auto_30px_auto_100px] items-center gap-x-1 gap-y-2 text-[14px]">
+                        class="grid w-full grid-cols-8 grid-cols-[auto_30px_auto_30px_auto_30px_auto_100px] items-center gap-x-1 gap-y-2 text-[14px]">
                         <div class="text-secondary-text max-w-xs">Задайте условия подмены UTM-меток в отчетах</div>
                         <div></div>
                         <div class="text-secondary-text max-w-xs">Выберите UTM-метку</div>
@@ -621,8 +588,8 @@
                         <div class="text-secondary-text max-w-xs">Введите значение, которое отобразится в отчете</div>
 
                         <?php /** @var \App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm $utmMappingForm */ ?>
-                        @foreach($utmMappingForm->utmMappings as $index => $utmMappingItem)
-                            <div class="flex items-center gap-2 col-start-3">
+                        @foreach ($utmMappingForm->utmMappings as $index => $utmMappingItem)
+                            <div class="col-start-3 flex items-center gap-2">
                                 <x-form.input-text
                                     placeholder="Выберите UTM-метку"
                                     wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.utmType"
@@ -649,11 +616,11 @@
                                 <x-slot:label>Удалить</x-slot:label>
                             </x-button.button>
                         @endforeach
-                        <div class="flex col-start-1 items-center justify-center">
+                        <div class="col-start-1 flex items-center justify-center">
                             <x-button.button
-                                    type="button"
-                                    wire:click.prevent="addMapping"
-                                    variant="action"
+                                type="button"
+                                wire:click.prevent="addMapping"
+                                variant="action"
                             >
                                 <x-slot:label>Добавить условие</x-slot:label>
                             </x-button.button>
@@ -700,5 +667,5 @@
         :integrations="$this->analyticsIntegrations"
     />
 
-    <x-project-form.integration-settings-modal :integration="$selectedIntegration" />
+    <x-project-form.integration-settings-modal :project-integration="$selectedIntegration" />
 </div>

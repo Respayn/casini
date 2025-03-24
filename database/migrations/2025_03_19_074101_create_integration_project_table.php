@@ -17,7 +17,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('project_id')->comment('Связь с проектом')->constrained();
             $table->foreignId('integration_id')->comment('Связь с интеграцией')->constrained();
-            $table->boolean('is_active')->default(false)->comment('Активность');
+            $table->boolean('is_enabled')->default(false)->comment('Включена ли интеграция');
             $table->json('settings')->comment('Настройки')->nullable();
             $table->timestamps();
         });

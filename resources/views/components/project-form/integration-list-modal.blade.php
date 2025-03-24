@@ -9,7 +9,7 @@
             @foreach ($integrations as $integration)
                 <x-button.button
                     :label="$integration->name"
-                    wire:click="selectIntegrationCode('{{ $integration->code }}')"
+                    wire:click="selectIntegration('{{ $integration->code }}')"
                 ></x-button.button>
             @endforeach
         </div>

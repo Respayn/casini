@@ -19,10 +19,35 @@ class IntegrationService
         return collect($this->repository->all());
     }
 
+    /**
+     * @return Collection<ProjectIntegrationData>
+     */
+    public function getIntegrationSettingsForProject(int $projectId): Collection
+    {
+        $integrationSettings = $this->repository->getAllIntegrationsSettingsForProject($projectId);
+        return collect($integrationSettings)->keyBy('integration.id');
+    }
+
     public function updateNotification(int $integrationId, string $notification)
     {
         $integration = $this->repository->find($integrationId);
         $integration->notification = trim($notification);
         $this->repository->save($integration->toArray());
+    }
+
+    public function updateIntegrationsSettings(int $projectId, Collection $integrationsSettings)
+    {
+        $this->repository->removeIntegrationSettingsForProject($projectId);
+
+        $integrationsSettings->each(function ($settings, $integrationId) use ($projectId) {
+            $settingsCollection = collect($settings);
+            $attributes = [
+                'project_id' => $projectId,
+                'integration_id' => $integrationId,
+                'is_enabled' => $settingsCollection->pull('isEnabled'),
+                'settings' => $settingsCollection->pull('settings')
+            ];
+            $this->repository->saveIntegrationSettings($attributes);
+        });
     }
 }

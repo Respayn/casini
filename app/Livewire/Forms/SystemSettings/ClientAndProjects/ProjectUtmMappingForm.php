@@ -20,11 +20,11 @@ class ProjectUtmMappingForm extends Form
     public function rules()
     {
         return [
-            'utmMappings' => 'required|array',
+            'utmMappings' => 'nullable|array',
             'utmMappings.*.id' => 'nullable|integer',
-            'utmMappings.*.utmType' => ['required', new Enum(UtmType::class)],
-            'utmMappings.*.utmValue' => 'required|string|max:255',
-            'utmMappings.*.replacementValue' => 'required|string|max:255',
+            'utmMappings.*.utmType' => ['required_with:utmMappings', new Enum(UtmType::class)],
+            'utmMappings.*.utmValue' => ['required_with:utmMappings', 'string', 'max:255'],
+            'utmMappings.*.replacementValue' => 'required_with:utmMappings|string|max:255',
         ];
     }
 
