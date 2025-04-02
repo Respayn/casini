@@ -1,8 +1,6 @@
 <?php
 
-namespace App\Data;
-
-use Illuminate\Support\Collection;
+namespace App\Data\IntegrationSettings;
 
 class MegaplanIntegrationSettingsData extends IntegrationSettingsData
 {
@@ -30,16 +28,4 @@ class MegaplanIntegrationSettingsData extends IntegrationSettingsData
      * для получения информации о затраченном времени
      */
     public bool $parseComments = false;
-
-    public static function fromSettings(Collection $settings): self
-    {
-        $data = new self();
-        $data->host = $settings->get('host');
-        $data->login = $settings->get('login');
-        $data->password = $settings->get('password');
-        $data->ticketNumber = $settings->get('ticket_number');
-        $data->searchStringSuffix = $settings->get('search_string_suffix');
-        $data->parseComments = $settings->get('parse_comments', false);
-        return $data;
-    }
 }

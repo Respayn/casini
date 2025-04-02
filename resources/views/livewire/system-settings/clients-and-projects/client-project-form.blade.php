@@ -386,6 +386,7 @@
                         :configured-integrations="$this->configuredAnalyticsIntegrations"
                         modal-trigger-name="analytics-integrations-modal"
                     />
+                    {{-- {{ $this->configuredAnalyticsIntegrations }} --}}
                 </div>
             </div>
 
@@ -551,14 +552,8 @@
                     <div class="flex flex-col gap-2">
                         <div class="flex flex-row items-center gap-2">
                             <x-form.date-picker />
-                            {{--                        @error('form.startDate') --}}
-                            {{--                        <span class="text-red-500">{{ $message }}</span> --}}
-                            {{--                        @enderror --}}
                             <span>-</span>
                             <x-form.date-picker />
-                            {{--                        @error('form.endDate') --}}
-                            {{--                        <span class="text-red-500">{{ $message }}</span> --}}
-                            {{--                        @enderror --}}
                         </div>
                         <x-button.button
                             class="w-full"
