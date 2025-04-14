@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'yandex_direct' => [
+        'token' => env('YANDEX_DIRECT_TOKEN'),
+        'client_login' => env('YANDEX_CLIENT_LOGIN'),
+        'api_url' => env('YANDEX_API_URL'),
+    ]
 ];
