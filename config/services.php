@@ -37,7 +37,14 @@ return [
 
     'yandex_direct' => [
         'token' => env('YANDEX_DIRECT_TOKEN'),
-        'client_login' => env('YANDEX_CLIENT_LOGIN'),
-        'api_url' => env('YANDEX_API_URL'),
-    ]
+        'client_login' => env('YANDEX_DIRECT_CLIENT_LOGIN'),
+
+        'api_url' => env('YANDEX_DIRECT_API_URL', 'https://api.direct.yandex.com/v5/json/'),
+        'sandbox_api_url' => env('YANDEX_DIRECT_SANDBOX_API_URL', 'https://api-sandbox.direct.yandex.com/v5/json/'),
+
+        'v4_api_url' => 'https://api.direct.yandex.ru/live/v4/json/',
+        'v4_sandbox_url' => 'https://api-sandbox.direct.yandex.ru/live/v4/json/',
+
+        'use_sandbox' => env('YANDEX_DIRECT_USE_SANDBOX', false),
+    ],
 ];

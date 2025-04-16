@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Exceptions\YandexDirectApiException;
 use App\Services\YandexDirectService;
 use Illuminate\Console\Command;
 
@@ -11,28 +12,46 @@ class TestCommand extends Command
 
     protected $description = 'Команда для вариативного тестирования методов';
 
-    public function __construct(
-        protected YandexDirectService $service)
+    protected YandexDirectService $service;
+
+    public function __construct(YandexDirectService $service)
     {
         parent::__construct();
+        $this->service = $service;
     }
 
     public function handle()
     {
-        dd($this->service);
-        // Пример использования сервисного класса
-        $dateFrom = '2023-01-01';
-        $dateTo = '2023-12-31';
+        try {
+            $directService = app(YandexDirectService::class);
 
-        $expenses = $this->service->getExpenses($dateFrom, $dateTo);
-        $this->info('Expenses:');
-        print_r($expenses);
+            // Получение списка кампаний
+//            $campaigns = $directService->getCampaigns();
+//
+//            // Получение баланса
+//            $balance = $directService->getAccountBalance();
 
-        $balance = $this->service->getAccountBalance();
-        $this->info('Account Balance: ' . $balance);
+            // Отчет по производительности
+//            $report = $directService->getPerformanceReport(
+//                now()->subMonth(),
+//                now(),
+//                ['Impressions', 'Clicks', 'Cost']
+//            );
+//            dd($report);
 
-        $reportData = $this->service->getReportData($dateFrom, $dateTo);
-        $this->info('Report Data:');
-        print_r($reportData);
+            // Статистика по кампании
+            $stats = $directService->getCampaignStatistics(
+                12345,
+                now()->subWeek(),
+                now()
+            );
+
+            dd($stats);
+
+        } catch (YandexDirectApiException $e) {
+            // Обработка ошибок
+            report($e);
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
     }
 }
