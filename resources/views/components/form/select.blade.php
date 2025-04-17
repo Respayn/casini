@@ -9,32 +9,40 @@
 @php
     $options = collect($options);
     $wireModel = $attributes->whereStartsWith('wire:model')->first();
+    // $modelAttributes = $attributes->whereStartsWith(['wire:model', 'x-model']);
+    // $nonModelAttributes = $attributes->whereDoesntStartWith(['wire:model', 'x-model']);
     // $attributes = $attributes->whereDoesntStartWith('wire:model');
 @endphp
 
 <div
-    class="flex flex-col gap-2 w-full"
+    class="flex w-full flex-col gap-2"
     x-data="{
         options: {{ json_encode($options) }},
         open: false,
-        selected: @entangle($attributes->wire('model')),
+        {{-- selected: @entangle($attributes->wire('model')), --}}
+        selected: '',
         select(value) {
-            $wire.set('{{ $wireModel }}', value);
+            {{-- $wire.set('{{ $wireModel }}', value); --}}
             this.open = false;
             this.selected = value;
             $dispatch('change');
         },
     
         getDisplayText() {
-            if (!this.open && this.selected) {
+            if (this.selected) {
                 const selectedOption = this.options.find(
-                    option => option['{{ $valueKey }}'] == this.selected
+                    option => option['{{ $valueKey }}'] === this.selected
                 );
-                return selectedOption ? selectedOption['{{ $labelKey }}'] : ('{{ $placeholder }}' ?? 'Выберите значение');
+                
+                if (selectedOption) {
+                    return selectedOption['{{ $labelKey }}'];
+                }
             }
+            
             return '{{ $placeholder }}' || 'Выберите значение';
         }
     }"
+    x-modelable="selected"
     {{ $attributes }}
 >
     @if ($label)
@@ -72,7 +80,7 @@
         </div>
 
         <div
-            class="z-1000 border-input-border w-full rounded-b-[5px] border border-t-0"
+            class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
             x-cloak
             x-show="open"
             x-anchor="$refs.button"

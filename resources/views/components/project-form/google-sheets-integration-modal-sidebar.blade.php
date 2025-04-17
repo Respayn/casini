@@ -1,3 +1,31 @@
 <div>
-    <!-- I begin to speak only when I am certain what I will say is not better left unsaid. - Cato the Younger -->
+    <div class="mb-3.5 text-2xl font-semibold">Инструкция</div>
+
+    <p>Интеграция доступна только в клиенто-проектах с типом канала <span class="italic">Контекст</span></p>
+
+    <ol class="mb-6 list-decimal pl-4">
+        <li>
+            Авторизуйтесь (с правами на изменение своих клиенто-проектов и клиентов)
+        </li>
+        <li>
+            Заполните обязательные поля
+        </li>
+        <li>
+            Включите синхронизацию
+        </li>
+        <li>
+            Нажмите на <span class="italic">Сохранить изменения</span>
+        </li>
+    </ol>
+
+    <div class="mb-2.5 text-lg font-semibold">Как работает интеграция</div>
+
+    <p class="mb-2.5">
+        Интеграция подтягивает данные из Google Таблицы расходы из вкладок: <span class="italic">Программинг, Копирайтинг, SEO-ссылки</span> 
+        полученные значения отображаются в продукте Каналы
+    </p>
+
+    <p class="italic">
+        Cъем данных выполняется каждый понедельник в 05:00 и каждое 1-е число месяца в 05:30.
+    </p>
 </div>

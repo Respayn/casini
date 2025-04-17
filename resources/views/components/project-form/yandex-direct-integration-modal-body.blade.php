@@ -29,7 +29,9 @@
 
         handleCancelClick() {
             $dispatch('modal-hide', { name: 'integration-settings-modal' });
-        }
+        },
+
+        
     }"
 >
     <x-form.form>

@@ -116,7 +116,7 @@
                     >KPI</x-form.form-label>
                     <div>
                         <x-form.select
-                            wire:model="clientProjectForm.kpi"
+                            wire:model.live="clientProjectForm.kpi"
                             :options="\App\Enums\Kpi::options()"
                             placeholder="-"
                         >
@@ -132,7 +132,7 @@
                     >Тип клиенто-проекта</x-form.form-label>
                     <div>
                         <x-form.select
-                            wire:model="clientProjectForm.projectType"
+                            wire:model.live="clientProjectForm.projectType"
                             placeholder="-"
                             :options="\App\Enums\ProjectType::options()"
                         ></x-form.select>

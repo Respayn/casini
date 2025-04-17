@@ -4,7 +4,6 @@ namespace App\Data\IntegrationSettings;
 
 class OneCActsIntegrationSettingsData extends IntegrationSettingsData
 {
-    public function __construct(
-        //
-    ) {}
+    public string $mainContractNumber;
+    public string $additionalAgreementNumber;
 }
