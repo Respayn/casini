@@ -1,9 +1,8 @@
 <?php
 
-namespace App\Data;
+namespace App\Data\Integrations;
 
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;
 use Spatie\LaravelData\Data;

@@ -2,10 +2,8 @@
 
 namespace App\Repositories;
 
-use App\Data\IntegrationData;
-use App\Data\IntegrationSettingsData;
+use App\Data\Integrations\IntegrationData;
 use App\Data\ProjectForm\ProjectIntegrationData;
-use App\Factories\IntegrationSettingsFactory;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
 use App\Repositories\Interfaces\IntegrationRepositoryInterface;
@@ -45,24 +43,24 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ->map(function ($setting) {
                 $integrationData = new ProjectIntegrationData();
                 $integrationData->integration = IntegrationData::from($setting->integration);
-                $integrationData->settings = $setting->settings->toArray();
+                $integrationData->settings = json_decode($setting->settings, true);
                 $integrationData->isEnabled = $setting->is_enabled;
                 return $integrationData;
             });
-        
+
         return collect($integrationSettings);
     }
 
     public function saveIntegrationSettings(array $attributes)
     {
-        IntegrationProject::updateOrInsert(
+        IntegrationProject::updateOrCreate(
             [
                 'integration_id' => $attributes['integration_id'],
                 'project_id' => $attributes['project_id']
             ],
             [
                 'is_enabled' => $attributes['is_enabled'],
-                'settings' => $attributes['settings']
+                'settings' => json_encode($attributes['settings']) // Сериализация в JSON
             ]
         );
     }

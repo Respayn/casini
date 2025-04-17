@@ -19,7 +19,7 @@
         class="bg-modal-backdrop fixed inset-0 opacity-5"
         x-on:click="show = false"
     ></div>
-    <div class="min-w-1/4 relative inset-0 m-auto flex max-w-6xl">
+    <div class="min-w-1/4 relative inset-0 m-auto flex max-w-[1200px]">
         <div @class([
             'rounded-2xl' => empty($sidebar),
             'rounded-l-2xl' => !empty($sidebar),

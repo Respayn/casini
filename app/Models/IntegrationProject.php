@@ -17,13 +17,10 @@ class IntegrationProject extends Model
         'settings'
     ];
 
-    protected function casts(): array
-    {
-        return [
-            'is_enabled' => 'boolean',
-            'settings' => AsCollection::class
-        ];
-    }
+    protected $casts = [
+        'is_enabled' => 'boolean',
+        'settings' => 'array',
+    ];
 
     public function integration(): BelongsTo
     {

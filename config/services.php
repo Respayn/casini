@@ -37,7 +37,10 @@ return [
 
     'yandex_direct' => [
         'token' => env('YANDEX_DIRECT_TOKEN'),
+        'client_id' => env('YANDEX_DIRECT_CLIENT_ID'),
+        'client_secret' => env('YANDEX_DIRECT_CLIENT_SECRET'),
         'client_login' => env('YANDEX_DIRECT_CLIENT_LOGIN'),
+        'redirect_uri' => env('YANDEX_DIRECT_REDIRECT_URI', 'https://oauth.yandex.ru/verification_code'),
 
         'api_url' => env('YANDEX_DIRECT_API_URL', 'https://api.direct.yandex.com/v5/json/'),
         'sandbox_api_url' => env('YANDEX_DIRECT_SANDBOX_API_URL', 'https://api-sandbox.direct.yandex.com/v5/json/'),

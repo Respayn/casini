@@ -3,8 +3,8 @@
 namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Data\BonusData;
-use App\Data\IntegrationData;
-use App\Data\IntegrationSettingsData;
+use App\Data\Integrations\IntegrationData;
+use App\Data\Integrations\YandexDirectIntegrationSettingsData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Data\ProjectForm\ProjectIntegrationData;
@@ -153,14 +153,14 @@ class ClientProjectFormModel extends Component
         if ($this->integrationSettings->has($integration->id)) {
             $this->selectedIntegration = $this->integrationSettings->get($integration->id);
         } else {
-            $integrationSettingsDactory = new IntegrationSettingsFactory();
+            $integrationSettingsFactory = new IntegrationSettingsFactory();
             $selectedIntegration = new ProjectIntegrationData();
             $selectedIntegration->integration = IntegrationData::from($integration);
             $selectedIntegration->isEnabled = false;
-            $selectedIntegration->settings = $integrationSettingsDactory->create($code)->toArray();
+            $selectedIntegration->settings = $integrationSettingsFactory->create($code)->toArray();
             $this->selectedIntegration = $selectedIntegration;
         }
-        
+
         $this->dispatch('modal-show', name: 'integration-settings-modal');
     }
 
@@ -175,6 +175,59 @@ class ClientProjectFormModel extends Component
         $projectIntegrationData->settings = $settingsCollection->toArray();
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
+    }
+
+    public function updatedSelectedIntegration($value)
+    {
+        if ($value && ! $this->isConnected) {
+            $this->connectYandexDirect();
+        }
+    }
+
+    #[Computed]
+    public function yandexDirectSettings(): ?YandexDirectIntegrationSettingsData
+    {
+        return $this->integrationSettings
+            ->first(fn($s) => $s->integration->code === 'yandex_direct')
+            ?->settings;
+    }
+
+    #[Computed]
+    public function isConnected(): bool
+    {
+        $settings = $this->integrationSettings
+            ->firstWhere('integration.code', 'yandex_direct')
+            ?->settings;
+
+        return $settings &&
+            !empty($settings['client_login']) &&
+            !empty($settings['oauth_token']);
+    }
+
+    public function getYandexDirectSettingsProperty(): ?YandexDirectIntegrationSettingsData
+    {
+        return $this->integrationSettings
+            ->firstWhere('integration.code', 'yandex_direct')
+            ?->settings;
+    }
+
+    public function connectYandexDirect()
+    {
+        $this->validateIntegrationSelection();
+
+        return redirect()->route('yandex_direct.oauth.redirect', [
+            'project_id' => $this->clientProjectForm->id
+        ]);
+    }
+
+    private function validateIntegrationSelection(): void
+    {
+        if (!$this->selectedIntegration->integration) {
+            $integration = $this->integrations()
+                ->firstWhere('code', 'yandex_direct');
+
+            $this->selectedIntegration->integration = IntegrationData::from($integration);
+        }
     }
 
     public function removeIntegration(int $integrationId)

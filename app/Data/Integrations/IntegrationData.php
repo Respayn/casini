@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Data;
+namespace App\Data\Integrations;
 
 use App\Enums\IntegrationCategory;
 use Livewire\Wireable;

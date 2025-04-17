@@ -2,9 +2,9 @@
 
 namespace App\Factories;
 
-use App\Data\IntegrationData;
-use App\Data\IntegrationSettingsData;
-use App\Data\MegaplanIntegrationSettingsData;
+use App\Data\Integrations\IntegrationSettingsData;
+use App\Data\Integrations\MegaplanIntegrationSettingsData;
+use App\Data\Integrations\YandexDirectIntegrationSettingsData;
 use Illuminate\Support\Collection;
 
 class IntegrationSettingsFactory
@@ -13,6 +13,7 @@ class IntegrationSettingsFactory
     {
         return match ($integrationCode) {
             'megaplan' => new MegaplanIntegrationSettingsData(),
+            'yandex_direct' => new YandexDirectIntegrationSettingsData(),
             default => throw new \Exception('Integration not found')
         };
     }
@@ -21,6 +22,7 @@ class IntegrationSettingsFactory
     {
         return match ($integrationCode) {
             'megaplan' => MegaplanIntegrationSettingsData::fromSettings($settings),
+            'yandex_direct' => YandexDirectIntegrationSettingsData::fromSettings($settings),
             default => throw new \Exception('Integration not found')
         };
     }

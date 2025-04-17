@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Repositories\IntegrationRepository;
 use Illuminate\Support\Collection;
 
@@ -49,5 +50,22 @@ class IntegrationService
             ];
             $this->repository->saveIntegrationSettings($attributes);
         });
+    }
+
+    /**
+     * @param int $projectId
+     * @param ProjectIntegrationData $settings
+     * @return void
+     */
+    public function saveIntegrationSettings(int $projectId, ProjectIntegrationData $data)
+    {
+        $settingsCollection = collect($data);
+        $attributes = [
+            'project_id' => $projectId,
+            'integration_id' => $data->integration->id,
+            'is_enabled' => $settingsCollection->pull('isEnabled'),
+            'settings' => $settingsCollection->pull('settings')
+        ];
+        $this->repository->saveIntegrationSettings($attributes);
     }
 }

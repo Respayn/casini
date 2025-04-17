@@ -26,17 +26,19 @@ class TestCommand extends Command
             $directService = app(YandexDirectService::class);
 
             // Получение списка кампаний
-//            $campaigns = $directService->getCampaigns();
-//
-//            // Получение баланса
-//            $balance = $directService->getAccountBalance();
+            $campaigns = $directService->getCampaigns();
+//            dd($campaigns);
+
+            // Получение баланса
+            $balance = $directService->getAccountBalance();
+//            dd($balance);
 
             // Отчет по производительности
-//            $report = $directService->getPerformanceReport(
-//                now()->subMonth(),
-//                now(),
-//                ['Impressions', 'Clicks', 'Cost']
-//            );
+            $report = $directService->getPerformanceReport(
+                now()->subMonth(),
+                now(),
+                ['Impressions', 'Clicks', 'Cost']
+            );
 //            dd($report);
 
             // Статистика по кампании
@@ -46,7 +48,7 @@ class TestCommand extends Command
                 now()
             );
 
-            dd($stats);
+//            dd($stats);
 
         } catch (YandexDirectApiException $e) {
             // Обработка ошибок

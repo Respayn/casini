@@ -46,17 +46,6 @@ class YandexDirectClient implements YandexDirectClientInterface
     }
 
     /**
-     * Построение заголовка авторизации
-     *
-     * @param string $token
-     * @return string
-     */
-    protected function buildAuthorizationHeader(string $token): string
-    {
-        return 'Authorization: Bearer ' . $token;
-    }
-
-    /**
      * Основной метод для отправки запросов к API
      */
     public function request(
@@ -159,7 +148,6 @@ class YandexDirectClient implements YandexDirectClientInterface
         }
 
         $this->handleErrorResponse($statusCode, $data, $body);
-        return ['status' => 'error', 'error' => $data];
     }
 
     private function getRetryInterval(Response $response): int
@@ -224,39 +212,6 @@ class YandexDirectClient implements YandexDirectClientInterface
 
         } catch (GuzzleException $e) {
             throw new YandexDirectApiException('Failed to get campaigns', 0, $e);
-        }
-    }
-
-    /**
-     * Сгенерировать отчет о производительности
-     */
-    public function generatePerformanceReport(
-        Carbon $startDate,
-        Carbon $endDate,
-        array $metrics,
-        string $reportType = 'ACCOUNT_PERFORMANCE_REPORT'
-    ): array
-    {
-        $params = [
-            'params' => [
-                'SelectionCriteria' => [
-                    'DateFrom' => $startDate->format('Y-m-d'),
-                    'DateTo' => $endDate->format('Y-m-d'),
-                ],
-                'FieldNames' => $metrics,
-                'ReportName' => 'PerformanceReport_'.time(),
-                'ReportType' => $reportType,
-                'DateRangeType' => 'CUSTOM_DATE',
-                'Format' => 'TSV',
-                'IncludeVAT' => 'YES',
-                'IncludeDiscount' => 'NO',
-            ]
-        ];
-
-        try {
-            return $this->requestReport($params);
-        } catch (GuzzleException $e) {
-            throw new YandexDirectApiException('Report generation failed', 0, $e);
         }
     }
 

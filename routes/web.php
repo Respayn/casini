@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\YandexDirectOAuthController;
 use App\Livewire\Demo;
 use App\Livewire\SystemSettings\ClientsAndProjects;
 use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
@@ -14,6 +15,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/clients-and-projects/project/{projectId?}', ClientProjectFormModel::class)->name('clients-and-projects.projects.manage');
         Route::get('/clients-and-projects/client/create', CreateClient::class)->name('clients-and-projects.clients.create');
     });
+
+    Route::get('/yandex-direct/connect', [YandexDirectOAuthController::class, 'redirect'])
+        ->name('yandex_direct.oauth.redirect');
+
+    Route::get('/yandex-direct/callback', [YandexDirectOAuthController::class, 'callback'])
+        ->name('yandex_direct.oauth.callback');
 
     Route::get('/', Demo::class)->name('demo');
 });

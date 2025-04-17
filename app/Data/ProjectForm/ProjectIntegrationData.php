@@ -2,8 +2,7 @@
 
 namespace App\Data\ProjectForm;
 
-use App\Data\IntegrationData;
-use Illuminate\Support\Collection;
+use App\Data\Integrations\IntegrationData;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;
 use Spatie\LaravelData\Data;

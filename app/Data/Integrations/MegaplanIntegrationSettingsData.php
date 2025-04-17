@@ -1,14 +1,14 @@
 <?php
 
-namespace App\Data;
+namespace App\Data\Integrations;
 
 use Illuminate\Support\Collection;
 
 class MegaplanIntegrationSettingsData extends IntegrationSettingsData
 {
-    /** 
-     * @var string Хост поддомена мегаплана, на который будут отправляться 
-     * запросы 
+    /**
+     * @var string Хост поддомена мегаплана, на который будут отправляться
+     * запросы
      */
     public ?string $host;
 
