@@ -6,7 +6,7 @@
     class="flex h-full flex-col"
     x-data="{
         settings: {
-            is_enabled: {{ Js::from($projectIntegration->settings['is_enabled'] ?? false) }},
+            is_enabled: {{ Js::from($projectIntegration->isEnabled ?? false) }},
             ticket_number: '{{ $projectIntegration->settings['ticket_number'] ?? '' }}',
             search_string_suffix: '{{ $projectIntegration->settings['search_string_suffix'] ?? '' }}',
             parse_from_comments: {{ Js::from($projectIntegration->settings['parse_from_comments'] ?? false) }}

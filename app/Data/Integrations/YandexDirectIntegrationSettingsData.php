@@ -2,6 +2,7 @@
 
 namespace App\Data\Integrations;
 
+use App\Data\IntegrationSettings\IntegrationSettingsData;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
 

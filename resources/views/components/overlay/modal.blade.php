@@ -6,7 +6,8 @@
 ])
 
 <div
-    class="fixed inset-0 z-50 flex backdrop-blur-[5px]"
+    class="modal fixed inset-0 z-50 flex backdrop-blur-[5px]"
+    x-bind:class="{ 'open': show }"
     x-data="{ show: false, name: '{{ $name }}' }"
     x-show="show"
     x-on:modal-show.window="if ($event.detail.name !== name) return; show = true;"
@@ -19,7 +20,7 @@
         class="bg-modal-backdrop fixed inset-0 opacity-5"
         x-on:click="show = false"
     ></div>
-    <div class="min-w-1/4 relative inset-0 m-auto flex max-w-[1200px]">
+    <div class="min-w-1/4 relative inset-0 m-auto flex max-w-full">
         <div @class([
             'rounded-2xl' => empty($sidebar),
             'rounded-l-2xl' => !empty($sidebar),
@@ -39,7 +40,7 @@
             <div class="flex-1">{{ $body }}</div>
         </div>
         @if (!empty($sidebar))
-            <div class="bg-modal-sidebar-background rounded-r-2xl p-6 flex-1 max-w-[543px]">{{ $sidebar }}</div>
+            <div class="bg-modal-sidebar-background max-w-[543px] flex-1 rounded-r-2xl p-6">{{ $sidebar }}</div>
         @endif
     </div>
 </div>

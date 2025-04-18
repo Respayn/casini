@@ -36,6 +36,10 @@ class IntegrationService
         $this->repository->save($integration->toArray());
     }
 
+    /**
+     * @param int $projectId
+     * @param Collection<ProjectIntegrationData> $integrationsSettings
+     */
     public function updateIntegrationsSettings(int $projectId, Collection $integrationsSettings)
     {
         $this->repository->removeIntegrationSettingsForProject($projectId);
@@ -46,7 +50,7 @@ class IntegrationService
                 'project_id' => $projectId,
                 'integration_id' => $integrationId,
                 'is_enabled' => $settingsCollection->pull('isEnabled'),
-                'settings' => $settingsCollection->pull('settings')
+                'settings' => collect($settingsCollection->pull('settings'))
             ];
             $this->repository->saveIntegrationSettings($attributes);
         });

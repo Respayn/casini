@@ -100,24 +100,21 @@ class ClientProjectFormModel extends Component
     public function moneyIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::MONEY)
-            ->filter(fn($integration) => !$this->integrationSettings->keys()->contains($integration->id));
+            ->filter(fn($integration) => $integration->category === IntegrationCategory::MONEY);
     }
 
     #[Computed]
     public function analyticsIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::ANALYTICS)
-            ->filter(fn($integration) => !$this->integrationSettings->keys()->contains($integration->id));
+            ->filter(fn($integration) => $integration->category === IntegrationCategory::ANALYTICS);
     }
 
     #[Computed]
     public function toolsIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::TOOLS)
-            ->filter(fn($integration) => !$this->integrationSettings->keys()->contains($integration->id));
+            ->filter(fn($integration) => $integration->category === IntegrationCategory::TOOLS);
     }
 
     #[Computed]

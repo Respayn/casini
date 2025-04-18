@@ -144,4 +144,12 @@ enum SearchRegion: int
             static::YAROSLAVL => 'Ярославль',
         };
     }
+
+    public static function options(): array
+    {
+        return array_map(
+            fn (SearchRegion $searchRegion) => ['label' => $searchRegion->label(), 'value' => $searchRegion->value],
+            self::cases()
+        );
+    }
 }

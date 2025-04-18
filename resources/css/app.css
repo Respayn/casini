@@ -31,6 +31,17 @@
     --color-modal-sidebar-background: #eff3f9;
 }
 
+:root {
+    --scrollpanel-bar-background: #599cff;
+    --scrollpanel-bar-border-radius: 4px;
+    --scrollpanel-bar-size: 9px;
+    --scrollpanel-transition-duration: 0.2s;
+}
+
+body:has(.modal.open) {
+    overflow: hidden
+}
+
 /* Scrollbar */
 /* width */
 .pretty-scroll::-webkit-scrollbar {

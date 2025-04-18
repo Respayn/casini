@@ -1,3 +1,41 @@
 <div>
-    <!-- Act only according to that maxim whereby you can, at the same time, will that it should become a universal law. - Immanuel Kant -->
+    <div class="mb-3.5 text-2xl font-semibold">Инструкция</div>
+
+    <p class="mb-2.5">
+        Интеграция доступна только в клиенто-проектах с типом канала <span class="italic">Контекст</span>
+    </p>
+
+    <ol class="mb-6 list-decimal pl-4">
+        <li>
+            Авторизуйтесь (с правами на изменение своих клиенто-проектов и клиентов).
+        </li>
+        <li>
+            Включите синхронизацию
+        </li>
+        <li>
+            Нажмите на <span class="italic">Сохранить изменения</span>
+        </li>
+    </ol>
+
+    <div class="mb-2.5 text-lg font-semibold">Как работает интеграция</div>
+
+    <p>
+        После включения синхронизации продукт <span class="italic">Движение рекламных средств</span> будет передавать в
+        продукт <span class="italic">Сверка</span> данные, который покажет:
+    </p>
+
+    <ul class="text-caption-text list-disc pl-4">
+        <li>
+            Сумму выданных и возвращенных кредитов
+        </li>
+        <li>
+            Сколько денег было получено от клиента
+        </li>
+        <li>
+            Сколько было отправлено в рекламные кабинеты
+        </li>
+        <li>
+            На какую сумму были выставлены клиенту акты
+        </li>
+    </ul>
 </div>

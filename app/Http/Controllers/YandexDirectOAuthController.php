@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Data\Integrations\IntegrationData;
+use App\Data\Integrations\YandexDirectIntegrationSettingsData;
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Factories\IntegrationSettingsFactory;
 use App\Services\IntegrationService;
@@ -99,7 +100,7 @@ class YandexDirectOAuthController
         $selectedIntegration = new ProjectIntegrationData();
         $selectedIntegration->integration = IntegrationData::from($integration);
         $selectedIntegration->isEnabled = false;
-        $selectedIntegration->settings = IntegrationSettingsFactory::createFromSettings('yandex_direct', collect($settingsArray))->toArray();
+        $selectedIntegration->settings = YandexDirectIntegrationSettingsData::fromSettings(collect($settingsArray))->toArray();
 
         app(IntegrationService::class)->saveIntegrationSettings(
             $stateData['project_id'],
