@@ -4,7 +4,6 @@ namespace App\Livewire\SystemSettings\ClientAndProjects;
 
 use App\Data\BonusData;
 use App\Data\Integrations\IntegrationData;
-use App\Data\Integrations\YandexDirectIntegrationSettingsData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Data\ProjectForm\ProjectIntegrationData;
@@ -28,7 +27,6 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
-use Livewire\Features\SupportAttributes\AttributeCollection;
 
 #[Layout('components.layouts.system-settings')]
 class ClientProjectFormModel extends Component
