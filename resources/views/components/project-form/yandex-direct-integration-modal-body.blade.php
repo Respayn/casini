@@ -1,6 +1,8 @@
 <div>
     <x-form.form class="mb-7 lg:min-w-[580px]">
-        @if($this->integrationSettings[$this->selectedIntegration->integration->id]->isEnabled && !empty($this->selectedIntegration->settings))
+        @if(!empty($this->integrationSettings[$this->selectedIntegration->integration->id])
+            && $this->integrationSettings[$this->selectedIntegration->integration->id]->isEnabled
+            && !empty($this->selectedIntegration->settings))
             <div class="bg-green-100 p-4 rounded-lg mb-4">
                 <p class="text-green-700">
                     Аккаунт подключен: {{ $this->selectedIntegration->settings['clientLogin'] }}

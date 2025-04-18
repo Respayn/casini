@@ -197,38 +197,11 @@ class ClientProjectFormModel extends Component
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
     }
 
-    public function updatedSelectedIntegration($value)
+    public function updatedIntegrationSettings($value)
     {
-        if ($value && empty($this->integrationSettings[16])) {
+        if ($value && empty($this->integrationSettings[16]->settings)) {
             $this->connectYandexDirect();
         }
-    }
-
-    #[Computed]
-    public function yandexDirectSettings(): ?YandexDirectIntegrationSettingsData
-    {
-        return $this->integrationSettings
-            ->first(fn($s) => $s->integration->code === 'yandex_direct')
-            ?->settings;
-    }
-
-    #[Computed]
-    public function isConnected(): bool
-    {
-        $settings = $this->integrationSettings
-            ->firstWhere('integration.code', 'yandex_direct')
-            ?->settings;
-
-        return $settings &&
-            !empty($settings['client_login']) &&
-            !empty($settings['oauth_token']);
-    }
-
-    public function getYandexDirectSettingsProperty(): ?YandexDirectIntegrationSettingsData
-    {
-        return $this->integrationSettings
-            ->firstWhere('integration.code', 'yandex_direct')
-            ?->settings;
     }
 
     public function connectYandexDirect()
