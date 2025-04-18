@@ -29,7 +29,6 @@ class YandexDirectOAuthController
         $stateData = json_encode([
             'project_id' => $request->input('project_id'),
             'cache_data_id' => $request->input('cache_data_id'),
-            'user_id'    => auth()->id(),
         ]);
         $encryptedState = Crypt::encryptString($stateData);
         $state = base64_encode($encryptedState);

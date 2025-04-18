@@ -81,7 +81,11 @@ class ClientProjectFormModel extends Component
             $this->bonusGuaranteeForm->from($project->bonusCondition);
             $this->utmMappingForm->from($project->utmMappings->toArray());
             $this->integrationSettings = $this->integrationService->getIntegrationSettingsForProject($projectId);
-        } else if ($request->input('state')) {
+        } else {
+            $this->clientProjectForm->isActive = true;
+        }
+
+        if ($request->input('state')) {
             $state = json_decode(Crypt::decryptString(base64_decode($request->input('state'))), true);
             $cachedData = Cache::pull('integration_data_' . $state['cache_data_id']);
 
@@ -98,8 +102,6 @@ class ClientProjectFormModel extends Component
                 $integrationData->isEnabled = $setting['isEnabled'];
                 $this->integrationSettings[$integrationData->integration->id] = $integrationData;
             }
-        } else {
-            $this->clientProjectForm->isActive = true;
         }
 
         if (empty($this->clientProjectForm->promotionRegions)) {
@@ -156,7 +158,6 @@ class ClientProjectFormModel extends Component
     public function configuredToolsIntegrations(): Collection
     {
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
-//        dd($this->integrationSettings);
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
     }
 
@@ -198,7 +199,7 @@ class ClientProjectFormModel extends Component
 
     public function updatedSelectedIntegration($value)
     {
-        if ($value && ! $this->isConnected) {
+        if ($value && empty($this->integrationSettings[16])) {
             $this->connectYandexDirect();
         }
     }
