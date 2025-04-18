@@ -20,11 +20,15 @@ use App\Services\IntegrationService;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
+use Livewire\Features\SupportAttributes\AttributeCollection;
 
 #[Layout('components.layouts.system-settings')]
 class ClientProjectFormModel extends Component
@@ -63,7 +67,7 @@ class ClientProjectFormModel extends Component
         $this->integrationService = $integrationService;
     }
 
-    public function mount($projectId = null)
+    public function mount(Request $request, $projectId = null)
     {
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
@@ -77,6 +81,23 @@ class ClientProjectFormModel extends Component
             $this->bonusGuaranteeForm->from($project->bonusCondition);
             $this->utmMappingForm->from($project->utmMappings->toArray());
             $this->integrationSettings = $this->integrationService->getIntegrationSettingsForProject($projectId);
+        } else if ($request->input('state')) {
+            $state = json_decode(Crypt::decryptString(base64_decode($request->input('state'))), true);
+            $cachedData = Cache::pull('integration_data_' . $state['cache_data_id']);
+
+            if ($cachedData) {
+                /** @var Layout $layout */
+                $layout = $cachedData[0];
+                $this->fill((array)$layout->getComponent());
+            }
+
+            foreach ($state['integrations'] as $setting) {
+                $integrationData = new ProjectIntegrationData();
+                $integrationData->integration = IntegrationData::from($setting['integration']);
+                $integrationData->settings = $setting['settings'];
+                $integrationData->isEnabled = $setting['isEnabled'];
+                $this->integrationSettings[$integrationData->integration->id] = $integrationData;
+            }
         } else {
             $this->clientProjectForm->isActive = true;
         }
@@ -135,6 +156,7 @@ class ClientProjectFormModel extends Component
     public function configuredToolsIntegrations(): Collection
     {
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
+//        dd($this->integrationSettings);
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
     }
 
@@ -212,8 +234,15 @@ class ClientProjectFormModel extends Component
     {
         $this->validateIntegrationSelection();
 
+        // Сохраняем необходимые данные в кэш
+        Cache::put('integration_data_' . $this->getId(),
+            $this->getAttributes()->toArray(),
+            now()->addMinutes(15)
+        );
+
         return redirect()->route('yandex_direct.oauth.redirect', [
-            'project_id' => $this->clientProjectForm->id
+            'project_id' => $this->clientProjectForm->id,
+            'cache_data_id' => $this->getId(),
         ]);
     }
 

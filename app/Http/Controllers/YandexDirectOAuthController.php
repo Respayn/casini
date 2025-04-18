@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Data\Integrations\IntegrationData;
 use App\Data\Integrations\YandexDirectIntegrationSettingsData;
 use App\Data\ProjectForm\ProjectIntegrationData;
-use App\Factories\IntegrationSettingsFactory;
 use App\Services\IntegrationService;
 use App\Services\YandexDirectAuthService;
 use Illuminate\Http\Request;
@@ -27,9 +26,9 @@ class YandexDirectOAuthController
 
     public function redirect(Request $request)
     {
-        $projectId = $request->input('project_id');
         $stateData = json_encode([
-            'project_id' => (int)$projectId,
+            'project_id' => $request->input('project_id'),
+            'cache_data_id' => $request->input('cache_data_id'),
             'user_id'    => auth()->id(),
         ]);
         $encryptedState = Crypt::encryptString($stateData);
@@ -99,15 +98,14 @@ class YandexDirectOAuthController
         $integration = $this->integrationService->getIntegrations()->firstWhere('code', 'yandex_direct');
         $selectedIntegration = new ProjectIntegrationData();
         $selectedIntegration->integration = IntegrationData::from($integration);
-        $selectedIntegration->isEnabled = false;
+        $selectedIntegration->isEnabled = true;
         $selectedIntegration->settings = YandexDirectIntegrationSettingsData::fromSettings(collect($settingsArray))->toArray();
 
-        app(IntegrationService::class)->saveIntegrationSettings(
-            $stateData['project_id'],
-            $selectedIntegration
-        );
+        $stateData['integrations'] = [$selectedIntegration->toArray()];
 
-        return redirect()->route('system-settings.clients-and-projects.projects.manage', $stateData['project_id'])
+        $state = base64_encode(Crypt::encryptString(json_encode($stateData)));
+
+        return redirect()->route('system-settings.clients-and-projects.projects.manage', ['state' => $state, 'projectId' => $stateData['project_id']])
             ->with('status', 'Вы успешно авторизовались через Яндекс и подключили Яндекс.Директ!');
     }
 }
