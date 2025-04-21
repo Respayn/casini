@@ -1,0 +1,42 @@
+@startuml Megaplan Integration Module
+
+hide empty members
+
+interface MegaplanApiClientInterface {
+    + getChecklistList(string subjectType, int subjectId)
+    + getCommentList(string subjectType, int subjectId)
+    + getSubTasks(int superTaskId)
+    + getTaskCard(int id)
+    + searchQuick(string qs)
+}
+
+class MegaplanApiClient implements MegaplanApiClientInterface {
+    - void userAuthorize(string login, string password)
+}
+
+class MegaplanApiClientMock implements MegaplanApiClientInterface
+class MegaplanService
+class MegaplanAuthResponseData
+class MegaplanRepository
+
+MegaplanService o-- MegaplanApiClientInterface
+MegaplanService o-- MegaplanRepository
+
+MegaplanApiClient --> MegaplanAuthResponseData
+
+MegaplanRepository --> Database
+
+package Database <<Database>> {
+    entity user_megaplan_project_work_time {
+        * id : number
+        --
+        * user_megaplan_id : number
+        * project_id : number
+        * comment_id : number
+        * work_time : number
+        * comment_created_at : datetime
+        * created_at : datetime
+    }
+}
+
+@enduml
