@@ -3,7 +3,9 @@
 namespace App\Parsers;
 
 use App\Data\YandexDirect\CampaignStatisticsDTO;
+use App\Data\YandexDirect\MonthlyExpenseDTO;
 use App\Data\YandexDirect\PerformanceReportDTO;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
 class YandexDirectReportParser
@@ -16,17 +18,6 @@ class YandexDirectReportParser
         return $this->parseArrayReport($reportData, [
             'required' => ['Impressions', 'Clicks', 'Cost'],
             'dto' => PerformanceReportDTO::class
-        ]);
-    }
-
-    /**
-     * Парсинг статистики по кампании
-     */
-    public function parseCampaignStatistics(array $reportData): Collection
-    {
-        return $this->parseArrayReport($reportData, [
-            'required' => ['Date', 'CampaignId', 'Clicks', 'Cost'],
-            'dto' => CampaignStatisticsDTO::class
         ]);
     }
 
@@ -78,5 +69,18 @@ class YandexDirectReportParser
             in_array($field, ['Cost']) => (float)$value,
             default => $value
         };
+    }
+
+    /**
+     * Парсинг данных месячных расходов
+     */
+    public function parseMonthlyExpenses(array $reportData): Collection
+    {
+        return collect($reportData)->map(function ($item) {
+            return new MonthlyExpenseDTO(
+                Carbon::createFromFormat('Ym', $item['Month']),
+                (float)$item['Cost']
+            );
+        });
     }
 }

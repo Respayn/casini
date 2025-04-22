@@ -12,13 +12,15 @@ class YandexDirectV4Client implements YandexDirectClientInterface
 {
     protected Client $client;
     protected string $baseUrl;
+    private bool $sandboxMode;
 
     public function __construct(
         protected string $token,
-        protected string $clientLogin,
-        protected bool $sandboxMode = false
+        protected string $clientLogin
     ) {
-        $this->baseUrl = $sandboxMode
+        $this->sandboxMode = config('services.yandex_direct.use_sandbox');
+
+        $this->baseUrl = $this->sandboxMode
             ? config('services.yandex_direct.v4_sandbox_url')
             : config('services.yandex_direct.v4_api_url');
 

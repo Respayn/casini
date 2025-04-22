@@ -22,38 +22,6 @@ class TestCommand extends Command
 
     public function handle()
     {
-        try {
-            $directService = app(YandexDirectService::class);
 
-            // Получение списка кампаний
-            $campaigns = $directService->getCampaigns();
-//            dd($campaigns);
-
-            // Получение баланса
-            $balance = $directService->getAccountBalance();
-//            dd($balance);
-
-            // Отчет по производительности
-            $report = $directService->getPerformanceReport(
-                now()->subMonth(),
-                now(),
-                ['Impressions', 'Clicks', 'Cost']
-            );
-//            dd($report);
-
-            // Статистика по кампании
-            $stats = $directService->getCampaignStatistics(
-                12345,
-                now()->subWeek(),
-                now()
-            );
-
-//            dd($stats);
-
-        } catch (YandexDirectApiException $e) {
-            // Обработка ошибок
-            report($e);
-            return response()->json(['error' => $e->getMessage()], 500);
-        }
     }
 }
