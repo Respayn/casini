@@ -17,15 +17,15 @@ class YandexDirectClientFactory
      * @param bool $sandboxMode Режим песочницы
      */
     public static function create(
-        string $version,
         string $token,
         string $clientLogin,
+        string $version = 'v5',
         bool $sandboxMode = false
     ): YandexDirectClientInterface
     {
         return match(strtolower($version)) {
-            'v4' => new YandexDirectV4Client($token, $clientLogin, $sandboxMode),
-            'v5' => new YandexDirectClient($token, $clientLogin, $sandboxMode),
+            'v4' => new YandexDirectV4Client($token, $clientLogin),
+            'v5' => new YandexDirectClient($token, $clientLogin),
             default => throw new \InvalidArgumentException("Unsupported API version: $version")
         };
     }
