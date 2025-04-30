@@ -51,4 +51,15 @@ return [
 
         'use_sandbox' => env('YANDEX_DIRECT_USE_SANDBOX', false),
     ],
+
+    'callibri' => [
+        'api_url' => env('CALLIBRI_API_URL', 'https://api.callibri.ru/'),
+
+        'test_email' => env('CALLIBRI_API_TEST_EMAIL'),
+        'test_token' => env('CALLIBRI_API_TEST_TOKEN'),
+        'test_site_id' => env('CALLIBRI_API_TEST_SITE_ID'),
+
+        'retries' => 3,
+        'timeout' => 15
+    ],
 ];

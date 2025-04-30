@@ -8,6 +8,7 @@ use App\Data\YandexDirect\PerformanceReportDTO;
 use App\Services\YandexDirectService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class YandexDirectServiceTest extends TestCase
@@ -25,7 +26,7 @@ class YandexDirectServiceTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function test_campaigns_correctly()
     {
         // Запрос реальных данных
@@ -52,7 +53,7 @@ class YandexDirectServiceTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function test_account_balance()
     {
         $service = app(YandexDirectService::class);
@@ -65,7 +66,7 @@ class YandexDirectServiceTest extends TestCase
         $this->assertIsNumeric($balance);
     }
 
-    /** @test */
+    #[Test]
     public function test_performance_report()
     {
         $startDate = Carbon::now()->subWeek();
@@ -87,7 +88,7 @@ class YandexDirectServiceTest extends TestCase
         }
     }
 
-    /** @test */
+    #[Test]
     public function test_validates_date_ranges()
     {
         $this->expectException(\InvalidArgumentException::class);
@@ -98,7 +99,7 @@ class YandexDirectServiceTest extends TestCase
         );
     }
 
-    /** @test */
+    #[Test]
     public function test_project_expenses_calculation()
     {
         $start = Carbon::now()->subMonth();
