@@ -31,6 +31,7 @@ class CallibriClient
 
     public function request(string $method, string $uri, array $options = []): array
     {
+        $options = array_merge_recursive($options, ['query' => ['user_email' => $this->email, 'user_token' => $this->token]]);
         $response = $this->client->request($method, $uri, $options);
         return json_decode($response->getBody(), true);
     }

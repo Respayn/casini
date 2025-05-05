@@ -17,3 +17,4 @@ class IntegrationData extends Data implements Wireable
     public ?string $notification;
     public string $code;
 }
+

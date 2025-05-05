@@ -1,8 +1,7 @@
 <?php
 
-namespace App\Data\IntegrationSettings;
+namespace App\Data\Integrations;
 
-use App\Data\IntegrationData;
 use Carbon\CarbonImmutable;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;
@@ -12,10 +11,12 @@ class IntegrationSettingsData extends Data implements Wireable
 {
     use WireableData;
 
-    public ?int $integrationId;
-    public ?IntegrationData $integration;
-
-    public bool $isEnabled;
-    public ?CarbonImmutable $createdAt;
-    public ?CarbonImmutable $updatedAt;
+    public function __construct(
+        public ?int $integrationId,
+        public ?IntegrationData $integration,
+        public bool $isEnabled,
+        public ?CarbonImmutable $createdAt,
+        public ?CarbonImmutable $updatedAt
+    ) {
+    }
 }

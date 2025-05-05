@@ -2,7 +2,7 @@
 
 namespace App\Data\IntegrationSettings;
 
-use App\Data\IntegrationData;
+use App\Data\Integrations\IntegrationData;
 use Carbon\CarbonImmutable;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;

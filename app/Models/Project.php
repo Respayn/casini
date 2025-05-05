@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ProjectType;
 use App\Enums\ServiceType;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -38,9 +39,12 @@ use Illuminate\Support\Collection;
  * @property User $manager
  * @property Collection<ProjectFieldHistory> $fieldHistories
  * @property Collection<ProjectUtmMapping> $utmMappings
+ * @property Collection<IntegrationProject> $integrations
  */
 class Project extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'domain',
@@ -147,5 +151,15 @@ class Project extends Model
     public function utmMappings()
     {
         return $this->hasMany(ProjectUtmMapping::class);
+    }
+
+    /**
+     * Связанные настройки интеграций
+     *
+     * @return Project|\Illuminate\Database\Eloquent\Relations\HasMany
+     */
+    public function integrations()
+    {
+        return $this->hasMany(IntegrationProject::class);
     }
 }

@@ -2,8 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Exceptions\YandexDirectApiException;
-use App\Services\YandexDirectService;
+use App\Services\CallibriService;
 use Illuminate\Console\Command;
 
 class TestCommand extends Command
@@ -12,9 +11,9 @@ class TestCommand extends Command
 
     protected $description = 'Команда для вариативного тестирования методов';
 
-    protected YandexDirectService $service;
+    protected CallibriService $service;
 
-    public function __construct(YandexDirectService $service)
+    public function __construct(CallibriService $service)
     {
         parent::__construct();
         $this->service = $service;
@@ -22,6 +21,5 @@ class TestCommand extends Command
 
     public function handle()
     {
-
     }
 }
