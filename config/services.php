@@ -36,18 +36,30 @@ return [
     ],
 
     'yandex_direct' => [
-        'token' => env('YANDEX_DIRECT_TOKEN'),
         'client_id' => env('YANDEX_DIRECT_CLIENT_ID'),
         'client_secret' => env('YANDEX_DIRECT_CLIENT_SECRET'),
-        'client_login' => env('YANDEX_DIRECT_CLIENT_LOGIN'),
         'redirect_uri' => env('YANDEX_DIRECT_REDIRECT_URI', 'https://oauth.yandex.ru/verification_code'),
 
         'api_url' => env('YANDEX_DIRECT_API_URL', 'https://api.direct.yandex.com/v5/json/'),
         'sandbox_api_url' => env('YANDEX_DIRECT_SANDBOX_API_URL', 'https://api-sandbox.direct.yandex.com/v5/json/'),
 
+        'test_token' => env('YANDEX_DIRECT_TEST_TOKEN'),
+        'test_client_login' => env('YANDEX_DIRECT_TEST_CLIENT_LOGIN'),
+
         'v4_api_url' => 'https://api.direct.yandex.ru/live/v4/json/',
         'v4_sandbox_url' => 'https://api-sandbox.direct.yandex.ru/live/v4/json/',
 
         'use_sandbox' => env('YANDEX_DIRECT_USE_SANDBOX', false),
+    ],
+
+    'callibri' => [
+        'api_url' => env('CALLIBRI_API_URL', 'https://api.callibri.ru/'),
+
+        'test_email' => env('CALLIBRI_API_TEST_EMAIL'),
+        'test_token' => env('CALLIBRI_API_TEST_TOKEN'),
+        'test_site_id' => env('CALLIBRI_API_TEST_SITE_ID'),
+
+        'retries' => 3,
+        'timeout' => 15
     ],
 ];

@@ -69,4 +69,23 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
     {
         IntegrationProject::where('project_id', $projectId)->delete();
     }
+
+    public function getActiveCallibriIntegration(int $projectId): IntegrationProject
+    {
+        $integration = Integration::where('code', 'callibri')->first();
+
+        $projectIntegration = IntegrationProject::where([
+            'project_id' => $projectId,
+            'integration_id' => $integration->id,
+            'is_enabled' => true
+        ])->first();
+
+        if (!$projectIntegration) {
+            throw new \RuntimeException(
+                "Callibri integration not configured for project $projectId"
+            );
+        }
+
+        return $projectIntegration;
+    }
 }

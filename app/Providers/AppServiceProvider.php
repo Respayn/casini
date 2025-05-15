@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Repositories\CallibriLeadRepository;
+use App\Repositories\IntegrationRepository;
+use App\Repositories\Interfaces\CallibriLeadRepositoryInterface;
+use App\Repositories\Interfaces\IntegrationRepositoryInterface;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Repositories\ProjectUtmMappingRepository;
 use Illuminate\Support\Arr;
@@ -16,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(ProjectUtmMappingRepositoryInterface::class, ProjectUtmMappingRepository::class);
+        $this->app->bind(IntegrationRepositoryInterface::class, IntegrationRepository::class);
+        $this->app->bind(CallibriLeadRepositoryInterface::class, CallibriLeadRepository::class);
     }
 
     /**

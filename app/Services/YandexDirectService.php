@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Clients\YandexDirect\YandexDirectClient;
 use App\Data\YandexDirect\CampaignDTO;
 use App\Data\YandexDirect\CampaignStatisticsDTO;
+use App\Data\YandexDirect\MonthlyExpenseDTO;
 use App\Data\YandexDirect\PerformanceReportDTO;
 use App\Exceptions\YandexDirectApiException;
+use App\Factories\YandexDirectClientFactory;
 use App\Parsers\YandexDirectReportParser;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -14,10 +16,25 @@ use Illuminate\Support\Facades\Log;
 
 class YandexDirectService
 {
+    private readonly YandexDirectClient $client;
+
     public function __construct(
-        private readonly YandexDirectClient $client,
-        private readonly YandexDirectReportParser $parser
+        private readonly YandexDirectReportParser $parser,
+        private readonly YandexDirectClientFactory $clientFactory
     ) {}
+
+    public function setupClient($token, $clientLogin)
+    {
+        $this->client = $this->clientFactory->create($token, $clientLogin);
+    }
+
+    private function getClient(): YandexDirectClient
+    {
+        if ($this->client === null) {
+            throw new \Exception('YandexDirectClient is not initialized. Call setupClient() first.');
+        }
+        return $this->client;
+    }
 
     /**
      * Получить список рекламных кампаний
@@ -28,7 +45,7 @@ class YandexDirectService
     public function getCampaigns(): Collection
     {
         try {
-            $response = $this->client->request('POST', 'campaigns', [
+            $response = $this->getClient()->request('POST', 'campaigns', [
                 'method' => 'get',
                 'params' => [
                     'SelectionCriteria' => (object)[],
@@ -57,7 +74,7 @@ class YandexDirectService
     public function getAccountBalance(): float
     {
         try {
-            return $this->client->getAccountBalance();
+            return $this->getClient()->getAccountBalance();
         } catch (\Exception $e) {
             $this->logError(__METHOD__, $e);
             throw new YandexDirectApiException('Balance check failed', 0, $e);
@@ -78,7 +95,7 @@ class YandexDirectService
         $this->validateDateRange($startDate, $endDate);
 
         try {
-            $reportData = $this->client->requestReport([
+            $reportData = $this->getClient()->requestReport([
                 'params' => $this->buildReportParams(
                     'ACCOUNT_PERFORMANCE_REPORT',
                     $startDate,
@@ -86,7 +103,6 @@ class YandexDirectService
                     $metrics
                 )
             ]);
-
             return $this->parser->parsePerformanceReport($reportData);
 
         } catch (\Exception $e) {
@@ -98,44 +114,44 @@ class YandexDirectService
         }
     }
 
-    /**
-     * Получить статистику по кампании
-     *
-     * @return Collection<CampaignStatisticsDTO>
-     * @throws YandexDirectApiException
-     */
-    public function getCampaignStatistics(
-        int $campaignId,
-        Carbon $startDate,
-        Carbon $endDate
-    ): Collection {
-        $this->validateDateRange($startDate, $endDate);
-
-        try {
-            $response = $this->client->request('POST', 'reports', [
-                'params' => $this->buildReportParams(
-                    'CAMPAIGN_PERFORMANCE_REPORT',
-                    $startDate,
-                    $endDate,
-                    ['Date', 'Clicks', 'Cost'],
-                    [
-                        'Page' => [
-                            'Limit' => 1000
-                        ]
-                    ]
-                )
-            ]);
-
-            return $this->parser->parseCampaignStatistics($response['data'] ?? []);
-
-        } catch (\Exception $e) {
-            $this->logError(__METHOD__, $e, [
-                'campaignId' => $campaignId,
-                'period' => $this->formatDateRange($startDate, $endDate)
-            ]);
-            throw new YandexDirectApiException('Campaign statistics failed', 0, $e);
-        }
-    }
+//    /**
+//     * Получить статистику по кампании
+//     *
+//     * @return Collection<CampaignStatisticsDTO>
+//     * @throws YandexDirectApiException
+//     */
+//    public function getCampaignStatistics(
+//        int $campaignId,
+//        Carbon $startDate,
+//        Carbon $endDate
+//    ): Collection {
+//        $this->validateDateRange($startDate, $endDate);
+//
+//        try {
+//            $response = $this->getClient()->request('POST', 'reports', [
+//                'params' => $this->buildReportParams(
+//                    'CAMPAIGN_PERFORMANCE_REPORT',
+//                    $startDate,
+//                    $endDate,
+//                    ['Date', 'Clicks', 'Cost'],
+//                    [
+//                        'Page' => [
+//                            'Limit' => 1000
+//                        ]
+//                    ]
+//                )
+//            ]);
+//
+//            return $response['data'];
+//
+//        } catch (\Exception $e) {
+//            $this->logError(__METHOD__, $e, [
+//                'campaignId' => $campaignId,
+//                'period' => $this->formatDateRange($startDate, $endDate)
+//            ]);
+//            throw new YandexDirectApiException('Campaign statistics failed', 0, $e);
+//        }
+//    }
 
     /**
      * Сформировать параметры отчета
@@ -179,11 +195,70 @@ class YandexDirectService
     }
 
     /**
-     * Форматирование периода для логов
+     * Получить общие расходы по проекту за период
+     *
+     * @param Carbon $startDate
+     * @param Carbon $endDate
+     * @return float
+     * @throws YandexDirectApiException
      */
-    private function formatDateRange(Carbon $start, Carbon $end): string
+    public function getProjectExpenses(Carbon $startDate, Carbon $endDate): float
     {
-        return $start->toDateString().' - '.$end->toDateString();
+        $report = $this->getPerformanceReport(
+            $startDate,
+            $endDate,
+            ['Cost', 'Impressions', 'Clicks']
+        );
+
+        return $report->sum('cost');
+    }
+
+    /**
+     * Получить расходы по проекту с группировкой по месяцам
+     *
+     * @param Carbon $startDate
+     * @param Carbon $endDate
+     * @return Collection<MonthlyExpenseDTO>
+     * @throws YandexDirectApiException
+     */
+    public function getProjectExpensesByMonth(Carbon $startDate, Carbon $endDate): Collection
+    {
+        $this->validateDateRange($startDate, $endDate);
+
+        try {
+            $reportData = $this->getClient()->requestReport([
+                'params' => $this->buildReportParams(
+                    'ACCOUNT_PERFORMANCE_REPORT',
+                    $startDate,
+                    $endDate,
+                    ['Date', 'Cost']
+                )
+            ]);
+
+            return $this->groupByMonth($reportData);
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $startDate->toDateString(),
+                'end' => $endDate->toDateString()
+            ]);
+            throw new YandexDirectApiException('Failed to get monthly expenses', 0, $e);
+        }
+    }
+
+    /**
+     * Группировка данных по месяцам
+     */
+    private function groupByMonth(array $reportData): Collection
+    {
+        return collect($reportData)
+            ->groupBy(fn($item) => Carbon::parse($item['Date'])->format('Y-m'))
+            ->map(function ($items, $month) {
+                return new MonthlyExpenseDTO(
+                    Carbon::createFromFormat('Y-m', $month),
+                    $items->sum(fn($i) => (float)$i['Cost'])
+                );
+            })
+            ->values();
     }
 
     /**
