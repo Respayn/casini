@@ -2,6 +2,8 @@
 
 namespace App\Helpers;
 
+use Illuminate\Support\Str;
+
 class StringHelper
 {
     /**
@@ -55,5 +57,27 @@ class StringHelper
     private static function normalize(string $input): string
     {
         return preg_replace('/[^a-z0-9]/', '', strtolower($input));
+    }
+
+    /**
+     * Нормализует номер договора для поиска:
+     * - Приводит к нижнему регистру
+     * - Удаляет все неалфавитно-цифровые символы
+     * - Обрезает пробелы
+     */
+    public static function normalizeContractNumber(string $number): string
+    {
+        return Str::lower(Str::slug(trim($number), ''));
+    }
+
+    /**
+     * Нормализует дополнительный номер договора:
+     * - Приводит к нижнему регистру
+     * - Обрезает пробелы
+     * - Возвращает пустую строку для null
+     */
+    public static function normalizeAdditionalNumber(?string $number): string
+    {
+        return trim(Str::lower($number ?? ''));
     }
 }
