@@ -11,33 +11,30 @@ use Spatie\LaravelData\DataCollection;
 
 class PaymentRepository implements PaymentRepositoryInterface
 {
-    public function upsertPayment(PaymentData $data, int $clientId): Payment
+    public function upsertPayment(string $paymentNumber, \DateTimeInterface $paymentDate, int $clientId): Payment
     {
         return Payment::updateOrCreate(
+            ['number' => $paymentNumber],
             [
-                'number' => $data->PaymentNumber, // Исправлено
-                'source' => PaymentSource::FROM_1C
-            ],
-            [
-                'received_date' => $data->PaymentDate, // Исправлено
+                'received_date' => $paymentDate,
                 'client_id' => $clientId,
-                'external_id' => $data->PaymentNumber // Исправлено
+                'source' => PaymentSource::FROM_1C
             ]
         );
     }
 
-    public function syncInvoices(Payment $payment, DataCollection $invoices): void
+    public function syncInvoices(Payment $payment, DataCollection $invoices, string $purpose): void
     {
         $payment->operations()->delete();
         foreach ($invoices as $index => $invoice) {
             PaymentOperation::create([
                 'payment_id' => $payment->id,
                 'order' => $index + 1,
-                'invoice_number' => $invoice->InvoiceNumber, // Исправлено
-                'invoice_date' => $invoice->InvoiceDate, // Исправлено
-                'bank_received_amount' => $invoice->Sum, // Исправлено
-                'cabinet_top_up_amount' => $invoice->Sum, // Исправлено
-                'payment_details' => $payment->purpose
+                'invoice_number' => $invoice->invoiceNumber,
+                'invoice_date' => $invoice->invoiceDate,
+                'bank_received_amount' => $invoice->sum,
+                'cabinet_top_up_amount' => $invoice->sum,
+                'payment_details' => $purpose
             ]);
         }
     }
