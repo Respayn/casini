@@ -52,6 +52,24 @@ return [
         'use_sandbox' => env('YANDEX_DIRECT_USE_SANDBOX', false),
     ],
 
+    'yandex_metrika' => [
+        'client_id' => env('YANDEX_METRIKA_CLIENT_ID'),
+        'client_secret' => env('YANDEX_METRIKA_CLIENT_SECRET'),
+        'redirect_uri' => env('YANDEX_METRIKA_REDIRECT_URI'),
+
+        // API параметры
+        'api_url' => env('YANDEX_METRIKA_API_URL', 'https://api-metrika.yandex.net/'),
+
+
+        'test_token' => env('YANDEX_METRIKA_TEST_TOKEN'),
+        'test_client_login' => env('YANDEX_METRIKA_TEST_CLIENT_LOGIN'),
+        'test_counter_id' => env('YANDEX_METRIKA_TEST_COUNTER_ID'),
+
+        // Настройки запросов
+        'timeout' => 15,
+        'cache_ttl' => 3600,
+    ],
+
     'callibri' => [
         'api_url' => env('CALLIBRI_API_URL', 'https://api.callibri.ru/'),
 
