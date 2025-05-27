@@ -1,0 +1,30 @@
+@startuml Export Service
+
+hide empty members
+
+class ExportDocumentData {
+    + int $id
+    + string $filePath
+    + bool $isReady
+    + bool $isAccepted
+    + bool $isSent
+}
+
+class ExportDocumentService <<Сервис с логикой создания документов для экспорта>> {
+    - ExportDocumentRepository $exportDocumentRepository
+
+    + getExportListData(ExportListQueryData $queryData): TableReportData
+    + getExportDocument(int $id): ExportDocumentData
+    + updateDocumentField(int $documentId, string $fieldName, mixed $value): void
+}
+
+class ExportDocumentRepository {
+    + getExportDocument(int $id): ExportDocumentData
+    + updateDocument(int $id, ExportDocumentData $data): void
+}
+
+ExportDocumentService --> ExportDocumentData
+ExportDocumentService --> ExportDocumentRepository
+ExportDocumentRepository --> ExportDocumentData
+
+@enduml

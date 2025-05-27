@@ -1,0 +1,48 @@
+@startuml Export List - Code Components
+
+hide empty members
+
+!include docs/diagrams/shared/table_report.wsd
+
+enum ExportListGrouping <<Тип группировки отчета>> {
+    NONE
+    ROLE
+    CLIENTS
+    PROJECT_TYPE
+    TOOLS
+}
+
+class ExportListQueryData <<DTO с параметрами отчета>> {
+    + Collection<TableReportColumnData> $columns
+    + Carbon $dateFrom
+    + Carbon $dateTo
+    + bool $showInactive
+    + ExportListGrouping $grouping
+}
+
+!include docs\diagrams\export\export_service.wsd
+
+class ExportDocumentList <<Fullpage Компонент Livewire для страницы "Отчеты">> extends Livewire.Component {
+    + ExportListQueryData $queryData
+    + TableReportData $reportData
+    - ExportDocumentService $exportDocumentService
+
+    + boot(): void
+    + mount(): void
+    + render(): void
+    + getListData(): void
+    + downloadDocument(int $documentId): void
+    + updateDocumentField(int $documentId, string $fieldName, mixed $value): void
+}
+
+ExportDocumentList --> ExportDocumentService
+ExportDocumentList --> ExportListQueryData
+ExportDocumentList --> TableReportData
+
+ExportDocumentService -right-> ExportListQueryData
+ExportDocumentService --> TableReportData
+
+ExportListQueryData --> TableReportColumnData
+ExportListQueryData --> ExportListGrouping
+
+@enduml
