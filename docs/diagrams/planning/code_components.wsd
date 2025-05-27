@@ -1,0 +1,42 @@
+@startuml Planning - Code Components
+
+hide empty members
+
+!include docs/diagrams/shared/table_report.wsd
+
+enum PlanningGrouping <<Тип группировки отчета>> {
+    NONE
+    ROLE
+    CLIENTS
+    PROJECT_TYPE
+    TOOLS
+}
+
+class PlanningTableFilterData <<DTO с параметрами фильтра>> {
+    + PlanningGrouping $grouping
+    + Collection<TableReportColumnData> $columns
+    + int $year
+}
+
+class PlanningService <<Сервис с логикой планирования>> {
+    + getData(PlanningTableFilterData $filter): TableReportData
+}
+
+class PlanningPage <<Fullpage Компонент Livewire для страницы "Планирование">> extends Livewire.Component {
+    - PlanningService $planningService
+    + PlanningTableFilterData $filterData
+    + TableReportData $tableData
+
+    + getData(): void
+}
+
+PlanningPage --> PlanningService
+PlanningPage --> PlanningTableFilterData
+PlanningPage --> TableReportData
+
+PlanningService --> TableReportData
+
+PlanningTableFilterData --> PlanningGrouping
+PlanningTableFilterData --> TableReportColumnData
+
+@enduml
