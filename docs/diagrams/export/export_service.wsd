@@ -4,6 +4,9 @@ hide empty members
 
 class ExportDocumentData {
     + int $id
+    + Carbon $createdAt
+    + int $templateId
+    + int $clientId
     + string $filePath
     + bool $isReady
     + bool $isAccepted
@@ -16,11 +19,13 @@ class ExportDocumentService <<Сервис с логикой создания д
     + getExportListData(ExportListQueryData $queryData): TableReportData
     + getExportDocument(int $id): ExportDocumentData
     + updateDocumentField(int $documentId, string $fieldName, mixed $value): void
+    + createDocument(ExportDocumentCreateParametersData $data): ExportDocumentData
 }
 
 class ExportDocumentRepository {
     + getExportDocument(int $id): ExportDocumentData
     + updateDocument(int $id, ExportDocumentData $data): void
+    + createDocument(ExportDocumentData $data): ExportDocumentData
 }
 
 ExportDocumentService --> ExportDocumentData

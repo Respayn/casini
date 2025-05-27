@@ -1,0 +1,54 @@
+@startuml Export Create - Code Components
+
+hide empty members
+
+!include docs\diagrams\export\export_service.wsd
+
+enum ExportDocumentFormat <<Формат документа>> {
+    PDF
+    DOCX
+    HTML
+}
+
+enum ExportDocumentTableGrouping <<Групиировка колонок в таблицах>> {
+    MONTH
+    YEAR
+}
+
+enum ExportDocumentTableSort <<Сортировка дат в таблицах>> {
+    ASC
+    DESC
+}
+
+class ExportDocumentCreateParametersData <<DTO с параметрами создания документа>> {
+    + int $clientId
+    + int $projectId
+    + Carbon $dateFrom
+    + Carbon $dateTo
+    + ExportDocumentFormat $format
+    + int $templateId
+    + ExportDocumentTableGrouping $tableGrouping
+    + ExportDocumentTableSort $tableSort
+    + bool $highlightGeneratedTemplateParts
+    + bool $setReadyAfterCreation
+    + Collection<string, string> $additionalFields
+}
+
+class ExportDocumentCreate <<Fullpage Компонент Livewire для страницы "Создание отчета">> extends Livewire.Component {
+    - ExportDocumentService $exportDocumentService
+    + ExportDocumentCreateParametersData $createParameters
+
+    + createDocument(ExportDocumentCreateParametersData $parameters): void
+    + createAndDownloadDocument(ExportDocumentCreateParametersData $parameters): void
+    + back(): void
+}
+
+ExportDocumentCreateParametersData --> ExportDocumentFormat
+ExportDocumentCreateParametersData --> ExportDocumentTableGrouping
+ExportDocumentCreateParametersData --> ExportDocumentTableSort
+
+ExportDocumentService --> ExportDocumentCreateParametersData
+
+ExportDocumentCreate --> ExportDocumentService
+
+@enduml
