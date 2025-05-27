@@ -1,0 +1,83 @@
+@startuml Users - Code Components
+
+hide empty members
+
+class UserData <<DTO с данными пользователя>> {
+    + int $id
+    + string $login
+    + string $firstName
+    + string $lastname
+    + string $role
+    + bool $isActive
+    + RateData $rate // TODO
+}
+
+class UserCreateData <<DTO с данными для создания пользователя>> {
+    + string $login
+    + bool $isActive
+    + int $roleId
+    + int $rateId
+    + string $firstName
+    + string $lastname
+    + string $email
+    + string $phone
+    + string $imagePath
+    + string $megaplanId
+    + bool $enableImportantNotifications
+    + bool $enableNotifications // TODO: подобрать имя - ползунок остальные уведомления или обновление системы
+}
+
+class UserEditData <<DTO с данными для редактирования пользователя>> extends UserCreateData {
+}
+
+class UsersService <<Сервис с логикой пользователей>> {
+    - UsersRepository $usersRepository
+    + getList(bool $includeInactive): Collection<UserData>
+    + create(UserCreateData $data): UserData
+    + edit(UserEditData $data): UserData
+}
+
+class UsersRepository <<Репозиторий пользователей>> {
+    + getList(): Collection<UserData>
+    + create(UserCreateData $data): UserData
+    + edit(UserEditData $data): UserData
+}
+
+class UsersList <<Fullpage Компонент Livewire для страницы "Пользователи">> extends Livewire.Component {
+    - UsersService $usersService
+    + Collection<UserData> $users
+    + bool $includeInactive
+
+    + getUsers(): void
+}
+
+class UsersCreate <<Fullpage Компонент Livewire для страницы "Создание пользователя">> extends Livewire.Component {
+    - UsersService $usersService
+    - UserCreateData $userData
+
+    + create(): void
+}
+
+class UsersEdit <<Fullpage Компонент Livewire для страницы "Редактирование пользователя">> extends Livewire.Component {
+    - UsersService $usersService
+    - UserEditData $userData
+
+    + edit(): void
+}
+
+UsersList --> UsersService
+UsersCreate --> UsersService
+UsersCreate --> UserCreateData
+UsersEdit --> UsersService
+UsersEdit --> UserEditData
+
+UsersService --> UsersRepository
+UsersService --> UserData
+UsersService --> UserCreateData
+UsersService --> UserEditData
+
+UsersRepository --> UserData
+UsersRepository --> UserCreateData
+UsersRepository --> UserEditData
+
+@enduml
