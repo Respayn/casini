@@ -1,0 +1,39 @@
+@startuml Channels - Table Rendering Algorithm
+
+start
+
+partition "Рендер заголовка таблицы" {
+    repeat :foreach ($queryData->columns as $column);
+    :Отрендерить заголовок столбца в таблице;
+    repeat while (next column)
+}
+
+partition "Рендер группировок отчета" {
+    repeat :foreach ($reportData->groups as $group);
+    partition "Рендер заголовка группы" {
+        if ($group->groupLabel is null) then (yes)
+            repeat :foreach ($queryData->columns as $colunm)
+            :Отрендерить ячейку итоговой строки с данными, $group->summary[$column->field];
+            repeat while (next column)
+        endif
+    }
+
+    partition "Рендер строк группы" {
+        repeat :foreach ($group->rows as $row);
+        repeat :foreach ($queryData->columns as $colunm)
+        :Отрендерить ячейку строки с данными, $row[$column->field];
+        repeat while (next column)
+        repeat while (next row)
+    }
+    repeat while (next group)
+}
+
+partition "Рендер итоговой строки" {
+    repeat :foreach ($queryData->columns as $column);
+    :Отрендерить ячейку итоговой строки с данными, $queryData->summary[$column->field];
+    repeat while (next column)
+}
+
+stop
+
+@enduml
