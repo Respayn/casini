@@ -1,0 +1,24 @@
+@startuml Table Report
+
+hide empty members
+
+class TableReportColumnData <<DTO столбца отчета>> {
+    + string $field
+    + string $label
+    + int $order
+}
+
+class TableReportGroupData <<DTO группы отчета>> {
+    + string $groupLabel - поле, по которому группируются данные
+    + Collection<field, value> $rows
+    + Collection<field, value> $summary
+}
+
+class TableReportData <<DTO отчета, возвращаемое в компонент>> {
+    + Collection<TableReportGroupData> $groups
+    + Collection<field, value> $summary
+}
+
+TableReportData --> TableReportGroupData
+
+@enduml

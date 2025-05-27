@@ -1,0 +1,66 @@
+@startuml Statistics - Code Components
+
+hide empty members
+
+!include docs/diagrams/shared/table_report.wsd
+
+enum StaticticsReportPeriod <<Детализация отчета>> {
+    WEEK
+    MONTH
+}
+
+' TODO: идентично enum в channels. Возможно стоит вынести в отдельный файл
+enum StatisticsReportGrouping <<Тип группировки отчета>> {
+    NONE
+    ROLE
+    CLIENTS
+    PROJECT_TYPE
+    TOOLS
+}
+
+enum ProjectType {
+    CONTEXT_AD
+    SEO_PROMOTION
+}
+
+class StatisticsReportQueryData <<DTO с параметрами отчета>> {
+    + Collection<TableReportColumnData> $columns
+    + Carbon $dateFrom
+    + Carbon $dateTo
+    + bool $highlightUnfilfilledProjects
+    + bool $accumulateData
+    + StaticticsReportPeriod $period
+    + StatisticsReportGrouping $grouping
+    + bool $showInactive
+    + bool $includeVat
+    + ?ProjectType $projectType
+}
+
+class StatisticsReportService <<Сервис с логикой отчета>> {
+    + getReportData(StatisticsReportQueryData $queryData): TableReportData
+}
+
+class StatisticsReport <<Fullpage Компонент Livewire для страницы "Статистика">> extends Livewire.Component {
+    + StatisticsReportQueryData $queryData
+    + TableReportData $reportData
+    - StatisticsReportService $reportService
+
+    + boot(): void
+    + mount(): void
+    + render(): void
+    + getReportData(): void
+}
+
+StatisticsReport --> StatisticsReportQueryData
+StatisticsReport --> TableReportData
+StatisticsReport --> StatisticsReportService
+
+StatisticsReportService --> StatisticsReportQueryData
+StatisticsReportService --> TableReportData
+
+StatisticsReportQueryData --> StaticticsReportPeriod
+StatisticsReportQueryData --> StatisticsReportGrouping
+StatisticsReportQueryData --> ProjectType
+StatisticsReportQueryData --> TableReportColumnData
+
+@enduml

@@ -12,41 +12,22 @@ enum ChannelReportGrouping <<Тип группировки отчета>> {
 
 class ChannelReportQueryData <<DTO с параметрами отчета>> {
     + ChannelReportGrouping $grouping
-    + Collection<ChannelReportColumnData> $columns
+    + Collection<TableReportColumnData> $columns
     + Carbon $dateFrom
     + Carbon $dateTo
     + bool $showInactive
     + bool $includeVat
 }
 
-class ChannelReportData <<DTO отчета, возвращаемое в компонент>> {
-    + Collection<ChannelReportGroupData> $groups
-    + Collection<field, value> $summary
-}
-
-class ChannelReportGroupData <<DTO группы отчета>> {
-    + string $groupLabel - поле, по которому группируются данные
-    + Collection<field, value> $rows
-    + Collection<field, value> $summary
-}
-
-class ChannelReportColumnData <<DTO столбца отчета>> {
-    + string $field
-    + string $label
-    + int $order
-}
+!include docs/diagrams/shared/table_report.wsd
 
 class ChannelReportService <<Сервис с логикой отчета>> {
-    + getReportData(ChannelReportQueryData $queryData): ChannelReportData
-}
-
-class ChannelReportColumn extends Livewire.Component {
-    + render()
+    + getReportData(ChannelReportQueryData $queryData): TableReportData
 }
 
 class ChannelReport <<Fullpage Компонент Livewire для страницы "Каналы">> extends Livewire.Component {
     + ChannelReportQueryData $queryData
-    + ChannelReportData $reportData
+    + TableReportData $reportData
     - ChannelReportService $reportService
 
     + boot(): void
@@ -62,17 +43,13 @@ note as ChannelReportNote
     Предполагается, что при отсутствии группировки, то в reportData будет только одна группа без groupLabel
 end note
 
-
-
 ChannelReportNote -> ChannelReport
 
 ChannelReport --> ChannelReportQueryData
 ChannelReport --> ChannelReportService
 ChannelReportQueryData --> ChannelReportGrouping
-ChannelReportQueryData --> ChannelReportColumnData
+ChannelReportQueryData --> TableReportColumnData
 ChannelReportService --> ChannelReportQueryData
-ChannelReportService --> ChannelReportData
-ChannelReportData --> ChannelReportGroupData
-
+ChannelReportService --> TableReportData
 
 @enduml
