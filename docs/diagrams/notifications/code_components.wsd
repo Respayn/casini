@@ -1,0 +1,62 @@
+@startuml Notifications - Code Components
+
+hide empty members
+
+package "Data Layer" {
+    abstract class NotificationData <<DTO с данными уведомления>> {
+        + int $id
+        + string $text
+        + Carbon $createdAt
+        + bool $isRead
+
+        + {abstract} getType(): string
+        + {abstract} getViewComponent(): string
+    }
+
+    class ProjectUpdateNotificationData <<DTO с данными уведомления о обновлении проекта>> extends NotificationData {
+        + int $projectId
+        + int $projectName
+
+        + getType(): string
+        + getViewComponent(): string
+    }
+}
+
+package "Service Layer" {
+    class NotificationFactory <<Фабрика уведомлений>> {
+        + {static} create(array $data): NotificationData
+    }
+
+    class NotificationService <<Сервис с логикой уведомлений>> {
+        - NotificationRepository $notificationRepository
+        + getUserNotifications(int $userId): Collection<NotificationData>
+        + markAsRead(int $notificationId): void
+        + createNotification(NotificationData $notification, int $userId): void
+        + markAllAsRead(int $userId): void
+        + getUnreadCount(int $userId): int
+    }
+
+    class NotificationRepository <<Репозиторий уведомлений>> {
+        + getByUserId(int $userId): Collection<NotificationData>
+        + markAsRead(int $notificationId): void
+        + create(array $data, int $userId): void
+        + markAllAsRead(int $userId): void
+        + getUnreadCount(int $userId): int
+    }
+}
+
+package "Presentation Layer" {
+    class NotificationList <<Livewire компонент списка уведомлений>> extends Livewire.Component {
+        - NotificationService $notificationService
+        + Collection<NotificationData> $notifications
+    }
+}
+
+NotificationList --> NotificationService
+NotificationService --> NotificationRepository
+NotificationService --> NotificationFactory
+
+NotificationFactory ..> NotificationData : creates
+NotificationFactory ..> ProjectUpdateNotificationData : creates
+
+@enduml
