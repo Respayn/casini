@@ -1,0 +1,57 @@
+@startuml Permissions - Code Components
+
+hide empty members
+
+class RoleData {
+    + ?int $id
+    + string $name
+    + bool $collectProjects
+    + bool $hasSubordinates
+    + Collection<RoleProductPermissionData> $productPermissions
+    + Collection<int> $subordinateRoleIds
+}
+
+class RoleProductPermissionData {
+    + int $productId
+    + string $productName
+    + bool $canView
+    + bool $canEdit
+    + bool $canDelete
+}
+
+class PermissionsService <<Сервис с логикой "Права доступа">> {
+    - PermissionsRepository $repository
+    + getRoles(): Collection<RoleData>
+    + saveChanges(Collection<RoleData> $roles): void
+}
+
+class PermissionsRepository <<Репозиторий для работы с правами доступа>> {
+    + getRoles(): Collection<RoleData>
+    + deleteRole(int $id): void
+    + saveRole(RoleData $role): void
+}
+
+class Permissions <<Fullpage Компонент Livewire для страницы "Права доступа">> extends Livewire.Component {
+    - PermissionsService $permissionService
+    + Collection<RoleData> $roles
+
+    + boot(): void
+    + mount(): void
+    + render(): void
+    + getRoles(): Collection<RoleData>
+    + deleteRole(int $id): void
+    + createRole(): void
+    + saveChanges(): void
+    + cancelChanges(): void
+}
+
+Permissions --> PermissionsService
+
+PermissionsService --> PermissionsRepository
+PermissionsService --> RoleData
+
+PermissionsRepository --> RoleData
+
+RoleData --> RoleProductPermissionData
+
+@enduml
