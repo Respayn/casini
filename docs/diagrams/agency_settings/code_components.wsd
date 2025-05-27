@@ -1,0 +1,60 @@
+@startuml Agency Settings - Code Components
+
+hide empty members
+
+enum UrlScheme {
+    HTTP
+    HTTPS
+}
+
+class AgencyAdminData {
+    + int $id
+    + string $name
+}
+
+class AgencyData {
+    + int $id
+    + string $name
+    + Collection<AhencyAdminData> $admins
+    + string $timeZone
+    + UrlScheme $urlScheme
+    + string $url
+    + string $email
+    + string $phone
+    + string $address
+    + ?string $logoSrc
+}
+
+class AgencySettingsService <<Сервис с логикой "Настройки агентства">> {
+    - AgencySettingsRepository $repository
+
+    + getAgency(int $id): AgencyData
+    + saveAgency(AgencyData $agency): void
+}
+
+class AgencySettingsRepository <<Репозиторий для работы с настройками агентства>> {
+    + getAgency(int $id): AgencyData
+    + saveAgency(AgencyData $agency): void
+}
+
+class AgencySettings <<Fullpage Компонент Livewire для страницы "Настройки агентства">> extends Livewire.Component {
+    - AgencySettingsService $settingsService
+
+    + boot(): void
+    + mount(): void
+    + render(): void
+    + getAgency(): AgencyData
+    + saveAgency(): void
+    + cancelChanges(): void
+}
+
+AgencySettings --> AgencySettingsService
+
+AgencySettingsService --> AgencySettingsRepository
+
+AgencySettingsRepository --> AgencyData
+
+AgencyData --> AgencyAdminData
+AgencyData --> UrlScheme
+
+@enduml
