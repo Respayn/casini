@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Repositories\AgencySettingsRepository;
 use App\Repositories\CallibriLeadRepository;
 use App\Repositories\IntegrationRepository;
+use App\Repositories\Interfaces\AgencySettingsRepositoryInterface;
 use App\Repositories\Interfaces\CallibriLeadRepositoryInterface;
 use App\Repositories\Interfaces\IntegrationRepositoryInterface;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
@@ -19,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(AgencySettingsRepositoryInterface::class, AgencySettingsRepository::class);
         $this->app->bind(ProjectUtmMappingRepositoryInterface::class, ProjectUtmMappingRepository::class);
         $this->app->bind(IntegrationRepositoryInterface::class, IntegrationRepository::class);
         $this->app->bind(CallibriLeadRepositoryInterface::class, CallibriLeadRepository::class);

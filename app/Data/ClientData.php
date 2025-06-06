@@ -18,7 +18,7 @@ class ClientData extends Data implements Wireable
         public string $name,
         public string $inn,
         public float $initial_balance,
-        public int $manager_id,
+        public ?int $manager_id,
         public ?UserData $manager = null,
         public ?CarbonImmutable $createdAt = null,
         public ?CarbonImmutable $updatedAt = null,

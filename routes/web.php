@@ -2,9 +2,11 @@
 
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Livewire\Demo;
+use App\Livewire\SystemSettings\Agency\AgencySettingsComponent;
 use App\Livewire\SystemSettings\ClientsAndProjects;
 use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
 use App\Livewire\SystemSettings\ClientAndProjects\ClientProjectFormModel;
+use App\Livewire\SystemSettings\CreateAgencyComponent;
 use App\Livewire\SystemSettings\DictionaryList;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +16,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/clients-and-projects', ClientsAndProjects::class)->name('clients-and-projects');
         Route::get('/clients-and-projects/project/{projectId?}', ClientProjectFormModel::class)->name('clients-and-projects.projects.manage');
         Route::get('/clients-and-projects/client/create', CreateClient::class)->name('clients-and-projects.clients.create');
+
+        Route::get('/agency/{agency?}', AgencySettingsComponent::class)->name('agency');
+        Route::get('/agency', AgencySettingsComponent::class)->name('agency.default');
+        Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
     });
 
     Route::get('/yandex-direct/connect', [YandexDirectOAuthController::class, 'redirect'])
