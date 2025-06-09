@@ -46,4 +46,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function agencies()
+    {
+        return $this->belongsToMany(
+            \App\Models\AgencySetting::class,
+            'agency_admins',
+            'user_id',
+            'agency_id'
+        )->withTimestamps();
+    }
 }

@@ -13,7 +13,7 @@ class ClientRepository extends EloquentRepository implements RepositoryInterface
         return Client::class;
     }
 
-    public function all(array $with = [])
+    public function all(array $with = ['manager'])
     {
         $clients = Client::with($with)->get();
         return ClientData::collect($clients);

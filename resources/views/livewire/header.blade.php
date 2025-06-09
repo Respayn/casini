@@ -1,9 +1,15 @@
 <div class="w-full rounded-bl-2xl bg-white py-[10px] pe-[20px] ps-[15px]">
     <div class="flex items-center justify-between">
         <div>
-            {{-- <x-v2.forms.select :options="[
-                [ 'label' => 'СайтАктив (№12345)', 'value' => '2' ]
-            ]" /> --}}
+            <livewire:system-settings.agency.agency-switcher-component />
+            <x-overlay.modal
+                name="agency-modal"
+                title="Создать агентство"
+            >
+                <x-slot:body>
+                    <livewire:system-settings.agency.create-agency-form :key="'create-agency-modal'"/>
+                </x-slot:body>
+            </x-overlay.modal>
         </div>
         <div class="flex items-center">
             <x-button.button

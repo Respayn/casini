@@ -1,3 +1,7 @@
+@php
+    $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
@@ -23,6 +27,7 @@
         <x-menu.navbar :items="[
             ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
             ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
+            ['label' => 'Настройки агентства', 'route' => ['system-settings.agency', $currentAgencyId]],
         ]" />
 
         <div class="rounded-l-2xl bg-white p-5">
