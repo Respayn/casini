@@ -63,7 +63,9 @@
 
             <x-form.form-field>
                 <x-form.form-label>Фактический адрес агентства</x-form.form-label>
-                <x-form.input-text wire:model="form.address" placeholder="Центральный офис: г. Екатеринбург, ул. Добролюбова 16/2, оф.201"/>
+                <div>
+                    <x-form.textarea wire:model="form.address" placeholder="Центральный офис: г. Екатеринбург, ул. Добролюбова 16/2, оф.201"/>
+                </div>
             </x-form.form-field>
 
             <x-form.form-field>

@@ -26,7 +26,9 @@
     </x-form.form-field>
     <x-form.form-field>
         <x-form.form-label>Фактический адрес</x-form.form-label>
-        <x-form.input-text wire:model="form.address" />
+        <div>
+            <x-form.textarea wire:model="form.address" placeholder="Центральный офис: г. Екатеринбург, ул. Добролюбова 16/2, оф.201" />
+        </div>
     </x-form.form-field>
     <div class="flex justify-between mt-4">
         <x-button.button type="submit" icon="icons.check" variant="primary">

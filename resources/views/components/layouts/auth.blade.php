@@ -15,7 +15,7 @@
           <x-icons.logo width="230" />
         </span>
 
-        <div class="flex-1 w-full flex items-center justify-center px-4">
+        <div class="flex-1 w-full flex justify-center px-4">
             <div class="w-full max-w-md">
                 <div class="shadow-xs rounded-[14px] border border-[#CFDFF4] bg-white text-stone-800">
                     <div class="p-12">
