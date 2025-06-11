@@ -20,7 +20,8 @@ class AgencySettingsComponent extends Component
 
     public function mount(AgencySettingsService $service)
     {
-        $agencyId = $this->agency;
+        $agencyId = $this->agency ?? (int)session('current_agency_id');
+
         if (!$agencyId) {
             abort(404, 'Агентство не найдено');
         }
@@ -63,10 +64,8 @@ class AgencySettingsComponent extends Component
 
     public function deleteLogo()
     {
-        if ($this->form->logoSrc) {
-            \Storage::disk('public')->delete($this->form->logoSrc);
-            $this->form->logoSrc = null;
-        }
+        $this->form->logo = null;
+        $this->form->logoSrc = null;
     }
 
     public function render()

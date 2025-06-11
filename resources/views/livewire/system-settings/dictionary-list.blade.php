@@ -291,61 +291,11 @@
             <x-panel.accordion-content>
                 <x-data.table>
                     <x-data.table-rows>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Калининград (МСК -1)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Москва
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Самара (МСК +1)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Екатеринбург (МСК +2)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Омск (МСК +3)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Красноярск (МСК +4)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Иркутск (МСК +5)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Якутск (МСК +6)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Владивосток (МСК +7)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Магадан (МСК +8)
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Камчатка (МСК +9)
-                            </x-data.table-cell>
-                        </x-data.table-row>
+                        @foreach(\App\Dictionaries\TimeZoneDictionary::list() as $tz)
+                            <x-data.table-row>
+                                <x-data.table-cell>{{ $tz['label'] }}</x-data.table-cell>
+                            </x-data.table-row>
+                        @endforeach
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.accordion-content>

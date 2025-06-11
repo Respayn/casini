@@ -30,8 +30,8 @@ class CreateAgencyForm extends Component
         $agency = $this->agencyService->createAgency($this->form);
 
         $this->dispatch('modal-hide', name: 'agency-modal');
-        $this->dispatch('agencyCreated', $agency->id);
         session()->flash('success', 'Агентство создано!');
+        $this->dispatch('agencyCreated', $agency->id);
     }
 
     public function render()
