@@ -8,7 +8,7 @@
     <x-form.input-text
         class="mb-5"
         label="Поиск:"
-        icon="resources/svg/search.svg"
+        icon="icons.search"
         wire:model.live.debounce="searchQuery"
         placeholder="Начните вводить"
     />

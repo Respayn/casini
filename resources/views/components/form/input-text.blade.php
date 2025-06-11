@@ -51,7 +51,7 @@
 
                 @default
                     <input
-                        type="text"
+                        type="{{ $attributes->get('type') }}"
                         @class([
                             'min-h-[42px] w-full rounded-[5px] border pe-3',
                             'border-input-border',
@@ -73,8 +73,8 @@
             @endif
         </div>
         @if ($icon)
-            <span class="absolute left-[13px] top-1/2 -translate-y-1/2">
-                <x-icons.search />
+            <span class="absolute left-[13px] top-1/2 -translate-y-1/2 pointer-events-none">
+                <x-dynamic-component :component="$icon" class="h-5 w-5 text-gray-400" />
             </span>
         @endif
     </div>

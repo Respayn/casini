@@ -1,34 +1,31 @@
-<!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+@props(['title' => null])
 
+    <!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $title ?? 'Page Title' }}</title>
-
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
 </head>
+<body class="font-sans antialiased">
+    <div class="bg-muted min-h-screen flex flex-col items-center pt-[50px]">
+        <span class="flex items-center justify-center mb-12">
+          <x-icons.logo width="230" />
+        </span>
 
-<body class="min-h-screen font-sans antialiased">
-    <div class="bg-muted flex min-h-svh flex-col items-center justify-center gap-6 p-6 md:p-10">
-        <div class="flex w-full max-w-md flex-col gap-24">
-            <span class="flex items-center justify-center rounded-md">
-                <x-icons.logo width="230" />
-            </span>
-
-            <div class="flex flex-col gap-6">
+        <div class="flex-1 w-full flex items-center justify-center px-4">
+            <div class="w-full max-w-md">
                 <div class="shadow-xs rounded-[14px] border border-[#CFDFF4] bg-white text-stone-800">
-                    <div class="p-12">{{ $slot }}</div>
+                    <div class="p-12">
+                        {{ $slot }}
+                    </div>
                 </div>
             </div>
         </div>
+
     </div>
     @livewireScripts
 </body>
-
 </html>
