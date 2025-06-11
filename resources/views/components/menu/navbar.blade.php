@@ -1,4 +1,6 @@
 @props([
+    'previous' => null,
+    'after' => null,
     'items' => [],
 ])
 
@@ -7,6 +9,8 @@
 @endphp
 
 <div class="flex gap-2.5" {{ $attributes }}>
+    {{ $previous }}
+
     @foreach ($items as $item)
         @php
             $routeValue = $item['route'];
@@ -27,4 +31,6 @@
             ])
         />
     @endforeach
+
+    {{ $after }}
 </div>

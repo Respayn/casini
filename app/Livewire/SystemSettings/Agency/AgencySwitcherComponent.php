@@ -51,6 +51,7 @@ class AgencySwitcherComponent extends Component
     public function updatedSelectedAgencyId($value)
     {
         session(['current_agency_id' => $value]);
+        return redirect(request()->header('referer'));
     }
 
     public function changeAgency($value)

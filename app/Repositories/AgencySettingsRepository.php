@@ -7,6 +7,7 @@ use App\Data\AgencyData;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Models\AgencySetting;
 use App\Repositories\Interfaces\AgencySettingsRepositoryInterface;
+use Illuminate\Support\Facades\DB;
 
 class AgencySettingsRepository extends EloquentRepository implements AgencySettingsRepositoryInterface
 {
@@ -50,6 +51,9 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         })->all());
     }
 
+    /**
+     * @throws \Throwable
+     */
     public function saveAgency(AgencyData|AgencySettingsForm $data): void
     {
         // Приводим к массиву данных
@@ -62,16 +66,24 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         // Находим агентство по id
         $agency = AgencySetting::findOrFail($data['id']);
 
-        // Обновляем поля
-        $agency->update([
-            'name'      => $data['name'],
-            'time_zone' => $data['timeZone'],
-            'url'       => $data['url'] ?? null,
-            'email'     => $data['email'] ?? null,
-            'phone'     => $data['phone'] ?? null,
-            'address'   => $data['address'] ?? null,
-            'logo_src'  => $data['logoSrc'] ?? null,
-        ]);
+        $lastLogoSrc = $agency->logo_src;
+
+        DB::transaction(function () use ($lastLogoSrc, $data, $agency) {
+            // Обновляем поля
+            $agency->update([
+                'name'      => $data['name'],
+                'time_zone' => $data['timeZone'],
+                'url'       => $data['url'] ?? null,
+                'email'     => $data['email'] ?? null,
+                'phone'     => $data['phone'] ?? null,
+                'address'   => $data['address'] ?? null,
+                'logo_src'  => $data['logoSrc'] ?? null,
+            ]);
+
+            if (!empty($lastLogoSrc)) {
+                \Storage::disk('public')->delete($lastLogoSrc);
+            }
+        });
 
         // Если нужны админы:
         if (!empty($data['admins'])) {

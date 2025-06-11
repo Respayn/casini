@@ -1,5 +1,8 @@
 @php
+    $user = auth()->user();
+    $hasAgencies = $user->agencies()->exists();
     $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
+    $isAgencyExist = !empty(\App\Models\AgencySetting::query()->find(session('current_agency_id')));
 @endphp
 
 <!DOCTYPE html>
@@ -27,8 +30,27 @@
         <x-menu.navbar :items="[
             ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
             ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
-            ['label' => 'Настройки агентства', 'route' => ['system-settings.agency', $currentAgencyId]],
-        ]" />
+        ]">
+            {{-- Настройки агенства (с открытием модалки) --}}
+            <x-slot:after>
+                @if($isAgencyExist)
+                    <x-button.button
+                        :href="route('system-settings.agency')"
+                        label="Настройки агентства"
+                        class="hover:!bg-primary hover:!text-white"
+                        :variant="request()->routeIs('system-settings.agency*') ? 'primary' : 'outlined'"
+                    />
+                @else
+                    <x-button.button
+                        variant="outlined"
+                        label="Настройки агентства"
+                        class="hover:bg-primary hover:text-white"
+                        x-data
+                        x-on:click="Livewire.dispatch('modal-show', { name: 'agency-modal' })"
+                    />
+                @endif
+            </x-slot:after>
+        </x-menu.navbar>
 
         <div class="rounded-l-2xl bg-white p-5">
             {{ $slot }}

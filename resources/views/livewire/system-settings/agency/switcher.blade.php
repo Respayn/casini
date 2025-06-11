@@ -36,7 +36,7 @@
             </div>
         </div>
         <div
-            class="border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0 bg-white absolute"
+            class="border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0 bg-white absolute z-100"
             x-cloak
             x-show="open"
             x-on:click.outside="open = false"
