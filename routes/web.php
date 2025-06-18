@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\YandexDirectOAuthController;
+use App\Http\Controllers\YandexMetrikaAuthController;
 use App\Livewire\Demo;
 use App\Livewire\SystemSettings\Agency\AgencySettingsComponent;
 use App\Livewire\SystemSettings\ClientsAndProjects;
@@ -22,11 +23,21 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
     });
 
-    Route::get('/yandex-direct/connect', [YandexDirectOAuthController::class, 'redirect'])
-        ->name('yandex_direct.oauth.redirect');
 
-    Route::get('/yandex-direct/callback', [YandexDirectOAuthController::class, 'callback'])
-        ->name('yandex_direct.oauth.callback');
+    Route::prefix('yandex-direct')->group(function () {
+        Route::get('/connect', [YandexDirectOAuthController::class, 'redirect'])
+            ->name('yandex_direct.oauth.redirect');
+        Route::get('/callback', [YandexDirectOAuthController::class, 'callback'])
+            ->name('yandex_direct.oauth.callback');
+    });
+
+    Route::prefix('yandex-metrika')->group(function () {
+        Route::get('/connect', [YandexMetrikaAuthController::class, 'redirect'])
+            ->name('yandex-metrika.auth');
+
+        Route::get('/callback', [YandexMetrikaAuthController::class, 'callback'])
+            ->name('yandex-metrika.callback');
+    });
 
     Route::get('/', Demo::class)->name('demo');
 });
