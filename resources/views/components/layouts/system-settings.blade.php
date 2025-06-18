@@ -46,7 +46,7 @@
                         label="Настройки агентства"
                         class="hover:bg-primary hover:text-white"
                         x-data
-                        x-on:click="Livewire.dispatch('modal-show', { name: 'agency-modal' })"
+                        x-on:click="Livewire.dispatch('createIfNotSelected')"
                     />
                 @endif
             </x-slot:after>

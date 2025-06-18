@@ -27,7 +27,6 @@ return new class extends Migration
             $table->id()->comment('Primary key');
             $table->foreignId('agency_id')->constrained('agency_settings')->onDelete('cascade')->comment('Агентство');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade')->comment('Пользователь-администратор');
-            $table->string('name')->comment('Имя администратора на момент добавления');
             $table->timestamps();
 
             $table->unique(['agency_id', 'user_id'], 'agency_user_unique');

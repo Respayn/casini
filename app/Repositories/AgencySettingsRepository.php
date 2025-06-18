@@ -16,7 +16,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         return AgencySetting::class;
     }
 
-    public function all(array $with = ['admins'])
+    public function all(array $with = ['admins', 'admins.user'])
     {
         $agencies = AgencySetting::with($with)->get();
 
@@ -29,7 +29,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
     public function find(int $id): ?AgencyData
     {
-        $agency = AgencySetting::with('admins')->find($id);
+        $agency = AgencySetting::with(['admins', 'admins.user'])->find($id);
 
         if ($agency) {
             $arr = $agency->toArray();
@@ -102,13 +102,13 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
     public function getAgency(int $id): AgencyData
     {
-        $agency = AgencySetting::with('admins')->findOrFail($id);
+        $agency = AgencySetting::with(['admins', 'admins.user'])->findOrFail($id);
 
         // Подготавливаем массив админов
         $admins = $agency->admins->map(function ($admin) {
             return [
                 'id' => $admin->user_id,
-                'name' => $admin->name,
+                'name' => $admin->user->name,
             ];
         });
 
@@ -163,7 +163,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         $agencyArr['admins'] = $agency->admins()->get()->map(function($admin) {
             return [
                 'id' => $admin->user_id,
-                'name' => $admin->name,
+                'name' => $admin->user->name,
             ];
         })->toArray();
         $agencyArr['timeZone'] = $agency->time_zone;

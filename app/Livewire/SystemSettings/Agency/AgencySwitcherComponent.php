@@ -12,7 +12,7 @@ class AgencySwitcherComponent extends Component
     public $selectedAgencyId = null;
     public $isSuperAdmin = false;
 
-    protected $listeners = ['agenciesUpdated' => 'refreshAgencies', 'agencyCreated' => 'refreshAgencies'];
+    protected $listeners = ['agenciesUpdated' => 'refreshAgencies', 'agencyCreated' => 'refreshAgencies', 'createIfNotSelected' => 'createIfNotSelected'];
 
     public function mount()
     {
@@ -28,6 +28,8 @@ class AgencySwitcherComponent extends Component
 
         $this->selectedAgencyId = session('current_agency_id')
             ?? ($this->agencies[0]['id'] ?? null);
+
+        session(['current_agency_id' => $this->selectedAgencyId]);
     }
 
     public function refreshAgencies($newAgencyId = null)
@@ -48,9 +50,19 @@ class AgencySwitcherComponent extends Component
         }
     }
 
+    public function createIfNotSelected()
+    {
+        if (empty($this->selectedAgencyId)) {
+            return $this->dispatch('modal-show', name: 'agency-modal');
+        }
+
+        return redirect()->route('system-settings.agency');
+    }
+
     public function updatedSelectedAgencyId($value)
     {
         session(['current_agency_id' => $value]);
+        $this->dispatch('agenciesUpdated');
         return redirect(request()->header('referer'));
     }
 

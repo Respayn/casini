@@ -124,7 +124,7 @@ form.form_normalized {
     .form-field {
         @apply items-start;
         & > *:last-child {
-            @apply lg:min-w-[305px];
+            @apply lg:min-w-[305px] lg:max-w-[305px];
         }
     }
 }

@@ -18,11 +18,15 @@ class AgencyAdmin extends Model
     protected $fillable = [
         'agency_id',
         'user_id',
-        'name',
     ];
 
     public function agency()
     {
         return $this->belongsTo(AgencySetting::class, 'agency_id');
+    }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }
