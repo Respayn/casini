@@ -32,9 +32,10 @@
 }
 
 :root {
-    --scrollpanel-bar-background: #599cff;
-    --scrollpanel-bar-border-radius: 4px;
-    --scrollpanel-bar-size: 9px;
+    --scrollpanel-bar-background: #ceddf0;
+    --scrollpanel-thumb-background: #599cff;
+    --scrollpanel-bar-border-radius: 5px;
+    --scrollpanel-bar-size: 10px;
     --scrollpanel-transition-duration: 0.2s;
 }
 
