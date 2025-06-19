@@ -1,42 +1,11 @@
 <div
     class="scrollpanel"
-    x-data="{
-        scrollRatioX: 0,
-        scrollRatioY: 0,
-        
-        updateScrollbars() {
-            const content = this.$refs.content;
-            const barX = this.$refs.barX;
-            const barY = this.$refs.barY;
-    
-            // Calculate scrollbar dimensions
-            const containerWidth = content.clientWidth;
-            const containerHeight = content.clientHeight;
-            const scrollWidth = content.scrollWidth;
-            const scrollHeight = content.scrollHeight;
-    
-            // Calculate scrollbar ratios
-            this.scrollRatioX = containerWidth / scrollWidth;
-            this.scrollRatioY = containerHeight / scrollHeight;
-    
-            // Set horizontal scrollbar width and position
-            const barXWidth = Math.max(30, containerWidth * this.scrollRatioX);
-            barX.style.width = `${barXWidth}px`;
-            barX.style.left = `${(content.scrollLeft * this.scrollRatioX)}px`;
-    
-            // Set vertical scrollbar height and position
-            const barYHeight = Math.max(30, containerHeight * this.scrollRatioY);
-            barY.style.height = `${barYHeight}px`;
-            barY.style.top = `${(content.scrollTop * this.scrollRatioY)}px`;
-    
-            // Show/hide scrollbars based on content size
-            barX.style.display = scrollWidth > containerWidth ? 'block' : 'none';
-            barY.style.display = scrollHeight > containerHeight ? 'block' : 'none';
-        }
-    }"
+    x-data="scrollpanel"
+    x-on:mouseup.window="stopDrag"
+    x-on:mousemove="handleMouseMove"
     {{ $attributes }}
 >
-    <div class="scrollpanel-content-container">
+    <div class="scrollpanel-content-container" x-ref="container">
         <div
             class="scrollpanel-content"
             x-ref="content"
@@ -50,17 +19,124 @@
     <div
         class="scrollpanel-bar scrollpanel-bar-x"
         x-ref="barX"
+        x-on:mousedown="startHorizontalDrag"
     ></div>
 
     {{-- Vertical scrollbar --}}
     <div
         class="scrollpanel-bar scrollpanel-bar-y"
         x-ref="barY"
+        x-on:mousedown="startVerticalDrag"
     ></div>
 </div>
 
 @once
+    @script
+        <script>
+            Alpine.data('scrollpanel', () => ({
+                horizontalThumbWidth: 0,
+                verticalThumbHeight: 0,
+                isDragging: false,
+                dragType: null,
+                dragStartX: 0,
+                dragStartY: 0,
+                contentStartScrollLeft: 0,
+                contentStartScrollTop: 0,
+
+                init() {
+                    this.updateScrollbars();
+                },
+
+                startVerticalDrag(event) {
+                    event.preventDefault();
+                    this.isDragging = true;
+                    this.dragType = 'vertical';
+                    this.dragStartY = event.clientY;
+                    this.contentStartScrollTop = this.$refs.content.scrollTop;
+                },
+
+                startHorizontalDrag(event) {
+                    event.preventDefault();
+                    this.isDragging = true;
+                    this.dragType = 'horizontal';
+                    this.dragStartX = event.clientX;
+                    this.contentStartScrollLeft = this.$refs.content.scrollLeft;
+                },
+
+                stopDrag() {
+                    this.isDragging = false;
+                    this.dragType = null;
+                },
+
+                handleMouseMove(event) {
+                    if (!this.isDragging) return;
+
+                    const content = this.$refs.content;
+                    const container = this.$refs.container;
+
+                    if (this.dragType === 'vertical') {
+                        const deltaY = event.clientY - this.dragStartY;
+
+                        const scrollableHeight = content.scrollHeight - content.clientHeight;
+                        const verticalTrackHeight = container.clientHeight - this.verticalThumbHeight;
+                        const scrollRatio = scrollableHeight / verticalTrackHeight;
+                        const newScrollTop = this.contentStartScrollTop + (deltaY * scrollRatio);
+                        content.scrollTop = Math.max(0, Math.min(scrollableHeight, newScrollTop));
+                    } else if (this.dragType === 'horizontal') {
+                        const deltaX = event.clientX - this.dragStartX;
+
+                        const scrollableWidth = content.scrollWidth - content.clientWidth;
+                        const horizontalTrackWidth = container.clientWidth - this.horizontalThumbWidth;
+                        const scrollRatio = scrollableWidth / horizontalTrackWidth;
+                        const newScrollLeft = this.contentStartScrollLeft + (deltaX * scrollRatio); 
+                        content.scrollLeft = Math.max(0, Math.min(scrollableWidth, newScrollLeft));
+                    }
+                },
+
+                updateScrollbars() {
+                    const content = this.$refs.content;
+                    const barX = this.$refs.barX;
+                    const barY = this.$refs.barY;
+
+                    // Calculate scrollbar dimensions
+                    const containerWidth = content.clientWidth;
+                    const containerHeight = content.clientHeight;
+                    const scrollWidth = content.scrollWidth;
+                    const scrollHeight = content.scrollHeight;
+
+                    // Calculate scrollbar ratios
+                    const scrollRatioX = containerWidth / scrollWidth;
+                    const scrollRatioY = containerHeight / scrollHeight;
+
+                    // Set horizontal scrollbar width and position
+                    this.horizontalThumbWidth = Math.max(30, containerWidth * scrollRatioX);
+                    barX.style.width = `${this.horizontalThumbWidth}px`;
+
+                    const maxScrollLeft = scrollWidth - containerWidth;
+                    const maxThumbLeft = containerWidth - this.horizontalThumbWidth;
+                    barX.style.left = `${(content.scrollLeft / maxScrollLeft) * maxThumbLeft}px`;
+
+                    // Set vertical scrollbar height and position
+                    this.verticalThumbHeight = Math.max(30, containerHeight * scrollRatioY);
+                    barY.style.height = `${this.verticalThumbHeight}px`;
+
+                    const maxScrollTop = scrollHeight - containerHeight;
+                    const maxThumbTop = containerHeight - this.verticalThumbHeight;
+                    barY.style.top = `${(content.scrollTop / maxScrollTop) * maxThumbTop}px`;
+
+                    // Show/hide scrollbars based on content size
+                    barX.style.display = scrollWidth > containerWidth ? 'block' : 'none';
+                    barY.style.display = scrollHeight > containerHeight ? 'block' : 'none';
+                }
+            }))
+        </script>
+    @endscript
+
     <style>
+        .scrollpanel {
+            position: relative;
+        }
+
         .scrollpanel-content-container {
             overflow: hidden;
             width: 100%;
@@ -82,7 +158,7 @@
         }
 
         .scrollpanel-bar {
-            position: relative;
+            position: absolute;
             border-radius: var(--scrollpanel-bar-border-radius);
             z-index: 2;
             cursor: pointer;
@@ -95,12 +171,12 @@
 
         .scrollpanel-bar-x {
             height: var(--scrollpanel-bar-size);
-            inset-block-end: 0;
+            bottom: 0px;
         }
 
         .scrollpanel-bar-y {
-            width: var(--p-scrollpanel-bar-size);
-            inset-block-start: 0;
+            width: var(--scrollpanel-bar-size);
+            right: 0px;
         }
 
         .scrollpanel:hover .scrollpanel-bar,

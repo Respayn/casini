@@ -43,7 +43,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ->map(function ($setting) {
                 $integrationData = new ProjectIntegrationData();
                 $integrationData->integration = IntegrationData::from($setting->integration);
-                $integrationData->settings = json_decode($setting->settings, true);
+                $integrationData->settings = $setting->settings;
                 $integrationData->isEnabled = $setting->is_enabled;
                 return $integrationData;
             });
