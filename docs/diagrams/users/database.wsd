@@ -1,0 +1,56 @@
+@startuml Users - Code Components
+
+hide empty members
+
+entity users <<Пользователи>> {
+    * id: INT
+    * login: VARCHAR
+    * is_active: BOOLEAN
+    first_name: VARCHAR
+    last_name: VARCHAR
+    email: VARCHAR
+    phone: VARCHAR
+    image_path: VARCHAR
+    megaplan_id: VARCHAR
+    enable_important_notifications: BOOLEAN
+    enable_notifications: BOOLEAN
+    created_at: DATETIME
+    updated_at: DATETIME
+}
+
+entity rates <<Ставки>> {
+    * id: INT
+    * name: VARCHAR
+    created_at: DATETIME
+    updated_at: DATETIME
+}
+
+entity rate_values <<Значения ставок>> {
+    * id: INT
+    * rate_id: INT
+    * value: FLOAT
+    * start_date: DATE
+    created_at: DATETIME
+    updated_at: DATETIME
+}
+
+entity rate_user <<Связка пользователя со ставками>> {
+    * user_id: INT
+    * rate_id: INT
+    created_at: DATETIME
+    updated_at: DATETIME
+}
+
+package spatie/laravel-permission {
+    entity permissions
+    entity roles
+    entity model_has_permissions
+    entity model_has_roles
+    entity role_has_permissions
+}
+
+users ||--o{ rate_user
+rate_user }o--|| rates
+rates ||--|{ rate_values
+
+@enduml
