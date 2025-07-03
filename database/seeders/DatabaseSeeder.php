@@ -18,6 +18,8 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,
             ProductNotificationSeeder::class,
             IntegrationSeeder::class,
+            AgencySettingsTableSeeder::class,
+            RatesTableSeeder::class,
         ]);
     }
 }
