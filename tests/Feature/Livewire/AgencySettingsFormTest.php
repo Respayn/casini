@@ -7,8 +7,8 @@ use Tests\TestCase;
 
 class AgencySettingsFormTest extends TestCase
 {
-    /** @test */
-    public function renders_successfully()
+
+    public function test_renders_successfully()
     {
         Livewire::test(\App\Livewire\SystemSettings\Agency\AgencySettingsComponent::class)
             ->assertStatus(200);

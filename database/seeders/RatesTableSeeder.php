@@ -10,10 +10,11 @@ class RatesTableSeeder extends Seeder
 {
     public function run()
     {
-        $rate = Rate::create(['name' => 'Базовая ставка']);
-        RateValue::create([
+        $rate = Rate::firstOrCreate(['name' => 'Базовая ставка']);
+        RateValue::firstOrCreate([
             'rate_id' => $rate->id,
             'value' => 2358.00,
+        ], [
             'start_date' => now(),
         ]);
 

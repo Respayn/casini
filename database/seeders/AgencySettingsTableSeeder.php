@@ -9,7 +9,7 @@ class AgencySettingsTableSeeder extends Seeder
 {
     public function run()
     {
-        AgencySetting::create([
+        AgencySetting::firstOrCreate([
             'name' => 'СайтАктив',
             'time_zone' => 'Europe/Moscow',
             'url' => 'https://siteactiv.ru',
