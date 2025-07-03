@@ -16,9 +16,19 @@ class UserSeeder extends Seeder
     {
         DB::table('users')->insert([
             'name' => 'Админ',
+            'first_name' => 'Николай',
+            'last_name' => 'Корниенко',
             'login' => 'admin',
             'email' => 'admin@admin.ru',
-            'password' => Hash::make('123123')
+            'phone' => '+7 (900) 123-45-67',
+            'image_path' => null,
+            'megaplan_id' => '1000272',
+            'enable_important_notifications' => true,
+            'enable_notifications' => true,
+            'is_active' => true,
+            'password' => Hash::make('123123'),
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
     }
 }
