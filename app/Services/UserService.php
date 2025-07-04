@@ -55,4 +55,27 @@ class UserService
     {
         return $this->repository->findByLogin($login, $with);
     }
+
+    /**
+     * Создать пользователя с историей ставок
+     * @param array $data
+     * @return UserData
+     */
+    public function create(array $data): UserData
+    {
+        $user = $this->repository->createWithRate($data);
+        return UserData::fromLivewire($user);
+    }
+
+    /**
+     * Обновить пользователя и сохранить историю ставок
+     * @param int $userId
+     * @param array $data
+     * @return UserData
+     */
+    public function update(int $userId, array $data): UserData
+    {
+        $user = $this->repository->updateWithRate($userId, $data);
+        return UserData::fromLivewire($user);
+    }
 }

@@ -68,4 +68,9 @@ class User extends Authenticatable
             'agency_id'
         )->withTimestamps();
     }
+
+    public function rateUser()
+    {
+        return $this->hasMany(\App\Models\RateUser::class, 'user_id');
+    }
 }

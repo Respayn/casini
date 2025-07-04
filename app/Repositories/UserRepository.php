@@ -3,8 +3,11 @@
 namespace App\Repositories;
 
 use App\Data\UserData;
+use App\Models\RateUser;
 use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class UserRepository extends EloquentRepository
 {
@@ -75,5 +78,102 @@ class UserRepository extends EloquentRepository
             ->first();
 
         return $user ? UserData::fromLivewire($user) : null;
+    }
+
+    /**
+     * Создать пользователя и сохранить ставку (история в rate_user)
+     *
+     * @param array $data
+     * @return User
+     */
+    public function createWithRate(array $data): User
+    {
+        return DB::transaction(function () use ($data) {
+            // 1. Создаем пользователя
+            $user = User::create([
+                'login'   => $data['login'],
+                'name'    => $data['name'],
+                'first_name' => $data['first_name'],
+                'last_name'  => $data['last_name'],
+                'is_active'  => !empty($data['is_active']),
+                'email'      => $data['email'],
+                'phone'      => $data['phone'],
+                'image_path' => $data['image_path'] ?? null,
+                'megaplan_id' => $data['megaplan_id'] ?? null,
+                'enable_important_notifications' => !empty($data['enable_important_notifications']),
+                'enable_notifications' => !empty($data['enable_notifications']),
+                'email_verified_at' => $data['email_verified_at'] ?? null,
+                'password' => bcrypt($data['password'] ?? Str::random(12)),
+            ]);
+
+            // 2. Привязка к агентству (если нужно, иначе убери этот блок)
+            if (!empty($data['agency_id'])) {
+                // Если связь через "agencies"
+                $user->agencies()->attach($data['agency_id']);
+            }
+
+            // 3. Сохраняем ставку (rate_user) — история!
+            if (!empty($data['rate_id'])) {
+                RateUser::create([
+                    'user_id' => $user->id,
+                    'rate_id' => $data['rate_id'],
+                ]);
+            }
+
+            return $user;
+        });
+    }
+
+    /**
+     * Обновить пользователя и сохранить историю ставок (rate_user)
+     *
+     * @param int $userId
+     * @param array $data
+     * @return User
+     */
+    public function updateWithRate(int $userId, array $data): User
+    {
+        return DB::transaction(function () use ($userId, $data) {
+            /** @var User|null $user */
+            $user = User::findOrFail($userId);
+
+            // 1. Обновляем поля пользователя
+            $updateData = [
+                'login'   => $data['login'],
+                'name'    => $data['name'],
+                'first_name' => $data['first_name'],
+                'last_name'  => $data['last_name'],
+                'is_active'  => !empty($data['is_active']),
+                'email'      => $data['email'],
+                'phone'      => $data['phone'],
+                'image_path' => $data['image_path'] ?? null,
+                'megaplan_id' => $data['megaplan_id'] ?? null,
+                'enable_important_notifications' => !empty($data['enable_important_notifications']),
+                'enable_notifications' => !empty($data['enable_notifications']),
+                'email_verified_at' => $data['email_verified_at'] ?? null,
+            ];
+
+            // Обновлять пароль, только если он был явно передан
+            if (!empty($data['password'])) {
+                $updateData['password'] = bcrypt($data['password']);
+            }
+
+            $user->update($updateData);
+
+            // 2. Проверка: изменилась ли ставка?
+            if (!empty($data['rate_id'])) {
+                /** @var RateUser|null $latestRate */
+                $latestRate = $user->rateUser()->latest('created_at')->first();
+                if (!$latestRate || $latestRate->rate_id != $data['rate_id']) {
+                    // 3. Новая ставка: сохраняем в истории (rate_user)
+                    RateUser::create([
+                        'user_id' => $user->id,
+                        'rate_id' => $data['rate_id'],
+                    ]);
+                }
+            }
+
+            return $user;
+        });
     }
 }
