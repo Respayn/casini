@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -20,6 +21,8 @@ use Illuminate\Support\Collection;
  */
 class AgencySetting extends Model
 {
+    use HasFactory;
+
     protected $table = 'agency_settings';
     protected $fillable = [
         'name',
