@@ -39,6 +39,7 @@ class UserRepository extends EloquentRepository
      */
     public function allByAgency(int $agencyId, ?bool $onlyActive = null, array $with = []): Collection
     {
+        $with = array_merge($with, ['latestRate.rate']); // Жадная загрузка!
         $query = $this->queryWith($with)
             ->whereHas('agencies', fn($q) => $q->where('agency_id', $agencyId));
 
@@ -46,7 +47,19 @@ class UserRepository extends EloquentRepository
             $query->where('is_active', $onlyActive);
         }
 
-        return UserData::collect($query->get());
+        return $query->get()->map(function ($user) {
+            return new UserData(
+                id: $user->id,
+                login: $user->login,
+                name: $user->name,
+                email: $user->email,
+                roles: $user->roles->pluck('name')->toArray(),
+                first_name: $user->first_name,
+                last_name: $user->last_name,
+                is_active: $user->is_active,
+                rate_name: optional($user->latestRate?->rate)->name, // вот так!
+            );
+        });
     }
 
     /**

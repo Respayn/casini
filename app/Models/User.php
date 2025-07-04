@@ -73,4 +73,9 @@ class User extends Authenticatable
     {
         return $this->hasMany(\App\Models\RateUser::class, 'user_id');
     }
+
+    public function latestRate()
+    {
+        return $this->hasOne(\App\Models\RateUser::class, 'user_id', 'id')->latestOfMany();
+    }
 }
