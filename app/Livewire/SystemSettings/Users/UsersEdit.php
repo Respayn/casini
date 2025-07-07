@@ -3,8 +3,11 @@
 namespace App\Livewire\SystemSettings\Users;
 
 use App\Livewire\Forms\SystemSettings\Users\UserForm;
+use App\Models\User;
 use App\Services\RateService;
+use App\Services\RoleService;
 use App\Services\UserService;
+use Illuminate\Support\Collection;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -13,14 +16,18 @@ class UsersEdit extends Component
     use WithFileUploads;
 
     public UserForm $form;
-    public $rates = [];
-    public int $userId;
+    public Collection $rates;
+    public array $roles = [];
+    public User $user;
 
-    public function mount(UserService $userService, RateService $ratesService, $userId)
+    public function mount(
+        RateService $ratesService,
+        RoleService $roleService,
+        User $user)
     {
-        $user = $userService->find($userId);
         $this->form->from($user);
-        $this->rates = $ratesService->getRates()->toArray();
+        $this->rates = $ratesService->getRates();
+        $this->roles = $roleService->getRoleOptions();
     }
 
     public function save(UserService $userService)

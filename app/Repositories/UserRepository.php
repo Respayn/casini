@@ -57,6 +57,7 @@ class UserRepository extends EloquentRepository
                 last_name: $user->last_name,
                 is_active: $user->is_active,
                 rate_name: optional($user->latestRate?->rate)->name,
+                rate_value: $user->latestRate?->rateValue->value,
             );
         });
     }

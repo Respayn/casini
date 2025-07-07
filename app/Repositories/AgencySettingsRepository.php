@@ -106,9 +106,10 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
         // Подготавливаем массив админов
         $admins = $agency->admins->map(function ($admin) {
+            $name = trim("{$admin->user->first_name} {$admin->user->last_name}");
             return [
                 'id' => $admin->user_id,
-                'name' => $admin->user->name,
+                'name' => empty($name) ? $admin->user->login : $name,
             ];
         });
 

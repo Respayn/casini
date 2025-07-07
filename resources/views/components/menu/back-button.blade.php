@@ -1,5 +1,5 @@
 <x-button
-    href="{{ route('system-settings.clients-and-projects') }}"
+    onclick="window.history.back()"
     label="Назад"
     icon="icons.arrow-left"
     size="none"

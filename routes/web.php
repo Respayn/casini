@@ -25,11 +25,11 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/agency', AgencySettingsComponent::class)->name('agency.default');
         Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
 
-        Route::get('/users', UsersList::class)->name('system-settings.users');
+        Route::get('/users', UsersList::class)->name('users');
         // Создание пользователя
         Route::get('/users/create', UsersCreate::class)->name('users.create');
         // Редактирование пользователя (userId — обязательный параметр)
-        Route::get('/users/{userId}/edit', UsersEdit::class)->name('users.edit');
+        Route::get('/users/{user}/edit', UsersEdit::class)->name('users.edit');
     });
 
 

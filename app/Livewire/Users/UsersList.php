@@ -3,8 +3,10 @@
 namespace App\Livewire\Users;
 
 use App\Services\UserService;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 
+#[Layout('components.layouts.system-settings')]
 class UsersList extends Component
 {
     public bool $onlyActive = true;
@@ -34,19 +36,10 @@ class UsersList extends Component
                 'last_name' => $user->last_name,
                 'roles' => $user->roles,
                 'is_active' => $user->is_active,
-                'rate_value' => $user->rate_name,
+                'rate_name' => $user->rate_name,
+                'rate_value' => $user->rate_value,
             ];
         })->toArray();
-    }
-
-    public function openCreateUserModal()
-    {
-        // open modal, handle action
-    }
-
-    public function editUser($userId)
-    {
-        // open modal/edit page
     }
 
     public function render()

@@ -32,4 +32,9 @@ class RateUser extends Model
     {
         return $this->belongsTo(Rate::class);
     }
+
+    public function rateValue()
+    {
+        return $this->belongsTo(RateValue::class, 'rate_id', 'rate_id');
+    }
 }
