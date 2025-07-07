@@ -9,7 +9,7 @@ class UserForm extends Form
 {
     public ?int $id = null;
 
-    #[Validate('required|string|max:100|unique:users,login,{id}')]
+//    #[Validate('required|string|max:100|unique:users,login,{id}')]
     public string $login = '';
 
     #[Validate('nullable|string|max:255')]
@@ -18,7 +18,7 @@ class UserForm extends Form
     #[Validate('nullable|string|max:255')]
     public ?string $last_name = null;
 
-    #[Validate('required|email|max:255|unique:users,email,{id}')]
+//    #[Validate('required|email|max:255|unique:users,email,{id}')]
     public string $email = '';
 
     #[Validate('nullable|string|max:30')]
@@ -57,13 +57,16 @@ class UserForm extends Form
     #[Validate('nullable|string|min:8|same:password')]
     public ?string $password_confirmation = null;
 
+    public bool $delete_photo = false;
+
     public function rules()
     {
+        $id = $this->id ?: 'NULL';
         return [
-            'login'   => 'required|string|max:100|unique:users,login' . ($this->id ? ',' . $this->id : ''),
+            'login' => "required|string|max:100|unique:users,login,{$id},id",
             'first_name' => 'nullable|string|max:255',
             'last_name'  => 'nullable|string|max:255',
-            'email'   => 'required|email|max:255|unique:users,email' . ($this->id ? ',' . $this->id : ''),
+            'email' => "required|email|max:255|unique:users,email,{$id},id",
             'phone'   => 'nullable|string|max:30',
             'image_path' => 'nullable|string|max:255',
             'megaplan_id' => 'nullable|string|max:255',

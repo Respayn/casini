@@ -7,6 +7,7 @@ use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -36,10 +37,9 @@ class UsersCreate extends Component
     {
         $this->validate();
 
-        // Обработка фото
+        // TODO: Вынести в репозиторий
         if ($this->form->photo) {
-            $path = $this->form->photo->store('user_photos', 'public');
-            $this->form->image_path = $path;
+            $this->form->image_path = $this->form->photo->store('user_photos', 'public');
         }
 
         $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
@@ -61,12 +61,19 @@ class UsersCreate extends Component
             'agency_id' => $currentAgencyId,
         ];
 
-        // Сохраняем пользователя через сервис
+        // Создаём пользователя через сервис
         $userService->create($userData);
 
         session()->flash('success', 'Пользователь успешно создан!');
 
-        return redirect()->route('system-settings.system-settings.users');
+        return redirect()->route('system-settings.users');
+    }
+
+    public function deletePhoto()
+    {
+        // Просто обнуляем фото в форме (Livewire сам удалит temporaryUrl)
+        $this->form->photo = null;
+        $this->form->image_path = null;
     }
 
     public function render()

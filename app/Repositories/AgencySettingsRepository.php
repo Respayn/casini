@@ -155,7 +155,6 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         if ($user) {
             $agency->admins()->create([
                 'user_id' => $user->id,
-                'name' => $user->name,
             ]);
         }
 
@@ -164,7 +163,6 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         $agencyArr['admins'] = $agency->admins()->get()->map(function($admin) {
             return [
                 'id' => $admin->user_id,
-                'name' => $admin->user->name,
             ];
         })->toArray();
         $agencyArr['timeZone'] = $agency->time_zone;

@@ -27,18 +27,18 @@
             this.selected = value;
             $dispatch('change');
         },
-    
+
         getDisplayText() {
-            if (this.selected) {
+            if (this.selected || this.selected == false) {
                 const selectedOption = this.options.find(
                     option => option['{{ $valueKey }}'] === this.selected
                 );
-                
+
                 if (selectedOption) {
                     return selectedOption['{{ $labelKey }}'];
                 }
             }
-            
+
             return '{{ $placeholder }}' || 'Выберите значение';
         }
     }"

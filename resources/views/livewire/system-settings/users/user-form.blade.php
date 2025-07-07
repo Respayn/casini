@@ -34,7 +34,7 @@
                 <x-form.form-label required tooltip="Пользователь сможет войти только если активен">Статус</x-form.form-label>
                 <x-form.select
                     wire:model="form.is_active"
-                    :options="[['label'=>'Активен','value'=>1],['label'=>'Неактивен','value'=>0]]"
+                    :options="[['label'=>'Активен','value'=>true],['label'=>'Неактивен','value'=>false]]"
                     placeholder="Выберите значение"
                 />
             </x-form.form-field>
@@ -97,22 +97,19 @@
                         >
                             <x-slot:label>Удалить</x-slot:label>
                         </x-button.button>
-                    @elseif($form->image_path)
+                    @elseif(!$form->delete_photo && $form->image_path)
                         {{-- Уже сохранённое фото --}}
                         <img src="{{ Storage::url($form->image_path) }}" alt="Фото профиля"
                              class="w-full min-h-[200px] object-contain rounded border border-secondary-text" />
                         <x-button.button
                             type="button"
-                            wire:click="deletePhoto"
+                            wire:click="$set('form.delete_photo', true)"
                             variant="link"
                             class="!py-1 !px-3 text-sm w-full text-secondary-text"
                         >
                             <x-slot:label>Удалить</x-slot:label>
                         </x-button.button>
-                    @endif
-
-                    {{-- Поле для загрузки всегда отображается если нет превью --}}
-                    @if(!$form->photo && !$form->image_path)
+                    @else
                         <label class="flex flex-col justify-center items-center w-full min-h-[305px] object-contain rounded border border-secondary-text cursor-pointer hover:bg-gray-50 transition">
                             <x-icons.camera class="w-10 h-10 text-secondary-text mb-2"/>
 
@@ -122,6 +119,10 @@
                     @endif
 
                     <span class="block w-full text-center text-secondary-text">Загрузить фото</span>
+
+                    @error('form.photo')
+                    <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                    @enderror
                 </div>
             </x-form.form-field>
         </div>

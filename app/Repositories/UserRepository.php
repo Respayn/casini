@@ -40,10 +40,11 @@ class UserRepository extends EloquentRepository
     public function allByAgency(int $agencyId, ?bool $onlyActive = null, array $with = []): Collection
     {
         $with = array_merge($with, ['latestRate.rate']); // Жадная загрузка!
+
         $query = $this->queryWith($with)
             ->whereHas('agencies', fn($q) => $q->where('agency_id', $agencyId));
 
-        if (!is_null($onlyActive)) {
+        if (!empty($onlyActive)) {
             $query->where('is_active', $onlyActive);
         }
 

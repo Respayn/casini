@@ -35,7 +35,8 @@ class ClientsAndProjects extends Component
     public function mount()
     {
         $this->clients = $this->clientService->getClients(['projects']);
-        $this->managers = $this->userService->getManagers();
+        $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
+        $this->managers = $this->userService->getManagers($currentAgencyId);
     }
 
     public function initClientForm(int $clientIndex = null)

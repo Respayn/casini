@@ -8,6 +8,8 @@ use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -34,14 +36,42 @@ class UsersEdit extends Component
     {
         $this->form->validate();
 
-        if ($this->form->photo) {
-            $this->form->image_path = $this->form->photo->store('user_photos', 'public');
+        // TODO: Вынести в репозиторий
+        try {
+            // Если пользователь запросил удаление фото
+            if ($this->form->delete_photo && empty($this->form->photo)) {
+                if ($this->user->image_path) {
+                    Storage::disk('public')->delete($this->user->image_path);
+                }
+                $this->form->image_path = null;
+            }
+            // Если загружено новое фото
+            elseif ($this->form->photo) {
+                if ($this->user->image_path) {
+                    Storage::disk('public')->delete($this->user->image_path);
+                }
+                $this->form->image_path = $this->form->photo->store('user_photos', 'public');
+            } else {
+                // Фото не меняли — оставить прежний путь
+                $this->form->image_path = $this->user->image_path;
+            }
+        } catch (\Error $exception) {
+            dd($exception);
         }
 
         $userService->update($this->form->id, $this->form->toArray());
 
         session()->flash('success', 'Пользователь успешно обновлен!');
         return redirect()->route('system-settings.users');
+    }
+
+    public function deletePhoto()
+    {
+        if ($this->user->image_path) {
+            Storage::disk('public')->delete($this->user->image_path);
+        }
+        $this->form->image_path = null;
+        $this->form->photo = null;
     }
 
     public function render()

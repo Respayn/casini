@@ -9,7 +9,7 @@ use Livewire\Component;
 #[Layout('components.layouts.system-settings')]
 class UsersList extends Component
 {
-    public bool $onlyActive = true;
+    public bool $onlyActive = false;
     public array $users = [];
     public ?int $agencyId = null;
 
