@@ -25,7 +25,11 @@ return new class extends Migration
             $table->string('megaplan_id')->nullable()->after('image_path')->comment('ID пользователя в Мегаплан');
             // Уведомления
             $table->boolean('enable_important_notifications')->default(true)->after('megaplan_id')->comment('Важные уведомления');
-            $table->boolean('enable_notifications')->default(true)->after('enable_important_notifications')->comment('Обновления сервиса и прочие уведомления');        });
+            $table->boolean('enable_notifications')->default(true)->after('enable_important_notifications')->comment('Обновления сервиса и прочие уведомления');
+
+            $table->dropColumn('name');
+
+        });
     }
 
     /**
@@ -44,6 +48,7 @@ return new class extends Migration
                 'enable_important_notifications',
                 'enable_notifications',
             ]);
+            $table->string('name')->after('id');
         });
     }
 };

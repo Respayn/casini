@@ -10,14 +10,23 @@ class RatesTableSeeder extends Seeder
 {
     public function run()
     {
-        $rate = Rate::firstOrCreate(['name' => 'Базовая ставка']);
-        RateValue::firstOrCreate([
-            'rate_id' => $rate->id,
-            'value' => 2358.00,
-        ], [
-            'start_date' => now(),
-        ]);
+        $defaultValues = [
+            'Базовая ставка' => 800.00,
+            'Ставка seo-специалиста' => 1200.00,
+            'Ставка помощника seo' => 600.00,
+            'PPC-специалист' => 1300.00,
+            'Неактивен' => 0.00,
+            'Бухгалтер' => 900.00,
+        ];
 
-        // Можно добавить ещё ставок и значений
+        foreach ($defaultValues as $rateName => $value) {
+            $rate = Rate::firstOrCreate(['name' => $rateName]);
+            RateValue::firstOrCreate([
+                'rate_id' => $rate->id,
+                'value' => $value,
+            ], [
+                'start_date' => now(),
+            ]);
+        }
     }
 }

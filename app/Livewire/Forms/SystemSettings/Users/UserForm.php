@@ -12,9 +12,6 @@ class UserForm extends Form
     #[Validate('required|string|max:100|unique:users,login,{id}')]
     public string $login = '';
 
-    #[Validate('required|string|max:255')]
-    public string $name = '';
-
     #[Validate('nullable|string|max:255')]
     public ?string $first_name = null;
 
@@ -57,11 +54,13 @@ class UserForm extends Form
     #[Validate('nullable|string|min:8')]
     public ?string $password = null;
 
+    #[Validate('nullable|string|min:8|same:password')]
+    public ?string $password_confirmation = null;
+
     public function rules()
     {
         return [
             'login'   => 'required|string|max:100|unique:users,login' . ($this->id ? ',' . $this->id : ''),
-            'name'    => 'required|string|max:255',
             'first_name' => 'nullable|string|max:255',
             'last_name'  => 'nullable|string|max:255',
             'email'   => 'required|email|max:255|unique:users,email' . ($this->id ? ',' . $this->id : ''),
@@ -74,7 +73,8 @@ class UserForm extends Form
             'role_id' => 'nullable|integer|exists:roles,id',
             'enable_important_notifications' => 'nullable|boolean',
             'enable_notifications' => 'nullable|boolean',
-            'password' => 'nullable|string|min:8',
+            'password' => ($this->id ? 'nullable' : 'required') . '|string|min:8',
+            'password_confirmation' => ($this->id ? 'nullable' : 'required') . '|string|min:8|same:password',
         ];
     }
 
@@ -85,7 +85,6 @@ class UserForm extends Form
     {
         $this->id = $user->id ?? null;
         $this->login = $user->login ?? '';
-        $this->name = $user->name ?? '';
         $this->first_name = $user->first_name ?? '';
         $this->last_name = $user->last_name ?? '';
         $this->email = $user->email ?? '';

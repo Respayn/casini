@@ -32,6 +32,7 @@ class User extends Authenticatable
         'enable_important_notifications',
         'enable_notifications',
         'email_verified_at',
+        'password',
         'created_at',
         'updated_at',
     ];

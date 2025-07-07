@@ -4,6 +4,7 @@ namespace App\Livewire\SystemSettings\Users;
 
 use App\Livewire\Forms\SystemSettings\Users\UserForm;
 use App\Services\RateService;
+use App\Services\RoleService;
 use App\Services\UserService;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Layout;
@@ -19,11 +20,16 @@ class UsersCreate extends Component
     public Collection $rates;
     public array $roles = [];
 
-    public function boot(RateService $ratesService)
+    public bool $buttonDisabled = true;
+
+    public function boot(
+        RateService $ratesService,
+        RoleService $roleService
+    )
     {
         $this->rates = $ratesService->getRates(); // Получить список ставок для селекта
         // Получение ролей для выпадающего списка, если нужно
-        // $this->roles = app(RoleService::class)->getAll(); // если используется сервис ролей
+        $this->roles = $roleService->getRoleOptions();
     }
 
     public function save(UserService $userService)
@@ -36,9 +42,10 @@ class UsersCreate extends Component
             $this->form->image_path = $path;
         }
 
+        $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
+
         $userData = [
             'login'      => $this->form->login,
-            'name'       => $this->form->name,
             'first_name' => $this->form->first_name,
             'last_name'  => $this->form->last_name,
             'email'      => $this->form->email,
@@ -51,6 +58,7 @@ class UsersCreate extends Component
             'enable_important_notifications' => $this->form->enable_important_notifications,
             'enable_notifications' => $this->form->enable_notifications,
             'password'   => $this->form->password,
+            'agency_id' => $currentAgencyId,
         ];
 
         // Сохраняем пользователя через сервис
@@ -59,24 +67,6 @@ class UsersCreate extends Component
         session()->flash('success', 'Пользователь успешно создан!');
 
         return redirect()->route('system-settings.system-settings.users');
-    }
-
-    public function getButtonDisabledProperty(): bool
-    {
-        $required = $this->form->login
-            && $this->form->email
-            && $this->form->role_id
-            && $this->form->is_active !== null; // Для селекта обязательно строго !== null!
-
-        // Если это создание пользователя — нужны пароли
-        if (!isset($this->form->id)) {
-            $required = $required
-                && $this->form->password
-                && $this->form->password_confirmation;
-        }
-
-        // disabled если НЕ заполнено
-        return !$required;
     }
 
     public function render()

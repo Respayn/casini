@@ -51,13 +51,12 @@ class UserRepository extends EloquentRepository
             return new UserData(
                 id: $user->id,
                 login: $user->login,
-                name: $user->name,
                 email: $user->email,
                 roles: $user->roles->pluck('name')->toArray(),
                 first_name: $user->first_name,
                 last_name: $user->last_name,
                 is_active: $user->is_active,
-                rate_name: optional($user->latestRate?->rate)->name, // вот так!
+                rate_name: optional($user->latestRate?->rate)->name,
             );
         });
     }
@@ -105,7 +104,6 @@ class UserRepository extends EloquentRepository
             // 1. Создаем пользователя
             $user = User::create([
                 'login'   => $data['login'],
-                'name'    => $data['name'],
                 'first_name' => $data['first_name'],
                 'last_name'  => $data['last_name'],
                 'is_active'  => !empty($data['is_active']),
@@ -133,6 +131,15 @@ class UserRepository extends EloquentRepository
                 ]);
             }
 
+            // 4. Назначаем роль
+            if (!empty($data['role_id'])) {
+                // Если тебе приходит role_id, найди имя роли
+                $roleName = \Spatie\Permission\Models\Role::find($data['role_id'])?->name;
+                if ($roleName) {
+                    $user->assignRole($roleName);
+                }
+            }
+
             return $user;
         });
     }
@@ -153,7 +160,6 @@ class UserRepository extends EloquentRepository
             // 1. Обновляем поля пользователя
             $updateData = [
                 'login'   => $data['login'],
-                'name'    => $data['name'],
                 'first_name' => $data['first_name'],
                 'last_name'  => $data['last_name'],
                 'is_active'  => !empty($data['is_active']),

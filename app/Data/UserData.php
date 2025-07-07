@@ -16,7 +16,6 @@ class UserData extends Data implements Wireable
     public function __construct(
         public ?int $id,
         public string $login,
-        public string $name,
         public string $email,
         public array|Collection $roles = [],
         public ?string $first_name = null,
