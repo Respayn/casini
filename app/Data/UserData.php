@@ -2,7 +2,6 @@
 
 namespace App\Data;
 
-use App\Models\User;
 use Illuminate\Support\Collection;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;

@@ -10,7 +10,6 @@ class UserForm extends Form
 {
     public ?int $id = null;
 
-//    #[Validate('required|string|max:100|unique:users,login,{id}')]
     public string $login = '';
 
     #[Validate('nullable|string|max:255')]
@@ -19,7 +18,6 @@ class UserForm extends Form
     #[Validate('nullable|string|max:255')]
     public ?string $last_name = null;
 
-//    #[Validate('required|email|max:255|unique:users,email,{id}')]
     public string $email = '';
 
     #[Validate('nullable|string|max:30')]
@@ -34,24 +32,19 @@ class UserForm extends Form
     #[Validate('nullable|boolean')]
     public bool $is_active = true;
 
-    // Для загрузки фото
-    public $photo = null; // файл
-
+    public $photo = null;
     #[Validate('nullable|integer|exists:rates,id')]
     public ?int $rate_id = null;
 
-    // Роль (id или name)
     #[Validate('nullable|integer|exists:roles,id')]
     public ?int $role_id = null;
 
-    // Статус уведомлений
     #[Validate('nullable|boolean')]
     public bool $enable_important_notifications = true;
 
     #[Validate('nullable|boolean')]
     public bool $enable_notifications = true;
 
-    // Пароль (только для создания или ручной смены)
     #[Validate('nullable|string|min:8')]
     public ?string $password = null;
 
@@ -83,7 +76,7 @@ class UserForm extends Form
     }
 
     /**
-     * Заполнить форму из объекта пользователя (UserData или User).
+     * Заполнить форму из объекта пользователя User.
      */
     public function from(User $user)
     {
