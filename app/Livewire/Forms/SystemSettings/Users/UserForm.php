@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Forms\SystemSettings\Users;
 
+use App\Models\User;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
@@ -84,7 +85,7 @@ class UserForm extends Form
     /**
      * Заполнить форму из объекта пользователя (UserData или User).
      */
-    public function from($user)
+    public function from(User $user)
     {
         $this->id = $user->id ?? null;
         $this->login = $user->login ?? '';
@@ -95,7 +96,7 @@ class UserForm extends Form
         $this->image_path = $user->image_path ?? '';
         $this->megaplan_id = $user->megaplan_id ?? '';
         $this->is_active = $user->is_active ?? true;
-        $this->rate_id = $user->rate_id ?? null;
+        $this->rate_id = $user->latestRate?->rateValue->rate_id ?? null;
         $this->role_id = isset($user->roles) && count($user->roles) ? ($user->roles[0]['id'] ?? null) : null;
         $this->enable_important_notifications = $user->enable_important_notifications ?? true;
         $this->enable_notifications = $user->enable_notifications ?? true;

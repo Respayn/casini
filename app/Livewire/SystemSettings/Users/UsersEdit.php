@@ -8,7 +8,6 @@ use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Component;
 use Livewire\WithFileUploads;
