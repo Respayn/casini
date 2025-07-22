@@ -34,7 +34,7 @@
                         size="40px"
                     />
                     <div class="ml-2.5">
-                        <div class="font-semibold">{{ Auth::user()->name }}</div>
+                        <div class="font-semibold">{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</div>
                         <div class="text-xs text-gray-400">{{ Auth::user()->role ?? 'Администратор' }}</div>
                     </div>
                 </div>
