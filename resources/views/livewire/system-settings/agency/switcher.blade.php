@@ -49,13 +49,13 @@
                     {{ $agency['name'] }} (№{{ $agency['id'] }})
                 </div>
             @endforeach
-            <div class="border-t my-1"></div>
-            <div
-                class="font-bold text-blue-600 cursor-pointer hover:bg-blue-50 px-4 py-2"
-                x-on:click="select('create')"
-            >
-                Создать агентство +
-            </div>
+{{--            <div class="border-t my-1"></div>--}}
+{{--            <div--}}
+{{--                class="font-bold text-blue-600 cursor-pointer hover:bg-blue-50 px-4 py-2"--}}
+{{--                x-on:click="select('create')"--}}
+{{--            >--}}
+{{--                Создать агентство +--}}
+{{--            </div>--}}
         </div>
     </div>
 </div>

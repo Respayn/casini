@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Users;
 
+use App\Services\AgencySettingsService;
 use App\Services\UserService;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -13,9 +14,9 @@ class UsersList extends Component
     public array $users = [];
     public ?int $agencyId = null;
 
-    public function mount(UserService $userService)
+    public function mount(UserService $userService, AgencySettingsService $agencySettingsService)
     {
-        $this->agencyId = session('current_agency_id');
+        $this->agencyId = $agencySettingsService->getActualAgencyId();
         $this->loadUsers($userService);
     }
 
@@ -26,7 +27,7 @@ class UsersList extends Component
 
     public function loadUsers(UserService $userService)
     {
-        $collection = $userService->getByAgency($this->agencyId, $this->onlyActive);
+        $collection = $this->agencyId ? $userService->getByAgency($this->agencyId, $this->onlyActive) : collect([]);
         // Преобразуем коллекцию в массив с нужными полями и ставкой
         $this->users = $collection->map(function ($user) {
             return [
