@@ -9,6 +9,9 @@ use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
 use App\Livewire\SystemSettings\ClientAndProjects\ClientProjectFormModel;
 use App\Livewire\SystemSettings\CreateAgencyComponent;
 use App\Livewire\SystemSettings\DictionaryList;
+use App\Livewire\SystemSettings\Users\UsersCreate;
+use App\Livewire\SystemSettings\Users\UsersEdit;
+use App\Livewire\Users\UsersList;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -21,6 +24,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/agency/{agency?}', AgencySettingsComponent::class)->name('agency');
         Route::get('/agency', AgencySettingsComponent::class)->name('agency.default');
         Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
+
+        Route::get('/users', UsersList::class)->name('users');
+        // Создание пользователя
+        Route::get('/users/create', UsersCreate::class)->name('users.create');
+        // Редактирование пользователя (userId — обязательный параметр)
+        Route::get('/users/{user}/edit', UsersEdit::class)->name('users.edit');
     });
 
 

@@ -2,7 +2,7 @@
 
 namespace App\Repositories;
 
-abstract class EloquentRepository 
+abstract class EloquentRepository
 {
     protected $model;
 
@@ -13,7 +13,7 @@ abstract class EloquentRepository
         $this->model = app($this->model());
     }
 
-    public function queryWith(array $with = [])
+    protected function queryWith(array $with = [])
     {
         return $this->model->with($with);
     }

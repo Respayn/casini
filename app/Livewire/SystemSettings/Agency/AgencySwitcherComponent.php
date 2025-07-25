@@ -2,6 +2,7 @@
 
 namespace App\Livewire\SystemSettings\Agency;
 
+use App\Services\AgencySettingsService;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Livewire\Component;
@@ -14,22 +15,11 @@ class AgencySwitcherComponent extends Component
 
     protected $listeners = ['agenciesUpdated' => 'refreshAgencies', 'agencyCreated' => 'refreshAgencies', 'createIfNotSelected' => 'createIfNotSelected'];
 
-    public function mount()
+    public function mount(AgencySettingsService $agencySettingsService)
     {
         $this->refreshAgencies();
 
-        $user = auth()->user();
-        $this->agencies = $user->agencies()->get()->map(function ($agency) {
-            return [
-                'id' => $agency->id,
-                'name' => $agency->name,
-            ];
-        })->toArray();
-
-        $this->selectedAgencyId = session('current_agency_id')
-            ?? ($this->agencies[0]['id'] ?? null);
-
-        session(['current_agency_id' => $this->selectedAgencyId]);
+        [$this->selectedAgencyId, $this->agencies] = $agencySettingsService->getActualAgencyIdWithList();
     }
 
     public function refreshAgencies($newAgencyId = null)

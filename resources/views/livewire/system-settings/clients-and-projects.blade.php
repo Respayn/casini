@@ -123,9 +123,15 @@
                     <div>
                         <x-form.select
                             placeholder="Не выбрано"
-                            :options="$managers->map(function ($item) {
-                                return ['label' => $item->name, 'value' => $item->id];
-                            })"
+                            :options='
+                                $managers->map(function ($item) {
+                                    $name = trim("{$item->first_name} {$item->last_name}");
+                                    return
+                                    [
+                                        "label" => empty($name) ? $item->login : $name,
+                                        "value" => $item->id
+                                    ];
+                                })->values()->all()'
                             wire:model="clientForm.manager"
                             class="w-full"
                         ></x-form.select>

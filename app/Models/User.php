@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -19,9 +18,21 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'id',
+        'first_name',
+        'last_name',
+        'is_active',
+        'login',
         'email',
+        'phone',
+        'image_path',
+        'megaplan_id',
+        'enable_important_notifications',
+        'enable_notifications',
+        'email_verified_at',
         'password',
+        'created_at',
+        'updated_at',
     ];
 
     /**
@@ -55,5 +66,15 @@ class User extends Authenticatable
             'user_id',
             'agency_id'
         )->withTimestamps();
+    }
+
+    public function rateUser()
+    {
+        return $this->hasMany(\App\Models\RateUser::class, 'user_id');
+    }
+
+    public function latestRate()
+    {
+        return $this->hasOne(\App\Models\RateUser::class, 'user_id', 'id')->latestOfMany();
     }
 }

@@ -106,9 +106,10 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
         // Подготавливаем массив админов
         $admins = $agency->admins->map(function ($admin) {
+            $name = trim("{$admin->user->first_name} {$admin->user->last_name}");
             return [
                 'id' => $admin->user_id,
-                'name' => $admin->user->name,
+                'name' => empty($name) ? $admin->user->login : $name,
             ];
         });
 
@@ -154,7 +155,6 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         if ($user) {
             $agency->admins()->create([
                 'user_id' => $user->id,
-                'name' => $user->name,
             ]);
         }
 
@@ -163,7 +163,6 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         $agencyArr['admins'] = $agency->admins()->get()->map(function($admin) {
             return [
                 'id' => $admin->user_id,
-                'name' => $admin->user->name,
             ];
         })->toArray();
         $agencyArr['timeZone'] = $agency->time_zone;

@@ -1,9 +1,19 @@
-<label for="checkboxDefault" class="flex items-center gap-2 text-sm font-medium text-neutral-600 dark:text-neutral-300 has-checked:text-neutral-900 dark:has-checked:text-white has-disabled:cursor-not-allowed has-disabled:opacity-75">
-    <span class="relative flex items-center">
-        <input id="checkboxDefault" type="checkbox" class="before:content[''] peer relative size-4 appearance-none overflow-hidden rounded border border-neutral-300 bg-neutral-50 before:absolute before:inset-0 checked:border-black checked:before:bg-black focus:outline-2 focus:outline-offset-2 focus:outline-neutral-800 checked:focus:outline-black active:outline-offset-0 disabled:cursor-not-allowed dark:border-neutral-700 dark:bg-neutral-900 dark:checked:border-white dark:checked:before:bg-white dark:focus:outline-neutral-300 dark:checked:focus:outline-white" checked/>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" stroke="currentColor" fill="none" stroke-width="4" class="pointer-events-none invisible absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 text-neutral-100 peer-checked:visible dark:text-black">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+<label class="flex items-center gap-2 cursor-pointer select-none">
+    <input
+        type="checkbox"
+        {{ $attributes->merge(['class' => 'sr-only peer']) }}
+    >
+    <span class="inline-flex items-center justify-center w-6 h-6 rounded-[3px] transition
+        bg-gray-200 peer-checked:bg-[#56A2FF]">
+        <svg
+            class="w-5 h-5 text-white pointer-events-none peer-has-[:checked] peer-checked:opacity-0 transition"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            viewBox="0 0 24 24"
+        >
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
         </svg>
     </span>
-    <span>Notifications</span>
+    {{ $slot }}
 </label>

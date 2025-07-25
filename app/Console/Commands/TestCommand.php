@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\CallibriService;
+use App\Services\RoleService;
 use Illuminate\Console\Command;
 
 class TestCommand extends Command
@@ -19,7 +20,9 @@ class TestCommand extends Command
         $this->service = $service;
     }
 
-    public function handle()
+    public function handle(RoleService $service)
     {
+        $enums = $service->getRoleOptions();
+        dd($enums);
     }
 }

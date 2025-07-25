@@ -23,11 +23,11 @@
 
 <body class="bg-body flex gap-5 font-sans text-primary-text">
     <livewire:sidebar />
-
     <div class="flex w-full flex-col gap-[25px] pl-[375px]">
         <livewire:header />
 
         <x-menu.navbar :items="[
+            ['label' => 'Пользователи и роли', 'route' => 'system-settings.users'],
             ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
             ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
         ]">
