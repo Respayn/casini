@@ -1,5 +1,5 @@
 <div
-    class="scrollpanel"
+    {{ $attributes->class(['scrollpanel']) }}
     x-data="scrollpanel"
     x-on:mouseup.window="stopDrag"
     x-on:mousemove="handleMouseMove"
@@ -57,9 +57,29 @@
                 dragStartY: 0,
                 contentStartScrollLeft: 0,
                 contentStartScrollTop: 0,
+                mutationObserver: null,
+                resizeObserver: null,
 
                 init() {
+                    this.initObservers();
                     this.updateScrollbars();
+                },
+
+                initObservers() {
+                    this.mutationObserver = new MutationObserver(() => {
+                        this.updateScrollbars();
+                    });
+                    this.mutationObserver.observe(this.$refs.content, {
+                        childList: true,
+                        subtree: true,
+                        attributes: false,
+                        charactedData: true
+                    });
+
+                    this.resizeObserver = new ResizeObserver(() => {
+                        this.updateScrollbars();
+                    });
+                    this.resizeObserver.observe(this.$refs.container);
                 },
 
                 startVerticalDrag(event) {
@@ -152,19 +172,24 @@
     <style>
         .scrollpanel {
             position: relative;
+            height: 100%;
+            max-height: inherit;
+            display: flex;
         }
 
         .scrollpanel-content-container {
             overflow: hidden;
             width: 100%;
             height: 100%;
+            max-height: inherit;
             position: relative;
             z-index: 1;
             float: left;
         }
 
         .scrollpanel-content {
-            height: inherit;
+            height: 100%;
+            max-height: inherit;
             padding-inline: 0 calc(2 * var(--scrollpanel-bar-size));
             position: relative;
             overflow: auto;
