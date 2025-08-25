@@ -75,7 +75,7 @@
                     x-for="role in roles"
                     :key="'role.' + role.id"
                 >
-                    <x-panel.accordion-panel open>
+                    <x-panel.accordion-panel>
                         <x-panel.accordion-header>
                             <div class="flex items-center justify-between">
                                 <template x-if="editingRoleId !== role.id">
