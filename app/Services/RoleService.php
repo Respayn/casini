@@ -8,7 +8,6 @@ use App\Data\SystemSettings\RoleEditData;
 use App\Enums\PermissionGroup;
 use App\OperationResult;
 use App\Repositories\RoleRepository;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
@@ -27,11 +26,9 @@ class RoleService
             ->orderBy('id')
             ->get()
             ->map(function ($role) {
-                $enum = \App\Enums\Role::tryFrom($role->name);
                 return [
-                    'label' => $enum ? $enum->label() : $role->name,
-                    'value' => $role->id, // если в форме нужен id
-                    'name'  => $role->name // если нужен name
+                    'value' => $role->id,
+                    'label' => $role->display_name
                 ];
             })->toArray();
     }
