@@ -9,9 +9,6 @@
 @php
     $options = collect($options);
     $wireModel = $attributes->whereStartsWith('wire:model')->first();
-    // $modelAttributes = $attributes->whereStartsWith(['wire:model', 'x-model']);
-    // $nonModelAttributes = $attributes->whereDoesntStartWith(['wire:model', 'x-model']);
-    // $attributes = $attributes->whereDoesntStartWith('wire:model');
 @endphp
 
 <div
@@ -19,27 +16,37 @@
     x-data="{
         options: {{ json_encode($options) }},
         open: false,
-        {{-- selected: @entangle($attributes->wire('model')), --}}
         selected: '',
         select(value) {
-            {{-- $wire.set('{{ $wireModel }}', value); --}}
             this.open = false;
             this.selected = value;
             $dispatch('change');
         },
-
+    
         getDisplayText() {
             if (this.selected || this.selected == false) {
                 const selectedOption = this.options.find(
-                    option => option['{{ $valueKey }}'] === this.selected
+                    option => option['{{ $valueKey }}'] == this.selected
                 );
-
+    
                 if (selectedOption) {
                     return selectedOption['{{ $labelKey }}'];
                 }
             }
-
+    
             return '{{ $placeholder }}' || 'Выберите значение';
+        },
+    
+        init() {
+            $nextTick(() => {
+                if ($el.hasAttribute('data-options')) {
+                    this.options = JSON.parse($el.getAttribute('data-options'));
+                }
+
+                this.$watch('$el._x_bindings', (v) => {
+                    this.options = JSON.parse(v['data-options']);
+                })
+            });
         }
     }"
     x-modelable="selected"
@@ -86,14 +93,17 @@
             x-anchor="$refs.button"
             x-on:click.outside="open = false"
         >
-            @foreach ($options as $option)
+            <template
+                x-for="option in options"
+                :key="option['{{ $valueKey }}']"
+            >
                 <div
                     class="hover:bg-primary flex min-h-[42px] items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                    x-on:click="select({{ json_encode($option[$valueKey]) }})"
+                    x-on:click="select( option['{{ $valueKey }}'])"
+                    x-text="option['{{ $labelKey }}']"
                 >
-                    {{ $option[$labelKey] }}
                 </div>
-            @endforeach
+            </template>
         </div>
     </div>
     @error($wireModel)

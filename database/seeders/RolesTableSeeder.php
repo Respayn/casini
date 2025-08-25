@@ -13,8 +13,22 @@ class RolesTableSeeder extends Seeder
      */
     public function run(): void
     {
-        foreach (RoleEnum::cases() as $enum) {
-            SpatieRole::firstOrCreate(['name' => $enum->value]);
+        $roles = [
+            'admin' => 'Администратор',
+            'manager' => 'Менеджер',
+            'kr' => 'Специалист (директолог)',
+            'seo' => 'Специалист (SEO)',
+            'rucovotdelseo' => 'Руководитель SEO отдела',
+            'rucovotdelkp' => 'Руководитель KP отдела',
+            'rucovotdelmanager' => 'Руководитель отдела менеджеров',
+            'office_manager' => 'Офис-менеджер',
+        ];
+
+        foreach ($roles as $name => $displayName) {
+            SpatieRole::updateOrCreate(
+                ['name' => $name],
+                ['display_name' => $displayName]
+            );
         }
     }
 }

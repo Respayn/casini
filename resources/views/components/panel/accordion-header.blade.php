@@ -2,7 +2,7 @@
     class="flex items-center justify-between cursor-pointer"
     x-on:click="isOpen = !isOpen"
 >
-    <div class="text-[18px] font-semibold">
+    <div class="text-[18px] font-semibold w-full">
         {{ $slot }}
     </div>
     <div>

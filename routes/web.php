@@ -9,6 +9,7 @@ use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
 use App\Livewire\SystemSettings\ClientAndProjects\ClientProjectFormModel;
 use App\Livewire\SystemSettings\CreateAgencyComponent;
 use App\Livewire\SystemSettings\DictionaryList;
+use App\Livewire\SystemSettings\RolesAndPermissions;
 use App\Livewire\SystemSettings\Users\UsersCreate;
 use App\Livewire\SystemSettings\Users\UsersEdit;
 use App\Livewire\Users\UsersList;
@@ -30,6 +31,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/users/create', UsersCreate::class)->name('users.create');
         // Редактирование пользователя (userId — обязательный параметр)
         Route::get('/users/{user}/edit', UsersEdit::class)->name('users.edit');
+
+        Route::get('/roles-and-permissions', RolesAndPermissions::class)->name('roles-and-permissions');
     });
 
 

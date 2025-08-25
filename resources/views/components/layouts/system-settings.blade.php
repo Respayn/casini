@@ -27,6 +27,7 @@
         <livewire:header />
 
         <x-menu.navbar :items="[
+            ['label' => 'Продукты и права', 'route' => 'system-settings.roles-and-permissions'],
             ['label' => 'Пользователи и роли', 'route' => 'system-settings.users'],
             ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
             ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
