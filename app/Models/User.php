@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\RoleHierarchyService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -76,5 +77,17 @@ class User extends Authenticatable
     public function latestRate()
     {
         return $this->hasOne(\App\Models\RateUser::class, 'user_id', 'id')->latestOfMany();
+    }
+
+    public function hasPermissionTo($permission, $guardName = null): bool
+    {
+        $roleHierarchyService = app(RoleHierarchyService::class);
+        return $roleHierarchyService->userHasPermission($this, $permission);
+    }
+
+    public function can($abilities, $arguments = []): bool
+    {
+        $roleHierarchyService = app(RoleHierarchyService::class);
+        return $roleHierarchyService->userHasPermission($this, $abilities);
     }
 }

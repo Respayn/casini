@@ -7,6 +7,7 @@ use App\Data\RoleData;
 use App\Models\Role;
 use App\OperationResult;
 use Exception;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
 
@@ -14,21 +15,26 @@ class RoleRepository
 {
     public function getRoles()
     {
-        $roles = Role::all();
+        $roles = Role::withCount('users')->get();
 
         return $roles->map(function ($role) {
             return new RoleData(
                 $role->id,
                 $role->name,
                 $role->display_name,
-                useInProjectFilter: $role->use_in_project_filter
+                new Collection(),
+                $role->use_in_project_filter,
+                new Collection(),
+                ($role->users_count ?? 0) > 0
             );
         });
     }
 
     public function getRolesWithPermissions()
     {
-        $roles = Role::with('permissions')->get();
+        $roles = Role::with(['permissions', 'childRoles'])
+            ->withCount('users')
+            ->get();
 
         return $roles->map(function ($role) {
             return new RoleData(
@@ -37,7 +43,8 @@ class RoleRepository
                 $role->display_name,
                 collect(PermissionData::collect($role->permissions)),
                 $role->use_in_project_filter,
-                $role->childRoles
+                $role->childRoles,
+                ($role->users_count ?? 0) > 0
             );
         });
     }

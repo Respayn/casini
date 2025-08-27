@@ -1,8 +1,13 @@
 <div
     wire:ignore.self
     x-data="{
+        initialRoles: null,
         roles: $wire.entangle('roles'),
         editingRoleId: null,
+    
+        init() {
+            this.initialRoles = JSON.parse(JSON.stringify(this.roles));
+        },
     
         createRole() {
             this.roles.push({
@@ -58,6 +63,11 @@
             if (parentRole) {
                 parentRole.childRoles = parentRole.childRoles.filter(child => child.id !== childRoleId);
             }
+        },
+    
+        resetChanges() {
+            this.roles = JSON.parse(JSON.stringify(this.initialRoles));
+            this.editingRoleId = null;
         }
     }"
 >
@@ -100,10 +110,14 @@
                                     </div>
                                 </template>
 
-                                <span
-                                    class="text-secondary-text mr-9 font-normal"
-                                    x-on:click="deleteRole(role.id)"
-                                >Удалить роль</span>
+                                <template x-if="!role.hasAssignedUsers">
+                                    <span
+                                        class="text-secondary-text mr-9 font-normal"
+                                        x-on:click="deleteRole(role.id)"
+                                    >
+                                        Удалить роль
+                                    </span>
+                                </template>
                             </div>
                         </x-panel.accordion-header>
                         <x-panel.accordion-content>
@@ -209,6 +223,9 @@
             wire:loading.attr="disabled"
             wire:target="save"
         />
-        <x-button.button label="Отмена" />
+        <x-button.button
+            label="Отмена"
+            x-on:click="resetChanges()"
+        />
     </div>
 </div>

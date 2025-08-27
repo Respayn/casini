@@ -6,6 +6,7 @@ use App\Data\RoleData;
 use App\Data\SystemSettings\PermissionEditData;
 use App\Data\SystemSettings\RoleEditData;
 use App\Enums\PermissionGroup;
+use App\Models\User;
 use App\OperationResult;
 use App\Repositories\RoleRepository;
 use Illuminate\Support\Facades\DB;
