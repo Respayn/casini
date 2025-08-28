@@ -16,7 +16,7 @@ use App\Livewire\Users\UsersList;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
-    Route::prefix('system-settings')->name('system-settings.')->group(function () {
+    Route::middleware(['permission:read system settings|full system settings'])->prefix('system-settings')->name('system-settings.')->group(function () {
         Route::get('/dictionaries', DictionaryList::class)->name('dictionaries');
         Route::get('/clients-and-projects', ClientsAndProjects::class)->name('clients-and-projects');
         Route::get('/clients-and-projects/project/{projectId?}', ClientProjectFormModel::class)->name('clients-and-projects.projects.manage');

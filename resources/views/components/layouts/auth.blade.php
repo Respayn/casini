@@ -26,6 +26,9 @@
         </div>
 
     </div>
+
+    <x-toaster-hub />
+
     @livewireScripts
 </body>
 </html>

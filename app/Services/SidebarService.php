@@ -5,17 +5,17 @@ namespace App\Services;
 use App\Data\Sidebar\EmployeeData;
 use App\Enums\Role;
 use App\Models\User;
+use App\Repositories\RoleRepository;
 use Spatie\LaravelData\DataCollection;
 use Str;
 
 class SidebarService
 {
-    /**
-     * Create a new class instance.
-     */
-    public function __construct()
+    private RoleRepository $roleRepository;
+
+    public function __construct(RoleRepository $roleRepository)
     {
-        //
+        $this->roleRepository = $roleRepository;
     }
 
     public function getEmployees(?string $sortBy, ?string $searchQuery): array
@@ -139,8 +139,12 @@ class SidebarService
 
         // return EmployeeData::collect($employees->keyBy('id')->toArray());
 
-        return EmployeeData::collect([
+        return EmployeeData::collect([]);
+    }
 
-        ]);
+    public function getRoleOptions(): array
+    {
+        $roles = $this->roleRepository->getRolesForFilter();
+        return $roles->map(fn($role) => ['label' => 'По роли ' . $role->displayName, 'value' => $role->id])->toArray();
     }
 }

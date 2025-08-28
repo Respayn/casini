@@ -4,6 +4,7 @@
         initialRoles: null,
         roles: $wire.entangle('roles'),
         editingRoleId: null,
+        hasPendingChanges: false,
     
         init() {
             this.initialRoles = JSON.parse(JSON.stringify(this.roles));
@@ -18,10 +19,12 @@
                 isNew: true,
                 childRoles: []
             });
+            this.hasPendingChanges = true;
         },
     
         deleteRole(roleId) {
             this.roles = this.roles.filter(r => r.id !== roleId);
+            this.hasPendingChanges = true;
         },
     
         startEdit(roleId) {
@@ -30,11 +33,13 @@
     
         stopEdit() {
             this.editingRoleId = null;
+            this.hasPendingChanges = true;
         },
     
         addChildRole(roleId) {
             this.roles.find(r => r.id === roleId)
                 .childRoles.push({ id: '' });
+            this.hasPendingChanges = true;
         },
     
         getChildOptions(roleId, currentChildId) {
@@ -63,11 +68,13 @@
             if (parentRole) {
                 parentRole.childRoles = parentRole.childRoles.filter(child => child.id !== childRoleId);
             }
+            this.hasPendingChanges = true;
         },
     
         resetChanges() {
             this.roles = JSON.parse(JSON.stringify(this.initialRoles));
             this.editingRoleId = null;
+            this.hasPendingChanges = false;
         }
     }"
 >
@@ -90,7 +97,12 @@
                             <div class="flex items-center justify-between">
                                 <template x-if="editingRoleId !== role.id">
                                     <div class="flex gap-x-3 text-[#599CFF]">
-                                        <x-icons.edit-2 x-on:click.stop="startEdit(role.id)" />
+                                        @canany(['edit system settings', 'full system settings'])
+                                            <x-icons.edit-2
+                                                class="hover:text-[#4070E0]"
+                                                x-on:click.stop="startEdit(role.id)"
+                                            />
+                                        @endcan
                                         <span
                                             class="underline"
                                             x-text="role.name"
@@ -110,14 +122,17 @@
                                     </div>
                                 </template>
 
-                                <template x-if="!role.hasAssignedUsers">
-                                    <span
-                                        class="text-secondary-text mr-9 font-normal"
-                                        x-on:click="deleteRole(role.id)"
-                                    >
-                                        Удалить роль
-                                    </span>
-                                </template>
+                                @canany(['edit system settings', 'full system settings'])
+                                    <template x-if="!role.hasAssignedUsers">
+                                        <x-button.button
+                                            class="text-secondary-text mr-9 font-normal"
+                                            variant="link"
+                                            x-on:click="deleteRole(role.id)"
+                                            label="Удалить роль"
+                                        >
+                                        </x-button.button>
+                                    </template>
+                                @endcan
                             </div>
                         </x-panel.accordion-header>
                         <x-panel.accordion-content>
@@ -129,17 +144,22 @@
                                         клиенто-проектов
                                     </x-overlay.tooltip>
                                 </span>
-                                <x-form.toggle-switch x-model="role.useInProjectFilter" />
+                                <x-form.toggle-switch
+                                    x-model="role.useInProjectFilter"
+                                    x-on:click="hasPendingChanges = true;"
+                                />
                             </div>
                             <div class="mb-5 flex justify-between">
                                 <span>У роли есть подчиненные</span>
-                                <x-form.toggle-switch x-model="role.hasChildRoles" />
+                                <x-form.toggle-switch
+                                    x-model="role.hasChildRoles"
+                                    x-on:click="hasPendingChanges = true;"
+                                />
                             </div>
 
                             <template x-if="role.hasChildRoles">
                                 <div>
                                     <div class="flex flex-col gap-y-1">
-                                        {{-- <span x-text="JSON.stringify(role.childRoles)"></span> --}}
                                         <template x-for="(childRole, index) in role.childRoles">
                                             <div class="flex">
                                                 <x-form.select
@@ -147,6 +167,7 @@
                                                     x-model="childRole.id"
                                                 />
                                                 <x-button.button
+                                                    class="text-secondary-text"
                                                     label="Удалить"
                                                     variant="link"
                                                     x-on:click="deleteChildRole(role.id, childRole.id)"
@@ -183,17 +204,26 @@
                                             </x-data.table-cell>
                                             <x-data.table-cell>
                                                 <div class="flex justify-center">
-                                                    <x-form.checkbox x-model="permission.canRead" />
+                                                    <x-form.checkbox
+                                                        x-model="permission.canRead"
+                                                        x-on:click="hasPendingChanges = true;"
+                                                    />
                                                 </div>
                                             </x-data.table-cell>
                                             <x-data.table-cell>
                                                 <div class="flex justify-center">
-                                                    <x-form.checkbox x-model="permission.canEdit" />
+                                                    <x-form.checkbox
+                                                        x-model="permission.canEdit"
+                                                        x-on:click="hasPendingChanges = true;"
+                                                    />
                                                 </div>
                                             </x-data.table-cell>
                                             <x-data.table-cell>
                                                 <div class="flex justify-center">
-                                                    <x-form.checkbox x-model="permission.haveFullAccess" />
+                                                    <x-form.checkbox
+                                                        x-model="permission.haveFullAccess"
+                                                        x-on:click="hasPendingChanges = true;"
+                                                    />
                                                 </div>
                                             </x-data.table-cell>
                                         </x-data.table-row>
@@ -216,16 +246,18 @@
         </div>
     </x-panel.scroll-panel>
 
-    <div class="flex justify-between">
-        <x-button.button
-            label="Сохранить изменения"
-            wire:click="save"
-            wire:loading.attr="disabled"
-            wire:target="save"
-        />
-        <x-button.button
-            label="Отмена"
-            x-on:click="resetChanges()"
-        />
-    </div>
+    <template x-if="hasPendingChanges">
+        <div class="flex justify-between">
+            <x-button.button
+                label="Сохранить изменения"
+                wire:click="save"
+                wire:loading.attr="disabled"
+                wire:target="save"
+            />
+            <x-button.button
+                label="Отмена"
+                x-on:click="resetChanges()"
+            />
+        </div>
+    </template>
 </div>

@@ -11,6 +11,7 @@ class Sidebar extends Component
 {
     /** @var array<int, EmployeeData> */
     public array $employees;
+    public array $sortOptions = [];
     public ?string $sortBy = 'manager';
     public string $searchQuery = '';
     public ?int $selectedProjectId = null;
@@ -25,6 +26,7 @@ class Sidebar extends Component
     public function mount()
     {
         $this->getEmployees();
+        $this->sortOptions = $this->sidebarService->getRoleOptions();
     }
 
     public function updatedSortBy()

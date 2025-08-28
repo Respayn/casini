@@ -31,7 +31,7 @@
     $buttonClasses[] = match ($variant) {
         'primary' => 'hover:not-disabled:bg-transparent bg-primary border-primary disabled:text-default-button-disabled hover:not-disabled:text-primary disabled:bg-secondary border text-white disabled:border-0',
         'ghost'   => 'text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary',
-        'link'    => 'text-primary-text hover:text-primary items-center group hover:underline font-semibold',
+        'link'    => 'text-primary-text hover:text-primary items-center group hover:underline',
         'action'  => 'text-primary items-center group relative font-semibold relative',
         'implicit-action'  => 'text-secondary-text items-center group relative font-semibold relative',
         'outlined' => 'border border-input-border hover:border-primary active:bg-primary active:border-primary group text-secondary-text hover:text-primary active:text-white',

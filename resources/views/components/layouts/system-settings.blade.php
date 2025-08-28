@@ -3,6 +3,13 @@
     $hasAgencies = $user->agencies()->exists();
     $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
     $isAgencyExist = !empty(\App\Models\AgencySetting::query()->find(session('current_agency_id')));
+
+    $navbarItems = [
+        ['label' => 'Продукты и права', 'route' => 'system-settings.roles-and-permissions'],
+        ['label' => 'Пользователи и роли', 'route' => 'system-settings.users'],
+        ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
+        ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
+    ];
 @endphp
 
 <!DOCTYPE html>
@@ -21,7 +28,7 @@
     @livewireStyles
 </head>
 
-<body class="bg-body flex gap-5 font-sans text-primary-text">
+<body class="bg-body text-primary-text flex gap-5 font-sans">
     <livewire:sidebar />
     <div class="flex w-full flex-col gap-[25px] pl-[375px]">
         <livewire:header />
@@ -34,18 +41,18 @@
         ]">
             {{-- Настройки агенства (с открытием модалки) --}}
             <x-slot:after>
-                @if($isAgencyExist)
+                @if ($isAgencyExist)
                     <x-button.button
+                        class="hover:!bg-primary hover:!text-white"
                         :href="route('system-settings.agency')"
                         label="Настройки агентства"
-                        class="hover:!bg-primary hover:!text-white"
                         :variant="request()->routeIs('system-settings.agency*') ? 'primary' : 'outlined'"
                     />
                 @else
                     <x-button.button
+                        class="hover:bg-primary hover:text-white"
                         variant="outlined"
                         label="Настройки агентства"
-                        class="hover:bg-primary hover:text-white"
                         x-data
                         x-on:click="Livewire.dispatch('createIfNotSelected')"
                     />
@@ -57,6 +64,8 @@
             {{ $slot }}
         </div>
     </div>
+
+    <x-toaster-hub />
 
     @livewireScripts
 </body>

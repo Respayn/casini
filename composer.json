@@ -16,6 +16,7 @@
         "laravel/tinker": "^2.10",
         "livewire/livewire": "^3.6",
         "livewire/volt": "^1.7",
+        "masmerise/livewire-toaster": "^2.8",
         "spatie/laravel-data": "^4.17",
         "spatie/laravel-permission": "^6.21"
     },

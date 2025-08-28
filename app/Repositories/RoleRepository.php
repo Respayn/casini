@@ -140,4 +140,23 @@ class RoleRepository
         $role->syncPermissions([]);
         $role->delete();
     }
+
+    public function getRolesForFilter(): Collection
+    {
+        $roles = Role::where('use_in_project_filter', '=', true)
+            ->withCount('users')
+            ->get();
+
+        return $roles->map(function ($role) {
+            return new RoleData(
+                $role->id,
+                $role->name,
+                $role->display_name,
+                new Collection(),
+                $role->use_in_project_filter,
+                new Collection(),
+                ($role->users_count ?? 0) > 0
+            );
+        });
+    }
 }

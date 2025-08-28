@@ -42,7 +42,7 @@
                 if ($el.hasAttribute('data-options')) {
                     this.options = JSON.parse($el.getAttribute('data-options'));
                 }
-
+    
                 this.$watch('$el._x_bindings', (v) => {
                     this.options = JSON.parse(v['data-options']);
                 })
@@ -59,7 +59,10 @@
     @endif
 
     <div class="text-input-text relative select-none">
-        <div class="group">
+        <div
+            class="group"
+            x-ref="buttonContainer"
+        >
             <div
                 @class([
                     'flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4',
@@ -90,8 +93,9 @@
             class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
             x-cloak
             x-show="open"
-            x-anchor="$refs.button"
-            x-on:click.outside="open = false"
+            x-anchor.no-style="$refs.buttonContainer"
+            x-bind:style="{ position: 'absolute', top: $anchor.y+'px' }"
+            x-on:click.outside="open = false; console.log($refs.buttonContainer.getBoundingClientRect().width)"
         >
             <template
                 x-for="option in options"

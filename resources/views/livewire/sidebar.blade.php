@@ -24,11 +24,7 @@
 
     <x-form.select
         label="Сортировать по:"
-        :options="[
-            ['label' => 'По менеджерам', 'value' => 'manager'],
-            ['label' => 'По SEO-специалистам', 'value' => 'seo'],
-            ['label' => 'По PPC-специалистам', 'value' => 'ppc'],
-        ]"
+        :options="$sortOptions"
         wire:model.live="sortBy"
     />
 
