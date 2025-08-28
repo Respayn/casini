@@ -95,7 +95,7 @@
             x-show="open"
             x-anchor.no-style="$refs.buttonContainer"
             x-bind:style="{ position: 'absolute', top: $anchor.y+'px' }"
-            x-on:click.outside="open = false; console.log($refs.buttonContainer.getBoundingClientRect().width)"
+            x-on:click.outside="open = false"
         >
             <template
                 x-for="option in options"
