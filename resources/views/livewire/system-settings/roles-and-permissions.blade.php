@@ -86,7 +86,7 @@
         class="mb-3"
         style="max-height: calc(100vh - 300px);"
     >
-        <div class="max-w-1/2">
+        <div class="xl:max-w-1/2">
             <x-panel.accordion class="mb-3">
                 <template
                     x-for="role in roles"
