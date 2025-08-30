@@ -3,6 +3,8 @@
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
 use App\Livewire\Demo;
+use App\Livewire\LandingPage;
+use App\Livewire\PrivacyPage;
 use App\Livewire\SystemSettings\Agency\AgencySettingsComponent;
 use App\Livewire\SystemSettings\ClientsAndProjects;
 use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
@@ -51,7 +53,9 @@ Route::middleware(['auth'])->group(function () {
             ->name('yandex-metrika.callback');
     });
 
-    Route::get('/', Demo::class)->name('demo');
 });
+
+Route::get('/', LandingPage::class)->name('landing');
+Route::get('/privacy', PrivacyPage::class)->name('privacy');
 
 require __DIR__ . '/auth.php';
