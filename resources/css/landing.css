@@ -238,7 +238,7 @@
       margin-top: 24px;
       padding: 24px;
       /* декоративная полоса как фон */
-      background-image: url("/images/polosa.svg");
+      background-image: url("/resources/images/polosa.svg");
       background-repeat: no-repeat;
       background-position: 154px calc(100% - 32px);
       background-size: 450px 155px;
@@ -636,7 +636,7 @@
   margin-bottom: 60px;
 
   /* Добавляем фоновую стрелочку */
-  background-image: url("/images/polosa.svg");
+  background-image: url("/resources/images/polosa.svg");
   background-repeat: no-repeat;
   background-position: left 48px bottom 48px;
   /* Опционально: подберите точные отступы слева/снизу */
@@ -931,7 +931,7 @@
   bottom: -10px;                    /* отодвиньте по макету */
   width: 100%;
   height: 100%;                     /* высота SVG-линии */
-  background: url("/images/line-blue.svg") 
+  background: url("/resources/images/line-blue.svg") 
               no-repeat center bottom;
   background-size: contain;
   pointer-events: none;            /* чтобы не мешалась мышке */
