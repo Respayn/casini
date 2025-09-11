@@ -2,6 +2,8 @@
 
 namespace App\Livewire;
 
+use App\Mail\SubscribeToNews;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;

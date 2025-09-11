@@ -80,4 +80,12 @@ return [
         'retries' => 3,
         'timeout' => 15
     ],
+
+    'yandex' => [
+        'smartcaptcha' => [
+            'enabled' => (bool) env('YANDEX_SMARTCAPTCHA_ENABLED', false),
+            'client_key' => env('YANDEX_SMARTCAPTCHA_CLIENT_KEY'),
+            'server_key' => env('YANDEX_SMARTCAPTCHA_SERVER_KEY')
+        ]
+    ]
 ];
