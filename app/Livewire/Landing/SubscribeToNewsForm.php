@@ -35,7 +35,7 @@ class SubscribeToNewsForm extends Component
             $this->dispatch('reset-captcha', captchaId: 'subscribe-to-news-captcha');
         }
 
-        Mail::to('syrtsev@softorium.pro')
+        Mail::to('info@casini.ru')
             ->send(new SubscribeToNews($this->email));
 
         $this->dispatch('form-submitted', id: 'subscribe-to-news');

@@ -38,7 +38,7 @@ class EarlyAccessRequestForm extends Component
             $this->dispatch('reset-captcha', captchaId: 'early-access-captcha');
         }
 
-        Mail::to('syrtsev@softorium.pro')
+        Mail::to('info@casini.ru')
             ->send(new EarlyAccessRequest(
                 $this->team,
                 $this->telegram,
