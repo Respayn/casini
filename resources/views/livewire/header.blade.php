@@ -19,6 +19,7 @@
                 rounded
                 wire:navigate
             />
+            <x-notifications.bell-button />
 
             <div
                 x-data="{ open: false }"
