@@ -11,14 +11,13 @@
         icon="icons.bell"
         variant="outlined"
         rounded
-        class="!relative !z-0 !h-[36px] !w-[36px] !p-0 overflow-visible"
     />
     @if($unread)
         <span class="notify-badge">{{ $display }}</span>
     @endif
 </div>
 <style>
-    .notify-badge{
+.notify-badge {
   position: absolute;
   top: -6px;
   right: -12px;

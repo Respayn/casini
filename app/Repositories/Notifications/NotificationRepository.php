@@ -4,7 +4,6 @@ namespace App\Repositories\Notifications;
 
 use App\Models\Notification;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class NotificationRepository
 {
@@ -37,17 +36,23 @@ class NotificationRepository
         int $userId,
         string $text,
         ?string $linkUrl = null,
+        array $links = [],
         ?string $type = null,
         array $payload = [],
-        ?int $projectId = null
+        ?int $projectId = null,
+        ?string $notifiableType = null,
+        ?int $notifiableId = null,
     ): Notification {
         return Notification::create([
-            'user_id' => $userId,
-            'text' => $text,
-            'link_url' => $linkUrl,
-            'type' => $type,
-            'payload' => $payload,
-            'project_id' => $projectId,
+            'user_id'         => $userId,
+            'text'            => $text,
+            'link_url'        => $linkUrl,
+            'links'           => $links,
+            'type'            => $type,
+            'payload'         => $payload,
+            'project_id'      => $projectId,
+            'notifiable_type' => $notifiableType ?? \App\Models\User::class,
+            'notifiable_id'   => $notifiableId ?? $userId,
         ]);
     }
 }

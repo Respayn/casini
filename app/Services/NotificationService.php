@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Data\Notifications\NotificationData;
+use App\Data\Notifications\ProjectNotificationData;
 use App\Repositories\Notifications\NotificationRepository;
-use App\Models\Notification;
 use Illuminate\Support\Collection;
+use Spatie\LaravelData\DataCollection;
 
 class NotificationService
 {
@@ -25,10 +27,16 @@ class NotificationService
         $this->repo->markAllAsRead($userId);
     }
 
-    public function create(
-        int $userId, string $text, ?string $linkUrl = null,
-        ?string $type = null, array $payload = [], ?int $projectId = null
-    ): Notification {
-        return $this->repo->create($userId, $text, $linkUrl, $type, $payload, $projectId);
+    public function getUserNotificationDTOs(int $userId): DataCollection
+    {
+        $items = $this->repo->getByUserId($userId);
+
+        $dtos = $items->map(function ($n) {
+            return $n->project_id
+                ? ProjectNotificationData::fromModel($n)
+                : NotificationData::fromModel($n);
+        });
+
+        return new DataCollection(NotificationData::class, $dtos->all());
     }
 }
