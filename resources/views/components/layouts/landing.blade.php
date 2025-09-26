@@ -34,7 +34,7 @@
 
     <x-toaster-hub />
 
-    @livewireScripts
+    @livewireScriptConfig
 </body>
 
 </html>

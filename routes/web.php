@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
+use App\Livewire\Channels\ChannelsPage;
 use App\Livewire\Demo;
 use App\Livewire\LandingPage;
 use App\Livewire\PrivacyPage;
@@ -18,24 +19,29 @@ use App\Livewire\Users\UsersList;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
-    Route::middleware(['permission:read system settings|full system settings'])->prefix('system-settings')->name('system-settings.')->group(function () {
-        Route::get('/dictionaries', DictionaryList::class)->name('dictionaries');
-        Route::get('/clients-and-projects', ClientsAndProjects::class)->name('clients-and-projects');
-        Route::get('/clients-and-projects/project/{projectId?}', ClientProjectFormModel::class)->name('clients-and-projects.projects.manage');
-        Route::get('/clients-and-projects/client/create', CreateClient::class)->name('clients-and-projects.clients.create');
+    Route::middleware(['permission:read system settings|full system settings'])
+        ->prefix('system-settings')
+        ->name('system-settings.')
+        ->group(function () {
+            Route::get('/dictionaries', DictionaryList::class)->name('dictionaries');
+            Route::get('/clients-and-projects', ClientsAndProjects::class)->name('clients-and-projects');
+            Route::get('/clients-and-projects/project/{projectId?}', ClientProjectFormModel::class)->name('clients-and-projects.projects.manage');
+            Route::get('/clients-and-projects/client/create', CreateClient::class)->name('clients-and-projects.clients.create');
 
-        Route::get('/agency/{agency?}', AgencySettingsComponent::class)->name('agency');
-        Route::get('/agency', AgencySettingsComponent::class)->name('agency.default');
-        Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
+            Route::get('/agency/{agency?}', AgencySettingsComponent::class)->name('agency');
+            Route::get('/agency', AgencySettingsComponent::class)->name('agency.default');
+            Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
 
-        Route::get('/users', UsersList::class)->name('users');
-        // Создание пользователя
-        Route::get('/users/create', UsersCreate::class)->name('users.create');
-        // Редактирование пользователя (userId — обязательный параметр)
-        Route::get('/users/{user}/edit', UsersEdit::class)->name('users.edit');
+            Route::get('/users', UsersList::class)->name('users');
+            // Создание пользователя
+            Route::get('/users/create', UsersCreate::class)->name('users.create');
+            // Редактирование пользователя (userId — обязательный параметр)
+            Route::get('/users/{user}/edit', UsersEdit::class)->name('users.edit');
 
-        Route::get('/roles-and-permissions', RolesAndPermissions::class)->name('roles-and-permissions');
-    });
+            Route::get('/roles-and-permissions', RolesAndPermissions::class)->name('roles-and-permissions');
+        });
+
+    Route::get('/channels', ChannelsPage::class)->name('channels');
 
 
     Route::prefix('yandex-direct')->group(function () {
@@ -52,7 +58,6 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/callback', [YandexMetrikaAuthController::class, 'callback'])
             ->name('yandex-metrika.callback');
     });
-
 });
 
 Route::get('/', LandingPage::class)->name('landing');
