@@ -3,8 +3,6 @@
 namespace App\Services\Megaplan;
 
 use App\Enums\ProjectType;
-use App\Events\Notifications\PlanningMissing;
-use App\Events\Notifications\PlanningApprovalRequired;
 
 class MegaplanService
 {
@@ -131,7 +129,7 @@ class MegaplanService
         if (empty($ticket)) {
             return $tasks;
         }
-
+        
         // TODO: id или Id? --- IGNORE ---
         $tasks = $this->getTasksFromTicketComments($ticket->Id);
 
@@ -171,51 +169,5 @@ class MegaplanService
         array_shift($tasks);
         $tasks = array_filter($tasks);
         return $tasks;
-    }
-
-    /**
-     * Проверяет наличие месячного тикета и дергает уведомления:
-     * - PlanningMissing, если тикета нет;
-     * - PlanningApprovalRequired, если тикет найден, но требует согласования.
-     *
-     * @param string $department  Отдел/тип проекта (см. ProjectType)
-     * @param array  $project     Ассоциативный массив проекта (тот же, что ты передаешь в getProjectMonthTask)
-     * @param int    $month       Номер месяца
-     * @param int    $year        Год
-     * @param int    $projectId   ID проекта в нашей базе (для payload уведомления)
-     * @param string $projectName Название проекта (для payload уведомления)
-     */
-    public function dispatchPlanningEvents(string $department, array $project, int $month, int $year, int $projectId, string $projectName): void
-    {
-        $task = $this->getProjectMonthTask($department, $project, $month, $year);
-
-        if (!$task) {
-            event(new PlanningMissing(projectId: $projectId, projectName: $projectName));
-            return;
-        }
-
-        // Минимальная эвристика: если статус "на согласовании" (или близко) — требуем аппрув.
-        $requiresApproval = false;
-
-        if (property_exists($task, 'Status')) {
-            $status = mb_strtolower((string)$task->Status);
-            $requiresApproval = in_array($status, [
-                'на согласовании',
-                'ожидает согласования',
-                'approval_required',
-                'awaiting_approval',
-                'wait_approval',
-            ], true);
-        }
-
-        // Если есть явный флаг Approved/IsApproved — учитываем его.
-        if (!$requiresApproval && (property_exists($task, 'Approved') || property_exists($task, 'IsApproved'))) {
-            $approved = property_exists($task, 'Approved') ? (bool)$task->Approved : (bool)$task->IsApproved;
-            $requiresApproval = !$approved;
-        }
-
-        if ($requiresApproval) {
-            event(new PlanningApprovalRequired(projectId: $projectId, projectName: $projectName));
-        }
     }
 }

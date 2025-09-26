@@ -9,18 +9,21 @@
     'iconClasses' => '',
     'square' => null,
     'type' => 'button',
-    'navigate' => true,   // ← добавили
+    'navigate' => true,
 ])
 
 @php
+    // Если параметр square не передан, делаем кнопку квадратной, если label пустой
     $square ??= empty($label);
     $size = $variant === 'action' || $variant === 'implicit-action' ? 'xs-action' : $size;
 
+    // Базовые классы, применяемые ко всем кнопкам
     $buttonClasses = [
         'inline-flex','gap-2','items-center','justify-center',
         'cursor-pointer','disabled:cursor-not-allowed','transition'
     ];
 
+    // Классы, зависящие от варианта кнопки
     $buttonClasses[] = match ($variant) {
         'primary' => 'hover:not-disabled:bg-transparent bg-primary border-primary disabled:text-default-button-disabled hover:not-disabled:text-primary disabled:bg-secondary border text-white disabled:border-0',
         'ghost'   => 'text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary',
@@ -31,6 +34,7 @@
         default   => 'border-default-button text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary border disabled:border-0',
     };
 
+    // TODO: добавить severity для изменения цветовой темы. Пример - https://primevue.org/button/#severity
     $buttonClasses[] = match ($size) {
         'none' => '',
         'xs' => 'h-6 text-sm rounded-md ' . ($square ? 'w-6' : 'px-3.5'),
