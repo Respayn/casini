@@ -17,6 +17,8 @@ class RoleData extends Data implements Wireable
         public ?string $displayName,
         public Collection $permissions = new Collection(),
         public bool $useInProjectFilter = false,
+        public bool $useInManagersList = false,
+        public bool $useInSpecialistList = false,
         public Collection $childRoles = new Collection(),
         public bool $hasAssignedUsers = false
     ) {}

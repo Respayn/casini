@@ -13,7 +13,7 @@ class ClientRepository extends EloquentRepository implements RepositoryInterface
         return Client::class;
     }
 
-    public function all(array $with = ['manager'])
+    public function all(array $with = ['manager.roles'])
     {
         $clients = Client::with($with)->get();
         return ClientData::collect($clients);
@@ -21,7 +21,7 @@ class ClientRepository extends EloquentRepository implements RepositoryInterface
 
     public function find(int $id): ?ClientData
     {
-        $client = Client::with('manager')->find($id);
+        $client = Client::with('manager.roles')->find($id);
 
         if ($client) {
             return ClientData::from($client);

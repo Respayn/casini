@@ -9,9 +9,11 @@ use App\Services\UserService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('components.layouts.system-settings')]
+#[Title('Клиенты и Клиенто-проекты')]
 class ClientsAndProjects extends Component
 {
     public ClientForm $clientForm;

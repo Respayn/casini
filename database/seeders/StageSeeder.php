@@ -63,17 +63,39 @@ class StageSeeder extends Seeder
     private function seedManagers(): void
     {
         $this->insertUser(2, 'Евгений', 'Эсселевич', 'esselevich');
+        $user = User::find(2);
+        $user->assignRole(Role::MANAGER->value);
+
         $this->insertUser(3, 'Наталия', 'Борисова', 'borisova');
+        $user = User::find(3);
+        $user->assignRole(Role::MANAGER->value);
+
         $this->insertUser(4, 'Екатерина', 'Манагина', 'managina');
+        $user = User::find(4);
+        $user->assignRole(Role::MANAGER->value);
+
         $this->insertUser(5, 'Роман', 'Тернов', 'ternov');
+        $user = User::find(5);
+        $user->assignRole(Role::MANAGER->value);
     }
 
     private function seedSpecialists(): void
     {
         $this->insertUser(6, 'Александр', 'Сырцев', 'syrtsev');
+        $user = User::find(6);
+        $user->assignRole(Role::CA_SPECIALIST->value);
+
         $this->insertUser(7, 'Мария', 'Бан', 'ban');
+        $user = User::find(7);
+        $user->assignRole(Role::CA_SPECIALIST->value);
+
         $this->insertUser(8, 'Марина', 'Хмелева', 'hmeleva');
+        $user = User::find(7);
+        $user->assignRole(Role::SEO_SPECIALIST->value);
+
         $this->insertUser(9, 'Савелий', 'Креативов', 'kreativov');
+        $user = User::find(9);
+        $user->assignRole(Role::SEO_SPECIALIST->value);
     }
 
     private function seedClients(): void
@@ -87,7 +109,7 @@ class StageSeeder extends Seeder
         $this->insertClient(7, 'ООО “Альфа Потолок”', '111111111117', 5);
     }
 
-    private function seedProjects(): void 
+    private function seedProjects(): void
     {
         $this->insertProject(1, 'Пзем', 'https://pzem.ru', 1, 6, ProjectType::SEO_PROMOTION->value, ServiceType::TRAFFIC->value, Kpi::TRAFFIC->value, true);
         $this->insertProject(2, '1C прайм', 'https://1c-prime.ru', 2, 6, ProjectType::SEO_PROMOTION->value, ServiceType::TRAFFIC->value, Kpi::TRAFFIC->value, true);

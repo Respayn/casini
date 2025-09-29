@@ -16,7 +16,8 @@ class UserData extends Data implements Wireable
         public ?int $id,
         public string $login,
         public string $email,
-        public array|Collection $roles = [],
+        /** @var Collection<int, Role> */
+        public Collection $roles = new Collection(),
         public ?string $first_name = null,
         public ?string $last_name = null,
         public ?bool $is_active = null,

@@ -5,10 +5,12 @@ namespace App\Livewire\SystemSettings;
 use App\Services\RoleService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Masmerise\Toaster\Toaster;
 
 #[Layout('components.layouts.system-settings')]
+#[Title('Продукты и права')]
 class RolesAndPermissions extends Component
 {
     private RoleService $roleService;

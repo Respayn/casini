@@ -35,4 +35,9 @@ class ClientService
 
         return ClientData::from($client);
     }
+
+    public function getById(int $id): ClientData|null
+    {
+        return $this->repository->find($id);
+    }
 }

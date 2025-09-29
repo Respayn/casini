@@ -196,17 +196,21 @@
                         label="Без группировки"
                     />
                     {{-- TODO: Динамически по ролям --}}
-                    <x-button.button label='По роли "SEO-специалист"' />
+                    {{-- <x-button.button label='По роли "SEO-специалист"' />
                     <x-button.button label='По роли "PPC-специалист"' />
-                    <x-button.button label='По роли "Менеджер"' />
+                    <x-button.button label='По роли "Менеджер"' /> --}}
                     {{-- END TODO  --}}
-                    <x-button.button label="По клиентам" />
+                    <x-button.button
+                        :variant="$queryData->grouping->value === 'clients' ? 'primary' : null"
+                        wire:click="applyGrouping('clients')"
+                        label="По клиентам"
+                    />
                     <x-button.button
                         :variant="$queryData->grouping->value === 'project_type' ? 'primary' : null"
                         wire:click="applyGrouping('project_type')"
                         label="По отделам"
                     />
-                    <x-button.button label="По инструментам" />
+                    {{-- <x-button.button label="По инструментам" /> --}}
                 </div>
 
                 <div class="mt-24 flex justify-between">

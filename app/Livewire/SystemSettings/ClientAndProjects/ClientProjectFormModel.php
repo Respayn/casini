@@ -9,6 +9,7 @@ use App\Data\ProjectData;
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Data\ProjectUtmMappingData;
 use App\Enums\IntegrationCategory;
+use App\Enums\Kpi;
 use App\Enums\ProjectType;
 use App\Factories\IntegrationSettingsFactory;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
@@ -19,6 +20,7 @@ use App\Services\IntegrationService;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -26,9 +28,11 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('components.layouts.system-settings')]
+#[Title('Создание проекта')]
 class ClientProjectFormModel extends Component
 {
     public CreateClientProjectForm $clientProjectForm;
@@ -40,14 +44,14 @@ class ClientProjectFormModel extends Component
     private PromotionRegionService $promotionRegionService;
     private PromotionTopicService $promotionTopicService;
     private IntegrationService $integrationService;
+    private UserService $userService;
 
     public Collection $clients;
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
     public ProjectIntegrationData $selectedIntegration;
-    // public IntegrationData $selectedIntegration;
-    // public ?IntegrationSettingsData $selectedIntegrationSettings;
+
     public Collection $integrationSettings;
 
     public function boot(
@@ -56,6 +60,7 @@ class ClientProjectFormModel extends Component
         PromotionRegionService $promotionRegionService,
         PromotionTopicService $promotionTopicService,
         IntegrationService $integrationService,
+        UserService $userService
     )
     {
         $this->clientService = $clientService;
@@ -63,6 +68,7 @@ class ClientProjectFormModel extends Component
         $this->promotionRegionService = $promotionRegionService;
         $this->promotionTopicService = $promotionTopicService;
         $this->integrationService = $integrationService;
+        $this->userService = $userService;
     }
 
     public function mount(Request $request, $projectId = null)
@@ -75,7 +81,10 @@ class ClientProjectFormModel extends Component
         if ($projectId) {
             // Получение данных
             $project = $this->projectService->getProjectDataById($projectId);
+            $client = $this->clientService->getById($project->client_id);
+            
             $this->clientProjectForm->from($project);
+            $this->clientProjectForm->manager = $client->manager_id;
             $this->bonusGuaranteeForm->from($project->bonusCondition);
             $this->utmMappingForm->from($project->utmMappings->toArray());
             $this->integrationSettings = $this->integrationService->getIntegrationSettingsForProject($projectId);
@@ -161,7 +170,13 @@ class ClientProjectFormModel extends Component
 
     public function render()
     {
-        return view('livewire.system-settings.clients-and-projects.client-project-form');
+        $managers = $this->userService->getManagers();
+        $specialists = $this->userService->getSpecialists();
+
+        return view('livewire.system-settings.clients-and-projects.client-project-form', [
+            'managers' => $managers,
+            'specialists' => $specialists,
+        ]);
     }
 
     public function selectIntegration(string $code)
@@ -297,7 +312,7 @@ class ClientProjectFormModel extends Component
                 client_id: $this->clientProjectForm->client,
                 specialist_id: $this->clientProjectForm->specialist ?? null,
                 project_type: $this->clientProjectForm->projectType ? ProjectType::from($this->clientProjectForm->projectType) : null,
-                kpi: $this->clientProjectForm->kpi,
+                kpi: Kpi::from($this->clientProjectForm->kpi),
                 is_active: $this->clientProjectForm->isActive ?? true,
                 is_internal: $this->clientProjectForm->isInternal ?? false,
                 traffic_attribution: $this->clientProjectForm->trafficAttribution ?? null,

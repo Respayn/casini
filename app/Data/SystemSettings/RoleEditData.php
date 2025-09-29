@@ -16,6 +16,8 @@ class RoleEditData extends Data implements Wireable
         public string $name,
         public array|Collection $permissions,
         public bool $useInProjectFilter,
+        public bool $useInManagersList,
+        public bool $useInSpecialistList,
         public bool $hasChildRoles,
         public array|Collection $childRoles
     ) {

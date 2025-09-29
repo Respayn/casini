@@ -24,6 +24,8 @@ class RoleRepository
                 $role->display_name,
                 new Collection(),
                 $role->use_in_project_filter,
+                $role->use_in_managers_list,
+                $role->use_in_specialist_list,
                 new Collection(),
                 ($role->users_count ?? 0) > 0
             );
@@ -43,6 +45,8 @@ class RoleRepository
                 $role->display_name,
                 collect(PermissionData::collect($role->permissions)),
                 $role->use_in_project_filter,
+                $role->use_in_managers_list,
+                $role->use_in_specialist_list,
                 $role->childRoles,
                 ($role->users_count ?? 0) > 0
             );
@@ -67,7 +71,9 @@ class RoleRepository
             $role = Role::create([
                 'name' => Str::transliterate($roleData['name']),
                 'display_name' => $roleData['name'],
-                'use_in_project_filter' => $roleData['useInProjectFilter']
+                'use_in_project_filter' => $roleData['useInProjectFilter'],
+                'use_in_managers_list' => $roleData['useInManagersList'],
+                'use_in_specialist_list' => $roleData['useInSpecialistList'],
             ]);
 
             foreach ($roleData['permissions'] as $permission) {
@@ -103,6 +109,8 @@ class RoleRepository
             $role = Role::findById($roleData['id']);
             $role->display_name = $roleData['name'];
             $role->use_in_project_filter = $roleData['useInProjectFilter'];
+            $role->use_in_managers_list = $roleData['useInManagersList'];
+            $role->use_in_specialist_list = $roleData['useInSpecialistList'];
             $role->save();
 
             $permissions = [];
@@ -154,6 +162,8 @@ class RoleRepository
                 $role->display_name,
                 new Collection(),
                 $role->use_in_project_filter,
+                $role->use_in_managers_list,
+                $role->use_in_specialist_list,
                 new Collection(),
                 ($role->users_count ?? 0) > 0
             );

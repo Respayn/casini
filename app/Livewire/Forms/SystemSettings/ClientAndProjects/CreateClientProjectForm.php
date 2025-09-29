@@ -80,7 +80,7 @@ class CreateClientProjectForm extends Form
         $this->client = $project->client_id;
         $this->specialist = $project->specialist_id;
         $this->projectType = $project->project_type->value;
-        $this->kpi = $project->kpi;
+        $this->kpi = $project->kpi->value;
         $this->isActive = $project->is_active;
         $this->isInternal = $project->is_internal;
         $this->promotionRegions = $project->promotionRegions->toArray();

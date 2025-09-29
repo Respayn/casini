@@ -39,28 +39,15 @@ class ChannelReportService implements ChannelReportServiceInterface
             $projects = $projects->filter(fn($project) => $project->is_active);
         }
 
-        if ($query->grouping === ChannelReportGrouping::NONE) {
-            return $this->createFlatReport($clients, $projects, $users);
-        }
-
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
             return $this->createReportGroupedByProjectType($clients, $projects, $users);
         }
 
-        // TODO: delete
-        $reportData = new TableReportData();
-        $groupData = new TableReportGroupData();
-        $groupData->rows = new Collection([
-            new Collection([
-                'department' => 1,
-                'login' => 'Логин',
-            ]),
-            new Collection(['manager' => 'манагер']),
-        ]);
+        if ($query->grouping === ChannelReportGrouping::CLIENTS) {
+            return $this->createReportGroupedByClients($clients, $projects, $users);
+        }
 
-        $reportData->groups = new Collection([$groupData]);
-
-        return $reportData;
+        return $this->createFlatReport($clients, $projects, $users);
     }
 
     public function createFlatReport($clients, $projects, $users): TableReportData
@@ -171,7 +158,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $contextGroup->rows = $contextRows;
 
         $seoProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION);
-        $contextGroups = $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD);
+        $contextProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD);
 
         $seoGroup->summary = new Collection([
             'client' => [
@@ -188,18 +175,90 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $contextGroup->summary = new Collection([
             'client' => [
-                'count' => $contextGroups->pluck('client_id')->unique()->count()
+                'count' => $contextProjects->pluck('client_id')->unique()->count()
             ],
             'client_project' => [
-                'count' => $contextGroups->count()
+                'count' => $contextProjects->count()
             ],
             'status' => [
-                'active' => $contextGroups->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $contextGroups->filter(fn($project) => !$project->is_active)->count()
+                'active' => $contextProjects->filter(fn($project) => $project->is_active)->count(),
+                'inactive' => $contextProjects->filter(fn($project) => !$project->is_active)->count()
             ]
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
+
+        $report->summary = new Collection([
+            'client' => [
+                'count' => $projects->pluck('client_id')->unique()->count()
+            ],
+            'client_project' => [
+                'count' => $projects->count()
+            ],
+            'status' => [
+                'active' => $projects->filter(fn($project) => $project->is_active)->count(),
+                'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
+            ]
+        ]);
+
+        return $report;
+    }
+
+    public function createReportGroupedByClients($clients, $projects, $users): TableReportData
+    {
+        $report = new TableReportData();
+
+        foreach ($clients as $client) {
+            $group = new TableReportGroupData();
+            $group->groupLabel = $client->name;
+
+            $rows = new Collection();
+            $clientProjects = $projects->filter(fn($project) => $project->client_id === $client->id);
+            foreach ($clientProjects as $project) {
+                $department = match ($project->project_type) {
+                    ProjectType::CONTEXT_AD => 'Контекст',
+                    ProjectType::SEO_PROMOTION => 'SEO'
+                };
+
+                $status = match ($project->is_active) {
+                    true => 'active',
+                    false => 'inactive'
+                };
+
+                $client = $clients->firstWhere('id', $project->client_id);
+
+                $manager = $users->firstWhere('id', $client->manager_id);
+                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+
+                $specialist = $users->firstWhere('id', $project->specialist_id);
+                $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
+
+                $kpi = $project->kpi->label();
+
+                $rows->push(new Collection(array_merge(
+                    $this->createClientData($department, $client->name, $project->name, $project->id, $status),
+                    $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
+                    $this->createFinancialData($kpi, null, 0, 0, 0),
+                    $this->createSpendingsData(null, null, null, [])
+                )));
+            }
+            $group->rows = $rows;
+
+            $group->summary = new Collection([
+                'client' => [
+                    'count' => $clientProjects->pluck('client_id')->unique()->count()
+                ],
+                'client_project' => [
+                    'count' => $clientProjects->count()
+                ],
+                'status' => [
+                    'active' => $clientProjects->filter(fn($project) => $project->is_active)->count(),
+                    'inactive' => $clientProjects->filter(fn($project) => !$project->is_active)->count()
+                ]
+            ]);
+
+            $report->groups->push($group);
+        }
 
         $report->summary = new Collection([
             'client' => [

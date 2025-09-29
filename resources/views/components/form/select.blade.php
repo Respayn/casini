@@ -4,6 +4,7 @@
     'labelKey' => 'label',
     'valueKey' => 'value',
     'placeholder' => '',
+    'disabled' => false,
 ])
 
 @php
@@ -17,14 +18,16 @@
         options: {{ json_encode($options) }},
         open: false,
         selected: '',
+        disabled: {{ $disabled ? 'true' : 'false' }},
         select(value) {
+            if (this.disabled) return;
             this.open = false;
             this.selected = value;
             $dispatch('change');
         },
     
         getDisplayText() {
-            if (this.selected || this.selected == false) {
+            if (this.selected) {
                 const selectedOption = this.options.find(
                     option => option['{{ $valueKey }}'] == this.selected
                 );
@@ -70,23 +73,26 @@
                     'border-warning-red' => $errors->has($wireModel),
                 ])
                 x-ref="button"
-                x-on:click="open = !open"
+                x-on:click="if (!disabled) open = !open"
                 x-bind:class="{
                     'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': open,
-                    'rounded-[5px]': !open
+                    'rounded-[5px]': !open,
+                    'bg-secondary': disabled,
                 }"
             >
                 <span x-text="getDisplayText()"></span>
             </div>
 
-            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                <x-icons.arrow
-                    class="transition-transform duration-300"
-                    x-bind:class="{
-                        'rotate-180 group-hover:text-white': open,
-                    }"
-                />
-            </span>
+            <template x-if="!disabled">
+                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                    <x-icons.arrow
+                        class="transition-transform duration-300"
+                        x-bind:class="{
+                            'rotate-180 group-hover:text-white': open,
+                        }"
+                    />
+                </span>
+            </template>
         </div>
 
         <div
@@ -94,7 +100,7 @@
             x-cloak
             x-show="open"
             x-anchor.no-style="$refs.buttonContainer"
-            x-bind:style="{ position: 'absolute', top: $anchor.y+'px' }"
+            x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
             x-on:click.outside="open = false"
         >
             <template

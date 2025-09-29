@@ -53,7 +53,7 @@ class UserRepository extends EloquentRepository
                 id: $user->id,
                 login: $user->login,
                 email: $user->email,
-                roles: $user->roles->pluck('name')->toArray(),
+                roles: new Collection($user->roles),
                 first_name: $user->first_name,
                 last_name: $user->last_name,
                 is_active: $user->is_active,

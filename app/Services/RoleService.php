@@ -67,6 +67,8 @@ class RoleService
                     );
                 })->toArray(),
                 $role->useInProjectFilter,
+                $role->useInManagersList,
+                $role->useInSpecialistList,
                 $role->childRoles->isNotEmpty(),
                 $role->childRoles
 

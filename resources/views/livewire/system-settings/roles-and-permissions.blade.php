@@ -16,6 +16,8 @@
                 name: 'Новая роль',
                 permissions: @js($defaultPermissions),
                 useInProjectFilter: false,
+                useInManagersList: false,
+                useInSpecialistList: false,
                 isNew: true,
                 childRoles: []
             });
@@ -146,6 +148,30 @@
                                 </span>
                                 <x-form.toggle-switch
                                     x-model="role.useInProjectFilter"
+                                    x-on:click="hasPendingChanges = true;"
+                                />
+                            </div>
+                            <div class="mb-2.5 flex justify-between">
+                                <span>
+                                    Является менеджером
+                                    <x-overlay.tooltip>
+                                        Если активировать, то эта роль станет доступна в списке менеджеров
+                                    </x-overlay.tooltip>
+                                </span>
+                                <x-form.toggle-switch
+                                    x-model="role.useInManagersList"
+                                    x-on:click="hasPendingChanges = true;"
+                                />
+                            </div>
+                            <div class="mb-2.5 flex justify-between">
+                                <span>
+                                    Является специалистом
+                                    <x-overlay.tooltip>
+                                        Если активировать, то эта роль станет доступна в списке специалистов
+                                    </x-overlay.tooltip>
+                                </span>
+                                <x-form.toggle-switch
+                                    x-model="role.useInSpecialistList"
                                     x-on:click="hasPendingChanges = true;"
                                 />
                             </div>

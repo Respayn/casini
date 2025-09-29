@@ -72,8 +72,12 @@
                     >Менеджер</x-form.form-label>
                     <div>
                         <x-form.select
+                            :options="$managers->map(function ($item) {
+                                return ['label' => $item->first_name . ' ' . $item->last_name, 'value' => $item->id];
+                            })"
                             wire:model="clientProjectForm.manager"
                             placeholder="Выберите менеджера"
+                            disabled
                         />
                     </div>
                 </x-form.form-field>
@@ -82,6 +86,9 @@
                     <x-form.form-label class="self-baseline">Специалист</x-form.form-label>
                     <div>
                         <x-form.select
+                            :options="$specialists->map(function ($item) {
+                                return ['label' => $item->first_name . ' ' . $item->last_name, 'value' => $item->id];
+                            })"
                             wire:model="clientProjectForm.specialist"
                             placeholder="Выберите специалиста"
                         />

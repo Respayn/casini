@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Data\UserData;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class UserService
 {
@@ -25,10 +26,24 @@ class UserService
      * Получить всех менеджеров агентства
      * @return Collection<UserData>
      */
-    public function getManagers(int $agencyId, array $with = []): Collection
+    public function getManagers(?int $agencyId = null, array $with = []): Collection
     {
+        if (!$agencyId) {
+            $agencyId = Auth::user()->agencies()->first()->id;
+        }
         return $this->repository->allByAgency($agencyId, null, $with)
-            ->filter(fn(UserData $user) => $user->roles && in_array('manager', $user->roles));
+            ->filter(fn(UserData $user) => $user->roles->contains(fn($role) => $role->use_in_managers_list))
+            ->values();
+    }
+
+    public function getSpecialists(?int $agencyId = null, array $with = []): Collection
+    {
+        if (!$agencyId) {
+            $agencyId = Auth::user()->agencies()->first()->id;
+        }
+        return $this->repository->allByAgency($agencyId, null, $with)
+            ->filter(fn(UserData $user) => $user->roles->contains(fn($role) => $role->use_in_specialist_list))
+            ->values();
     }
 
     /**

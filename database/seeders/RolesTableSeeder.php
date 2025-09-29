@@ -14,20 +14,56 @@ class RolesTableSeeder extends Seeder
     public function run(): void
     {
         $roles = [
-            'admin' => 'Администратор',
-            'manager' => 'Менеджер',
-            'kr' => 'Специалист (директолог)',
-            'seo' => 'Специалист (SEO)',
-            'rucovotdelseo' => 'Руководитель SEO отдела',
-            'rucovotdelkp' => 'Руководитель KP отдела',
-            'rucovotdelmanager' => 'Руководитель отдела менеджеров',
-            'office_manager' => 'Офис-менеджер',
+            'admin' => [
+                'displayName' => 'Администратор',
+                'useInManagersList' => false,
+                'useInSpecialistList' => false
+            ],
+            'manager' => [
+                'displayName' => 'Менеджер',
+                'useInManagersList' => true,
+                'useInSpecialistList' => false
+            ],
+            'kr' => [
+                'displayName' => 'Специалист (директолог)',
+                'useInManagersList' => false,
+                'useInSpecialistList' => true
+            ],
+            'seo' => [
+                'displayName' => 'Специалист (SEO)',
+                'useInManagersList' => false,
+                'useInSpecialistList' => true
+            ],
+            'rucovotdelseo' => [
+                'displayName' => 'Руководитель SEO отдела',
+                'useInManagersList' => false,
+                'useInSpecialistList' => true
+            ],
+            'rucovotdelkp' => [
+                'displayName' => 'Руководитель KP отдела',
+                'useInManagersList' => false,
+                'useInSpecialistList' => true
+            ],
+            'rucovotdelmanager' => [
+                'displayName' => 'Руководитель отдела менеджеров',
+                'useInManagersList' => true,
+                'useInSpecialistList' => false
+            ],
+            'office_manager' => [
+                'displayName' => 'Офис-менеджер',
+                'useInManagersList' => false,
+                'useInSpecialistList' => false
+            ],
         ];
 
-        foreach ($roles as $name => $displayName) {
+        foreach ($roles as $name => $roleData) {
             SpatieRole::updateOrCreate(
                 ['name' => $name],
-                ['display_name' => $displayName]
+                [
+                    'display_name' => $roleData['displayName'],
+                    'use_in_managers_list' => $roleData['useInManagersList'],
+                    'use_in_specialist_list' => $roleData['useInSpecialistList'],
+                ]
             );
         }
     }

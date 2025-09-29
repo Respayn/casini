@@ -18,7 +18,7 @@ class ChannelReportQueryData extends Data implements Wireable
      * Выбранная группировка
      * @var ChannelReportGrouping
      */
-    public ChannelReportGrouping $grouping = ChannelReportGrouping::PROJECT_TYPE;
+    public ChannelReportGrouping $grouping = ChannelReportGrouping::NONE;
 
     /**
      * Summary of columns
