@@ -129,7 +129,8 @@ class MegaplanService
         if (empty($ticket)) {
             return $tasks;
         }
-
+        
+        // TODO: id или Id? --- IGNORE ---
         $tasks = $this->getTasksFromTicketComments($ticket->Id);
 
         $subTickets = $this->megaplanApiClient->getSubTasks($ticket->id);

@@ -24,7 +24,7 @@
         'justify-center',
         'cursor-pointer',
         'disabled:cursor-not-allowed',
-        'transition'
+        'transition',
     ];
 
     // Классы, зависящие от варианта кнопки
@@ -35,11 +35,10 @@
         'action'  => 'text-primary items-center group relative font-semibold relative',
         'implicit-action'  => 'text-secondary-text items-center group relative font-semibold relative',
         'outlined' => 'border border-input-border hover:border-primary active:bg-primary active:border-primary group text-secondary-text hover:text-primary active:text-white',
-        default   => 'border-default-button text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary border disabled:border-0',
+        default => 'border-default-button text-default-button hover:not-disabled:bg-default-button disabled:text-default-button-disabled hover:not-disabled:text-white disabled:bg-secondary border disabled:border-0',
     };
 
     // TODO: добавить severity для изменения цветовой темы. Пример - https://primevue.org/button/#severity
-
     $buttonClasses[] = match ($size) {
         'none' => '',
         'xs' => 'h-6 text-sm rounded-md ' . ($square ? 'w-6' : 'px-3.5'),
@@ -54,34 +53,49 @@
 @endphp
 
 @if ($href)
-    <a href="{{ $href }}"
+    <a
+        href="{{ $href }}"
         {{ $attributes->merge(['class' => implode(' ', $buttonClasses)]) }}
         wire:navigate
     >
         @if ($icon)
-            <x-dynamic-component class="{{ $iconClasses }}" :component="$icon" />
+            <x-dynamic-component
+                class="{{ $iconClasses }}"
+                :component="$icon"
+            />
         @endif
         @if ($label)
             <span>{!! $label !!}</span>
         @endif
     </a>
 @else
-    <button type="{{ $type }}"
-            {{ $attributes->merge(['class' => implode(' ', $buttonClasses)]) }}
-            @if ($disabled) disabled @endif>
+    <button
+        type="{{ $type }}"
+        {{ $attributes->merge(['class' => implode(' ', $buttonClasses)]) }}
+        @if ($disabled) disabled @endif
+    >
         @if ($icon)
-            <x-dynamic-component class="{{ $iconClasses }}" :component="$icon" />
+            <x-dynamic-component
+                class="{{ $iconClasses }}"
+                :component="$icon"
+            />
         @endif
-        @if($label)
+        @if ($label)
             <span class="relative">
-            <span class="{{ $variant === 'action' ? 'whitespace-nowrap' : '' }}">{{ $label }}</span>
-            @if ($variant === 'action')
-                <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-primary" style="border-width: 0.5px;"></span>
-            @endif
-            @if ($variant === 'implicit-action')
-                <span class="absolute left-0 right-0 bottom-[2px] rounded-xl border-b border-secondary-text" style="border-width: 0.5px;"></span>
-            @endif
-        </span>
+                <span class="{{ $variant === 'action' ? 'whitespace-nowrap' : '' }}">{{ $label }}</span>
+                @if ($variant === 'action')
+                    <span
+                        class="border-primary absolute bottom-[2px] left-0 right-0 rounded-xl border-b"
+                        style="border-width: .5px;"
+                    ></span>
+                @endif
+                @if ($variant === 'implicit-action')
+                    <span
+                        class="border-secondary-text absolute bottom-[2px] left-0 right-0 rounded-xl border-b"
+                        style="border-width: .5px;"
+                    ></span>
+                @endif
+            </span>
         @endif
     </button>
 @endif
