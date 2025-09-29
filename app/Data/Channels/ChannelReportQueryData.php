@@ -56,20 +56,20 @@ class ChannelReportQueryData extends Data implements Wireable
             new TableReportColumnData('kpi', 'KPI', true, 9),
             new TableReportColumnData('plan', 'План', true, 10),
             new TableReportColumnData('client_receipt', 'Чек клиента', true, 11),
-            new TableReportColumnData('max_bonuses', 'Макс. бонусы', true, 12),
+            new TableReportColumnData('max_bonuses', 'Макс. бонусы', true, 12, tooltip: 'Максимальное количество бонусов доступное в канале, задается в настройках канала'),
             new TableReportColumnData('acts', 'Акты', true, 13),
-            new TableReportColumnData('programming', 'Программинг (час/₽)', true, 14),
-            new TableReportColumnData('copyrighting', 'Копирайтер (знак/₽)', true, 15),
-            new TableReportColumnData('seo_links', 'SEO-ссылки (₽)', true, 16),
+            new TableReportColumnData('programming', 'Программинг (час/₽)', true, 14, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('copyrighting', 'Копирайтер (знак/₽)', true, 15, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('seo_links', 'SEO-ссылки (₽)', true, 16, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
             // должности
-            new TableReportColumnData('position_1', 'Помощник SEO-специалиста (час/₽)', true, 17, 'position'),
-            new TableReportColumnData('position_2', 'SEO-специалист (час/₽)', true, 18, 'position'),
-            new TableReportColumnData('position_3', 'Аналитик (час/₽)', true, 19, 'position'),
-            new TableReportColumnData('position_4', 'Менеджер ОРК (час/₽)', true, 20, 'position'),
+            new TableReportColumnData('position_1', 'Помощник SEO-специалиста (час/₽)', true, 17, 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('position_2', 'SEO-специалист (час/₽)', true, 18, 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('position_3', 'Аналитик (час/₽)', true, 19, 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('position_4', 'Менеджер ОРК (час/₽)', true, 20, 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
             // конец должностей
             // сумма по должностям и программингу, копирайтеру и ссылкам
             new TableReportColumnData('summary_spendings', 'Расходы итого (₽)', true, 21),
-            new TableReportColumnData('direct_budget', 'Остаток бюджета в Директе (₽)', true, 22),
+            new TableReportColumnData('direct_budget', 'Остаток бюджета в Директе (₽)', true, 22, tooltip: 'Остаток бюджета нельзя посмотреть за предыдущий период, только на текущее время, если нужно обновить баланс сейчас - кликните на ячейку и данные обновятся'),
             new TableReportColumnData('direct_spendings', 'Расход в Директе (₽)', true, 23),
         ]);
         return $instance;

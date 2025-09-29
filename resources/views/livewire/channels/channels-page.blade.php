@@ -73,7 +73,12 @@
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column class="whitespace-nowrap">
-                                {{ $column->label }}
+                                <span>{{ $column->label }}</span>
+                                @if ($column->tooltip !== null)
+                                    <x-overlay.tooltip>
+                                        {{ $column->tooltip }}
+                                    </x-overlay.tooltip>
+                                @endif
                             </x-data.table-column>
                         @endforeach
                     </x-data.table-columns>

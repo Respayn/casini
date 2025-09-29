@@ -15,7 +15,8 @@ class TableReportColumnData extends Data implements Wireable
         public string $label,
         public bool $isVisible,
         public int $order,
-        public ?string $component = null
+        public ?string $component = null,
+        public ?string $tooltip = null
     ) {
         if ($component === null) {
             $this->component = $this->field;
