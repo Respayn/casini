@@ -8,8 +8,7 @@
     'size' => null,
     'iconClasses' => '',
     'square' => null,
-    'type' => 'button',
-    'navigate' => true,
+    'type' => 'button'
 ])
 
 @php
@@ -51,7 +50,7 @@
 @if ($href)
     <a href="{{ $href }}"
        {{ $attributes->merge(['class' => implode(' ', $buttonClasses)]) }}
-       @if($navigate) wire:navigate @endif  {{-- ← условный wire:navigate --}}
+       wire:navigate
     >
         @if ($icon) <x-dynamic-component class="{{ $iconClasses }}" :component="$icon" /> @endif
         @if ($label) <span>{{ $label }}</span> @endif

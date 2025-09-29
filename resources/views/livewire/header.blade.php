@@ -17,7 +17,6 @@
                 icon="icons.gear"
                 variant="outlined"
                 rounded
-                wire:navigate
             />
             <x-notifications.bell-button />
 

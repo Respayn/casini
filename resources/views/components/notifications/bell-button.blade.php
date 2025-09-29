@@ -6,7 +6,6 @@
 
 <div class="relative ml-2 inline-flex overflow-visible">
     <x-button.button
-        :navigate="false"
         href="{{ route('notifications.index') }}"
         icon="icons.bell"
         variant="outlined"
