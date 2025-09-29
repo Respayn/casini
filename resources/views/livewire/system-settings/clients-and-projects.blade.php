@@ -88,6 +88,7 @@
             </x-data.table-rows>
         </x-data.table>
     </div>
+    
     <x-overlay.modal
         name="client-modal"
         title="{{ $activeClientIndex === null ? 'Создание' : 'Редактирование' }}  клиента"
