@@ -27,11 +27,10 @@ class TableReportGroupData extends Data implements Wireable
      * Summary of summary
      * @var Collection<string, mixed>
      */
-    public Collection $summary;
+    public ?Collection $summary = null;
 
     public function __construct()
     {
         $this->rows = new Collection();
-        $this->summary = new Collection();
     }
 }

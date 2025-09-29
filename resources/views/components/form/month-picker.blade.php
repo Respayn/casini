@@ -195,6 +195,7 @@
         .monthpicker-selector-container {
             background-color: #FFFFFF;
             padding: 5px 5px 10px 5px;
+            z-index: 100;
         }
 
         .monthpicker-selector-button {

@@ -2,10 +2,11 @@
 
 namespace App\Livewire\Channels;
 
+use App\Contracts\ChannelReportServiceInterface;
 use App\Data\Channels\ChannelReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
-use App\Services\ChannelReportService;
+use App\Enums\ChannelReportGrouping;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
@@ -16,9 +17,9 @@ class ChannelsPage extends Component
 {
     public ChannelReportQueryData $queryData;
 
-    private ChannelReportService $channelReportService;
+    private ChannelReportServiceInterface $channelReportService;
 
-    public function boot(ChannelReportService $channelReportService)
+    public function boot(ChannelReportServiceInterface $channelReportService)
     {
         $this->channelReportService = $channelReportService;
     }
@@ -62,6 +63,11 @@ class ChannelsPage extends Component
         return $this->queryData->columns->filter(function (TableReportColumnData $col, $key) {
             return $col->isVisible;
         });
+    }
+
+    public function applyGrouping($grouping) 
+    {
+        $this->queryData->grouping = ChannelReportGrouping::from($grouping);
     }
 
     public function render()

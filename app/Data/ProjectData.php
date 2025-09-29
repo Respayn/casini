@@ -2,6 +2,7 @@
 
 namespace App\Data;
 
+use App\Enums\Kpi;
 use App\Enums\ProjectType;
 use App\Models\Project;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
@@ -18,7 +19,7 @@ class ProjectData extends Data
         public int $client_id,
         public ?int $specialist_id,
         public ?ProjectType $project_type,
-        public ?string $kpi,
+        public ?Kpi $kpi,
         public bool $is_active,
         public bool $is_internal,
         public ?string $traffic_attribution,

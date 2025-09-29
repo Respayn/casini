@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Kpi;
 use App\Enums\ProjectType;
 use App\Enums\ServiceType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -69,6 +70,8 @@ class Project extends Model
     ];
 
     protected $casts = [
+        'is_active' => 'boolean',
+        'kpi' => Kpi::class,
         'project_type' => ProjectType::class,
         'service_type' => ServiceType::class,
     ];

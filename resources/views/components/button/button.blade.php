@@ -62,7 +62,7 @@
             <x-dynamic-component class="{{ $iconClasses }}" :component="$icon" />
         @endif
         @if ($label)
-            <span>{{ $label }}</span>
+            <span>{!! $label !!}</span>
         @endif
     </a>
 @else

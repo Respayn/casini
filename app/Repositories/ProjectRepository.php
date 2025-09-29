@@ -10,6 +10,11 @@ use Illuminate\Database\Eloquent\Builder;
 
 class ProjectRepository
 {
+    public function all()
+    {
+        return Project::all();
+    }
+
     /**
      * Находит проект по данным компании
      * @throws ProjectNotFoundException
