@@ -13,6 +13,7 @@ use App\Repositories\ClientRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class ChannelReportService implements ChannelReportServiceInterface
 {
@@ -28,6 +29,30 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
         $this->userRepository = $userRepository;
+    }
+
+    public function getUserSettings(int $userId): ChannelReportQueryData
+    {
+        // TODO: move fetch logic to repository
+        $savedSettings = DB::table('channel_report_user_settings')
+            ->where('user_id', $userId)
+            ->value('settings');
+
+        if ($savedSettings) {
+            return ChannelReportQueryData::from($savedSettings);
+        }
+
+        return ChannelReportQueryData::create();
+    }
+
+    public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void
+    {
+        // TODO: move save logic to repository
+        DB::table('channel_report_user_settings')
+            ->updateOrInsert(
+                ['user_id' => $userId],
+                ['settings' => $settings->toJson()]
+            );
     }
 
     public function getReportData(ChannelReportQueryData $query): TableReportData

@@ -7,6 +7,7 @@ use App\Data\Channels\ChannelReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
 use App\Enums\ChannelReportGrouping;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
@@ -39,7 +40,7 @@ class ChannelsPage extends Component
 
     public function mount()
     {
-        $this->queryData = ChannelReportQueryData::create();
+        $this->queryData = $this->channelReportService->getUserSettings(Auth::user()->id);
     }
 
     public function updatedSelectAll($value)
@@ -144,6 +145,9 @@ class ChannelsPage extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
+        // TODO: продумать более подходящее место для сохранения настроек
+        $this->channelReportService->saveUserSettings(Auth::user()->id, $this->queryData);
+        
         return $this->channelReportService->getReportData($this->queryData);
     }
 
