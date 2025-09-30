@@ -11,6 +11,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Masmerise\Toaster\Toaster;
 
 #[Title('Каналы')]
 class ChannelsPage extends Component
@@ -21,6 +22,13 @@ class ChannelsPage extends Component
     public array $selectedGroups = [];
 
     public bool $selectAll = false;
+
+    /**
+     * Выбранное действие для массовых операций
+     * TODO: перевести на Backed Enum
+     * @var string
+     */
+    public string $bulkAction = '';
 
     private ChannelReportServiceInterface $channelReportService;
 
@@ -145,6 +153,15 @@ class ChannelsPage extends Component
         $this->selectedProjects = [];
         $this->selectedGroups = [];
         $this->selectAll = false;
+    }
+
+    public function makeBulkAction()
+    {
+        if ($this->bulkAction === '') {
+            Toaster::error('Выберите действие!');
+        } else {
+            Toaster::success('Действие выполнено!');
+        }
     }
 
     public function render()

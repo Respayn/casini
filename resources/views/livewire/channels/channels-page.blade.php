@@ -56,6 +56,7 @@
         <div class="flex gap-2">
             <div class="w-xs">
                 <x-form.select
+                    wire:model="bulkAction"
                     :options="[
                         ['label' => 'Обновить расходы', 'value' => 'refresh_spendings'],
                         ['label' => 'Обновить остаток бюджета', 'value' => 'refresh_budget_remains'],
@@ -63,7 +64,7 @@
                     placeholder="Массовые действия"
                 />
             </div>
-            <x-button.button label="Выполнить" />
+            <x-button.button wire:click="makeBulkAction" label="Выполнить" />
         </div>
     @endif
 
