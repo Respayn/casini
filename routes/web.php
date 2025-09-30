@@ -27,7 +27,7 @@ Route::middleware(['auth'])->group(function () {
             Route::get('/clients-and-projects', ClientsAndProjects::class)->name('clients-and-projects');
             Route::get('/clients-and-projects/project/{projectId?}', ClientProjectFormModel::class)->name('clients-and-projects.projects.manage');
             Route::get('/clients-and-projects/client/create', CreateClient::class)->name('clients-and-projects.clients.create');
-    
+
             Route::get('/agency/{agency?}', AgencySettingsComponent::class)->name('agency');
             Route::get('/agency', AgencySettingsComponent::class)->name('agency.default');
             Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
@@ -44,7 +44,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/notifications', \App\Livewire\Notifications\NotificationList::class)
         ->name('notifications.index');
 
-    Route::get('/channels', ChannelsPage::class)->name('channels');
+    Route::middleware(['permission:read channels|full channels'])->get('/channels', ChannelsPage::class)->name('channels');
 
 
     Route::prefix('yandex-direct')->group(function () {
