@@ -17,6 +17,11 @@ class ChannelsPage extends Component
 {
     public ChannelReportQueryData $queryData;
 
+    public array $selectedProjects = [];
+    public array $selectedGroups = [];
+
+    public bool $selectAll = false;
+
     private ChannelReportServiceInterface $channelReportService;
 
     public function boot(ChannelReportServiceInterface $channelReportService)
@@ -29,9 +34,72 @@ class ChannelsPage extends Component
         $this->queryData = ChannelReportQueryData::create();
     }
 
-    public function getReportData(): TableReportData
+    public function updatedSelectAll($value)
     {
-        return $this->channelReportService->getReportData($this->queryData);
+        if ($value) {
+            $this->selectedProjects = $this->reportData->groups->flatMap(function ($group) {
+                return $group->rows->pluck('id');
+            })->toArray();
+
+            $this->selectedGroups = $this->reportData->groups->keys()->toArray();
+        } else {
+            $this->selectedProjects = [];
+            $this->selectedGroups = [];
+        }
+    }
+
+    public function updatedSelectedGroups($value, $key)
+    {
+        if ($key !== null) {
+            $group = $this->reportData->groups->get($key);
+
+            if ($group) {
+                $projectIds = $group->rows->pluck('id')->toArray();
+
+                if (in_array($key, $this->selectedGroups)) {
+                    $this->selectedProjects = array_unique(array_merge($this->selectedProjects, $projectIds));
+                } else {
+                    $this->selectedProjects = array_diff($this->selectedProjects, $projectIds);
+                }
+            }
+        }
+
+        $this->checkSelectAll();
+    }
+
+    public function updatedSelectedProjects($value, $key)
+    {
+        if ($key !== null) {
+            $this->updateGroupCheckboxes();
+            $this->checkSelectAll();
+        }
+    }
+
+    private function updateGroupCheckboxes()
+    {
+        $newSelectedGroups = [];
+
+        foreach ($this->reportData->groups as $groupIndex => $group) {
+            $projectIds = $group->rows->pluck('id')->toArray();
+
+            if (!empty($projectIds) && count(array_intersect($projectIds, $this->selectedProjects)) === count($projectIds)) {
+                $newSelectedGroups[] = $groupIndex;
+            }
+        }
+
+        $this->selectedGroups = $newSelectedGroups;
+    }
+
+    private function checkSelectAll()
+    {
+        $allProjectIds = $this->reportData->groups->flatMap(function ($group) {
+            return $group->rows->pluck('id');
+        })->toArray();
+
+        // Если все проекты выбраны, то selectAll = true
+        $this->selectAll = !empty($allProjectIds) &&
+            count($this->selectedProjects) === count($allProjectIds) &&
+            empty(array_diff($allProjectIds, $this->selectedProjects));
     }
 
     #[Renderless]
@@ -65,19 +133,25 @@ class ChannelsPage extends Component
         });
     }
 
-    public function applyGrouping($grouping) 
+    #[Computed]
+    public function reportData(): TableReportData
+    {
+        return $this->channelReportService->getReportData($this->queryData);
+    }
+
+    public function applyGrouping($grouping)
     {
         $this->queryData->grouping = ChannelReportGrouping::from($grouping);
+        $this->selectedProjects = [];
+        $this->selectedGroups = [];
+        $this->selectAll = false;
     }
 
     public function render()
     {
-        $reportData = $this->getReportData();
-        $hasNoProjects = $reportData->groups->isEmpty();
-
-        return view('livewire.channels.channels-page', compact([
-            'reportData',
-            'hasNoProjects'
-        ]));
+        return view('livewire.channels.channels-page', [
+            'reportData' => $this->reportData,
+            'hasNoProjects' => $this->reportData->groups->isEmpty()
+        ]);
     }
 }

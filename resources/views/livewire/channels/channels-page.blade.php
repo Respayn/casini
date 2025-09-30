@@ -52,6 +52,21 @@
         </div>
     </div>
 
+    @if (!empty($selectedProjects))
+        <div class="flex gap-2">
+            <div class="w-xs">
+                <x-form.select
+                    :options="[
+                        ['label' => 'Обновить расходы', 'value' => 'refresh_spendings'],
+                        ['label' => 'Обновить остаток бюджета', 'value' => 'refresh_budget_remains'],
+                    ]"
+                    placeholder="Массовые действия"
+                />
+            </div>
+            <x-button.button label="Выполнить" />
+        </div>
+    @endif
+
     @if ($hasNoProjects)
         <div class="mt-20 flex flex-col items-center gap-4">
             <span class="text-caption-text">Нет клиенто-проектов для отображения каналов</span>
@@ -71,6 +86,9 @@
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                 <x-data.table>
                     <x-data.table-columns>
+                        <x-data.table-column>
+                            <x-form.checkbox wire:model.live="selectAll" />
+                        </x-data.table-column>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column class="whitespace-nowrap">
                                 <span>{{ $column->label }}</span>
@@ -86,7 +104,7 @@
                         @foreach ($reportData->groups as $groupIndex => $group)
                             {{-- Итого по группе --}}
                             @unless (empty($group->summary))
-                                <x-data.table-row>
+                                <x-data.table-row wire:key="group.{{ $groupIndex }}.name">
                                     <x-data.table-cell colspan="100">
                                         <div
                                             class="flex cursor-pointer items-center gap-2"
@@ -100,7 +118,11 @@
                                         </div>
                                     </x-data.table-cell>
                                 </x-data.table-row>
-                                <x-data.table-row>
+                                <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
+                                    <x-data.table-cell class="bg-table-summary-bg">
+                                        <x-form.checkbox value="{{ $groupIndex }} " wire:model.live="selectedGroups" />
+                                    </x-data.table-cell>
+
                                     @foreach ($this->visibleColumns as $column)
                                         <x-dynamic-component
                                             :component="'channels.rows.summary.' . $column->component"
@@ -111,21 +133,35 @@
                             @endunless
                             {{-- Строки группы --}}
                             @foreach ($group->rows as $row)
-                                @if ($queryData->grouping->value !== 'none')
-                                    <x-data.table-row x-show="expandedGroups['group-{{ $groupIndex }}']">
+                                @if ($queryData->grouping->value === 'none')
+                                    <x-data.table-row wire:key="row.{{ $row->id }}">
+                                        <x-data.table-cell>
+                                            <x-form.checkbox
+                                                value="{{ $row->id }}"
+                                                wire:model.live="selectedProjects"
+                                            />
+                                        </x-data.table-cell>
+
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component
                                                 :component="'channels.rows.regular.' . $column->component"
-                                                :params="$row->get($column->field)"
+                                                :params="$row->data->get($column->field)"
                                             />
                                         @endforeach
                                     </x-data.table-row>
                                 @else
-                                    <x-data.table-row>
+                                    <x-data.table-row
+                                        x-show="expandedGroups['group-{{ $groupIndex }}']"
+                                        wire:key="row.{{ $row->id }}"
+                                    >
+                                        <x-data.table-cell>
+                                            <x-form.checkbox value="{{ $row->id }}" wire:model.live="selectedProjects" />
+                                        </x-data.table-cell>
+
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component
                                                 :component="'channels.rows.regular.' . $column->component"
-                                                :params="$row->get($column->field)"
+                                                :params="$row->data->get($column->field)"
                                             />
                                         @endforeach
                                     </x-data.table-row>
@@ -134,6 +170,8 @@
                         @endforeach
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
+                            <x-data.table-cell class="bg-table-summary-bg">
+                            </x-data.table-cell>
                             @foreach ($this->visibleColumns as $column)
                                 <x-dynamic-component
                                     :component="'channels.rows.summary.' . $column->component"
@@ -160,7 +198,7 @@
                 @foreach ($queryData->columns as $index => $column)
                     <div
                         class="flex items-center gap-2.5"
-                        wire:key="{{ $column->field }}"
+                        wire:key="column.{{ $column->field }}"
                         x-sort:item="'{{ $column->field }}'"
                     >
                         <x-icons.burger

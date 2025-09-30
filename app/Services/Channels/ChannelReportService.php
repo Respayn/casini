@@ -6,6 +6,7 @@ use App\Contracts\ChannelReportServiceInterface;
 use App\Data\Channels\ChannelReportQueryData;
 use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
+use App\Data\TableReportRowData;
 use App\Enums\ChannelReportGrouping;
 use App\Enums\ProjectType;
 use App\Repositories\ClientRepository;
@@ -58,6 +59,9 @@ class ChannelReportService implements ChannelReportServiceInterface
         $rows = new Collection();
 
         foreach ($projects as $project) {
+            $row = new TableReportRowData();
+            $row->id = $project->id;
+
             $department = match ($project->project_type) {
                 ProjectType::CONTEXT_AD => 'Контекст',
                 ProjectType::SEO_PROMOTION => 'SEO'
@@ -78,12 +82,14 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $kpi = $project->kpi->label();
 
-            $rows->push(new Collection(array_merge(
+            $row->data = new Collection(array_merge(
                 $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                 $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                $this->createFinancialData($kpi, null, 0, 0, 0),
+                $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, [])
-            )));
+            ));
+
+            $rows->push($row);
         }
 
         $group->rows = $rows;
@@ -117,6 +123,9 @@ class ChannelReportService implements ChannelReportServiceInterface
         $contextRows = new Collection();
 
         foreach ($projects as $project) {
+            $row = new TableReportRowData();
+            $row->id = $project->id;
+
             $department = match ($project->project_type) {
                 ProjectType::CONTEXT_AD => 'Контекст',
                 ProjectType::SEO_PROMOTION => 'SEO'
@@ -137,20 +146,17 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $kpi = $project->kpi->label();
 
+            $row->data = new Collection(array_merge(
+                $this->createClientData($department, $client->name, $project->name, $project->id, $status),
+                $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
+                $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                $this->createSpendingsData(null, null, null, [])
+            ));
+
             if ($project->project_type === ProjectType::SEO_PROMOTION) {
-                $seoRows->push(new Collection(array_merge(
-                    $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                    $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, null, 0, 0, 0),
-                    $this->createSpendingsData(null, null, null, [])
-                )));
+                $seoRows->push($row);
             } else {
-                $contextRows->push(new Collection(array_merge(
-                    $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                    $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, null, 0, 0, 0),
-                    $this->createSpendingsData(null, null, null, [])
-                )));
+                $contextRows->push($row);
             }
         }
 
@@ -215,6 +221,9 @@ class ChannelReportService implements ChannelReportServiceInterface
             $rows = new Collection();
             $clientProjects = $projects->filter(fn($project) => $project->client_id === $client->id);
             foreach ($clientProjects as $project) {
+                $row = new TableReportRowData();
+                $row->id = $project->id;
+
                 $department = match ($project->project_type) {
                     ProjectType::CONTEXT_AD => 'Контекст',
                     ProjectType::SEO_PROMOTION => 'SEO'
@@ -235,12 +244,14 @@ class ChannelReportService implements ChannelReportServiceInterface
 
                 $kpi = $project->kpi->label();
 
-                $rows->push(new Collection(array_merge(
+                $row->data = new Collection(array_merge(
                     $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                     $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, null, 0, 0, 0),
+                    $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, [])
-                )));
+                ));
+
+                $rows->push($row);
             }
             $group->rows = $rows;
 
@@ -304,7 +315,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createFinancialData(string $kpi, int|string|null $plan, int $clientReceipt, ?int $maxBonuses, ?int $acts): array
+    public function createFinancialData(string $kpi, int|string|null $plan, ?int $clientReceipt, ?int $maxBonuses, ?int $acts): array
     {
         return [
             'kpi' => $kpi,

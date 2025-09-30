@@ -1,22 +1,14 @@
 <div
     class="checkbox"
-    x-bind:class="{
-        'checkbox-checked': checked
-    }"
-    x-data="{ checked: false }"
-    x-modelable="checked"
-    {{ $attributes }}
 >
     <input
         class="checkbox-input"
         type="checkbox"
-        {{ $attributes->class(['class' => 'sr-only peer']) }}
-        x-model="checked"
+        {{ $attributes }}
     >
     <div class="checkbox-box">
         <svg
             class="checkbox-icon"
-            x-show="checked"
             width="15"
             height="11"
             viewBox="0 0 15 11"
@@ -77,7 +69,7 @@
             box-shadow: 0 0 #0000, 0 0 #0000, 0 1px 2px 0 rgba(18, 18, 23, 0.05);
         }
 
-        .checkbox-checked .checkbox-box {
+        .checkbox:has(input[type="checkbox"]:checked) .checkbox-box {
             border-color: #599CFF;
             background: #599CFF;
         }
@@ -88,18 +80,20 @@
             font-size: 0.875rem;
             width: 0.875rem;
             height: 0.875rem;
+            display: none;
         }
 
-        .checkbox-checked .checkbox-icon {
+        .checkbox:has(input[type="checkbox"]:checked) .checkbox-icon {
+            display: block;
             color: #ffffff;
         }
 
-        .checkbox-checked:not(.disabled):has(.checkbox-input:hover) .checkbox-box {
+        .checkbox:has(input[type="checkbox"]:checked):not(.disabled):has(.checkbox-input:hover) .checkbox-box {
             background: #4070E0;
             border-color: #4070E0;
         }
 
-        .checkbox-checked:not(.disabled):has(.checkbox-input:hover) .checkbox-icon {
+        .checkbox:has(input[type="checkbox"]:checked):not(.disabled):has(.checkbox-input:hover) .checkbox-icon {
             color: #ffffff;
         }
     </style>

@@ -17,9 +17,15 @@ class TableReportGroupData extends Data implements Wireable
      */
     public ?string $groupLabel = null;
 
+    // /**
+    //  * Summary of rows
+    //  * @var Collection<string, mixed>
+    //  */
+    // public Collection $rows;
+    
     /**
      * Summary of rows
-     * @var Collection<string, mixed>
+     * @var Collection<int, TableReportRowData>
      */
     public Collection $rows;
 

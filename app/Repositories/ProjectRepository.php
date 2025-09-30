@@ -12,7 +12,7 @@ class ProjectRepository
 {
     public function all()
     {
-        return Project::all();
+        return Project::with('bonusCondition')->get();
     }
 
     /**
