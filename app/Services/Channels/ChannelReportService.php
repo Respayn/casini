@@ -10,6 +10,7 @@ use App\Data\TableReportRowData;
 use App\Enums\ChannelReportGrouping;
 use App\Enums\ProjectType;
 use App\Repositories\ClientRepository;
+use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Collection;
@@ -20,15 +21,22 @@ class ChannelReportService implements ChannelReportServiceInterface
     private ClientRepository $clientRepository;
     private ProjectRepository $projectRepository;
     private UserRepository $userRepository;
+    private IntegrationRepository $integrationRepository;
+
+    private const SUPPORTED_INTEGRATIONS_FOR_DISPLAY = [
+        'yandex_direct'
+    ];
 
     public function __construct(
         ClientRepository $clientRepository,
         ProjectRepository $projectRepository,
-        UserRepository $userRepository
+        UserRepository $userRepository,
+        IntegrationRepository $integrationRepository
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
         $this->userRepository = $userRepository;
+        $this->integrationRepository = $integrationRepository;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
@@ -60,23 +68,25 @@ class ChannelReportService implements ChannelReportServiceInterface
         $clients = $this->clientRepository->all();
         $projects = $this->projectRepository->all();
         $users = $this->userRepository->all();
+        $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
         if (!$query->showInactive) {
             $projects = $projects->filter(fn($project) => $project->is_active);
         }
 
+        // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations);
         }
 
-        return $this->createFlatReport($clients, $projects, $users);
+        return $this->createFlatReport($clients, $projects, $users, $integrations);
     }
 
-    public function createFlatReport($clients, $projects, $users): TableReportData
+    public function createFlatReport($clients, $projects, $users, Collection $integrations): TableReportData
     {
         $report = new TableReportData();
         $group = new TableReportGroupData();
@@ -107,11 +117,14 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $kpi = $project->kpi->label();
 
+            $projectIntegrations = $integrations->get($project->id, []);
+
             $row->data = new Collection(array_merge(
                 $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                 $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
                 $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
-                $this->createSpendingsData(null, null, null, [])
+                $this->createSpendingsData(null, null, null, []),
+                $this->createIntegrationData($projectIntegrations)
             ));
 
             $rows->push($row);
@@ -130,13 +143,16 @@ class ChannelReportService implements ChannelReportServiceInterface
             'status' => [
                 'active' => $projects->filter(fn($project) => $project->is_active)->count(),
                 'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
-            ]
+            ],
+            'tool' => $integrations->flatten()
+                ->filter(fn($integration) => in_array($integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->code))
         ]);
 
         return $report;
     }
 
-    public function createReportGroupedByProjectType($clients, $projects, $users): TableReportData
+    public function createReportGroupedByProjectType($clients, $projects, $users, $integrations): TableReportData
     {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
@@ -171,11 +187,14 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $kpi = $project->kpi->label();
 
+            $projectIntegrations = $integrations->get($project->id, []);
+
             $row->data = new Collection(array_merge(
                 $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                 $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
                 $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
-                $this->createSpendingsData(null, null, null, [])
+                $this->createSpendingsData(null, null, null, []),
+                $this->createIntegrationData($projectIntegrations)
             ));
 
             if ($project->project_type === ProjectType::SEO_PROMOTION) {
@@ -191,6 +210,13 @@ class ChannelReportService implements ChannelReportServiceInterface
         $seoProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION);
         $contextProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD);
 
+        $seoIntegrations = $integrations->filter(function ($integrations, $projectId) use ($seoProjects) {
+            return $seoProjects->pluck('id')->contains($projectId);
+        });
+        $contextIntegrations = $integrations->filter(function ($integrations, $projectId) use ($contextProjects) {
+            return $contextProjects->pluck('id')->contains($projectId);
+        });
+
         $seoGroup->summary = new Collection([
             'client' => [
                 'count' => $seoProjects->pluck('client_id')->unique()->count()
@@ -201,7 +227,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             'status' => [
                 'active' => $seoProjects->filter(fn($project) => $project->is_active)->count(),
                 'inactive' => $seoProjects->filter(fn($project) => !$project->is_active)->count()
-            ]
+            ],
+            'tool' => $seoIntegrations->flatten()
+                ->filter(fn($integration) => in_array($integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->code))
         ]);
 
         $contextGroup->summary = new Collection([
@@ -214,7 +243,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             'status' => [
                 'active' => $contextProjects->filter(fn($project) => $project->is_active)->count(),
                 'inactive' => $contextProjects->filter(fn($project) => !$project->is_active)->count()
-            ]
+            ],
+            'tool' => $contextIntegrations->flatten()
+                ->filter(fn($integration) => in_array($integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->code))
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
@@ -229,13 +261,16 @@ class ChannelReportService implements ChannelReportServiceInterface
             'status' => [
                 'active' => $projects->filter(fn($project) => $project->is_active)->count(),
                 'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
-            ]
+            ],
+            'tool' => $integrations->flatten()
+                ->filter(fn($integration) => in_array($integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->code))
         ]);
 
         return $report;
     }
 
-    public function createReportGroupedByClients($clients, $projects, $users): TableReportData
+    public function createReportGroupedByClients($clients, $projects, $users, $integrations): TableReportData
     {
         $report = new TableReportData();
 
@@ -269,16 +304,23 @@ class ChannelReportService implements ChannelReportServiceInterface
 
                 $kpi = $project->kpi->label();
 
+                $projectIntegrations = $integrations->get($project->id, []);
+
                 $row->data = new Collection(array_merge(
                     $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                     $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
                     $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
-                    $this->createSpendingsData(null, null, null, [])
+                    $this->createSpendingsData(null, null, null, []),
+                    $this->createIntegrationData($projectIntegrations)
                 ));
 
                 $rows->push($row);
             }
             $group->rows = $rows;
+
+            $clientIntegrations = $integrations->filter(function ($integrations, $projectId) use ($clientProjects) {
+                return $clientProjects->pluck('id')->contains($projectId);
+            });
 
             $group->summary = new Collection([
                 'client' => [
@@ -290,7 +332,10 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'status' => [
                     'active' => $clientProjects->filter(fn($project) => $project->is_active)->count(),
                     'inactive' => $clientProjects->filter(fn($project) => !$project->is_active)->count()
-                ]
+                ],
+                'tool' => $clientIntegrations->flatten()
+                    ->filter(fn($integration) => in_array($integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
+                    ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->code))
             ]);
 
             $report->groups->push($group);
@@ -306,7 +351,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             'status' => [
                 'active' => $projects->filter(fn($project) => $project->is_active)->count(),
                 'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
-            ]
+            ],
+            'tool' => $integrations->flatten()
+                ->filter(fn($integration) => in_array($integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->code))
         ]);
 
         return $report;
@@ -378,5 +426,34 @@ class ChannelReportService implements ChannelReportServiceInterface
         $spendings['summary_spendings'] = ['sum' => $totalSum];
 
         return $spendings;
+    }
+
+    public function createIntegrationData(array|Collection $integrations): array
+    {
+        if (is_array($integrations)) {
+            $integrations = collect($integrations);
+        }
+
+        // ключ tool - идентификатор столбца, в котором будут рендериться данные
+        $tools = ['tool' => []];
+
+        // Сделана проверка на совпадение с кодом интеграции потому что в отчете некоторые интеграции могут быть сгруппированы
+        // под одним значком. Например может быть настроено 3 разные интеграции с 1С, но на фронте они будут объединены в 1
+        if ($integrations->contains(fn($integration) => $integration->code === 'yandex_direct')) {
+            // вложенные ключи используются для рендеринга соответствующей иконки.
+            // ? Возможно стоит использовать enum?
+            $tools['tool']['yandex-direct'] = 1;
+        }
+
+        return $tools;
+    }
+
+    // TODO: вынести в отдельный класс, например IntegrationLogoMapper
+    private function getIntegrationLogoComponent(string $code): string
+    {
+        return match ($code) {
+            'yandex_direct' => 'yandex-direct',
+            default => 'none'
+        };
     }
 }

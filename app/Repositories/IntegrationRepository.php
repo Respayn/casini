@@ -88,4 +88,25 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
 
         return $projectIntegration;
     }
+
+    /**
+     * Summary of getActiveIntegrationsMappedByProjects
+     * @param array|\Illuminate\Support\Collection $projectIds
+     * @return \Illuminate\Database\Eloquent\Collection<int, \Illuminate\Database\Eloquent\Collection<int, IntegrationProject>>
+     */
+    public function getActiveIntegrationsMappedByProjects(array|Collection $projectIds): Collection
+    {
+        if (is_array($projectIds)) {
+            $projectIds = collect($projectIds);
+        }
+
+        $activeIntegrations = IntegrationProject::with('integration')
+            ->where('is_enabled', true)
+            ->whereIn('project_id', $projectIds)
+            ->get();
+
+        return $activeIntegrations->mapToGroups(function (IntegrationProject $item) {
+            return [$item->project_id => $item->integration];
+        });
+    }
 }

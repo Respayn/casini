@@ -161,8 +161,8 @@ class Project extends Model
      *
      * @return Project|\Illuminate\Database\Eloquent\Relations\HasMany
      */
-    public function integrations()
+    public function integrations(): BelongsToMany
     {
-        return $this->hasMany(IntegrationProject::class);
+        return $this->belongsToMany(Integration::class, 'integration_project');
     }
 }

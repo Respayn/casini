@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\IntegrationCategory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 /**
  * @property $id
@@ -26,4 +27,9 @@ class Integration extends Model
     protected $casts = [
         'category' => IntegrationCategory::class
     ];
+
+    public function projects() : BelongsToMany
+    {
+        return $this->belongsToMany(Project::class, 'integration_project');
+    }
 }
