@@ -90,4 +90,14 @@ class User extends Authenticatable
         $roleHierarchyService = app(RoleHierarchyService::class);
         return $roleHierarchyService->userHasPermission($this, $abilities);
     }
+
+    public function isManager(): bool
+    {
+        return $this->roles->where('use_in_managers_list', true)->isNotEmpty();
+    }
+
+    public function isSpecialist(): bool
+    {
+        return $this->roles->where('use_in_specialist_list', true)->isNotEmpty();
+    }
 }

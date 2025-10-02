@@ -63,7 +63,8 @@ class RoleService
                         PermissionGroup::from($groupName)->label(),
                         $role->permissions->containsOneItem(fn($perm) => $perm->name === ('read ' . $groupName)),
                         $role->permissions->containsOneItem(fn($perm) => $perm->name === ('edit ' . $groupName)),
-                        $role->permissions->containsOneItem(fn($perm) => $perm->name === ('full ' . $groupName))
+                        $role->permissions->containsOneItem(fn($perm) => $perm->name === ('full ' . $groupName)),
+                        PermissionGroup::from($groupName)->isSecondary()
                     );
                 })->toArray(),
                 $role->useInProjectFilter,
@@ -98,7 +99,8 @@ class RoleService
                 PermissionGroup::from($groupName)->label(),
                 false,
                 false,
-                false
+                false,
+                PermissionGroup::from($groupName)->isSecondary()
             );
         }, array_keys($permissionGroups), $permissionGroups);
     }

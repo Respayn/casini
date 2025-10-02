@@ -15,6 +15,7 @@ class PermissionEditData extends Data implements Wireable
         public string $displayName,
         public bool $canRead,
         public bool $canEdit,
-        public bool $haveFullAccess
+        public bool $haveFullAccess,
+        public bool $isSecondary = false
     ) {}
 }

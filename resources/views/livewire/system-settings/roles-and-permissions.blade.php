@@ -226,7 +226,12 @@
                                     >
                                         <x-data.table-row>
                                             <x-data.table-cell>
-                                                <span x-text="permission.displayName"></span>
+                                                <div class="flex gap-x-2.5 items-center">
+                                                    <template x-if="permission.isSecondary">
+                                                        <x-icons.accordion-arrow class="rotate-270" />
+                                                    </template>
+                                                    <span x-text="permission.displayName"></span>
+                                                </div>
                                             </x-data.table-cell>
                                             <x-data.table-cell>
                                                 <div class="flex justify-center">

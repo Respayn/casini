@@ -26,8 +26,6 @@ class ChannelReportQueryData extends Data implements Wireable
      */
     public Collection $columns;
 
-    public Carbon $dateFrom;
-
     public Carbon $dateTo;
 
     public bool $showInactive = false;
@@ -40,7 +38,6 @@ class ChannelReportQueryData extends Data implements Wireable
     {
         $instance = new self();
 
-        $instance->dateFrom = Carbon::now()->subMonth();
         $instance->dateTo = Carbon::now();
 
         $instance->columns = new Collection([

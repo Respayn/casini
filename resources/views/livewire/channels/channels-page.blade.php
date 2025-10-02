@@ -29,20 +29,19 @@
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
 
-        <div class="flex gap-2">
-            <x-form.month-picker wire:model.live="queryData.dateFrom" />
+        <div>
             <x-form.month-picker wire:model.live="queryData.dateTo" />
         </div>
 
         <div class="flex-end ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal">
+            <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
                 <x-button.button
                     icon="icons.edit"
                     label="Настроить столбцы"
                     variant="link"
                 />
             </x-overlay.modal-trigger>
-            <x-overlay.modal-trigger name="group-settings-modal">
+            <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
                 <x-button.button
                     icon="icons.edit"
                     label="Настроить отчет"
@@ -217,59 +216,15 @@
                     icon="icons.check"
                     label="Применить"
                     variant="primary"
-                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.$refresh()"
+                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.applyColumnSettings(); $wire.$refresh()"
                 />
                 <x-button
-                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' })"
+                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.cancelColumnSettings()"
                     label="Отмена"
                 />
             </div>
         </x-slot>
     </x-overlay.modal>
 
-    <x-overlay.modal
-        name="group-settings-modal"
-        title="Настроить отчет"
-    >
-        <x-slot:body>
-            <div>
-                <div class="flex max-w-[658px] flex-wrap gap-2.5">
-                    <x-button.button
-                        :variant="$queryData->grouping->value === 'none' ? 'primary' : null"
-                        wire:click="applyGrouping('none')"
-                        label="Без группировки"
-                    />
-                    {{-- TODO: Динамически по ролям --}}
-                    {{-- <x-button.button label='По роли "SEO-специалист"' />
-                    <x-button.button label='По роли "PPC-специалист"' />
-                    <x-button.button label='По роли "Менеджер"' /> --}}
-                    {{-- END TODO  --}}
-                    <x-button.button
-                        :variant="$queryData->grouping->value === 'clients' ? 'primary' : null"
-                        wire:click="applyGrouping('clients')"
-                        label="По клиентам"
-                    />
-                    <x-button.button
-                        :variant="$queryData->grouping->value === 'project_type' ? 'primary' : null"
-                        wire:click="applyGrouping('project_type')"
-                        label="По отделам"
-                    />
-                    {{-- <x-button.button label="По инструментам" /> --}}
-                </div>
-
-                <div class="mt-24 flex justify-between">
-                    <x-button
-                        icon="icons.check"
-                        label="Применить"
-                        variant="primary"
-                        x-on:click="$dispatch('modal-hide', { name: 'group-settings-modal' }); $wire.$refresh()"
-                    />
-                    <x-button
-                        x-on:click="$dispatch('modal-hide', { name: 'group-settings-modal' })"
-                        label="Отмена"
-                    />
-                </div>
-            </div>
-        </x-slot>
-    </x-overlay.modal>
+    <livewire:channels.group-settings-modal :initial-grouping="$queryData->grouping" />
 </div>

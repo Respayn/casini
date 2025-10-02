@@ -106,7 +106,11 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ->get();
 
         return $activeIntegrations->mapToGroups(function (IntegrationProject $item) {
-            return [$item->project_id => $item->integration];
+            $projectIntegrationData = new ProjectIntegrationData();
+            $projectIntegrationData->integration = IntegrationData::from($item->integration);
+            $projectIntegrationData->settings = $item->settings ?? [];
+            $projectIntegrationData->isEnabled = $item->is_enabled;
+            return [$item->project_id => $projectIntegrationData];
         });
     }
 }

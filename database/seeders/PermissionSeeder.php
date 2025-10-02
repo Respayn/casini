@@ -23,7 +23,7 @@ class PermissionSeeder extends Seeder
 
         $adminRole = Role::findByName('admin');
 
-        foreach (PermissionGroup::values() as $group) {
+        foreach (PermissionGroup::flatValues() as $group) {
             foreach ($accessLevels as $level) {
                 $permission = Permission::updateOrCreate(
                     ['name' => $level . ' ' . $group],

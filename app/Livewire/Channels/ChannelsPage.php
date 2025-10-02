@@ -9,15 +9,21 @@ use App\Data\TableReportData;
 use App\Enums\ChannelReportGrouping;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Masmerise\Toaster\Toaster;
 
-#[Title('Каналы')]
+#[Title("Каналы")]
 class ChannelsPage extends Component
 {
     public ChannelReportQueryData $queryData;
+
+    /**
+     * Сохраненные настройки для отмены изменений в модальных окнах
+     */
+    public ?ChannelReportQueryData $originalQueryData = null;
 
     public array $selectedProjects = [];
     public array $selectedGroups = [];
@@ -29,7 +35,7 @@ class ChannelsPage extends Component
      * TODO: перевести на Backed Enum
      * @var string
      */
-    public string $bulkAction = '';
+    public string $bulkAction = "";
 
     private ChannelReportServiceInterface $channelReportService;
 
@@ -40,17 +46,23 @@ class ChannelsPage extends Component
 
     public function mount()
     {
-        $this->queryData = $this->channelReportService->getUserSettings(Auth::user()->id);
+        $this->queryData = $this->channelReportService->getUserSettings(
+            Auth::user()->id,
+        );
     }
 
     public function updatedSelectAll($value)
     {
         if ($value) {
-            $this->selectedProjects = $this->reportData->groups->flatMap(function ($group) {
-                return $group->rows->pluck('id');
-            })->toArray();
+            $this->selectedProjects = $this->reportData->groups
+                ->flatMap(function ($group) {
+                    return $group->rows->pluck("id");
+                })
+                ->toArray();
 
-            $this->selectedGroups = $this->reportData->groups->keys()->toArray();
+            $this->selectedGroups = $this->reportData->groups
+                ->keys()
+                ->toArray();
         } else {
             $this->selectedProjects = [];
             $this->selectedGroups = [];
@@ -63,12 +75,17 @@ class ChannelsPage extends Component
             $group = $this->reportData->groups->get($key);
 
             if ($group) {
-                $projectIds = $group->rows->pluck('id')->toArray();
+                $projectIds = $group->rows->pluck("id")->toArray();
 
                 if (in_array($key, $this->selectedGroups)) {
-                    $this->selectedProjects = array_unique(array_merge($this->selectedProjects, $projectIds));
+                    $this->selectedProjects = array_unique(
+                        array_merge($this->selectedProjects, $projectIds),
+                    );
                 } else {
-                    $this->selectedProjects = array_diff($this->selectedProjects, $projectIds);
+                    $this->selectedProjects = array_diff(
+                        $this->selectedProjects,
+                        $projectIds,
+                    );
                 }
             }
         }
@@ -89,9 +106,13 @@ class ChannelsPage extends Component
         $newSelectedGroups = [];
 
         foreach ($this->reportData->groups as $groupIndex => $group) {
-            $projectIds = $group->rows->pluck('id')->toArray();
+            $projectIds = $group->rows->pluck("id")->toArray();
 
-            if (!empty($projectIds) && count(array_intersect($projectIds, $this->selectedProjects)) === count($projectIds)) {
+            if (
+                !empty($projectIds) &&
+                count(array_intersect($projectIds, $this->selectedProjects)) ===
+                count($projectIds)
+            ) {
                 $newSelectedGroups[] = $groupIndex;
             }
         }
@@ -101,43 +122,94 @@ class ChannelsPage extends Component
 
     private function checkSelectAll()
     {
-        $allProjectIds = $this->reportData->groups->flatMap(function ($group) {
-            return $group->rows->pluck('id');
-        })->toArray();
+        $allProjectIds = $this->reportData->groups
+            ->flatMap(function ($group) {
+                return $group->rows->pluck("id");
+            })
+            ->toArray();
 
         // Если все проекты выбраны, то selectAll = true
-        $this->selectAll = !empty($allProjectIds) &&
+        $this->selectAll =
+            !empty($allProjectIds) &&
             count($this->selectedProjects) === count($allProjectIds) &&
             empty(array_diff($allProjectIds, $this->selectedProjects));
+    }
+
+    /**
+     * Сохраняет текущие настройки для возможности отмены
+     */
+    #[Renderless]
+    public function saveSettingsSnapshot()
+    {
+        $this->originalQueryData = clone $this->queryData;
+    }
+
+    /**
+     * Отменяет изменения в настройках столбцов
+     */
+    #[Renderless]
+    public function dropSettingsSnapshot()
+    {
+        if ($this->originalQueryData) {
+            $this->queryData = clone $this->originalQueryData;
+            $this->originalQueryData = null;
+        }
+    }
+
+    /**
+     * Применяет изменения в настройках столбцов
+     */
+    #[Renderless]
+    public function applySettingsSnapshot()
+    {
+        $this->originalQueryData = null;
     }
 
     #[Renderless]
     public function sortColumn($item, $position)
     {
-        $column = $this->queryData->columns->first(fn($v) => $v->field === $item);
+        $column = $this->queryData->columns->first(
+            fn($v) => $v->field === $item,
+        );
         $oldPosition = $column->order;
 
         if ($oldPosition === $position) {
             return;
         }
 
-        $this->queryData->columns->each(function ($col) use ($oldPosition, $position) {
+        $this->queryData->columns->each(function ($col) use (
+            $oldPosition,
+            $position,
+        ) {
             if ($col->order == $oldPosition) {
                 $col->order = $position;
-            } elseif ($oldPosition < $position && $col->order > $oldPosition && $col->order <= $position) {
+            } elseif (
+                $oldPosition < $position &&
+                $col->order > $oldPosition &&
+                $col->order <= $position
+            ) {
                 $col->order--;
-            } elseif ($oldPosition > $position && $col->order >= $position && $col->order < $oldPosition) {
+            } elseif (
+                $oldPosition > $position &&
+                $col->order >= $position &&
+                $col->order < $oldPosition
+            ) {
                 $col->order++;
             }
         });
 
-        $this->queryData->columns = $this->queryData->columns->sortBy(fn(TableReportColumnData $col) => $col->order);
+        $this->queryData->columns = $this->queryData->columns->sortBy(
+            fn(TableReportColumnData $col) => $col->order,
+        );
     }
 
     #[Computed]
     public function visibleColumns()
     {
-        return $this->queryData->columns->filter(function (TableReportColumnData $col, $key) {
+        return $this->queryData->columns->filter(function (
+            TableReportColumnData $col,
+            $key,
+        ) {
             return $col->isVisible;
         });
     }
@@ -146,11 +218,15 @@ class ChannelsPage extends Component
     public function reportData(): TableReportData
     {
         // TODO: продумать более подходящее место для сохранения настроек
-        $this->channelReportService->saveUserSettings(Auth::user()->id, $this->queryData);
-        
+        $this->channelReportService->saveUserSettings(
+            Auth::user()->id,
+            $this->queryData,
+        );
+
         return $this->channelReportService->getReportData($this->queryData);
     }
 
+    #[On('group-settings-applied')]
     public function applyGrouping($grouping)
     {
         $this->queryData->grouping = ChannelReportGrouping::from($grouping);
@@ -161,18 +237,18 @@ class ChannelsPage extends Component
 
     public function makeBulkAction()
     {
-        if ($this->bulkAction === '') {
-            Toaster::error('Выберите действие!');
+        if ($this->bulkAction === "") {
+            Toaster::error("Выберите действие!");
         } else {
-            Toaster::success('Действие выполнено!');
+            Toaster::success("Действие выполнено!");
         }
     }
 
     public function render()
     {
-        return view('livewire.channels.channels-page', [
-            'reportData' => $this->reportData,
-            'hasNoProjects' => $this->reportData->groups->isEmpty()
+        return view("livewire.channels.channels-page", [
+            "reportData" => $this->reportData,
+            "hasNoProjects" => $this->reportData->groups->isEmpty(),
         ]);
     }
 }

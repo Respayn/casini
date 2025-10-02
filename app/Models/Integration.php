@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\IntegrationCategory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * @property $id
@@ -31,5 +32,10 @@ class Integration extends Model
     public function projects() : BelongsToMany
     {
         return $this->belongsToMany(Project::class, 'integration_project');
+    }
+
+    public function integrationProjects() : HasMany
+    {
+        return $this->hasMany(IntegrationProject::class);
     }
 }
