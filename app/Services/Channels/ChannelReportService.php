@@ -25,10 +25,6 @@ class ChannelReportService implements ChannelReportServiceInterface
     private UserRepository $userRepository;
     private IntegrationRepository $integrationRepository;
 
-    private const SUPPORTED_INTEGRATIONS_FOR_DISPLAY = [
-        'yandex_direct'
-    ];
-
     public function __construct(
         ClientRepository $clientRepository,
         ProjectRepository $projectRepository,
@@ -79,7 +75,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         if ($user->isSpecialist() && !$user->hasAnyPermission(['read clients and projects all', 'full clients and projects all'])) {
             $projects = $projects->filter(fn($project) => $project->specialist_id === $user->id);
         }
-        
+
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
@@ -158,7 +154,6 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
             ],
             'tool' => $integrations->flatten()
-                ->filter(fn($integration) => in_array($integration->integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
                 ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
@@ -242,7 +237,6 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $seoProjects->filter(fn($project) => !$project->is_active)->count()
             ],
             'tool' => $seoIntegrations->flatten()
-                ->filter(fn($integration) => in_array($integration->integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
                 ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
@@ -258,7 +252,6 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $contextProjects->filter(fn($project) => !$project->is_active)->count()
             ],
             'tool' => $contextIntegrations->flatten()
-                ->filter(fn($integration) => in_array($integration->integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
                 ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
@@ -276,7 +269,6 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
             ],
             'tool' => $integrations->flatten()
-                ->filter(fn($integration) => in_array($integration->integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
                 ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
@@ -347,7 +339,6 @@ class ChannelReportService implements ChannelReportServiceInterface
                     'inactive' => $clientProjects->filter(fn($project) => !$project->is_active)->count()
                 ],
                 'tool' => $clientIntegrations->flatten()
-                    ->filter(fn($integration) => in_array($integration->integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
                     ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
             ]);
 
@@ -366,11 +357,15 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
             ],
             'tool' => $integrations->flatten()
-                ->filter(fn($integration) => in_array($integration->integration->code, self::SUPPORTED_INTEGRATIONS_FOR_DISPLAY))
                 ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
         return $report;
+    }
+
+    public function createReportGroupedByTools($clients, $projects, $users, $integrations): TableReportData
+    {
+        
     }
 
     public function createClientData(string $department, string $clientName, string $projectName, int $projectId, string $status): array
@@ -448,29 +443,41 @@ class ChannelReportService implements ChannelReportServiceInterface
         }
 
         // ключ tool - идентификатор столбца, в котором будут рендериться данные
-        $tools = [
+        $initialColumnsData = [
             'tool' => [],
             'login' => null
         ];
 
-        // Сделана проверка на совпадение с кодом интеграции потому что в отчете некоторые интеграции могут быть сгруппированы
-        // под одним значком. Например может быть настроено 3 разные интеграции с 1С, но на фронте они будут объединены в 1
-        if ($integrations->contains(fn($integration) => $integration->integration->code === 'yandex_direct')) {
-            // вложенные ключи используются для рендеринга соответствующей иконки.
-            // ? Возможно стоит использовать enum?
-            $tools['tool']['yandex-direct'] = 1;
-            $tools['login'] = $integrations->firstWhere('integration.code', 'yandex_direct')->settings['clientLogin'] ?? null;
-        }
+        $columnsData = $integrations->reduce(function ($carry, $integration) {
+            $integrationCode = $integration->integration->code;
 
-        return $tools;
+            // Сделана проверка на совпадение с кодом интеграции потому что в отчете некоторые интеграции могут быть сгруппированы
+            // под одним значком. Например может быть настроено 3 разные интеграции с 1С, но на фронте они будут объединены в 1.
+            // Вложенные ключи используются для рендеринга соответствующей иконки.
+            $logoComponent = $this->getIntegrationLogoComponent($integrationCode);
+            if (isset($carry['tool'][$logoComponent])) {
+                $carry['tool'][$logoComponent] += 1;
+            } else {
+                $carry['tool'][$logoComponent] = 1;
+            }
+
+            if ($integrationCode === 'yandex_direct') {
+                $carry['login'] = $integration->settings['clientLogin'] ?? null;
+            }
+
+            return $carry;
+        }, $initialColumnsData);
+
+        return $columnsData;
     }
 
     // TODO: вынести в отдельный класс, например IntegrationLogoMapper
     private function getIntegrationLogoComponent(string $code): string
     {
+        // ? Возможно стоит использовать enum?
         return match ($code) {
             'yandex_direct' => 'yandex-direct',
-            default => 'none'
+            default => 'default'
         };
     }
 }

@@ -216,10 +216,10 @@
                     icon="icons.check"
                     label="Применить"
                     variant="primary"
-                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.applyColumnSettings(); $wire.$refresh()"
+                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.applySettingsSnapshot()"
                 />
                 <x-button
-                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.cancelColumnSettings()"
+                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.dropSettingsSnapshot()"
                     label="Отмена"
                 />
             </div>

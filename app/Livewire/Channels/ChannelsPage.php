@@ -147,7 +147,6 @@ class ChannelsPage extends Component
     /**
      * Отменяет изменения в настройках столбцов
      */
-    #[Renderless]
     public function dropSettingsSnapshot()
     {
         if ($this->originalQueryData) {
@@ -159,7 +158,6 @@ class ChannelsPage extends Component
     /**
      * Применяет изменения в настройках столбцов
      */
-    #[Renderless]
     public function applySettingsSnapshot()
     {
         $this->originalQueryData = null;
