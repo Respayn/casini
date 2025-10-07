@@ -17,4 +17,6 @@ class CreateRateForm extends Form
 
     #[Validate('required', message: "Дата начала обязательна для заполнения")]
     public ?Carbon $startDate = null;
+
+    public bool $fetchSpendingsTime = false;
 }

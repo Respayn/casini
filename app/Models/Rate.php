@@ -8,7 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Rate extends Model
 {
     protected $fillable = [
-        'name'
+        'name',
+        'fetch_spendings_time'
+    ];
+
+    protected $casts = [
+        'fetch_spendings_time' => 'boolean'
     ];
 
     public function values(): HasMany

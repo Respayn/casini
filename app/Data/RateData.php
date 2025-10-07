@@ -19,6 +19,7 @@ class RateData extends Data implements Wireable
 	public ?int $actualValue;
 	public ?CarbonImmutable $actualStartDate;
 	public ?CarbonImmutable $actualEndDate;
+	public bool $fetchSpendingsTime = false;
 
 	/** @var Collection<int, RateValueData> */
 	public Collection $values;

@@ -56,8 +56,8 @@ class RateService
 
     public function createRate(CreateRateForm $form)
     {
-        $rateAttributes = $form->only('name');
-        $rateValueAttributes = $form->except('name');
+        $rateAttributes = $form->only('name', 'fetchSpendingsTime');
+        $rateValueAttributes = $form->except('name', 'fetchSpendingsTime');
 
         DB::transaction(function () use ($rateAttributes, $rateValueAttributes) {
             $rateId = $this->rateRepository->save($rateAttributes);
@@ -68,9 +68,9 @@ class RateService
 
     public function updateRate(CreateRateForm $form, int $rateId)
     {
-        $rateAttributes = $form->only('name');
+        $rateAttributes = $form->only('name', 'fetchSpendingsTime');
         $rateAttributes['id'] = $rateId;
-        $rateValueAttributes = $form->except('name');
+        $rateValueAttributes = $form->except('name', 'fetchSpendingsTime');
 
         DB::transaction(function () use ($rateAttributes, $rateValueAttributes) {
             $rateId = $this->rateRepository->save($rateAttributes);

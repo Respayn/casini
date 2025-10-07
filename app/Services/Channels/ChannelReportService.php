@@ -13,6 +13,7 @@ use App\Enums\ProjectType;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
+use App\Repositories\RateRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -24,17 +25,20 @@ class ChannelReportService implements ChannelReportServiceInterface
     private ProjectRepository $projectRepository;
     private UserRepository $userRepository;
     private IntegrationRepository $integrationRepository;
+    private RateRepository $rateRepository;
 
     public function __construct(
         ClientRepository $clientRepository,
         ProjectRepository $projectRepository,
         UserRepository $userRepository,
-        IntegrationRepository $integrationRepository
+        IntegrationRepository $integrationRepository,
+        RateRepository $rateRepository
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
         $this->userRepository = $userRepository;
         $this->integrationRepository = $integrationRepository;
+        $this->rateRepository = $rateRepository;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
@@ -48,7 +52,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             return ChannelReportQueryData::from($savedSettings);
         }
 
-        return ChannelReportQueryData::create();
+        return ChannelReportQueryData::create($this->rateRepository->getRatesWithEnabledSpendingsTimeFetching());
     }
 
     public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void

@@ -130,6 +130,15 @@
                         @enderror
                     </div>
                 </x-form.form-field>
+                <x-form.form-field>
+                    <x-form.form-label>Собирать статистику по отработанному времени:</x-form.form-label>
+                    <div>
+                        <x-form.checkbox wire:model="form.fetchSpendingsTime" />
+                        @error('form.fetchSpendingsTime')
+                            <span class="text-red-500">{{ $message }}</span>
+                        @enderror
+                    </div>
+                </x-form.form-field>
             </x-form.form>
             <div class="flex justify-between">
                 <x-button.button
@@ -179,6 +188,7 @@
                     $wire.form.name = '';
                     $wire.form.value = '';
                     $wire.form.startDate = '';
+                    $wire.form.fetchSpendingsTime = false;
                     $wire.selectedRateId = 0;
                 },
                 selectRate(rate) {
@@ -187,6 +197,7 @@
                     $wire.form.startDate = rate.values?.[0]?.startDate ?
                         new Date(rate.values?.[0]?.startDate).toISOString().split('T')[0] :
                         null;
+                    $wire.form.fetchSpendingsTime = rate.fetchSpendingsTime;
                     $wire.selectedRateId = rate.id;
                 }
             }

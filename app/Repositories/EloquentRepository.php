@@ -2,6 +2,8 @@
 
 namespace App\Repositories;
 
+use Illuminate\Support\Str;
+
 abstract class EloquentRepository
 {
     protected $model;
@@ -25,13 +27,18 @@ abstract class EloquentRepository
 
     public function save(array $attributes): int
     {
-        if (isset($attributes['id'])) {
-            $entry = $this->model->find($attributes['id']);
-            $entry->update($attributes);
+        $processedAttributes = [];
+        foreach ($attributes as $key => $value) {
+            $processedAttributes[Str::snake($key)] = $value;
+        }
+
+        if (isset($processedAttributes['id'])) {
+            $entry = $this->model->find($processedAttributes['id']);
+            $entry->update($processedAttributes);
             return $entry->id;
         }
 
-        $entry = $this->model->create($attributes);
+        $entry = $this->model->create($processedAttributes);
         return $entry->id;
     }
 }

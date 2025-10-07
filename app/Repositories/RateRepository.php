@@ -30,8 +30,13 @@ class RateRepository extends EloquentRepository implements RateRepositoryInterfa
         return RateData::from($this->model->find($id));
     }
 
-    public function findBy(string $column, mixed $value)
+    public function findBy(string $column, mixed $value): Collection|DataCollection
     {
         return RateData::collect($this->model->where($column, $value)->get());
+    }
+
+    public function getRatesWithEnabledSpendingsTimeFetching(): Collection|DataCollection
+    {
+        return $this->findBy('fetch_spendings_time', true);
     }
 }
