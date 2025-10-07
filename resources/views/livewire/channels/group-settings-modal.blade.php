@@ -14,7 +14,8 @@
                     wire:click="setGrouping('clients')" label="По клиентам" />
                 <x-button.button :variant="$grouping->value === 'project_type' ? 'primary' : null"
                     wire:click="setGrouping('project_type')" label="По отделам" />
-                {{-- <x-button.button label="По инструментам" /> --}}
+                <x-button.button :variant="$grouping->value === 'tools' ? 'primary' : null"
+                    wire:click="setGrouping('tools')" label="По инструментам" />
             </div>
 
             <div class="mt-24 flex justify-between">
