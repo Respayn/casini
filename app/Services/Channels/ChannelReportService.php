@@ -100,6 +100,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             return $this->createReportGroupedByTools($clients, $projects, $users, $integrations);
         }
 
+        if ($query->grouping === ChannelReportGrouping::ROLE) {
+            return $this->createReportGroupedByRoles($clients, $projects, $users, $integrations);
+        }
+
         return $this->createFlatReport($clients, $projects, $users, $integrations);
     }
 
@@ -511,6 +515,108 @@ class ChannelReportService implements ChannelReportServiceInterface
         ]);
 
         $report->groups->push($group);
+
+        $report->summary = new Collection([
+            'client' => [
+                'count' => $projects->pluck('client_id')->unique()->count()
+            ],
+            'client_project' => [
+                'count' => $projects->count()
+            ],
+            'status' => [
+                'active' => $projects->filter(fn($project) => $project->is_active)->count(),
+                'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
+            ],
+            'tool' => $integrations->flatten()
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+        ]);
+
+        return $report;
+    }
+
+    public function createReportGroupedByRoles($clients, $projects, $users, $integrations): TableReportData
+    {
+        $report = new TableReportData();
+
+        $roles = $users->pluck('roles')->flatten()->unique('id');
+
+        foreach ($roles as $role) {
+            $group = new TableReportGroupData();
+            $group->groupLabel = $role->display_name;
+
+            $rows = new Collection();
+
+            $projectsWithRole = $projects->filter(function ($project) use ($clients, $users, $role) {
+                $client = $clients->firstWhere('id', $project->client_id);
+                $manager = $users->firstWhere('id', $client->manager_id);
+                $specialist = $users->firstWhere('id', $project->specialist_id);
+
+                return $manager->roles->contains($role) || $specialist->roles->contains($role);
+            });
+
+            foreach ($projectsWithRole as $project) {
+                $row = new TableReportRowData();
+                $row->id = $project->id;
+
+                $department = match ($project->project_type) {
+                    ProjectType::CONTEXT_AD => 'Контекст',
+                    ProjectType::SEO_PROMOTION => 'SEO'
+                };
+
+                $status = match ($project->is_active) {
+                    true => 'active',
+                    false => 'inactive'
+                };
+
+                $client = $clients->firstWhere('id', $project->client_id);
+
+                $manager = $users->firstWhere('id', $client->manager_id);
+                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+
+                $specialist = $users->firstWhere('id', $project->specialist_id);
+                $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
+
+                $kpi = $project->kpi->label();
+
+                $projectIntegrations = $integrations->get($project->id, []);
+
+                $row->data = new Collection(array_merge(
+                    $this->createClientData($department, $client->name, $project->name, $project->id, $status),
+                    $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
+                    $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                    $this->createSpendingsData(null, null, null, []),
+                    $this->createIntegrationData($projectIntegrations)
+                ));
+
+                $rows->push($row);
+            }
+
+            if ($rows->isNotEmpty()) {
+                $group->rows = $rows;
+
+                $roleIntegrations = $integrations->filter(function ($integrations, $projectId) use ($projectsWithRole) {
+                    return $projectsWithRole->pluck('id')->contains($projectId);
+                });
+
+                $group->summary = new Collection([
+                    'client' => [
+                        'count' => $projectsWithRole->pluck('client_id')->unique()->count()
+                    ],
+                    'client_project' => [
+                        'count' => $projectsWithRole->count()
+                    ],
+                    'status' => [
+                        'active' => $projectsWithRole->filter(fn($project) => $project->is_active)->count(),
+                        'inactive' => $projectsWithRole->filter(fn($project) => !$project->is_active)->count()
+                    ],
+                    'tool' => $roleIntegrations->flatten()
+                        ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+
+                ]);
+
+                $report->groups->push($group);
+            }
+        }
 
         $report->summary = new Collection([
             'client' => [

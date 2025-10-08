@@ -5,11 +5,8 @@
                 {{-- TODO: изменять отображение кнопок на клиенте, без синхронизации с сервером --}}
                 <x-button.button :variant="$grouping->value === 'none' ? 'primary' : null"
                     wire:click="setGrouping('none')" label="Без группировки" />
-                {{-- TODO: Динамически по ролям --}}
-                {{-- <x-button.button label='По роли "SEO-специалист"' />
-                <x-button.button label='По роли "PPC-специалист"' />
-                <x-button.button label='По роли "Менеджер"' /> --}}
-                {{-- END TODO --}}
+                <x-button.button :variant="$grouping->value === 'role' ? 'primary' : null"
+                    wire:click="setGrouping('role')" label="По ролям" />
                 <x-button.button :variant="$grouping->value === 'clients' ? 'primary' : null"
                     wire:click="setGrouping('clients')" label="По клиентам" />
                 <x-button.button :variant="$grouping->value === 'project_type' ? 'primary' : null"
