@@ -3,9 +3,9 @@
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
 use App\Livewire\Channels\ChannelsPage;
-use App\Livewire\Demo;
 use App\Livewire\LandingPage;
 use App\Livewire\PrivacyPage;
+use App\Livewire\Statistics\StatisticsPage;
 use App\Livewire\SystemSettings\Agency\AgencySettingsComponent;
 use App\Livewire\SystemSettings\ClientsAndProjects;
 use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
@@ -46,6 +46,7 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(['permission:read channels|full channels'])->get('/channels', ChannelsPage::class)->name('channels');
 
+    Route::get('/statistics', StatisticsPage::class)->name('statistics');
 
     Route::prefix('yandex-direct')->group(function () {
         Route::get('/connect', [YandexDirectOAuthController::class, 'redirect'])

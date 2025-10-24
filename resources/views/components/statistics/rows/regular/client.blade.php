@@ -1,0 +1,11 @@
+@props(['params'])
+
+<x-data.table-cell {{ $attributes }}>
+    <a
+        class="text-primary underline"
+        href="{{ route('system-settings.clients-and-projects') }}"
+        wire:navigate
+    >
+        {{ $params['name'] }}
+    </a>
+</x-data.table-cell>

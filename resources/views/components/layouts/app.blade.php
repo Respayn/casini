@@ -34,7 +34,8 @@
         <livewire:header />
 
         <x-menu.navbar :items="[
-            ['label' => 'Каналы', 'route' => 'channels']
+            ['label' => 'Каналы', 'route' => 'channels'],
+            ['label' => 'Статистика', 'route' => 'statistics']
         ]" />
 
         <div class="rounded-l-2xl bg-white p-5">
