@@ -192,7 +192,7 @@
         ['label' => 'По клиентам', 'value' => 'clients'],
         ['label' => 'По отделам', 'value' => 'departments'],
         ['label' => 'По инструментам', 'value' => 'tools'],
-    ]"></x-form.select>
+    ]" wire:model="queryData.grouping"></x-form.select>
                         </div>
                     </x-form.form-field>
                 </x-form.form>

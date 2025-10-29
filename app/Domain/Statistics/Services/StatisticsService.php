@@ -6,6 +6,7 @@ use App\Data\Statistics\StatisticsReportQueryData;
 use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
+use App\Enums\ChannelReportGrouping;
 use App\Enums\Kpi;
 use App\Enums\ProjectType;
 use App\Repositories\ClientRepository;
@@ -46,9 +47,9 @@ class StatisticsService
 
 
         // TODO: разнести логику по соответствующим классам
-        // if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-        //     return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations);
-        // }
+        if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations);
+        }
 
         // if ($query->grouping === ChannelReportGrouping::CLIENTS) {
         //     return $this->createReportGroupedByClients($clients, $projects, $users, $integrations);
@@ -121,6 +122,132 @@ class StatisticsService
 
         $group->rows = $rows;
         $report->groups->push($group);
+
+        $report->summary = new Collection([
+            'client' => [
+                'count' => $projects->pluck('client_id')->unique()->count()
+            ],
+            'client_project' => [
+                'count' => $projects->count()
+            ],
+            'service' => $integrations->flatten()
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+            'department' => [
+                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+            ]
+        ]);
+
+        return $report;
+    }
+
+    private function createReportGroupedByProjectType(Collection $clients, Collection $projects, Collection $users, Collection $integrations): TableReportData
+    {
+        $report = new TableReportData();
+        $seoGroup = new TableReportGroupData();
+        $seoGroup->groupLabel = 'SEO';
+        $contextGroup = new TableReportGroupData();
+        $contextGroup->groupLabel = 'Контекст';
+
+        $seoRows = new Collection();
+        $contextRows = new Collection();
+
+        foreach ($projects as $project) {
+            $row = new TableReportRowData();
+            $row->id = $project->id;
+
+            $department = match ($project->project_type) {
+                ProjectType::CONTEXT_AD => 'Контекст',
+                ProjectType::SEO_PROMOTION => 'SEO'
+            };
+
+            $client = $clients->firstWhere('id', $project->client_id);
+
+            $manager = $users->firstWhere('id', $client->manager_id);
+            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+
+            $projectIntegrations = $integrations->get($project->id, new Collection());
+
+            $row->data = new Collection(array_merge(
+                [
+                    'manager' => [
+                        'id' => $manager->id,
+                        'name' => $managerName
+                    ],
+                    'client' => [
+                        'name' => $client->name
+                    ],
+                    'client_project' => [
+                        'id' => $project->id,
+                        'name' => $project->name
+                    ],
+                    'client_project_id' => [
+                        'id' => $project->id
+                    ],
+                    'department' => [
+                        'name' => $department
+                    ],
+                    'kpi' => $project->kpi->label(),
+                    'parameter' => $this->createParameterData($project->project_type, $project->kpi),
+                    'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                    'summary' => [],
+                    'perdiction' => [],
+                    'bonuses' => 0
+                ],
+                $this->createIntegrationData($projectIntegrations)
+            ));
+            
+            if ($project->project_type === ProjectType::SEO_PROMOTION) {
+                $seoRows->push($row);
+            } else {
+                $contextRows->push($row);
+            }
+        }
+
+        $seoGroup->rows = $seoRows;
+        $contextGroup->rows = $contextRows;
+
+        $seoProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION);
+        $contextProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD);
+
+        $seoIntegrations = $integrations->filter(function ($integrations, $projectId) use ($seoProjects) {
+            return $seoProjects->pluck('id')->contains($projectId);
+        });
+        $contextIntegrations = $integrations->filter(function ($integrations, $projectId) use ($contextProjects) {
+            return $contextProjects->pluck('id')->contains($projectId);
+        });
+
+        $seoGroup->summary = new Collection([
+            'client' => [
+                'count' => $seoProjects->pluck('client_id')->unique()->count()
+            ],
+            'client_project' => [
+                'count' => $seoProjects->count()
+            ],
+            'service' => $seoIntegrations->flatten()
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+            'department' => [
+                ProjectType::CONTEXT_AD->value => $seoProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $seoProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+            ]
+        ]);
+
+        $contextGroup->summary = new Collection([
+            'client' => [
+                'count' => $contextProjects->pluck('client_id')->unique()->count()
+            ],
+            'client_project' => [
+                'count' => $contextProjects->count()
+            ],
+            'service' => $contextIntegrations->flatten()
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+            'department' => [
+                ProjectType::CONTEXT_AD->value => $contextProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $contextProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+            ]
+        ]);
+
+        $report->groups = new Collection([$seoGroup, $contextGroup]);
 
         $report->summary = new Collection([
             'client' => [
