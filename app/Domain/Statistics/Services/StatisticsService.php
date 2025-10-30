@@ -55,9 +55,9 @@ class StatisticsService
             return $this->createReportGroupedByClients($clients, $projects, $users, $integrations);
         }
 
-        // if ($query->grouping === ChannelReportGrouping::TOOLS) {
-        //     return $this->createReportGroupedByTools($clients, $projects, $users, $integrations);
-        // }
+        if ($query->grouping === ChannelReportGrouping::TOOLS) {
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations);
+        }
 
         // if ($query->grouping === ChannelReportGrouping::ROLE) {
         //     return $this->createReportGroupedByRoles($clients, $projects, $users, $integrations);
@@ -286,20 +286,10 @@ class StatisticsService
                     ProjectType::SEO_PROMOTION => 'SEO'
                 };
 
-                $status = match ($project->is_active) {
-                    true => 'active',
-                    false => 'inactive'
-                };
-
                 $client = $clients->firstWhere('id', $project->client_id);
 
                 $manager = $users->firstWhere('id', $client->manager_id);
                 $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
-
-                $specialist = $users->firstWhere('id', $project->specialist_id);
-                $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
-
-                $kpi = $project->kpi->label();
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
@@ -358,6 +348,185 @@ class StatisticsService
 
             $report->groups->push($group);
         }
+
+        $report->summary = new Collection([
+            'client' => [
+                'count' => $projects->pluck('client_id')->unique()->count()
+            ],
+            'client-project' => [
+                'count' => $projects->count()
+            ],
+            'service' => $integrations->flatten()
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+            'department' => [
+                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+            ]
+        ]);
+
+        return $report;
+    }
+
+    public function createReportGroupedByTools(Collection $clients, Collection $projects, Collection $users, Collection $integrations): TableReportData
+    {
+        $report = new TableReportData();
+
+        $integrationsGroupList = $integrations->flatten()->unique('integration.code');
+
+        foreach ($integrationsGroupList as $integrationGroup) {
+            $group = new TableReportGroupData();
+            $group->groupLabel = $integrationGroup->integration->name;
+
+            $rows = new Collection();
+            $projectIds = $integrations
+                ->filter(
+                    fn($integrationsByProject) => $integrationsByProject->contains(
+                        fn($integration) => $integration->integration->code === $integrationGroup->integration->code
+                    )
+                )
+                ->keys();
+
+            $projectsByIntegration = $projects->filter(fn($project) => $projectIds->contains($project->id));
+
+            foreach ($projectsByIntegration as $project) {
+                $row = new TableReportRowData();
+                $row->id = $project->id;
+
+                $department = match ($project->project_type) {
+                    ProjectType::CONTEXT_AD => 'Контекст',
+                    ProjectType::SEO_PROMOTION => 'SEO'
+                };
+
+                $client = $clients->firstWhere('id', $project->client_id);
+
+                $manager = $users->firstWhere('id', $client->manager_id);
+                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+
+                $projectIntegrations = $integrations->get($project->id, []);
+
+                $row->data = new Collection(array_merge(
+                    [
+                        'manager' => [
+                            'id' => $manager->id,
+                            'name' => $managerName
+                        ],
+                        'client' => [
+                            'name' => $client->name
+                        ],
+                        'client-project' => [
+                            'id' => $project->id,
+                            'name' => $project->name
+                        ],
+                        'client-project-id' => [
+                            'id' => $project->id
+                        ],
+                        'department' => [
+                            'name' => $department
+                        ],
+                        'kpi' => $project->kpi->label(),
+                        'parameter' => $this->createParameterData($project->project_type, $project->kpi),
+                        'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                        'summary' => [],
+                        'perdiction' => [],
+                        'bonuses' => 0
+                    ],
+                    $this->createIntegrationData($projectIntegrations)
+                ));
+
+                $rows->push($row);
+            }
+
+            $group->rows = $rows;
+
+            $group->summary = new Collection([
+                'client' => [
+                    'count' => $projectsByIntegration->pluck('client_id')->unique()->count()
+                ],
+                'client-project' => [
+                    'count' => $projectsByIntegration->count()
+                ],
+                'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()],
+                'department' => [
+                    ProjectType::CONTEXT_AD->value => $projectsByIntegration->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                    ProjectType::SEO_PROMOTION->value => $projectsByIntegration->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+                ]
+            ]);
+
+            $report->groups->push($group);
+        }
+
+        // Группа с проектами без интеграций
+        $projectsWithoutIntegration = $projects->filter(fn($project) => !$integrations->keys()->contains($project->id));
+        $group = new TableReportGroupData();
+        $group->groupLabel = 'Без настроенных инструментов';
+
+        $rows = new Collection();
+
+        foreach ($projectsWithoutIntegration as $project) {
+            $row = new TableReportRowData();
+            $row->id = $project->id;
+
+            $department = match ($project->project_type) {
+                ProjectType::CONTEXT_AD => 'Контекст',
+                ProjectType::SEO_PROMOTION => 'SEO'
+            };
+
+            $client = $clients->firstWhere('id', $project->client_id);
+
+            $manager = $users->firstWhere('id', $client->manager_id);
+            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+
+            $projectIntegrations = $integrations->get($project->id, []);
+
+            $row->data = new Collection(array_merge(
+                [
+                    'manager' => [
+                        'id' => $manager->id,
+                        'name' => $managerName
+                    ],
+                    'client' => [
+                        'name' => $client->name
+                    ],
+                    'client-project' => [
+                        'id' => $project->id,
+                        'name' => $project->name
+                    ],
+                    'client-project-id' => [
+                        'id' => $project->id
+                    ],
+                    'department' => [
+                        'name' => $department
+                    ],
+                    'kpi' => $project->kpi->label(),
+                    'parameter' => $this->createParameterData($project->project_type, $project->kpi),
+                    'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                    'summary' => [],
+                    'perdiction' => [],
+                    'bonuses' => 0
+                ],
+                $this->createIntegrationData($projectIntegrations)
+            ));
+
+            $rows->push($row);
+        }
+
+        $group->rows = $rows;
+
+        $group->summary = new Collection([
+            'client' => [
+                'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count()
+            ],
+            'client-project' => [
+                'count' => $projectsWithoutIntegration->count()
+            ],
+            'service' => [],
+            'department' => [
+                ProjectType::CONTEXT_AD->value => $projectsWithoutIntegration->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projectsWithoutIntegration->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+            ]
+        ]);
+
+        $report->groups->push($group);
 
         $report->summary = new Collection([
             'client' => [
