@@ -2,20 +2,8 @@
 
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
-use App\Livewire\Channels\ChannelsPage;
 use App\Livewire\LandingPage;
 use App\Livewire\PrivacyPage;
-use App\Livewire\Statistics\StatisticsPage;
-use App\Livewire\SystemSettings\Agency\AgencySettingsComponent;
-use App\Livewire\SystemSettings\ClientsAndProjects;
-use App\Livewire\SystemSettings\ClientAndProjects\CreateClient;
-use App\Livewire\SystemSettings\ClientAndProjects\ClientProjectFormModel;
-use App\Livewire\SystemSettings\CreateAgencyComponent;
-use App\Livewire\SystemSettings\DictionaryList;
-use App\Livewire\SystemSettings\RolesAndPermissions;
-use App\Livewire\SystemSettings\Users\UsersCreate;
-use App\Livewire\SystemSettings\Users\UsersEdit;
-use App\Livewire\Users\UsersList;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
@@ -23,30 +11,27 @@ Route::middleware(['auth'])->group(function () {
         ->prefix('system-settings')
         ->name('system-settings.')
         ->group(function () {
-            Route::get('/dictionaries', DictionaryList::class)->name('dictionaries');
-            Route::get('/clients-and-projects', ClientsAndProjects::class)->name('clients-and-projects');
-            Route::get('/clients-and-projects/project/{projectId?}', ClientProjectFormModel::class)->name('clients-and-projects.projects.manage');
-            Route::get('/clients-and-projects/client/create', CreateClient::class)->name('clients-and-projects.clients.create');
+            Route::livewire('/dictionaries', 'pages::system-settings.dictionary-list')->name('dictionaries');
+            Route::livewire('/clients-and-projects', 'pages::system-settings.clients-and-projects')->name('clients-and-projects');
+            Route::livewire('/clients-and-projects/project/{projectId?}', 'pages::system-settings.client-project-form')->name('clients-and-projects.projects.manage');
 
-            Route::get('/agency/{agency?}', AgencySettingsComponent::class)->name('agency');
-            Route::get('/agency', AgencySettingsComponent::class)->name('agency.default');
-            Route::get('/agency/create', CreateAgencyComponent::class)->name('agency.create');
+            Route::livewire('/agency/{agency?}', 'pages::system-settings.agency-settings')->name('agency');
+            Route::livewire('/agency', 'pages::system-settings.agency-settings')->name('agency.default');
 
-            Route::get('/users', UsersList::class)->name('users');
-            // Создание пользователя
-            Route::get('/users/create', UsersCreate::class)->name('users.create');
-            // Редактирование пользователя (userId — обязательный параметр)
-            Route::get('/users/{user}/edit', UsersEdit::class)->name('users.edit');
+            Route::livewire('/users', 'pages::system-settings.users-list')->name('users');
+            Route::livewire('/users/create', 'pages::system-settings.users-create')->name('users.create');
+            Route::livewire('/users/{user}/edit', 'pages::system-settings.users-edit')->name('users.edit');
 
-            Route::get('/roles-and-permissions', RolesAndPermissions::class)->name('roles-and-permissions');
+            Route::livewire('/roles-and-permissions', 'pages::system-settings.roles-and-permissions')->name('roles-and-permissions');
         });
 
-    Route::get('/notifications', \App\Livewire\Notifications\NotificationList::class)
-        ->name('notifications.index');
+    Route::livewire('/notifications', 'pages::notifications-list')->name('notifications.index');
 
-    Route::middleware(['permission:read channels|full channels'])->get('/channels', ChannelsPage::class)->name('channels');
+    Route::middleware(['permission:read channels|full channels'])->group(function () {
+        Route::livewire('/channels', 'pages::channels')->name('channels');
+    });
 
-    Route::get('/statistics', StatisticsPage::class)->name('statistics');
+    Route::livewire('/statistics', 'pages::statistics')->name('statistics');
 
     Route::prefix('yandex-direct')->group(function () {
         Route::get('/connect', [YandexDirectOAuthController::class, 'redirect'])
@@ -64,7 +49,7 @@ Route::middleware(['auth'])->group(function () {
     });
 });
 
-Route::get('/', LandingPage::class)->name('landing');
-Route::get('/privacy', PrivacyPage::class)->name('privacy');
+Route::livewire('/', LandingPage::class)->name('landing');
+Route::livewire('/privacy', PrivacyPage::class)->name('privacy');
 
 require __DIR__ . '/auth.php';

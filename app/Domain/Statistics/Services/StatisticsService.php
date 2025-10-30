@@ -98,11 +98,11 @@ class StatisticsService
                     'client' => [
                         'name' => $client->name
                     ],
-                    'client_project' => [
+                    'client-project' => [
                         'id' => $project->id,
                         'name' => $project->name
                     ],
-                    'client_project_id' => [
+                    'client-project-id' => [
                         'id' => $project->id
                     ],
                     'department' => [
@@ -127,7 +127,7 @@ class StatisticsService
             'client' => [
                 'count' => $projects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projects->count()
             ],
             'service' => $integrations->flatten()
@@ -177,11 +177,11 @@ class StatisticsService
                     'client' => [
                         'name' => $client->name
                     ],
-                    'client_project' => [
+                    'client-project' => [
                         'id' => $project->id,
                         'name' => $project->name
                     ],
-                    'client_project_id' => [
+                    'client-project-id' => [
                         'id' => $project->id
                     ],
                     'department' => [
@@ -221,7 +221,7 @@ class StatisticsService
             'client' => [
                 'count' => $seoProjects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $seoProjects->count()
             ],
             'service' => $seoIntegrations->flatten()
@@ -236,7 +236,7 @@ class StatisticsService
             'client' => [
                 'count' => $contextProjects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $contextProjects->count()
             ],
             'service' => $contextIntegrations->flatten()
@@ -253,7 +253,7 @@ class StatisticsService
             'client' => [
                 'count' => $projects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projects->count()
             ],
             'service' => $integrations->flatten()

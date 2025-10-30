@@ -25,15 +25,15 @@
 
 @script
 <script>
-    $js('apply', () => {
+    $wire.$js.apply = () => {
         $wire.initialGrouping = $wire.grouping;
         $dispatch('modal-hide', { name: 'group-settings-modal' })
         $dispatch('group-settings-applied', { grouping: $wire.grouping });
-    })
+    };
 
-    $js('cancel', () => {
+    $wire.$js.cancel = () => {
         $wire.set('grouping', $wire.initialGrouping);
         $dispatch('modal-hide', { name: 'group-settings-modal' })
-    })
+    };
 </script>
 @endscript

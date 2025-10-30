@@ -2,8 +2,7 @@
 
 use App\Services\ProductService;
 use Illuminate\Support\Collection;
-use Livewire\Attributes\Computed;
-use Livewire\Volt\Component;
+use Livewire\Component;
 
 new class extends Component {
     private ProductService $productService;

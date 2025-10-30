@@ -31,8 +31,8 @@
 
 @script
     <script>
-        $js('submit', () => {
+        $wire.$js.submit = () => {
             console.log('footer');
-        })
+        };
     </script>
 @endscript

@@ -6,6 +6,6 @@
         href="{{ route('system-settings.clients-and-projects') }}"
         wire:navigate
     >
-        {{ $params['name'] }}
+        {{ $params['name'] ?? '-' }}
     </a>
 </x-data.table-cell>

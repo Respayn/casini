@@ -158,7 +158,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $projects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projects->count()
             ],
             'status' => [
@@ -241,7 +241,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $seoProjects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $seoProjects->count()
             ],
             'status' => [
@@ -256,7 +256,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $contextProjects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $contextProjects->count()
             ],
             'status' => [
@@ -273,7 +273,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $projects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projects->count()
             ],
             'status' => [
@@ -343,7 +343,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'client' => [
                     'count' => $clientProjects->pluck('client_id')->unique()->count()
                 ],
-                'client_project' => [
+                'client-project' => [
                     'count' => $clientProjects->count()
                 ],
                 'status' => [
@@ -361,7 +361,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $projects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projects->count()
             ],
             'status' => [
@@ -439,7 +439,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'client' => [
                     'count' => $projectsByIntegration->pluck('client_id')->unique()->count()
                 ],
-                'client_project' => [
+                'client-project' => [
                     'count' => $projectsByIntegration->count()
                 ],
                 'status' => [
@@ -504,7 +504,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projectsWithoutIntegration->count()
             ],
             'status' => [
@@ -520,7 +520,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $projects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projects->count()
             ],
             'status' => [
@@ -602,7 +602,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                     'client' => [
                         'count' => $projectsWithRole->pluck('client_id')->unique()->count()
                     ],
-                    'client_project' => [
+                    'client-project' => [
                         'count' => $projectsWithRole->count()
                     ],
                     'status' => [
@@ -622,7 +622,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => [
                 'count' => $projects->pluck('client_id')->unique()->count()
             ],
-            'client_project' => [
+            'client-project' => [
                 'count' => $projects->count()
             ],
             'status' => [
@@ -641,11 +641,11 @@ class ChannelReportService implements ChannelReportServiceInterface
         return [
             'department' => ['name' => $department],
             'client' => ['name' => $clientName],
-            'client_project' => [
+            'client-project' => [
                 'name' => $projectName,
                 'id' => $projectId
             ],
-            'client_project_id' => ['id' => $projectId],
+            'client-project-id' => ['id' => $projectId],
             'status' => $status
         ];
     }
@@ -669,8 +669,8 @@ class ChannelReportService implements ChannelReportServiceInterface
         return [
             'kpi' => $kpi,
             'plan' => $plan,
-            'client_receipt' => $clientReceipt,
-            'max_bonuses' => $maxBonuses,
+            'client-receipt' => $clientReceipt,
+            'max-bonuses' => $maxBonuses,
             'acts' => $acts
         ];
     }
@@ -680,7 +680,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $spendings = [
             'programming' => $programming,
             'copyrighting' => $copyrighting,
-            'seo_links' => ['sum' => $seoLinksSum]
+            'seo-links' => ['sum' => $seoLinksSum]
         ];
 
         foreach ($positions as $key => $position) {
@@ -699,7 +699,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             }
         }
 
-        $spendings['summary_spendings'] = ['sum' => $totalSum];
+        $spendings['summary-spendings'] = ['sum' => $totalSum];
 
         return $spendings;
     }

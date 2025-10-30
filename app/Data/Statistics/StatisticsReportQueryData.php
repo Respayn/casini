@@ -54,8 +54,8 @@ class StatisticsReportQueryData extends Data implements Wireable
         $instance->columns = new Collection([
             new TableReportColumnData('manager', 'Менеджер', true, $colOrder++),
             new TableReportColumnData('client', 'Клиент', true, $colOrder++),
-            new TableReportColumnData('client_project', 'Клиенто-проект', true, $colOrder++),
-            new TableReportColumnData('client_project_id', 'ID', true, $colOrder++),
+            new TableReportColumnData('client-project', 'Клиенто-проект', true, $colOrder++),
+            new TableReportColumnData('client-project-id', 'ID', true, $colOrder++),
             new TableReportColumnData('service', 'Сервис', true, $colOrder++),
             new TableReportColumnData('department', 'Отдел', true, $colOrder++),
             new TableReportColumnData('kpi', 'KPI', true, $colOrder++),

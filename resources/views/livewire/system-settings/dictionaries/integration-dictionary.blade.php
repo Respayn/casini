@@ -2,7 +2,7 @@
 
 use App\Services\IntegrationService;
 use Livewire\Attributes\Computed;
-use Livewire\Volt\Component;
+use Livewire\Component;
 
 new class extends Component {
     private readonly IntegrationService $integrationService;
