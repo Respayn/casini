@@ -31,7 +31,7 @@
                 <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link"
                     wire:click="saveSettingsSnapshot" />
             </x-overlay.modal-trigger>
-            <x-overlay.modal-trigger name="group-settings-modal">
+            <x-overlay.modal-trigger name="report-settings-modal">
                 <x-button.button icon="icons.edit" label="Настроить отчет" variant="link" />
             </x-overlay.modal-trigger>
         </div>
@@ -149,7 +149,7 @@
             </x-slot>
     </x-overlay.modal>
 
-    <x-overlay.modal name="group-settings-modal" title="Настроить отчет">
+    <x-overlay.modal name="report-settings-modal" title="Настроить отчет">
         <x-slot:body>
             <div>
                 <x-form.form>
@@ -190,7 +190,7 @@
         ['label' => 'Без группировки', 'value' => 'none'],
         ['label' => 'По ролям пользователей', 'value' => 'roles'],
         ['label' => 'По клиентам', 'value' => 'clients'],
-        ['label' => 'По отделам', 'value' => 'departments'],
+        ['label' => 'По отделам', 'value' => 'project_type'],
         ['label' => 'По инструментам', 'value' => 'tools'],
     ]" wire:model="queryData.grouping"></x-form.select>
                         </div>
@@ -198,8 +198,10 @@
                 </x-form.form>
 
                 <div class="mt-7 flex justify-between">
-                    <x-button icon="icons.check" label="Применить" variant="primary" />
-                    <x-button label="Отмена" />
+                    <x-button icon="icons.check" label="Применить" variant="primary"
+                        x-on:click="$dispatch('modal-hide', { name: 'report-settings-modal' }); $wire.applySettingsSnapshot()" />
+                    <x-button label="Отмена"
+                        x-on:click="$dispatch('modal-hide', { name: 'report-settings-modal' }); $wire.dropSettingsSnapshot()" />
                 </div>
             </div>
             </x-slot>

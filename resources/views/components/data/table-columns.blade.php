@@ -1,3 +1,5 @@
+@blaze
+
 <thead>
     {{ $slot }}
 </thead>

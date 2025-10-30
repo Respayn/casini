@@ -51,9 +51,9 @@ class StatisticsService
             return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations);
         }
 
-        // if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-        //     return $this->createReportGroupedByClients($clients, $projects, $users, $integrations);
-        // }
+        if ($query->grouping === ChannelReportGrouping::CLIENTS) {
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations);
+        }
 
         // if ($query->grouping === ChannelReportGrouping::TOOLS) {
         //     return $this->createReportGroupedByTools($clients, $projects, $users, $integrations);
@@ -196,7 +196,7 @@ class StatisticsService
                 ],
                 $this->createIntegrationData($projectIntegrations)
             ));
-            
+
             if ($project->project_type === ProjectType::SEO_PROMOTION) {
                 $seoRows->push($row);
             } else {
@@ -248,6 +248,116 @@ class StatisticsService
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
+
+        $report->summary = new Collection([
+            'client' => [
+                'count' => $projects->pluck('client_id')->unique()->count()
+            ],
+            'client-project' => [
+                'count' => $projects->count()
+            ],
+            'service' => $integrations->flatten()
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+            'department' => [
+                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+            ]
+        ]);
+
+        return $report;
+    }
+
+    public function createReportGroupedByClients(Collection $clients, Collection $projects, Collection $users, Collection $integrations): TableReportData
+    {
+        $report = new TableReportData();
+
+        foreach ($clients as $client) {
+            $group = new TableReportGroupData();
+            $group->groupLabel = $client->name;
+
+            $rows = new Collection();
+            $clientProjects = $projects->filter(fn($project) => $project->client_id === $client->id);
+            foreach ($clientProjects as $project) {
+                $row = new TableReportRowData();
+                $row->id = $project->id;
+
+                $department = match ($project->project_type) {
+                    ProjectType::CONTEXT_AD => 'Контекст',
+                    ProjectType::SEO_PROMOTION => 'SEO'
+                };
+
+                $status = match ($project->is_active) {
+                    true => 'active',
+                    false => 'inactive'
+                };
+
+                $client = $clients->firstWhere('id', $project->client_id);
+
+                $manager = $users->firstWhere('id', $client->manager_id);
+                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+
+                $specialist = $users->firstWhere('id', $project->specialist_id);
+                $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
+
+                $kpi = $project->kpi->label();
+
+                $projectIntegrations = $integrations->get($project->id, []);
+
+                $row->data = new Collection(array_merge(
+                    [
+                        'manager' => [
+                            'id' => $manager->id,
+                            'name' => $managerName
+                        ],
+                        'client' => [
+                            'name' => $client->name
+                        ],
+                        'client-project' => [
+                            'id' => $project->id,
+                            'name' => $project->name
+                        ],
+                        'client-project-id' => [
+                            'id' => $project->id
+                        ],
+                        'department' => [
+                            'name' => $department
+                        ],
+                        'kpi' => $project->kpi->label(),
+                        'parameter' => $this->createParameterData($project->project_type, $project->kpi),
+                        'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                        'summary' => [],
+                        'perdiction' => [],
+                        'bonuses' => 0
+                    ],
+                    $this->createIntegrationData($projectIntegrations)
+                ));
+
+                $rows->push($row);
+            }
+
+            $group->rows = $rows;
+
+            $clientIntegrations = $integrations->filter(function ($integrations, $projectId) use ($clientProjects) {
+                return $clientProjects->pluck('id')->contains($projectId);
+            });
+
+            $group->summary = new Collection([
+                'client' => [
+                    'count' => $clientProjects->pluck('client_id')->unique()->count()
+                ],
+                'client-project' => [
+                    'count' => $clientProjects->count()
+                ],
+                'service' => $clientIntegrations->flatten()
+                    ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                'department' => [
+                    ProjectType::CONTEXT_AD->value => $clientProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                    ProjectType::SEO_PROMOTION->value => $clientProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
+                ]
+            ]);
+
+            $report->groups->push($group);
+        }
 
         $report->summary = new Collection([
             'client' => [
