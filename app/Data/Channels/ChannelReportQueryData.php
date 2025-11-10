@@ -52,37 +52,37 @@ class ChannelReportQueryData extends Data implements Wireable
         $colOrder = 0;
 
         $instance->columns = new Collection([
-            new TableReportColumnData('department', 'Отдел', true, $colOrder++),
-            new TableReportColumnData('tool', 'Инструмент', true, $colOrder++),
-            new TableReportColumnData('client', 'Клиент', true, $colOrder++),
-            new TableReportColumnData('client-project', 'Клиенто-проект', true, $colOrder++),
-            new TableReportColumnData('client-project-id', 'ID', true, $colOrder++),
-            new TableReportColumnData('login', 'Логин', true, $colOrder++),
-            new TableReportColumnData('status', 'Статус', true, $colOrder++),
-            new TableReportColumnData('manager', 'Менеджер', true, $colOrder++),
-            new TableReportColumnData('specialist', 'Специалист', true, $colOrder++),
-            new TableReportColumnData('kpi', 'KPI', true, $colOrder++),
-            new TableReportColumnData('plan', 'План', true, $colOrder++),
-            new TableReportColumnData('client-receipt', 'Чек клиента', true, $colOrder++),
-            new TableReportColumnData('max-bonuses', 'Макс. бонусы', true, $colOrder++, tooltip: 'Максимальное количество бонусов доступное в канале, задается в настройках канала'),
-            new TableReportColumnData('acts', 'Акты', true, $colOrder++),
-            new TableReportColumnData('programming', 'Программинг (час/₽)', true, $colOrder++, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
-            new TableReportColumnData('copyrighting', 'Копирайтер (знак/₽)', true, $colOrder++, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
-            new TableReportColumnData('seo-links', 'SEO-ссылки (₽)', true, $colOrder++, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('department', 'Отдел', $colOrder++),
+            new TableReportColumnData('tool', 'Инструмент', $colOrder++),
+            new TableReportColumnData('client', 'Клиент', $colOrder++),
+            new TableReportColumnData('client-project', 'Клиенто-проект', $colOrder++),
+            new TableReportColumnData('client-project-id', 'ID', $colOrder++),
+            new TableReportColumnData('login', 'Логин', $colOrder++),
+            new TableReportColumnData('status', 'Статус', $colOrder++),
+            new TableReportColumnData('manager', 'Менеджер', $colOrder++),
+            new TableReportColumnData('specialist', 'Специалист', $colOrder++),
+            new TableReportColumnData('kpi', 'KPI', $colOrder++),
+            new TableReportColumnData('plan', 'План', $colOrder++),
+            new TableReportColumnData('client-receipt', 'Чек клиента', $colOrder++),
+            new TableReportColumnData('max-bonuses', 'Макс. бонусы', $colOrder++, tooltip: 'Максимальное количество бонусов доступное в канале, задается в настройках канала'),
+            new TableReportColumnData('acts', 'Акты', $colOrder++),
+            new TableReportColumnData('programming', 'Программинг (час/₽)', $colOrder++, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('copyrighting', 'Копирайтер (знак/₽)', $colOrder++, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
+            new TableReportColumnData('seo-links', 'SEO-ссылки (₽)', $colOrder++, tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'),
         ]);
 
         // Добавляем столбцы для ставок с включенным параметром "Собирать статистику по отработанному времени?"
         if ($rates->isNotEmpty()) {
             foreach ($rates as $rate) {
                 $field = 'position_' . $rate->id;
-                $instance->columns->add(new TableReportColumnData($field, $rate->name, true, $colOrder++, 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'));
+                $instance->columns->add(new TableReportColumnData($field, $rate->name, $colOrder++, component: 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'));
             }
         }
 
         // сумма по должностям и программингу, копирайтеру и ссылкам
-        $instance->columns->add(new TableReportColumnData('summary-spendings', 'Расходы итого (₽)', true, $colOrder++));
-        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', true, $colOrder++, tooltip: 'Остаток бюджета нельзя посмотреть за предыдущий период, только на текущее время, если нужно обновить баланс сейчас - кликните на ячейку и данные обновятся'));
-        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', true, $colOrder++));
+        $instance->columns->add(new TableReportColumnData('summary-spendings', 'Расходы итого (₽)', $colOrder++));
+        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток бюджета нельзя посмотреть за предыдущий период, только на текущее время, если нужно обновить баланс сейчас - кликните на ячейку и данные обновятся'));
+        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++));
             
         return $instance;
     }

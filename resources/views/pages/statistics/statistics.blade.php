@@ -32,7 +32,8 @@
                     wire:click="saveSettingsSnapshot" />
             </x-overlay.modal-trigger>
             <x-overlay.modal-trigger name="report-settings-modal">
-                <x-button.button icon="icons.edit" label="Настроить отчет" variant="link" />
+                <x-button.button icon="icons.edit" label="Настроить отчет" variant="link"
+                    wire:click="saveSettingsSnapshot" />
             </x-overlay.modal-trigger>
         </div>
     </div>
@@ -128,16 +129,18 @@
 
     <x-overlay.modal name="column-settings-modal" title="Настроить столбцы">
         <x-slot:body>
-            <div class="flex flex-col gap-2.5" x-data x-sort="$wire.sortColumn($item, $position)">
-                @foreach ($queryData->columns as $index => $column)
-                    <div class="flex items-center gap-2.5" wire:key="column.{{ $column->field }}"
-                        x-sort:item="'{{ $column->field }}'">
-                        <x-icons.burger class="text-secondary-text cursor-pointer" x-sort:handle />
-                        <x-form.checkbox wire:model="queryData.columns.{{ $index }}.isVisible" />
-                        <label>{{ $column->label }}</label>
-                    </div>
-                @endforeach
-            </div>
+            <x-panel.scroll-panel style="max-height: 400px">
+                <div class="flex flex-col gap-2.5" x-data x-sort="$wire.sortColumn($item, $position)">
+                    @foreach ($queryData->columns as $index => $column)
+                        <div class="flex items-center gap-2.5" wire:key="column.{{ $column->field }}"
+                            x-sort:item="'{{ $column->field }}'">
+                            <x-icons.burger class="text-secondary-text cursor-pointer" x-sort:handle />
+                            <x-form.checkbox wire:model="queryData.columns.{{ $index }}.isVisible" />
+                            <label>{{ $column->label }}</label>
+                        </div>
+                    @endforeach
+                </div>
+            </x-panel.scroll-panel>
 
             <div class="mt-3 flex justify-between">
                 <x-button icon="icons.check" label="Применить" variant="primary"
@@ -177,9 +180,10 @@
                         <x-form.form-label>Детализация</x-form.form-label>
                         <div>
                             <x-form.select :options="[
+        ['label' => 'По дням', 'value' => 'by_day'],
         ['label' => 'По неделям', 'value' => 'by_week'],
         ['label' => 'По месяцам', 'value' => 'by_month']
-    ]"></x-form.select>
+    ]"                            wire:model="queryData.detailLevel"></x-form.select>
                         </div>
                     </x-form.form-field>
 
@@ -188,7 +192,6 @@
                         <div>
                             <x-form.select :options="[
         ['label' => 'Без группировки', 'value' => 'none'],
-        ['label' => 'По ролям пользователей', 'value' => 'roles'],
         ['label' => 'По клиентам', 'value' => 'clients'],
         ['label' => 'По отделам', 'value' => 'project_type'],
         ['label' => 'По инструментам', 'value' => 'tools'],

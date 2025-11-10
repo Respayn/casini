@@ -14,6 +14,7 @@ use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class StatisticsService
 {
@@ -36,15 +37,25 @@ class StatisticsService
 
     public function getReportData(StatisticsReportQueryData $query): TableReportData
     {
+        $user = Auth::user();
+
         $clients = $this->clientRepository->all();
+        if ($user->isManager() && !$user->hasAnyPermission(['read statistics', 'all statistics'])) {
+            $clients = $clients->filter(fn($client) => $client->manager_id === $user->id);
+        }
+
         $projects = $this->projectRepository->all();
+        $projects = $projects->filter(fn($project) => $clients->pluck('id')->contains($project->client_id));
+        if ($user->isSpecialist() && !$user->hasAnyPermission(['read statistics', 'full statistics'])) {
+            $projects = $projects->filter(fn($project) => $project->specialist_id === $user->id);
+        }
+
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
         if (!$query->showInactive) {
             $projects = $projects->filter(fn($project) => $project->is_active);
         }
-
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {

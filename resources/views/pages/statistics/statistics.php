@@ -54,11 +54,28 @@ class extends Component
         }
     }
 
+    public function updated($property)
+    {
+        if ($property === 'queryData.dateTo') {
+            $this->queryData = StatisticsReportQueryData::create(
+                $this->queryData->detailLevel,
+                $this->queryData->dateTo
+            );
+        }
+    }
+
     /**
      * Применяет изменения в настройках столбцов
      */
     public function applySettingsSnapshot()
     {
+        if ($this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
+            $this->queryData = StatisticsReportQueryData::create(
+                $this->queryData->detailLevel,
+                $this->queryData->dateTo
+            );
+        }
+
         $this->originalQueryData = null;
     }
 
@@ -108,6 +125,14 @@ class extends Component
             $key,
         ) {
             return $col->isVisible;
+        });
+    }
+
+    #[Computed]
+    public function sortableColumns()
+    {
+        return $this->queryData->columns->filter(function(TableReportColumnData $col, $key) {
+            return $col->isSortable;
         });
     }
 

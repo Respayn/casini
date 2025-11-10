@@ -13,10 +13,11 @@ class TableReportColumnData extends Data implements Wireable
     public function __construct(
         public string $field,
         public string $label,
-        public bool $isVisible,
         public int $order,
+        public bool $isVisible = true,
         public ?string $component = null,
-        public ?string $tooltip = null
+        public ?string $tooltip = null,
+        public bool $isSortable = true
     ) {
         if ($component === null) {
             $this->component = $this->field;
