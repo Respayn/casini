@@ -8,8 +8,6 @@ use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Domain\Statistics\Enums\StatisticsReportDetailLevel;
 use App\Enums\ChannelReportGrouping;
-use App\Enums\Kpi;
-use App\Enums\ProjectType;
 use App\Helpers\DateTimeHelper;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
@@ -18,6 +16,9 @@ use App\Repositories\UserRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Src\Planning\Application\ProjectPlanService;
+use Src\Shared\ValueObjects\Kpi;
+use Src\Shared\ValueObjects\ProjectType;
 
 class StatisticsService
 {
@@ -25,17 +26,20 @@ class StatisticsService
     private ProjectRepository $projectRepository;
     private UserRepository $userRepository;
     private IntegrationRepository $integrationRepository;
+    private ProjectPlanService $projectPlanService;
 
     public function __construct(
         ProjectRepository $projectRepository,
         ClientRepository $clientRepository,
         UserRepository $userRepository,
-        IntegrationRepository $integrationRepository
+        IntegrationRepository $integrationRepository,
+        ProjectPlanService $projectPlanService
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
         $this->userRepository = $userRepository;
         $this->integrationRepository = $integrationRepository;
+        $this->projectPlanService = $projectPlanService;
     }
 
     public function getReportData(StatisticsReportQueryData $query): TableReportData
@@ -60,20 +64,22 @@ class StatisticsService
             $projects = $projects->filter(fn($project) => $project->is_active);
         }
 
+        $plans = $this->projectPlanService->getMonthlyPlansForStatistics($query->dateTo->year, $query->dateTo->month);
+
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
         }
 
         if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo);
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo);
+        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
     }
 
     private function createFlatReport(
@@ -82,7 +88,8 @@ class StatisticsService
         Collection $users,
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
-        Carbon $dateTo
+        Carbon $dateTo,
+        array $plans
     ): TableReportData {
         $report = new TableReportData();
 
@@ -105,6 +112,8 @@ class StatisticsService
 
             $projectIntegrations = $integrations->get($project->id, new Collection());
 
+            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
             $row->data = new Collection(array_merge(
                 [
                     'manager' => [
@@ -125,8 +134,8 @@ class StatisticsService
                         'name' => $department
                     ],
                     'kpi' => $project->kpi->label(),
-                    'parameter' => $this->createParameterData($project->project_type, $project->kpi),
-                    'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                    'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
+                    'plan' => $plan,
                     'summary' => [],
                     'perdiction' => [],
                     'bonuses' => 0
@@ -164,7 +173,8 @@ class StatisticsService
         Collection $users,
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
-        Carbon $dateTo
+        Carbon $dateTo,
+        array $plans
     ): TableReportData {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
@@ -191,6 +201,8 @@ class StatisticsService
 
             $projectIntegrations = $integrations->get($project->id, new Collection());
 
+            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
             $row->data = new Collection(array_merge(
                 [
                     'manager' => [
@@ -211,8 +223,8 @@ class StatisticsService
                         'name' => $department
                     ],
                     'kpi' => $project->kpi->label(),
-                    'parameter' => $this->createParameterData($project->project_type, $project->kpi),
-                    'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                    'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
+                    'plan' => $plan,
                     'summary' => [],
                     'perdiction' => [],
                     'bonuses' => 0
@@ -297,7 +309,8 @@ class StatisticsService
         Collection $users,
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
-        Carbon $dateTo
+        Carbon $dateTo,
+        array $plans
     ): TableReportData {
         $report = new TableReportData();
 
@@ -323,6 +336,8 @@ class StatisticsService
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
+                $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
                 $row->data = new Collection(array_merge(
                     [
                         'manager' => [
@@ -343,8 +358,8 @@ class StatisticsService
                             'name' => $department
                         ],
                         'kpi' => $project->kpi->label(),
-                        'parameter' => $this->createParameterData($project->project_type, $project->kpi),
-                        'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                        'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
+                        'plan' => $plan,
                         'summary' => [],
                         'perdiction' => [],
                         'bonuses' => 0
@@ -404,7 +419,8 @@ class StatisticsService
         Collection $users,
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
-        Carbon $dateTo
+        Carbon $dateTo,
+        array $plans
     ): TableReportData {
         $report = new TableReportData();
 
@@ -441,6 +457,8 @@ class StatisticsService
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
+                $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
                 $row->data = new Collection(array_merge(
                     [
                         'manager' => [
@@ -461,8 +479,8 @@ class StatisticsService
                             'name' => $department
                         ],
                         'kpi' => $project->kpi->label(),
-                        'parameter' => $this->createParameterData($project->project_type, $project->kpi),
-                        'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                        'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
+                        'plan' => $plan,
                         'summary' => [],
                         'perdiction' => [],
                         'bonuses' => 0
@@ -516,6 +534,8 @@ class StatisticsService
 
             $projectIntegrations = $integrations->get($project->id, []);
 
+            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
             $row->data = new Collection(array_merge(
                 [
                     'manager' => [
@@ -536,8 +556,8 @@ class StatisticsService
                         'name' => $department
                     ],
                     'kpi' => $project->kpi->label(),
-                    'parameter' => $this->createParameterData($project->project_type, $project->kpi),
-                    'plan' => $this->createPlanData($project->project_type, $project->kpi),
+                    'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
+                    'plan' => $plan,
                     'summary' => [],
                     'perdiction' => [],
                     'bonuses' => 0
@@ -583,34 +603,6 @@ class StatisticsService
         ]);
 
         return $report;
-    }
-
-    private function createParameterData(ProjectType $projectType, Kpi $kpi): array
-    {
-        return match ($projectType) {
-            ProjectType::CONTEXT_AD => match ($kpi) {
-                Kpi::TRAFFIC => [
-                    ['name' => 'CPC', 'highlight' => false],
-                    ['name' => 'Рекламный бюджет', 'highlight' => false],
-                    ['name' => 'Объём визитов', 'highlight' => true]
-                ],
-                Kpi::LEADS => [
-                    ['name' => 'CPL', 'highlight' => false],
-                    ['name' => 'Рекламный бюджет', 'highlight' => false],
-                    ['name' => 'Лидов', 'highlight' => true]
-                ],
-            },
-            ProjectType::SEO_PROMOTION => match ($kpi) {
-                Kpi::TRAFFIC => [
-                    ['name' => 'Объём визитов', 'highlight' => true],
-                    ['name' => 'Конверсии', 'highlight' => false]
-                ],
-                Kpi::POSITIONS => [
-                    ['name' => '% позиций в топ 10', 'highlight' => false],
-                    ['name' => 'Конверсии', 'highlight' => false]
-                ]
-            }
-        };
     }
 
     // TODO: скорее всего сюда нужно будет передавать ID проекта или данные, которые будут получены заранее

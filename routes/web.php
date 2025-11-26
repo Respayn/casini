@@ -33,6 +33,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::livewire('/statistics', 'pages::statistics')->name('statistics');
 
+    Route::middleware(['permission:read statistics|full statistics'])->group(function () {
+        Route::livewire('/planning', 'pages::planning')->name('planning');
+    });
+
     Route::prefix('yandex-direct')->group(function () {
         Route::get('/connect', [YandexDirectOAuthController::class, 'redirect'])
             ->name('yandex_direct.oauth.redirect');

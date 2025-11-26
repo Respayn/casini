@@ -1,9 +1,14 @@
+@props([
+    'disabled' => false
+])
+
 <div
     class="checkbox"
 >
     <input
         class="checkbox-input"
         type="checkbox"
+        @disabled($disabled)
         {{ $attributes }}
     >
     <div class="checkbox-box">

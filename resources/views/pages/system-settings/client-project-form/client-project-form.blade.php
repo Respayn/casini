@@ -124,7 +124,7 @@
                     <div>
                         <x-form.select
                             wire:model.live="clientProjectForm.kpi"
-                            :options="\App\Enums\Kpi::options()"
+                            :options="\Src\Shared\ValueObjects\Kpi::options()"
                             placeholder="-"
                         >
                         </x-form.select>
@@ -141,7 +141,7 @@
                         <x-form.select
                             wire:model.live="clientProjectForm.projectType"
                             placeholder="-"
-                            :options="\App\Enums\ProjectType::options()"
+                            :options="\Src\Shared\ValueObjects\ProjectType::options()"
                         ></x-form.select>
                     </div>
                 </x-form.form-field>
@@ -411,8 +411,8 @@
                         Выберите KPI и Тип клиенто-проекта
                     </span>
                 @elseif(
-                    $clientProjectForm->kpi === \App\Enums\KPI::TRAFFIC->value &&
-                        $clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
+                    $clientProjectForm->kpi === \Src\Shared\ValueObjects\Kpi::TRAFFIC->value &&
+                        $clientProjectForm->projectType === \Src\Shared\ValueObjects\ProjectType::CONTEXT_AD->value)
                     {{-- KPI: Трафик; Тип канала: Контекст --}}
                     <x-form.form-field>
                         <x-form.form-label>CPС</x-form.form-label>
@@ -451,8 +451,8 @@
                         </div>
                     </x-form.form-field>
                 @elseif(
-                    $clientProjectForm->kpi === \App\Enums\KPI::LEADS->value &&
-                        $clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
+                    $clientProjectForm->kpi === \Src\Shared\ValueObjects\Kpi::LEADS->value &&
+                        $clientProjectForm->projectType === \Src\Shared\ValueObjects\ProjectType::CONTEXT_AD->value)
                     {{-- KPI: Лиды; Тип канала: Контекст --}}
                     <x-form.form-field>
                         <x-form.form-label class="font-bold">CPL</x-form.form-label>
@@ -491,8 +491,8 @@
                         </div>
                     </x-form.form-field>
                 @elseif(
-                    $clientProjectForm->kpi === \App\Enums\KPI::POSITIONS->value &&
-                        $clientProjectForm->projectType === \App\Enums\ProjectType::SEO_PROMOTION->value)
+                    $clientProjectForm->kpi === \Src\Shared\ValueObjects\Kpi::POSITIONS->value &&
+                        $clientProjectForm->projectType === \Src\Shared\ValueObjects\ProjectType::SEO_PROMOTION->value)
                     {{-- KPI: Позиции; Тип канала: SEO --}}
                     <x-form.form-field>
                         <x-form.form-label class="font-bold">% позиций в топ 10</x-form.form-label>
@@ -519,8 +519,8 @@
                         </div>
                     </x-form.form-field>
                 @elseif(
-                    $clientProjectForm->kpi === \App\Enums\KPI::TRAFFIC->value &&
-                        $clientProjectForm->projectType === \App\Enums\ProjectType::SEO_PROMOTION->value)
+                    $clientProjectForm->kpi === \Src\Shared\ValueObjects\Kpi::TRAFFIC->value &&
+                        $clientProjectForm->projectType === \Src\Shared\ValueObjects\ProjectType::SEO_PROMOTION->value)
                     {{-- KPI: Трафик; Тип канала: SEO --}}
                     <x-form.form-field>
                         <x-form.form-label class="font-bold">Объем визитов</x-form.form-label>
@@ -574,7 +574,7 @@
                 </x-form.form-field>
             </div>
 
-            @if ($clientProjectForm->projectType === \App\Enums\ProjectType::CONTEXT_AD->value)
+            @if ($clientProjectForm->projectType === \Src\Shared\ValueObjects\ProjectType::CONTEXT_AD->value)
                 <div class="mt-4 flex flex-col gap-4">
                     <h1>Генерация клиентских отчетов</h1>
 

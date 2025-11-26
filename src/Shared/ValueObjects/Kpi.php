@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Enums;
+namespace Src\Shared\ValueObjects;
 
 enum Kpi: string
 {

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Enums;
+namespace Src\Shared\ValueObjects;
 
 enum ProjectType: string
 {
@@ -15,11 +15,18 @@ enum ProjectType: string
         };
     }
 
+    public function shortLabel(): string
+    {
+        return match ($this) {
+            self::CONTEXT_AD => 'Контекст',
+            self::SEO_PROMOTION => 'SEO',
+        };
+    }
 
     public static function options(): array
     {
         return array_map(
-            fn (ProjectType $projectType) => ['label' => $projectType->label(), 'value' => $projectType->value],
+            fn(ProjectType $projectType) => ['label' => $projectType->label(), 'value' => $projectType->value],
             self::cases()
         );
     }

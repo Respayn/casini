@@ -53,7 +53,7 @@
 
     @if ($this->reportData->groups->isEmpty())
         <div class="mt-20 flex flex-col items-center gap-4">
-            <span class="text-caption-text">Нет клиенто-проектов для отображения каналов</span>
+            <span class="text-caption-text">Нет клиенто-проектов для отображения статистики</span>
             <div>
                 <x-button.button icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
             </div>

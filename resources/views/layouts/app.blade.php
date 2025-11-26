@@ -35,7 +35,8 @@
 
         <x-menu.navbar :items="[
             ['label' => 'Каналы', 'route' => 'channels'],
-            ['label' => 'Статистика', 'route' => 'statistics']
+            ['label' => 'Статистика', 'route' => 'statistics'],
+            ['label' => 'Планирование', 'route' => 'planning']
         ]" />
 
         <div class="rounded-l-2xl bg-white p-5">

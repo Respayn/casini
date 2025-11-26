@@ -9,11 +9,11 @@
 
 @php
     $wireModel = $attributes->whereStartsWith('wire:model')->first();
-    $inputValue = is_array(old($wireModel)) ? '' : old($wireModel) ?? '';
+    $inputValue = $wireModel ? (is_array(old($wireModel)) ? '' : old($wireModel) ?? '') : '';
     $suffix = $suffix ?? '';
 @endphp
 
-<div {{ $attributes->class(['flex flex-col gap-2'])->except('wire:model') }}>
+<div {{ $attributes->class(['flex flex-col gap-2'])->only(['class', 'style']) }}>
     @if ($label)
         <label class="text-primary-text text-sm font-semibold">{{ $label }}</label>
     @endif
@@ -23,7 +23,7 @@
                 @case('number')
                     <input
                         type="text"
-                        value="{{ $inputValue }}"
+                        @if($inputValue !== '') value="{{ $inputValue }}" @endif
                         @class([
                             'min-h-[42px] w-full rounded-[5px] border pe-3',
                             'border-input-border',
@@ -32,7 +32,7 @@
                             'ps-3' => !isset($icon),
                             'disabled:bg-secondary' => $disabled,
                         ])
-                        wire:model="{{ $wireModel }}"
+                        @if ($wireModel) wire:model="{{ $wireModel }}" @endif
                         placeholder="{{ $placeholder }}"
                         onfocus="this.value = this.value.replace(/ /g, '').replace(new RegExp('{{ preg_quote($suffix, '/') }}', 'g'), '');"
                         oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/(?!^)-/g, '');"
@@ -45,7 +45,7 @@
                         "
                         @required($required)
                         @disabled($disabled)
-                        {{ $attributes->except('wire:model', 'type') }}
+                        {{ $attributes->except('class', 'style', 'wire:model', 'type') }}
                     />
                 @break
 
@@ -63,7 +63,7 @@
                         placeholder="{{ $placeholder }}"
                         @required($required)
                         @disabled($disabled)
-                        {{ $attributes->except('type') }}
+                        {{ $attributes->except('class', 'style', 'type') }}
                     />
             @endswitch
             @if ($wireModel)

@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
-use App\Enums\Kpi;
-use App\Enums\ProjectType;
 use App\Enums\ServiceType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Collection;
+use Src\Shared\ValueObjects\Kpi;
+use Src\Shared\ValueObjects\ProjectType;
 
 /**
  * @property int $id
@@ -164,5 +165,15 @@ class Project extends Model
     public function integrations(): BelongsToMany
     {
         return $this->belongsToMany(Integration::class, 'integration_project');
+    }
+
+    public function planValues(): HasMany
+    {
+        return $this->hasMany(ProjectPlanValue::class);
+    }
+
+    public function planApprovals(): HasMany
+    {
+        return $this->hasMany(ProjectPlanApproval::class);
     }
 }

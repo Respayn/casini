@@ -7,18 +7,22 @@ https://stackoverflow.com/questions/3542090/how-to-make-div-fill-td-height--}}
         @foreach ($params as $param)
             <div class="flex items-center grow px-2.5">
                 <span>
-                    @switch($param['format'])
-                        @case('currency')
-                            {{ Number::currency($param['value'], in: 'RUB', locale: 'ru', precision: 0) }}
-                            @break
-
-                        @case('percent')
-                            {{ $param['value'] }}%
-                            @break
-
-                        @default
-                            {{ $param['value'] }}
-                    @endswitch
+                    @if (isset($param['value']))
+                        @switch($param['format'])
+                            @case('currency')
+                                {{ Number::currency($param['value'], in: 'RUB', locale: 'ru', precision: 0) }}
+                                @break
+    
+                            @case('percent')
+                                {{ $param['value'] }}%
+                                @break
+    
+                            @default
+                                {{ $param['value'] }}
+                        @endswitch
+                    @else
+                        -
+                    @endif
                 </span>
             </div>
         @endforeach

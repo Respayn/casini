@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Enums\Kpi;
-use App\Enums\ProjectType;
 use App\Enums\Role;
 use App\Enums\ServiceType;
 use App\Models\User;
@@ -11,6 +9,8 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Src\Shared\ValueObjects\Kpi;
+use Src\Shared\ValueObjects\ProjectType;
 use Str;
 
 class StageSeeder extends Seeder

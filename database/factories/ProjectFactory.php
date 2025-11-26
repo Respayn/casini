@@ -2,12 +2,12 @@
 
 namespace Database\Factories;
 
-use App\Enums\ProjectType;
 use App\Enums\ServiceType;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Src\Shared\ValueObjects\ProjectType;
 
 class ProjectFactory extends Factory
 {

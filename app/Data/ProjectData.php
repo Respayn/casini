@@ -2,12 +2,12 @@
 
 namespace App\Data;
 
-use App\Enums\Kpi;
-use App\Enums\ProjectType;
 use App\Models\Project;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
+use Src\Shared\ValueObjects\Kpi;
+use Src\Shared\ValueObjects\ProjectType;
 
 class ProjectData extends Data
 {

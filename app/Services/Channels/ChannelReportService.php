@@ -8,8 +8,6 @@ use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Enums\ChannelReportGrouping;
-use App\Enums\PermissionGroup;
-use App\Enums\ProjectType;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
@@ -18,6 +16,8 @@ use App\Repositories\UserRepository;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Src\Planning\Application\ProjectPlanService;
+use Src\Shared\ValueObjects\ProjectType;
 
 class ChannelReportService implements ChannelReportServiceInterface
 {
@@ -26,19 +26,22 @@ class ChannelReportService implements ChannelReportServiceInterface
     private UserRepository $userRepository;
     private IntegrationRepository $integrationRepository;
     private RateRepository $rateRepository;
+    private ProjectPlanService $projectPlanService;
 
     public function __construct(
         ClientRepository $clientRepository,
         ProjectRepository $projectRepository,
         UserRepository $userRepository,
         IntegrationRepository $integrationRepository,
-        RateRepository $rateRepository
+        RateRepository $rateRepository,
+        ProjectPlanService $projectPlanService
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
         $this->userRepository = $userRepository;
         $this->integrationRepository = $integrationRepository;
         $this->rateRepository = $rateRepository;
+        $this->projectPlanService = $projectPlanService;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
@@ -83,31 +86,33 @@ class ChannelReportService implements ChannelReportServiceInterface
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
+        $plans = $this->projectPlanService->getMonthlyPlansForChannels($query->dateTo->year, $query->dateTo->month);
+
         if (!$query->showInactive) {
             $projects = $projects->filter(fn($project) => $project->is_active);
         }
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $plans);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $plans);
         }
 
         if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations);
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $plans);
         }
 
         if ($query->grouping === ChannelReportGrouping::ROLE) {
-            return $this->createReportGroupedByRoles($clients, $projects, $users, $integrations);
+            return $this->createReportGroupedByRoles($clients, $projects, $users, $integrations, $plans);
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations);
+        return $this->createFlatReport($clients, $projects, $users, $integrations, $plans);
     }
 
-    public function createFlatReport($clients, $projects, $users, Collection $integrations): TableReportData
+    public function createFlatReport($clients, $projects, $users, Collection $integrations, array $plans): TableReportData
     {
         $report = new TableReportData();
         $group = new TableReportGroupData();
@@ -140,10 +145,12 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $projectIntegrations = $integrations->get($project->id, []);
 
+            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
             $row->data = new Collection(array_merge(
                 $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                 $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -172,7 +179,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
-    public function createReportGroupedByProjectType($clients, $projects, $users, $integrations): TableReportData
+    public function createReportGroupedByProjectType($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
@@ -209,10 +216,12 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $projectIntegrations = $integrations->get($project->id, []);
 
+            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
             $row->data = new Collection(array_merge(
                 $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                 $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -287,7 +296,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
-    public function createReportGroupedByClients($clients, $projects, $users, $integrations): TableReportData
+    public function createReportGroupedByClients($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
         $report = new TableReportData();
 
@@ -323,10 +332,12 @@ class ChannelReportService implements ChannelReportServiceInterface
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
+                $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
                 $row->data = new Collection(array_merge(
                     $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                     $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -375,7 +386,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
-    public function createReportGroupedByTools($clients, $projects, $users, $integrations): TableReportData
+    public function createReportGroupedByTools($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
         $report = new TableReportData();
 
@@ -422,10 +433,12 @@ class ChannelReportService implements ChannelReportServiceInterface
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
+                $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
                 $row->data = new Collection(array_merge(
                     $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                     $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -487,10 +500,12 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $projectIntegrations = $integrations->get($project->id, []);
 
+            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
             $row->data = new Collection(array_merge(
                 $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                 $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -534,7 +549,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
-    public function createReportGroupedByRoles($clients, $projects, $users, $integrations): TableReportData
+    public function createReportGroupedByRoles($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
         $report = new TableReportData();
 
@@ -580,10 +595,12 @@ class ChannelReportService implements ChannelReportServiceInterface
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
+                $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+
                 $row->data = new Collection(array_merge(
                     $this->createClientData($department, $client->name, $project->name, $project->id, $status),
                     $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, null, $project->bonusCondition->client_payment, 0, 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));

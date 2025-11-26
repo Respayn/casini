@@ -2,7 +2,7 @@
 
 namespace App\Services\Megaplan;
 
-use App\Enums\ProjectType;
+use Src\Shared\ValueObjects\ProjectType;
 
 class MegaplanService
 {
