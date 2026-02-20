@@ -31,6 +31,11 @@ class ProjectPlanService
         $this->schemaService = $schemaService;
     }
 
+    /**
+     * Получение планов на год для всех проектов
+     * @param int $year
+     * @return array[]
+     */
     public function getPlansForYear(int $year): array
     {
         $domainPlans = $this->repository->getAllPlansForYear($year);
@@ -44,6 +49,12 @@ class ProjectPlanService
         return array_map(fn(ProjectPlan $plan) => $this->mapToViewDto($plan), $domainPlans);
     }
 
+    /**
+     * Сохранение планов на год
+     * @param int $year
+     * @param array $plansData
+     * @return void
+     */
     public function savePlansForYear(int $year, array $plansData): void
     {
         $projectIds = array_column($plansData, 'project_id');
@@ -82,7 +93,13 @@ class ProjectPlanService
         $this->repository->saveAll($plansToSave);
     }
 
-    public function getKpiParametersSchemaForStatistics(ProjectType $projectType, Kpi $kpi)
+    /**
+     * Получение схемы параметров для страницы "статистика"
+     * @param ProjectType $projectType
+     * @param Kpi $kpi
+     * @return array
+     */
+    public function getKpiParametersSchemaForStatistics(ProjectType $projectType, Kpi $kpi): array
     {
         $parametersSchema = $this->schemaService->createSchema($projectType, $kpi);
 
@@ -94,16 +111,35 @@ class ProjectPlanService
         }, $parametersSchema->getParameters());
     }
 
+    /**
+     * Получение планов на месяц для всех проектов для страницы "Каналы"
+     * @param int $year
+     * @param int $month
+     * @return array[]
+    */
     public function getMonthlyPlansForChannels(int $year, int $month): array
     {
         return $this->repository->getMonthlyPlansForChannels($year, $month);
     }
 
+    /**
+     * Получение планов на месяц для всех проектов для страницы "статистика"
+     * @param int $year
+     * @param int $month
+     * @return array[]
+     */
     public function getMonthlyPlansForStatistics(int $year, int $month): array
     {
         return $this->repository->getMonthlyPlansForStatistics($year, $month);
     }
 
+    /**
+     * Summary of recalculateRow
+     * @param array $rowData
+     * @param int $year
+     * @param int $month
+     * @return array
+     */
     public function recalculateRow(array $rowData, int $year, int $month): array
     {
         $project = $this->projectRepository->find($rowData['project_id']);
@@ -127,6 +163,11 @@ class ProjectPlanService
         return $rowData;
     }
 
+    /**
+     * Создание DTO для страницы "планирование"
+     * @param ProjectPlan $plan
+     * @return array
+     */
     public function mapToViewDto(ProjectPlan $plan): array
     {
         $projectId = $plan->getProject()->getId();
