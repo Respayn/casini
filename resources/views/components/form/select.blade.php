@@ -3,53 +3,60 @@
     'options' => [],
     'labelKey' => 'label',
     'valueKey' => 'value',
-    'placeholder' => '',
+    'placeholder' => 'Выберите значение',
+    'emptyPlaceholder' => 'Нет доступных вариантов',
     'disabled' => false,
 ])
 
 @php
-    $options = collect($options);
-    $wireModel = $attributes->whereStartsWith('wire:model')->first();
+    $wireModel = $attributes->wire('model')->value();
 @endphp
 
 <div
     class="flex w-full flex-col gap-2"
     x-data="{
-        options: {{ json_encode($options) }},
         open: false,
+        options: {{ json_encode($options) }},
         selected: '',
         disabled: {{ $disabled ? 'true' : 'false' }},
+
+        labelKey: '{{ $labelKey }}',
+        valueKey: '{{ $valueKey }}',
+        placeholder: '{{ $placeholder }}',
+        emptyPlaceholder: '{{ $emptyPlaceholder }}',
+
+        get hasOptions() {
+            return this.options.length > 0;
+        },
+
         select(value) {
-            if (this.disabled) return;
-            this.open = false;
+            if (this.disabled || !this.hasOptions) return;
+            
             this.selected = value;
-            $dispatch('change');
+            this.open = false;
+
+            this.$dispatch('change', { value: value });
         },
     
         getDisplayText() {
             if (this.selected) {
-                const selectedOption = this.options.find(
-                    option => option['{{ $valueKey }}'] == this.selected
-                );
+                const option = this.options.find(o => o[this.valueKey] == this.selected);
     
-                if (selectedOption) {
-                    return selectedOption['{{ $labelKey }}'];
+                if (option) {
+                    return option[this.labelKey];
                 }
             }
+
+            if (!this.hasOptions) {
+                return this.emptyPlaceholder;
+            }
     
-            return '{{ $placeholder }}' || 'Выберите значение';
+            return this.placeholder;
         },
-    
-        init() {
-            $nextTick(() => {
-                if ($el.hasAttribute('data-options')) {
-                    this.options = JSON.parse($el.getAttribute('data-options'));
-                }
-    
-                this.$watch('$el._x_bindings', (v) => {
-                    this.options = JSON.parse(v['data-options']);
-                })
-            });
+
+        toggle() {
+            if (this.disabled || !this.hasOptions) return;
+            this.open = !this.open;
         }
     }"
     x-modelable="selected"
@@ -62,10 +69,7 @@
     @endif
 
     <div class="text-input-text relative select-none">
-        <div
-            class="group"
-            x-ref="buttonContainer"
-        >
+        <div class="group" x-ref="buttonContainer">
             <div
                 @class([
                     'flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4',
@@ -73,17 +77,24 @@
                     'border-warning-red' => $errors->has($wireModel),
                 ])
                 x-ref="button"
-                x-on:click="if (!disabled) open = !open"
+                x-on:click="toggle"
                 x-bind:class="{
                     'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': open,
                     'rounded-[5px]': !open,
                     'bg-secondary': disabled,
+                    'opacity-70': !disabled && !hasOptions
                 }"
             >
-                <span x-text="getDisplayText()"></span>
+                <span
+                    x-text="getDisplayText()"
+                    x-bind:class="{ 
+                        'opacity-50': !selected && hasOptions,
+                        'text-gray-400 italic': !hasOptions
+                    }"
+                ></span>
             </div>
 
-            <template x-if="!disabled">
+            <template x-if="!disabled && hasOptions">
                 <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
                     <x-icons.arrow
                         class="transition-transform duration-300"
@@ -98,7 +109,7 @@
         <div
             class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
             x-cloak
-            x-show="open"
+            x-show="open && hasOptions"
             x-anchor.no-style="$refs.buttonContainer"
             x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
             x-on:click.outside="open = false"

@@ -2,7 +2,7 @@
 
 namespace Src\Planning\Domain\ValueObjects;
 
-use Src\Shared\ValueObjects\KpiParameter;
+use Src\Domain\ValueObjects\KpiParameter;
 
 final class KpiParametersSchema
 {

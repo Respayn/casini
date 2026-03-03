@@ -6,8 +6,8 @@ use Src\Planning\Application\Factories\ContextAdKpiParametersSchemaFactory;
 use Src\Planning\Application\Factories\SeoPromotionKpiParametersSchemaFactory;
 use Src\Planning\Domain\Factories\KpiParametersSchemaFactoryInterface;
 use Src\Planning\Domain\ValueObjects\KpiParametersSchema;
-use Src\Shared\ValueObjects\Kpi;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 
 class KpiParametersSchemaService
 {

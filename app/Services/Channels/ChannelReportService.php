@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Src\Planning\Application\ProjectPlanService;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\ProjectType;
 
 class ChannelReportService implements ChannelReportServiceInterface
 {

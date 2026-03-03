@@ -1,7 +1,7 @@
 @props(['params'])
 
 @php
-    use Src\Shared\ValueObjects\ProjectType;
+    use Src\Domain\ValueObjects\ProjectType;
 @endphp
 
 <x-data.table-cell class="bg-table-summary-bg font-bold" {{ $attributes }}>

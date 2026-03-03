@@ -3,8 +3,8 @@
 namespace Src\Planning\Domain\Factories;
 
 use Src\Planning\Domain\ValueObjects\KpiParametersSchema;
-use Src\Shared\ValueObjects\Kpi;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 
 interface KpiParametersSchemaFactoryInterface
 {

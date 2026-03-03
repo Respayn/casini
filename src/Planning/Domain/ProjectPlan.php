@@ -3,7 +3,7 @@
 namespace Src\Planning\Domain;
 
 use Src\Planning\Domain\ValueObjects\QuarterApproval;
-use Src\Shared\ValueObjects\Quarter;
+use Src\Domain\ValueObjects\Quarter;
 
 class ProjectPlan
 {

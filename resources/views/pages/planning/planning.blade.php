@@ -8,6 +8,7 @@
         </div>
     </div>
 
+    {{-- Фильтры --}}
     <div class="w-48">
         <x-form.year-picker wire:model.live="year" />
     </div>

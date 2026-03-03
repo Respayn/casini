@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Serivces;
+namespace App\Services;
 
 use App\OperationResult;
 use Illuminate\Support\Facades\Http;

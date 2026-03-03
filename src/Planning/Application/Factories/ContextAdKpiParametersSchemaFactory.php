@@ -4,8 +4,8 @@ namespace Src\Planning\Application\Factories;
 
 use Src\Planning\Domain\Factories\AbstractKpiParametersSchemaFactory;
 use Src\Planning\Domain\ValueObjects\KpiParametersSchemaBuilder;
-use Src\Shared\ValueObjects\ProjectType;
-use Src\Shared\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Kpi;
 
 class ContextAdKpiParametersSchemaFactory extends AbstractKpiParametersSchemaFactory
 {
