@@ -12,10 +12,19 @@ use App\Repositories\Interfaces\IntegrationRepositoryInterface;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Repositories\ProjectUtmMappingRepository;
 use App\Services\Channels\ChannelReportService;
-use App\Services\Channels\StubChannelReportService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
+use Src\Application\Reports\ReportGeneratorInterface;
+use Src\Domain\Clients\ClientRepositoryInterface;
+use Src\Domain\Projects\ProjectRepositoryInterface;
+use Src\Domain\Reports\ReportRepositoryInterface;
+use Src\Domain\Templates\TemplateRepositoryInterface;
+use Src\Infrastructure\Persistence\ClientRepository;
+use Src\Infrastructure\Persistence\ProjectRepository;
+use Src\Infrastructure\Persistence\ReportRepository;
+use Src\Infrastructure\Persistence\TemplateRepository;
+use Src\Infrastructure\ReportGenerator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -29,6 +38,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(IntegrationRepositoryInterface::class, IntegrationRepository::class);
         $this->app->bind(CallibriLeadRepositoryInterface::class, CallibriLeadRepository::class);
         $this->app->bind(ChannelReportServiceInterface::class, ChannelReportService::class);
+
+        // Привязка по Clean Architecture, отрефакторить остальное на неё
+        $this->app->bind(ProjectRepositoryInterface::class, ProjectRepository::class);
+        $this->app->bind(TemplateRepositoryInterface::class, TemplateRepository::class);
+        $this->app->bind(ClientRepositoryInterface::class, ClientRepository::class);
+        $this->app->bind(ReportRepositoryInterface::class, ReportRepository::class);
+
+        $this->app->bind(ReportGeneratorInterface::class, ReportGenerator::class);
     }
 
     /**

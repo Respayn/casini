@@ -12,8 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Src\Planning\Application\Repositories\ProjectPlanRepositoryInterface;
 use Src\Planning\Domain\ProjectPlan;
 use Src\Planning\Domain\ValueObjects\PlanValue;
-use Src\Shared\ValueObjects\KpiParameter;
-use Src\Shared\ValueObjects\Quarter;
+use Src\Domain\ValueObjects\Quarter;
 
 class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
 {

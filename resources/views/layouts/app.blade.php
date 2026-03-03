@@ -30,16 +30,17 @@
 <body class="bg-body text-primary-text flex gap-5 font-sans">
     <livewire:sidebar />
 
-    <div class="flex w-full flex-col gap-[25px] pl-[375px]">
+    <div class="flex w-full flex-col gap-[25px] pl-[375px] h-screen">
         <livewire:header />
 
         <x-menu.navbar :items="[
             ['label' => 'Каналы', 'route' => 'channels'],
             ['label' => 'Статистика', 'route' => 'statistics'],
-            ['label' => 'Планирование', 'route' => 'planning']
+            ['label' => 'Планирование', 'route' => 'planning'],
+            ['label' => 'Отчеты', 'route' => 'reports']
         ]" />
 
-        <div class="rounded-l-2xl bg-white p-5">
+        <div class="rounded-tl-2xl bg-white p-5 flex-1">
             {{ $slot }}
         </div>
     </div>

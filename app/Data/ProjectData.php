@@ -6,8 +6,8 @@ use App\Models\Project;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
-use Src\Shared\ValueObjects\Kpi;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 
 class ProjectData extends Data
 {

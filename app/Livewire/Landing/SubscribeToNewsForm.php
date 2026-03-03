@@ -3,7 +3,7 @@
 namespace App\Livewire\Landing;
 
 use App\Mail\SubscribeToNews;
-use App\Serivces\YandexSmartCaptchaService;
+use App\Services\YandexSmartCaptchaService;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Component;
 

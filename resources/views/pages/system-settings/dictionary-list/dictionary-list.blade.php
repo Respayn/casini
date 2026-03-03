@@ -32,7 +32,7 @@
             <x-panel.accordion-content>
                 <x-data.table class="min-w-52">
                     <x-data.table-rows>
-                        @foreach (Src\Shared\ValueObjects\Kpi::cases() as $kpi)
+                        @foreach (Src\Domain\ValueObjects\Kpi::cases() as $kpi)
                             <x-data.table-row>
                                 <x-data.table-cell>
                                     {{ $kpi->label() }}
@@ -102,7 +102,7 @@
             <x-panel.accordion-content>
                 <x-data.table class="min-w-52">
                     <x-data.table-rows>
-                        @foreach (Src\Shared\ValueObjects\ProjectType::cases() as $projectType)
+                        @foreach (Src\Domain\ValueObjects\ProjectType::cases() as $projectType)
                             <x-data.table-row>
                                 <x-data.table-cell>
                                     {{ $projectType->label() }}

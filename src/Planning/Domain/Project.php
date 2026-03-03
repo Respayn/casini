@@ -6,9 +6,8 @@ use Src\Planning\Domain\ValueObjects\KpiParametersSchema;
 use DateTimeImmutable;
 use Src\Planning\Application\Services\KpiParametersSchemaService;
 use Src\Planning\Domain\ValueObjects\PlanValue;
-use Src\Planning\Domain\ValueObjects\QuarterApproval;
-use Src\Shared\ValueObjects\Kpi;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 
 class Project

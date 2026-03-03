@@ -2,9 +2,9 @@
 
 namespace Src\Planning\Domain\ValueObjects;
 
-use Src\Shared\ValueObjects\Kpi;
-use Src\Shared\ValueObjects\KpiParameter;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\KpiParameter;
+use Src\Domain\ValueObjects\ProjectType;
 
 class KpiParametersSchemaBuilder
 {

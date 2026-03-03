@@ -7,7 +7,7 @@ use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\ProjectType;
 
 class ProjectFactory extends Factory
 {

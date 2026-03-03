@@ -17,8 +17,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Src\Planning\Application\ProjectPlanService;
-use Src\Shared\ValueObjects\Kpi;
-use Src\Shared\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 
 class StatisticsService
 {

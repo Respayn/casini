@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libicu-dev \
+    libzip-dev \
     zip \
     unzip \
     nodejs \
@@ -24,7 +25,8 @@ RUN docker-php-ext-install \
     pcntl \
     bcmath \
     gd \
-    intl
+    intl \
+    zip
 
 # Установка xDebug
 RUN pecl install xdebug && docker-php-ext-enable xdebug

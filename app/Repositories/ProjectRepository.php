@@ -7,6 +7,7 @@ use App\Exceptions\ProjectNotFoundException;
 use App\Helpers\StringHelper;
 use App\Models\Project;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class ProjectRepository
 {
@@ -45,5 +46,14 @@ class ProjectRepository
         }
 
         return $project;
+    }
+
+    public function getProjectsForSelection(): Collection
+    {
+        return Project::select(
+            'id as value',
+            'name as label'
+        )
+            ->get();
     }
 }

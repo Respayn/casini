@@ -8,9 +8,9 @@ use Src\Planning\Application\Repositories\ProjectRepositoryInterface;
 use Src\Planning\Application\Services\KpiParametersSchemaService;
 use Src\Planning\Application\Services\PlanCalculator;
 use Src\Planning\Domain\ProjectPlan;
-use Src\Shared\ValueObjects\Kpi;
-use Src\Shared\ValueObjects\ProjectType;
-use Src\Shared\ValueObjects\Quarter;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Quarter;
 
 class ProjectPlanService
 {
