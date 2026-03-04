@@ -35,6 +35,8 @@ Route::middleware(['auth'])->group(function () {
     Route::livewire('/reports', 'pages::reports')->name('reports');
     Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
 
+    Route::livewire('/revise', 'pages::revise')->name('revise');
+
     Route::livewire('/templates', 'pages::templates')->name('templates');
 
     Route::middleware(['permission:read planning|full planning'])->group(function () {

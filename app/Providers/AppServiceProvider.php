@@ -24,6 +24,7 @@ use Src\Domain\Leads\CallibriLeadRepositoryInterface;
 use Src\Domain\Projects\ProjectPlanValueRepositoryInterface;
 use Src\Domain\Projects\ProjectRepositoryInterface;
 use Src\Domain\Reports\ReportRepositoryInterface;
+use Src\Domain\Revises\ReviseRepositoryInterface;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;
@@ -41,6 +42,7 @@ use Src\Infrastructure\Persistence\Eloquent\EloquentYandexMetrikaRepository;
 use Src\Infrastructure\Persistence\EloquentColumnSettingsRepository;
 use Src\Infrastructure\Persistence\ProjectRepository;
 use Src\Infrastructure\Persistence\ReportRepository;
+use Src\Infrastructure\Persistence\ReviseRepository;
 use Src\Infrastructure\Persistence\TemplateRepository;
 use Src\Infrastructure\Persistence\UserRepository;
 use Src\Infrastructure\Queries\ReportsListDataProvider;
@@ -73,6 +75,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
         $this->app->bind(YandexDirectRepositoryInterface::class, EloquentYandexDirectRepository::class);
         $this->app->bind(YandexMetrikaRepositoryInterface::class, EloquentYandexMetrikaRepository::class);
+        $this->app->bind(ReviseRepositoryInterface::class, ReviseRepository::class);
 
         $this->app->bind(ReportGeneratorInterface::class, ReportGenerator::class);
         $this->app->bind(ReportsListDataProviderInterface::class, ReportsListDataProvider::class);

@@ -37,6 +37,7 @@
             ['label' => 'Каналы', 'route' => 'channels'],
             ['label' => 'Статистика', 'route' => 'statistics'],
             ['label' => 'Планирование', 'route' => 'planning'],
+            ['label' => 'Сверка', 'route' => 'revise'],
             ['label' => 'Отчеты', 'route' => 'reports']
         ]" />
 
