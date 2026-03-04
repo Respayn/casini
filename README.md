@@ -81,6 +81,11 @@ docker exec -it casini php artisan migrate
 docker exec -it casini php artisan db:seed
 ```
 
+Для заполнения тестовыми данными нужно указать класс сида:
+```sh
+docker exec -it casini php artisan db:seed --class=StageSeeder
+```
+
 7. Приложение будет доступно по адресу:
 - Основное приложение: http://localhost:8080
 - PhpMyAdmin: http://localhost:8081
