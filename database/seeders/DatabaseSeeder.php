@@ -23,6 +23,10 @@ class DatabaseSeeder extends Seeder
             AgencySettingsTableSeeder::class,
             RatesTableSeeder::class,
             SearchEnginesSeeder::class
+            ManagersSeeder::class,
+            ChannelsSeeder::class,
+            PaymentsSeeder::class,
+            PaymentOperationsTableSeeder::class,
         ]);
     }
 }

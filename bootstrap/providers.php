@@ -5,4 +5,5 @@ return [
     App\Providers\Planning::class,
     App\Providers\PlanningServiceProvider::class,
     App\Providers\RepositoryServiceProvider::class,
+    Orangehill\Iseed\IseedServiceProvider::class,
 ];
