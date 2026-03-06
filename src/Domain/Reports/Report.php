@@ -23,7 +23,7 @@ class Report
         private bool $isAccepted,
         private bool $isSent,
         private int $createdBy,
-        private string $path
+        private ?string $path
     ) {}
 
     public static function create(
@@ -39,7 +39,7 @@ class Report
         bool $isAccepted,
         bool $isSent,
         int $createdBy,
-        string $path
+        ?string $path = null
     ): Report {
         return new self(
             null,
@@ -161,14 +161,29 @@ class Report
         return $this->isReady;
     }
 
+    public function setIsReady(bool $isReady): void
+    {
+        $this->isReady = $isReady;
+    }
+
     public function getIsAccepted(): bool
     {
         return $this->isAccepted;
     }
 
+    public function setIsAccepted(bool $isAccepted): void
+    {
+        $this->isAccepted = $isAccepted;
+    }
+
     public function getIsSent(): bool
     {
         return $this->isSent;
+    }
+
+    public function setIsSent(bool $isSent): void
+    {
+        $this->isSent = $isSent;
     }
 
     public function getCreatedBy(): int
@@ -179,6 +194,11 @@ class Report
     public function getPath(): string
     {
         return $this->path;
+    }
+
+    public function setPath(string $path): void
+    {
+        $this->path = $path;
     }
 
     public function getName(): string

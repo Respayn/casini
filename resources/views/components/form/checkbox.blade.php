@@ -1,14 +1,16 @@
 @props([
-    'disabled' => false
+    'disabled' => false,
+    'checked' => false
 ])
 
 <div
-    class="checkbox"
+    class="checkbox {{ $disabled ? 'disabled' : '' }}"
 >
     <input
         class="checkbox-input"
         type="checkbox"
         @disabled($disabled)
+        @checked($checked)
         {{ $attributes }}
     >
     <div class="checkbox-box">
@@ -99,6 +101,31 @@
         }
 
         .checkbox:has(input[type="checkbox"]:checked):not(.disabled):has(.checkbox-input:hover) .checkbox-icon {
+            color: #ffffff;
+        }
+
+
+        .checkbox.disabled,
+        .checkbox.disabled .checkbox-input {
+            cursor: not-allowed;
+        }
+        
+        .checkbox.disabled .checkbox-box {
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+            box-shadow: none;
+        }
+
+        .checkbox.disabled:has(input[type="checkbox"]:checked) .checkbox-box {
+            background: #cbd5e1;
+            border-color: #cbd5e1;
+        }
+
+        .checkbox.disabled .checkbox-icon {
+            color: #94a3b8;
+        }
+        
+        .checkbox.disabled:has(input[type="checkbox"]:checked) .checkbox-icon {
             color: #ffffff;
         }
     </style>

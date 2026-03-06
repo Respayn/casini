@@ -29,9 +29,12 @@ class DownloadReportFileQueryHandler
         $report = $this->reportRepository->findById($reportId);
         $project = $this->projectRepository->findById($report->getProjectId());
 
+        $path = $report->getPath();
+        $name = $this->reportNamingService->generateName($report, $project);
+        
         return new DownloadReportFileDto(
-            $report->getPath(),
-            $this->reportNamingService->generateName($report, $project)
+            $path,
+            $name
         );
     }
 }

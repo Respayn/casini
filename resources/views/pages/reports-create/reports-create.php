@@ -5,8 +5,6 @@ use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Src\Application\Reports\Download\DownloadReportFileQuery;
-use Src\Application\Reports\Download\DownloadReportFileQueryHandler;
 use Src\Application\Reports\Generate\GenerateReportCommand;
 use Src\Application\Reports\Generate\GenerateReportCommandHandler;
 use Src\Application\Reports\GetFormData\GetReportFormDataQuery;
@@ -41,7 +39,7 @@ new #[Title('Casini - Создать отчет')] class extends Component {
             ->handle(new GetReportFormDataQuery());
     }
 
-    public function create(): void
+    public function create(GenerateReportCommandHandler $command, $triggerDownload = false): void
     {
         $this->validate([
             'projectId' => 'required',
@@ -53,46 +51,19 @@ new #[Title('Casini - Создать отчет')] class extends Component {
             'templateId.required' => 'Выберите шаблон'
         ]);
 
-        $this->generateReport();
-
-        $this->redirectRoute('reports');
-    }
-
-    public function createAndDownload()
-    {
-        $this->validate([
-            'projectId' => 'required',
-            'format' => 'required',
-            'templateId' => 'required'
-        ], [
-            'projectId.required' => 'Выберите проект',
-            'format.required' => 'Выберите формат',
-            'templateId.required' => 'Выберите шаблон'
-        ]);
-
-        $reportId = $this->generateReport();
-
-        $file = app(DownloadReportFileQueryHandler::class)->handle(
-            new DownloadReportFileQuery($reportId)
-        );
-
-        return response()->download(
-            $file->path,
-            $file->name
-        );
-    }
-
-    private function generateReport(): int
-    {
-        return app(GenerateReportCommandHandler::class)->handle(
-            new GenerateReportCommand(
+        $reportId = $command->handle(new GenerateReportCommand(
                 $this->projectId,
                 DateTimeImmutable::createFromInterface($this->from),
                 DateTimeImmutable::createFromInterface($this->to),
                 $this->format,
                 $this->templateId,
                 Auth::user()->id
-            )
-        );
+            ));
+
+        if ($triggerDownload) {
+            session()->flash('download', $reportId);
+        }
+
+        $this->redirectRoute('reports');
     }
 };

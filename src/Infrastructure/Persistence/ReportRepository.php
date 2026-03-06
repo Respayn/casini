@@ -11,15 +11,19 @@ class ReportRepository implements ReportRepositoryInterface
 {
     public function findById(int $id): Report
     {
-        $eloquentReport = EloquentReport::with('client')
-            ->where($id)
-            ->first();
+        $eloquentReport = EloquentReport::with('project')
+            ->find($id);
         return $this->mapToEntity($eloquentReport);
     }
 
     public function save(Report $report): int
     {
-        $eloquentReport = new EloquentReport();
+        $reportId = $report->getId();
+        if ($reportId === null) {
+            $eloquentReport = new EloquentReport();
+        } else {
+            $eloquentReport = EloquentReport::find($reportId);
+        }
         $eloquentReport->template_id = $report->getTemplateId();
         $eloquentReport->client_id = $report->getClientId();
         $eloquentReport->project_id = $report->getProjectId();
@@ -48,7 +52,10 @@ class ReportRepository implements ReportRepositoryInterface
             $eloquentReport->client_id,
             $eloquentReport->project->project_type,
             $eloquentReport->project_id,
-            new DateTimeRange($eloquentReport->period_start, $eloquentReport->period_end),
+            new DateTimeRange(
+                $eloquentReport->period_start,
+                $eloquentReport->period_end
+            ),
             $eloquentReport->specialist_id,
             $eloquentReport->manager_id,
             $eloquentReport->format,

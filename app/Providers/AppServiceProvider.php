@@ -15,16 +15,24 @@ use App\Services\Channels\ChannelReportService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
-use Src\Application\Reports\ReportGeneratorInterface;
+use Src\Application\Reports\Generate\ReportDataProviderInterface;
+use Src\Application\Reports\Generate\ReportGeneratorInterface;
+use Src\Application\Reports\GetList\ReportsListDataProviderInterface;
 use Src\Domain\Clients\ClientRepositoryInterface;
+use Src\Application\ColumnSettings\ColumnSettingsRepositoryInterface;
 use Src\Domain\Projects\ProjectRepositoryInterface;
 use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Domain\Templates\TemplateRepositoryInterface;
+use Src\Domain\Users\UserRepositoryInterface;
 use Src\Infrastructure\Persistence\ClientRepository;
+use Src\Infrastructure\Persistence\EloquentColumnSettingsRepository;
 use Src\Infrastructure\Persistence\ProjectRepository;
 use Src\Infrastructure\Persistence\ReportRepository;
 use Src\Infrastructure\Persistence\TemplateRepository;
-use Src\Infrastructure\ReportGenerator;
+use Src\Infrastructure\Persistence\UserRepository;
+use Src\Infrastructure\Queries\ReportsListDataProvider;
+use Src\Infrastructure\Reports\ReportDataProvider;
+use Src\Infrastructure\Reports\ReportGenerator;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -40,12 +48,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ChannelReportServiceInterface::class, ChannelReportService::class);
 
         // Привязка по Clean Architecture, отрефакторить остальное на неё
-        $this->app->bind(ProjectRepositoryInterface::class, ProjectRepository::class);
-        $this->app->bind(TemplateRepositoryInterface::class, TemplateRepository::class);
         $this->app->bind(ClientRepositoryInterface::class, ClientRepository::class);
+        $this->app->bind(ColumnSettingsRepositoryInterface::class, EloquentColumnSettingsRepository::class);
+        $this->app->bind(ProjectRepositoryInterface::class, ProjectRepository::class);
         $this->app->bind(ReportRepositoryInterface::class, ReportRepository::class);
+        $this->app->bind(TemplateRepositoryInterface::class, TemplateRepository::class);
+        $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
 
         $this->app->bind(ReportGeneratorInterface::class, ReportGenerator::class);
+        $this->app->bind(ReportsListDataProviderInterface::class, ReportsListDataProvider::class);
+        $this->app->bind(ReportDataProviderInterface::class, ReportDataProvider::class);
     }
 
     /**

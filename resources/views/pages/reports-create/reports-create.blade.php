@@ -48,7 +48,7 @@
     <div class="flex justify-between mt-auto">
         <div class="flex gap-2"">
             <x-button.button wire:click="create" variant="primary" label="Сформировать" />
-            <x-button.button wire:click="createAndDownload" variant="primary" label="Сформировать и скачать"
+            <x-button.button wire:click="create(true)" variant="primary" label="Сформировать и скачать"
                 icon="icons.download" />
         </div>
         <x-button.button href="{{ route('reports') }}" label="Отменить" />

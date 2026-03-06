@@ -30,7 +30,8 @@ class ProjectRepository implements ProjectRepositoryInterface
             $project->name,
             $project->client_id,
             $project->project_type,
-            $project->specialist_id
+            $project->specialist_id,
+            $project->domain
         );
     }
 }
