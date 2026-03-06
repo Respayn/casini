@@ -43,22 +43,19 @@ new
             );
         }
 
-        public function download(int $templateId)
+        public function download(DownloadTemplateFileQueryHandler $query, int $templateId)
         {
-            $file = app(DownloadTemplateFileQueryHandler::class)->handle(
+            $file = $query->handle(
                 new DownloadTemplateFileQuery($templateId)
             );
 
             return response()->download($file->path, $file->name);
         }
 
-        public function delete(int $templateId)
+        public function delete(DeleteTemplateCommandHandler $command, int $templateId)
         {
             try {
-
-                app(DeleteTemplateCommandHandler::class)->handle(
-                    new DeleteTemplateCommand($templateId)
-                );
+                $command->handle(new DeleteTemplateCommand($templateId));
             } catch (TemplateInUseException $e) {
                 $this->addError('delete', $e->getMessage());
             }
