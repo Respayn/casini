@@ -4,10 +4,8 @@ namespace App\Providers;
 
 use App\Contracts\ChannelReportServiceInterface;
 use App\Repositories\AgencySettingsRepository;
-use App\Repositories\CallibriLeadRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\Interfaces\AgencySettingsRepositoryInterface;
-use App\Repositories\Interfaces\CallibriLeadRepositoryInterface;
 use App\Repositories\Interfaces\IntegrationRepositoryInterface;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Repositories\ProjectUtmMappingRepository;
@@ -20,11 +18,15 @@ use Src\Application\Reports\Generate\ReportGeneratorInterface;
 use Src\Application\Reports\GetList\ReportsListDataProviderInterface;
 use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Application\ColumnSettings\ColumnSettingsRepositoryInterface;
+use Src\Domain\Agencies\AgencyRepositoryInterface;
+use Src\Domain\Leads\CallibriLeadRepositoryInterface;
 use Src\Domain\Projects\ProjectRepositoryInterface;
 use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;
 use Src\Infrastructure\Persistence\ClientRepository;
+use Src\Infrastructure\Persistence\Eloquent\EloquentAgencyRepository;
+use Src\Infrastructure\Persistence\Eloquent\EloquentCallibriLeadRepository;
 use Src\Infrastructure\Persistence\EloquentColumnSettingsRepository;
 use Src\Infrastructure\Persistence\ProjectRepository;
 use Src\Infrastructure\Persistence\ReportRepository;
@@ -44,10 +46,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(AgencySettingsRepositoryInterface::class, AgencySettingsRepository::class);
         $this->app->bind(ProjectUtmMappingRepositoryInterface::class, ProjectUtmMappingRepository::class);
         $this->app->bind(IntegrationRepositoryInterface::class, IntegrationRepository::class);
-        $this->app->bind(CallibriLeadRepositoryInterface::class, CallibriLeadRepository::class);
         $this->app->bind(ChannelReportServiceInterface::class, ChannelReportService::class);
 
         // Привязка по Clean Architecture, отрефакторить остальное на неё
+        $this->app->bind(AgencyRepositoryInterface::class, EloquentAgencyRepository::class);
+        $this->app->bind(CallibriLeadRepositoryInterface::class, EloquentCallibriLeadRepository::class);
         $this->app->bind(ClientRepositoryInterface::class, ClientRepository::class);
         $this->app->bind(ColumnSettingsRepositoryInterface::class, EloquentColumnSettingsRepository::class);
         $this->app->bind(ProjectRepositoryInterface::class, ProjectRepository::class);

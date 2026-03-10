@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             IntegrationSeeder::class,
             AgencySettingsTableSeeder::class,
             RatesTableSeeder::class,
+            SearchEnginesSeeder::class
         ]);
     }
 }

@@ -8,8 +8,10 @@ use PhpOffice\PhpWord\TemplateProcessor;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportGeneratorInterface;
 use Src\Domain\Reports\ReportFormat;
+use Src\Infrastructure\Reports\TemplateHandlers\ConditionHandler;
+use Src\Infrastructure\Reports\TemplateHandlers\ImageHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\InlineValueHandler;
-use Src\Infrastructure\Reports\TemplateHandlers\Listhandler;
+use Src\Infrastructure\Reports\TemplateHandlers\ListHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TableHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TemplateHandlerInterface;
 
@@ -21,8 +23,10 @@ class ReportGenerator implements ReportGeneratorInterface
     public function __construct()
     {
         $this->handlers = [
+            new ConditionHandler(),
             new TableHandler(),
-            new Listhandler(),
+            new ListHandler(),
+            new ImageHandler(),
             new InlineValueHandler(),
         ];
     }

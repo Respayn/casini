@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Repositories\CallibriLeadRepository;
+use App\Repositories\Interfaces\CallibriLeadRepositoryInterface;
 use App\Repositories\Interfaces\PaymentRepositoryInterface;
 use App\Repositories\Interfaces\RateRepositoryInterface;
 use App\Repositories\Interfaces\WorkActRepositoryInterface;
@@ -20,6 +22,7 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(RateRepositoryInterface::class, RateRepository::class);
         $this->app->bind(WorkActRepositoryInterface::class, WorkActRepository::class);
         $this->app->bind(PaymentRepositoryInterface::class, PaymentRepository::class);
+        $this->app->bind(CallibriLeadRepositoryInterface::class, CallibriLeadRepository::class);
     }
 
     /**

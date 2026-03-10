@@ -21,7 +21,8 @@ class UserRepository implements UserRepositoryInterface
             $user->first_name,
             $user->last_name,
             $user->email,
-            $user->phone
+            $user->phone,
+            $user->image_path
         );
     }
 }

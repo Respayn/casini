@@ -5,7 +5,7 @@ namespace App\Repositories;
 
 use App\Data\AgencyData;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
-use App\Models\AgencySetting;
+use App\Models\Agency;
 use App\Repositories\Interfaces\AgencySettingsRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 
@@ -13,12 +13,12 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 {
     public function model()
     {
-        return AgencySetting::class;
+        return Agency::class;
     }
 
     public function all(array $with = ['admins', 'admins.user'])
     {
-        $agencies = AgencySetting::with($with)->get();
+        $agencies = Agency::with($with)->get();
 
         return AgencyData::collect($agencies->map(function ($agency) {
             $arr = $agency->toArray();
@@ -29,7 +29,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
     public function find(int $id): ?AgencyData
     {
-        $agency = AgencySetting::with(['admins', 'admins.user'])->find($id);
+        $agency = Agency::with(['admins', 'admins.user'])->find($id);
 
         if ($agency) {
             $arr = $agency->toArray();
@@ -42,7 +42,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
     public function findBy(string $column, mixed $value)
     {
-        $agencies = AgencySetting::where($column, $value)->with('admins')->get();
+        $agencies = Agency::where($column, $value)->with('admins')->get();
 
         return AgencyData::collect($agencies->map(function ($agency) {
             $arr = $agency->toArray();
@@ -64,7 +64,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         }
 
         // Находим агентство по id
-        $agency = AgencySetting::findOrFail($data['id']);
+        $agency = Agency::findOrFail($data['id']);
 
         $lastLogoSrc = $agency->logo_src;
 
@@ -102,7 +102,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
     public function getAgency(int $id): AgencyData
     {
-        $agency = AgencySetting::with(['admins', 'admins.user'])->findOrFail($id);
+        $agency = Agency::with(['admins', 'admins.user'])->findOrFail($id);
 
         // Подготавливаем массив админов
         $admins = $agency->admins->map(function ($admin) {
@@ -139,7 +139,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         }
 
         // 2. Создаём агентство
-        $agency = AgencySetting::create([
+        $agency = Agency::create([
             'name'      => $data['name'],
             'time_zone' => $data['timeZone'],
             'url'       => $data['url'] ?? null,

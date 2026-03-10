@@ -7,16 +7,16 @@ use DateTimeImmutable;
 class DateTimeRange
 {
     public function __construct(
-        private DateTimeImmutable $start,
-        private DateTimeImmutable $end
+        public readonly ?DateTimeImmutable $start,
+        public readonly ?DateTimeImmutable $end
     ) {}
 
-    public function getStart(): DateTimeImmutable
+    public function getStart(): ?DateTimeImmutable
     {
         return $this->start;
     }
 
-    public function getEnd(): DateTimeImmutable
+    public function getEnd(): ?DateTimeImmutable
     {
         return $this->end;
     }

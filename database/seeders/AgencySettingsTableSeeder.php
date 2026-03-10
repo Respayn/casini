@@ -2,14 +2,14 @@
 
 namespace Database\Seeders;
 
-use App\Models\AgencySetting;
+use App\Models\Agency;
 use Illuminate\Database\Seeder;
 
 class AgencySettingsTableSeeder extends Seeder
 {
     public function run()
     {
-        AgencySetting::firstOrCreate([
+        Agency::firstOrCreate([
             'name' => 'СайтАктив',
             'time_zone' => 'Europe/Moscow',
             'url' => 'https://siteactiv.ru',

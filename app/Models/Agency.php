@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
 /**
@@ -17,13 +18,14 @@ use Illuminate\Support\Collection;
  * @property $logo_src
  * @property $created_at
  * @property $updated_at
- * @property Collection<AgencyAdmin> $admins
+ * @property Collection<AgencyUser> $admins
  */
-class AgencySetting extends Model
+class Agency extends Model
 {
     use HasFactory;
 
-    protected $table = 'agency_settings';
+    protected $table = 'agencies';
+
     protected $fillable = [
         'name',
         'time_zone',
@@ -34,8 +36,8 @@ class AgencySetting extends Model
         'logo_src',
     ];
 
-    public function admins()
+    public function users(): HasMany
     {
-        return $this->hasMany(AgencyAdmin::class, 'agency_id');
+        return $this->hasMany(AgencyUser::class, 'agency_id');
     }
 }

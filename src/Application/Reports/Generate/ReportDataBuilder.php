@@ -7,6 +7,8 @@ class ReportDataBuilder
     private array $values = [];
     private array $tables = [];
     private array $lists = [];
+    private array $images = [];
+    private array $conditions = [];
 
     public function value(string $key, string $value): self
     {
@@ -29,6 +31,18 @@ class ReportDataBuilder
     public function list(string $key, array $items): self
     {
         $this->lists[$key] = $items;
+        return $this;
+    }
+
+    public function image(string $key, string $path): self
+    {
+        $this->images[$key] = $path;
+        return $this;
+    }
+
+    public function condition(string $key, bool $render): self
+    {
+        $this->conditions[$key] = $render;
         return $this;
     }
 
