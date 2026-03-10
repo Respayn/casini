@@ -24,7 +24,7 @@ use Src\Domain\Leads\CallibriLeadRepositoryInterface;
 use Src\Domain\Projects\ProjectPlanValueRepositoryInterface;
 use Src\Domain\Projects\ProjectRepositoryInterface;
 use Src\Domain\Reports\ReportRepositoryInterface;
-use Src\Domain\Revises\ReviseRepositoryInterface;
+use Src\Domain\Revise\ReviseRepositoryInterface;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;

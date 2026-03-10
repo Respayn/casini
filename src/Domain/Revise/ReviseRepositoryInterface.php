@@ -1,20 +1,18 @@
 <?php
 
-namespace Src\Domain\Revises;
+namespace Src\Domain\Revise;
 
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 
 interface ReviseRepositoryInterface
 {
-    /**
-     * Получить сверку по бюджетам
-     * @param Carbon $periodFrom
-     * @param Carbon $periodTo
-     * @param mixed $clientId
-     * @param mixed $managerId
-     * @param mixed $fetchFromDirect
-     * @param mixed $channelId
-     * @return void В разработке
-     */
-    public function getReviseData(Carbon $periodFrom, Carbon $periodTo, $clientId = null, $managerId = null, $fetchFromDirect = false, $channelId = null);
+    public function GetData(
+        Carbon $periodFrom,
+        Carbon $periodTo,
+        ?int $clientId = null,
+        ?int $managerId = null,
+        bool $fetchFromDirect = false,
+        ?int $channelId = null
+    ): Collection;
 }
