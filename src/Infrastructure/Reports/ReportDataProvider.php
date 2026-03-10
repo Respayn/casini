@@ -8,6 +8,7 @@ use Src\Domain\Agencies\AgencyRepositoryInterface;
 use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Domain\Leads\CallibriLeadRepositoryInterface;
 use Src\Domain\Projects\ProjectRepositoryInterface;
+use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
 
@@ -17,17 +18,20 @@ class ReportDataProvider implements ReportDataProviderInterface
     private readonly ClientRepositoryInterface $clientRepository;
     private readonly UserRepositoryInterface $userRepository;
     private readonly CallibriLeadRepositoryInterface $callibriLeadRepository;
+    private readonly SerpPositionRepositoryInterface $serpPositionRepository;
 
     public function __construct(
         ProjectRepositoryInterface $projectRepository,
         ClientRepositoryInterface $clientRepository,
         UserRepositoryInterface $userRepository,
-        CallibriLeadRepositoryInterface $callibriLeadRepository
+        CallibriLeadRepositoryInterface $callibriLeadRepository,
+        SerpPositionRepositoryInterface $serpPositionRepository
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
         $this->userRepository = $userRepository;
         $this->callibriLeadRepository = $callibriLeadRepository;
+        $this->serpPositionRepository = $serpPositionRepository;
     }
 
     public function getData(int $projectId, DateTimeRange $period): ReportData
@@ -78,9 +82,11 @@ class ReportDataProvider implements ReportDataProviderInterface
         $callibriTable = array_merge($callibriTableHeaders, $callibriTableRows);
         $builder->table('callibri.table', $callibriTable);
 
-        $builder->value('yandex_search.top_3', '')
-            ->value('yandex_search.top_5', '')
-            ->value('yandex_search.top_10', '')
+        // Yandex search top percentages
+        $percentages = $this->serpPositionRepository->getTopPercentages($projectId, $period, 'yandex');
+        $builder->value('yandex_search.top_3', $percentages['top_3'] . '%')
+            ->value('yandex_search.top_5', $percentages['top_5'] . '%')
+            ->value('yandex_search.top_10', $percentages['top_10'] . '%')
 
             ->table('yandex_search.table', [])
 
