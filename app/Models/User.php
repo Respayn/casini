@@ -5,6 +5,8 @@ namespace App\Models;
 use App\Services\RoleHierarchyService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -95,5 +97,17 @@ class User extends Authenticatable
     public function isSpecialist(): bool
     {
         return $this->roles->where('use_in_specialist_list', true)->isNotEmpty();
+    }
+
+    public function paymentOperations(): HasMany
+    {
+        return $this->hasMany(PaymentOperation::class, 'manager_id');
+    }
+
+    protected function fullName(): Attribute
+    {
+        return new Attribute(
+            get: fn (mixed $value, array $attributes) => $attributes['first_name'] . ' ' . $attributes['last_name']
+        );
     }
 }

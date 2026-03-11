@@ -10,4 +10,9 @@ class Channel extends Model
         "name",
         "search_string",
     ];
+
+    public static function getDefault(): Channel|null
+    {
+        return self::whereNull('search_string')->first();
+    }
 }

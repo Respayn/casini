@@ -15,18 +15,13 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolesTableSeeder::class,
             PermissionSeeder::class,
-            UserSeeder::class,
-            TooltipSeeder::class,
-            ProductSeeder::class,
-            ProductNotificationSeeder::class,
-            IntegrationSeeder::class,
             AgencySettingsTableSeeder::class,
             RatesTableSeeder::class,
             SearchEnginesSeeder::class
             ManagersSeeder::class,
             ChannelsSeeder::class,
             PaymentsSeeder::class,
-            PaymentOperationsTableSeeder::class,
+            PaymentOperationsSeeder::class,
         ]);
     }
 }

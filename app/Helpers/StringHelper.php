@@ -54,7 +54,7 @@ class StringHelper
      * - Приводит к нижнему регистру
      * - Удаляет все не буквенно-цифровые символы
      */
-    private static function normalize(string $input): string
+    public static function normalize(string $input): string
     {
         return preg_replace('/[^a-z0-9]/', '', strtolower($input));
     }

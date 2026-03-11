@@ -46,7 +46,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property Payment $payment
  * @property Channel|null $channel
- * @property Manager|null $manager
+ * @property User|null $manager
  * @property Project|null $clientProject
  * @property User|null $creator
  * @property User|null $sentToAdCabinetUpdatedBy
@@ -129,7 +129,7 @@ class PaymentOperation extends Model
 
     public function manager(): BelongsTo
     {
-        return $this->belongsTo(Manager::class);
+        return $this->belongsTo(User::class);
     }
 
     public function clientProject(): BelongsTo

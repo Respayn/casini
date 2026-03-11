@@ -33,14 +33,21 @@ class extends Component
         $periodFrom = Carbon::parse($this->dateFrom)->startOfDay();
         $periodTo   = Carbon::parse($this->dateTo)->endOfDay();
 
+        // return app(ReviseGetDataCommandHandler::class)->handle(
+        //     new ReviseGetDataCommand(
+        //         dateFrom: $periodFrom,
+        //         dateTo: $periodTo,
+        //         clientId: $this->clientId,
+        //         managerId: $this->managerId,
+        //         fetchFromDirect: $this->fetchFromDirect,
+        //         channelId: $this->channelId,
+        //     )
+        // );
+
         return app(ReviseGetDataCommandHandler::class)->handle(
             new ReviseGetDataCommand(
-                dateFrom: $periodFrom,
-                dateTo: $periodTo,
-                clientId: $this->clientId,
-                managerId: $this->managerId,
-                fetchFromDirect: $this->fetchFromDirect,
-                channelId: $this->channelId,
+                dateFrom: Carbon::parse("10.01.2022")->endOfDay(),
+                dateTo: Carbon::parse("10.01.2026")->endOfDay(),
             )
         );
     }

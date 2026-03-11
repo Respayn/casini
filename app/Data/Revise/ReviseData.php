@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Data;
+namespace App\Data\Revise;
 
 use Carbon\Carbon;
 use Livewire\Wireable;

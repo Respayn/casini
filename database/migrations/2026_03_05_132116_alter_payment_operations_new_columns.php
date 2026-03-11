@@ -28,7 +28,7 @@ return new class extends Migration
 
             $table->foreignId('manager_id')
                 ->nullable()
-                ->constrained('managers')
+                ->constrained('users')
                 ->cascadeOnDelete()
                 ->comment('Связанный клиент');
 

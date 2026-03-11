@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Log;
 class YandexDirectService
 {
     private readonly YandexDirectClient $client;
+    public ?string $clientLogin;
+    public ?string $token;
 
     public function __construct(
         private readonly YandexDirectReportParser $parser,
@@ -26,6 +28,8 @@ class YandexDirectService
     public function setupClient($token, $clientLogin)
     {
         $this->client = $this->clientFactory->create($token, $clientLogin);
+        $this->clientLogin = $clientLogin;
+        $this->token = $token;
     }
 
     private function getClient(): YandexDirectClient
