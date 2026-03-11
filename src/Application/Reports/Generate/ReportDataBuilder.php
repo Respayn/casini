@@ -22,9 +22,18 @@ class ReportDataBuilder
         return $this;
     }
 
-    public function table(string $key, array $rows): self
+    /**
+     * @param string $key
+     * @param array $headers
+     * @param array $rows
+     * @return ReportDataBuilder
+     */
+    public function table(string $key, array $headers, array $rows): self
     {
-        $this->tables[$key] = $rows;
+        $this->tables[$key] = [
+            'headers' => $headers,
+            'rows' => $rows
+        ];
         return $this;
     }
 

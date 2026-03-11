@@ -11,17 +11,30 @@ class TableHandler implements TemplateHandlerInterface
 {
     public function handle(TemplateProcessor $templateProcessor, ReportData $data): void
     {
-        foreach ($data->getTables() as $key => $tableRows) {
-            $table = new Table(['borderSize' => 6, 'unit' => TblWidth::TWIP]);
+        foreach ($data->getTables() as $key => $tableData) {
+            $tableObj = new Table(['borderSize' => 6, 'unit' => TblWidth::TWIP]);
 
-            foreach ($tableRows as $row) {
-                $table->addRow();
-                foreach ($row as $cell) {
-                    $table->addCell()->addText($cell);
+            if (count($tableData['headers']) > 0) {
+                $tableObj->addRow();
+                foreach ($tableData['headers'] as $header) {
+                    $tableObj->addCell()->addText($header);
                 }
             }
 
-            $templateProcessor->setComplexBlock($key, $table);
+            if (count($tableData['rows']) > 0) {
+                foreach ($tableData['rows'] as $row) {
+                    $tableObj->addRow();
+                    foreach ($row as $cell) {
+                        $tableObj->addCell()->addText($cell);
+                    }
+                }
+            } else {
+                $tableObj->addRow();
+                $tableObj->addCell(null, ['gridSpan' => count($tableData['headers'])])
+                    ->addText('Нет данных');
+            }
+
+            $templateProcessor->setComplexBlock($key, $tableObj);
         }
     }
 }

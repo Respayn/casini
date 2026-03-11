@@ -25,10 +25,12 @@ use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;
+use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
 use Src\Infrastructure\Persistence\ClientRepository;
 use Src\Infrastructure\Persistence\Eloquent\EloquentAgencyRepository;
 use Src\Infrastructure\Persistence\Eloquent\EloquentCallibriLeadRepository;
 use Src\Infrastructure\Persistence\Eloquent\EloquentSerpPositionRepository;
+use Src\Infrastructure\Persistence\Eloquent\EloquentYandexDirectRepository;
 use Src\Infrastructure\Persistence\EloquentColumnSettingsRepository;
 use Src\Infrastructure\Persistence\ProjectRepository;
 use Src\Infrastructure\Persistence\ReportRepository;
@@ -56,10 +58,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ClientRepositoryInterface::class, ClientRepository::class);
         $this->app->bind(ColumnSettingsRepositoryInterface::class, EloquentColumnSettingsRepository::class);
         $this->app->bind(ProjectRepositoryInterface::class, ProjectRepository::class);
+        $this->app->bind(SerpPositionRepositoryInterface::class, EloquentSerpPositionRepository::class);
+        $this->app->bind(YandexDirectRepositoryInterface::class, EloquentYandexDirectRepository::class);
         $this->app->bind(ReportRepositoryInterface::class, ReportRepository::class);
         $this->app->bind(TemplateRepositoryInterface::class, TemplateRepository::class);
         $this->app->bind(UserRepositoryInterface::class, UserRepository::class);
-        $this->app->bind(SerpPositionRepositoryInterface::class, EloquentSerpPositionRepository::class);
 
         $this->app->bind(ReportGeneratorInterface::class, ReportGenerator::class);
         $this->app->bind(ReportsListDataProviderInterface::class, ReportsListDataProvider::class);

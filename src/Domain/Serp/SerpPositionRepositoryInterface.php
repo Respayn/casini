@@ -19,4 +19,18 @@ interface SerpPositionRepositoryInterface
         DateTimeRange $period,
         string $searchEngineCode = 'yandex'
     ): array;
+
+    /**
+     * Получает ключевые фразы с последними позициями за период.
+     *
+     * @param int $projectId
+     * @param DateTimeRange $period
+     * @param string $searchEngineCode
+     * @return array<int, array{phrase: string, position: int|null}>
+     */
+    public function getKeywordPositions(
+        int $projectId,
+        DateTimeRange $period,
+        string $searchEngineCode = 'yandex'
+    ): array;
 }

@@ -11,6 +11,7 @@ use Src\Domain\Projects\ProjectRepositoryInterface;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
+use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
 
 class ReportDataProvider implements ReportDataProviderInterface
 {
@@ -19,19 +20,22 @@ class ReportDataProvider implements ReportDataProviderInterface
     private readonly UserRepositoryInterface $userRepository;
     private readonly CallibriLeadRepositoryInterface $callibriLeadRepository;
     private readonly SerpPositionRepositoryInterface $serpPositionRepository;
+    private readonly YandexDirectRepositoryInterface $yandexDirectRepository;
 
     public function __construct(
         ProjectRepositoryInterface $projectRepository,
         ClientRepositoryInterface $clientRepository,
         UserRepositoryInterface $userRepository,
         CallibriLeadRepositoryInterface $callibriLeadRepository,
-        SerpPositionRepositoryInterface $serpPositionRepository
+        SerpPositionRepositoryInterface $serpPositionRepository,
+        YandexDirectRepositoryInterface $yandexDirectRepository
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
         $this->userRepository = $userRepository;
         $this->callibriLeadRepository = $callibriLeadRepository;
         $this->serpPositionRepository = $serpPositionRepository;
+        $this->yandexDirectRepository = $yandexDirectRepository;
     }
 
     public function getData(int $projectId, DateTimeRange $period): ReportData
@@ -67,7 +71,14 @@ class ReportDataProvider implements ReportDataProviderInterface
         // Callibri
         $callibriLeads = $this->callibriLeadRepository->findByProjectId($projectId, $period);
         $callibriTableHeaders = [
-            ['Дата', 'Класс', 'Тип обращения', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term']
+            'Дата',
+            'Класс',
+            'Тип обращения',
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_content',
+            'utm_term'
         ];
         $callibriTableRows = array_map(fn($lead) => [
             $lead->getDate()->format('d.m.Y'),
@@ -79,36 +90,73 @@ class ReportDataProvider implements ReportDataProviderInterface
             $lead->getUtmContent(),
             $lead->getUtmTerm()
         ], $callibriLeads);
-        $callibriTable = array_merge($callibriTableHeaders, $callibriTableRows);
-        $builder->table('callibri.table', $callibriTable);
+        $builder->table('callibri.table', $callibriTableHeaders, $callibriTableRows);
 
         // Yandex search top percentages
         $percentages = $this->serpPositionRepository->getTopPercentages($projectId, $period, 'yandex');
         $builder->value('yandex_search.top_3', $percentages['top_3'] . '%')
             ->value('yandex_search.top_5', $percentages['top_5'] . '%')
-            ->value('yandex_search.top_10', $percentages['top_10'] . '%')
+            ->value('yandex_search.top_10', $percentages['top_10'] . '%');
 
-            ->table('yandex_search.table', [])
+        // Yandex search positions table
+        $keywordPositions = $this->serpPositionRepository->getKeywordPositions($projectId, $period, 'yandex');
+        $yandexSearchTableRows = array_map(
+            fn($item) => [$item['phrase'], $item['position'] ?? '—'],
+            $keywordPositions
+        );
+        $builder->table(
+            'yandex_search.table',
+            ['Фраза', 'Позиция'],
+            $yandexSearchTableRows
+        );
 
-            ->table('yandex_direct.table', [])
+        // Yandex Direct
+        $yandexDirectStats = $this->yandexDirectRepository->findByProjectId($projectId, $period);
+        $yandexDirectTableRows = array_map(
+            fn($stats) => [
+                $stats->getCampaignName(),
+                $stats->getImpressions(),
+                $stats->getClicks(),
+                $stats->getCostWithVat(),
+                $stats->getCostWithoutVat(),
+                $stats->getCtr() . '%',
+                $stats->getCpc(),
+                $stats->getConversions(),
+                $stats->getCpl(),
+                $stats->getGoalName() ?? '—',
+            ],
+            $yandexDirectStats
+        );
+        $builder->table('yandex_direct.table', [
+            'Кампания',
+            'Показы',
+            'Клики',
+            'Расход с НДС',
+            'Расход без НДС',
+            'CTR',
+            'CPC',
+            'Конверсии',
+            'CPL',
+            'Название цели'
+        ], $yandexDirectTableRows);
 
-            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_search_engines', [])
-            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_search_engines.yandex', [])
-            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_search_engines.google', [])
+        $builder->table('yandex_metrika.table.achievement_of_goals_from_the_report_search_engines', [], [])
+            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_search_engines.yandex', [], [])
+            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_search_engines.google', [], [])
 
-            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_utm_tags', [])
+            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_utm_tags', [], [])
 
-            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_conversions', [])
+            ->table('yandex_metrika.table.achievement_of_goals_from_the_report_conversions', [], [])
 
-            ->table('yandex_metrika.table.transitions_from_report_search_systems', [])
+            ->table('yandex_metrika.table.transitions_from_report_search_systems', [], [])
 
-            ->table('yandex_metrika.table.transitions_from_report_geography', [])
+            ->table('yandex_metrika.table.transitions_from_report_geography', [], [])
 
-            ->table('yandex_metrika.table.transitions_from_report_search_queries', [])
+            ->table('yandex_metrika.table.transitions_from_report_search_queries', [], [])
 
             ->list('megaplan.list', [])
 
-            ->table('yandex_direct.table.matching_by_utm_campaign', []);
+            ->table('yandex_direct.table.matching_by_utm_campaign', [], []);
 
         return $builder->build();
     }
