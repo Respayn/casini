@@ -22,6 +22,9 @@ class DatabaseSeeder extends Seeder
             ChannelsSeeder::class,
             PaymentsSeeder::class,
             PaymentOperationsSeeder::class,
+            SaoPerformedWorkActsSeeder::class,
+            SaoPerformedWorkActItemsSeeder::class
+
         ]);
     }
 }

@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property Carbon $creation_date
  * @property float $price
  * @property string|null $customer_inn
+ * @property string|null $customer_address
  * @property string|null $contract_number
  * @property string|null $customer_additional_number
  * @property $created_at
