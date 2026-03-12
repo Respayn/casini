@@ -13,15 +13,28 @@ class SearchEnginesSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('search_engines')->insert([
+        $existingCodes = DB::table('search_engines')->pluck('code')->toArray();
+
+        $engines = [
             [
                 'name' => 'Google',
-                'code' => 'google'
+                'code' => 'google',
+                'base_url' => 'https://www.google.com',
             ],
             [
                 'name' => 'Yandex',
-                'code' => 'yandex'
-            ]
-        ]);
+                'code' => 'yandex',
+                'base_url' => 'https://yandex.ru',
+            ],
+        ];
+
+        foreach ($engines as $engine) {
+            if (!in_array($engine['code'], $existingCodes)) {
+                DB::table('search_engines')->insert(array_merge($engine, [
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]));
+            }
+        }
     }
 }

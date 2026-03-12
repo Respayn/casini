@@ -9,5 +9,5 @@ interface ReportsListDataProviderInterface
     /**
      * @return ReportListItemDto[]
      */
-    public function getList(bool $showInactiveProjects, DateTimeRange $period): array;
+    public function getList(bool $showInactiveProjects, DateTimeRange $period, ?int $userId): array;
 }

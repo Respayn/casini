@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property int $id
  * @property int $project_id
  * @property string $campaign_name
+ * @property int|null $campaign_id
  * @property int $impressions
  * @property int $clicks
  * @property float $cost_with_vat
@@ -23,6 +24,7 @@ class YandexDirectCampaignStats extends Model
     protected $fillable = [
         'project_id',
         'campaign_name',
+        'campaign_id',
         'impressions',
         'clicks',
         'cost_with_vat',

@@ -85,7 +85,8 @@ new
             return app(GetReportsListQueryHandler::class)->handle(new GetReportsListQuery(
                 $this->showInactiveProjects,
                 $this->periodFrom,
-                $this->periodTo
+                $this->periodTo,
+                Auth::id()
             ));
         }
 

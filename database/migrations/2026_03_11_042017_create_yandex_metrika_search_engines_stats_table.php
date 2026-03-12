@@ -1,0 +1,52 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::create('yandex_metrika_search_engines_stats', function (Blueprint $table) {
+            $table->comment('Статистика из отчета по поисковым системам из Яндекс.Метрики');
+
+            $table->id();
+
+            $table->foreignId('project_id')
+                ->constrained()
+                ->cascadeOnDelete()
+                ->comment('Проект, к которому относится статистика');
+
+            $table->enum('search_engine', ['yandex', 'google', 'other'])
+                ->comment('Поисковая система');
+
+            $table->date('month')
+                ->comment('Месяц, за который собрана статистика');
+
+            $table->unsignedInteger('visits')
+                ->default(0)
+                ->comment('Количество визитов');
+
+            $table->unsignedInteger('conversions')
+                ->default(0)
+                ->comment('Количество конверсий');
+
+            $table->timestamps();
+
+            $table->unique(['project_id', 'search_engine', 'month'], 'project_engine_month_unique');
+            $table->index(['project_id', 'month']);
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::dropIfExists('yandex_metrika_search_engines_stats');
+    }
+};

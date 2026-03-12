@@ -10,6 +10,7 @@ class YandexDirectCampaignStats
         private ?int $id,
         private int $projectId,
         private string $campaignName,
+        private ?int $campaignId,
         private int $impressions,
         private int $clicks,
         private float $costWithVat,
@@ -25,6 +26,7 @@ class YandexDirectCampaignStats
             $data['id'] ?? null,
             $data['project_id'],
             $data['campaign_name'],
+            isset($data['campaign_id']) ? (int) $data['campaign_id'] : null,
             (int) $data['impressions'],
             (int) $data['clicks'],
             (float) $data['cost_with_vat'],
@@ -48,6 +50,11 @@ class YandexDirectCampaignStats
     public function getCampaignName(): string
     {
         return $this->campaignName;
+    }
+
+    public function getCampaignId(): ?int
+    {
+        return $this->campaignId;
     }
 
     public function getImpressions(): int

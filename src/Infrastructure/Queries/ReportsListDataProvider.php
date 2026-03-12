@@ -2,6 +2,7 @@
 
 namespace Src\Infrastructure\Queries;
 
+use App\Models\User;
 use DateTimeImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -13,7 +14,7 @@ use Src\Domain\ValueObjects\ProjectType;
 
 class ReportsListDataProvider implements ReportsListDataProviderInterface
 {
-    public function getList(bool $showInactiveProjects, DateTimeRange $period): array
+    public function getList(bool $showInactiveProjects, DateTimeRange $period, ?int $userId): array
     {
         $query = DB::table('reports')
             ->join('templates', 'templates.id', '=', 'reports.template_id')
@@ -34,6 +35,9 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
                     ->where('reports.period_end', '<=', $period->getEnd()->format('Y-m-d'));
             });
         });
+
+        // Применяем фильтрацию по правам доступа
+        $query = $this->applyAccessFilter($query, $userId);
 
         $results = $query
             ->select([
@@ -74,5 +78,54 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
             $row->is_accepted,
             $row->is_sent
         ))->toArray();
+    }
+
+    /**
+     * Применяет фильтрацию по правам доступа к запросу.
+     */
+    private function applyAccessFilter(Builder $query, ?int $userId): Builder
+    {
+        // Если userId не передан, возвращаем все отчёты (для совместимости)
+        if ($userId === null) {
+            return $query;
+        }
+
+        $user = User::with('roles')->find($userId);
+
+        if (!$user) {
+            return $query->whereRaw('1 = 0'); // Пользователь не найден - нет доступа
+        }
+
+        $roleNames = $user->roles->pluck('name')->toArray();
+
+        // ADMIN и руководитель отдела менеджеров видят все отчёты
+        if (in_array('admin', $roleNames, true) || in_array('rucovotdelmanager', $roleNames, true)) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $q) use ($userId, $roleNames) {
+            // Всегда: пользователь видит отчёты, которые сам создал
+            $q->where('reports.created_by', '=', $userId);
+
+            // Руководитель отдела SEO видит отчёты по SEO-проектам
+            if (in_array('rucovotdelseo', $roleNames, true)) {
+                $q->orWhere('projects.project_type', '=', ProjectType::SEO_PROMOTION->value);
+            }
+
+            // Руководитель отдела КР видит отчёты по контекстной рекламе
+            if (in_array('rucovotdelkp', $roleNames, true)) {
+                $q->orWhere('projects.project_type', '=', ProjectType::CONTEXT_AD->value);
+            }
+
+            // Менеджер видит отчёты, где он назначен менеджером
+            if (in_array('manager', $roleNames, true)) {
+                $q->orWhere('reports.manager_id', '=', $userId);
+            }
+
+            // Специалист видит отчёты, где он назначен специалистом
+            if (in_array('seo', $roleNames, true) || in_array('kr', $roleNames, true)) {
+                $q->orWhere('reports.specialist_id', '=', $userId);
+            }
+        });
     }
 }
