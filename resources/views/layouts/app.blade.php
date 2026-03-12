@@ -2,7 +2,7 @@
     $user = auth()->user();
     $hasAgencies = $user->agencies()->exists();
     $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
-    $isAgencyExist = !empty(\App\Models\AgencySetting::query()->find(session('current_agency_id')));
+    $isAgencyExist = !empty(\App\Models\Agency::query()->find(session('current_agency_id')));
 @endphp
 
 <!DOCTYPE html>

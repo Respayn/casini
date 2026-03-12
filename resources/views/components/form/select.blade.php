@@ -87,6 +87,7 @@
             >
                 <span
                     x-text="getDisplayText()"
+                    class="overflow-hidden"
                     x-bind:class="{ 
                         'opacity-50': !selected && hasOptions,
                         'text-gray-400 italic': !hasOptions

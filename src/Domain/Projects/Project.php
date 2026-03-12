@@ -11,7 +11,8 @@ class Project
         private string $name,
         private int $clientId,
         private ProjectType $type,
-        private int $specialistId
+        private int $specialistId,
+        private string $domain
     ) {}
 
     public function getId(): int
@@ -37,5 +38,10 @@ class Project
     public function getSpecialistId(): int
     {
         return $this->specialistId;
+    }
+
+    public function getDomain(): string
+    {
+        return $this->domain;
     }
 }

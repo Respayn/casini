@@ -12,6 +12,7 @@ use Src\Application\Templates\Download\DownloadTemplateFileQuery;
 use Src\Application\Templates\Download\DownloadTemplateFileQueryHandler;
 use Src\Application\Templates\GetList\GetTemplatesListQuery;
 use Src\Application\Templates\GetList\GetTemplatesListQueryHandler;
+use Src\Domain\Templates\TemplateInUseException;
 
 new
     #[Title('Шаблоны отчетов - Casini')]
@@ -42,19 +43,21 @@ new
             );
         }
 
-        public function download(int $templateId)
+        public function download(DownloadTemplateFileQueryHandler $query, int $templateId)
         {
-            $file = app(DownloadTemplateFileQueryHandler::class)->handle(
+            $file = $query->handle(
                 new DownloadTemplateFileQuery($templateId)
             );
 
             return response()->download($file->path, $file->name);
         }
 
-        public function delete(int $templateId)
+        public function delete(DeleteTemplateCommandHandler $command, int $templateId)
         {
-            app(DeleteTemplateCommandHandler::class)->handle(
-                new DeleteTemplateCommand($templateId)
-            );
+            try {
+                $command->handle(new DeleteTemplateCommand($templateId));
+            } catch (TemplateInUseException $e) {
+                $this->addError('delete', $e->getMessage());
+            }
         }
     };

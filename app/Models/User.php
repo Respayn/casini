@@ -62,8 +62,8 @@ class User extends Authenticatable
     public function agencies()
     {
         return $this->belongsToMany(
-            \App\Models\AgencySetting::class,
-            'agency_admins',
+            \App\Models\Agency::class,
+            'agency_user',
             'user_id',
             'agency_id'
         )->withTimestamps();

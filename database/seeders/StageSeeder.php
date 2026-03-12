@@ -28,6 +28,7 @@ class StageSeeder extends Seeder
             ProductNotificationSeeder::class,
             IntegrationSeeder::class,
             RatesTableSeeder::class,
+            SearchEnginesSeeder::class,
         ]);
 
         $this->seedAgency();
@@ -36,6 +37,8 @@ class StageSeeder extends Seeder
         $this->seedSpecialists();
         $this->seedClients();
         $this->seedProjects();
+
+        $this->call(ReportTestDataSeeder::class);
     }
 
     private function seedAgency(): void

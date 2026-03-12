@@ -8,6 +8,6 @@ class ReportNamingService
 {
     public function generateName(Report $report, Project $project): string
     {
-        return 'Отчет';
+        return 'Отчет.' . $report->getFormat()->value;
     }
 }

@@ -2,15 +2,15 @@
 
 namespace Database\Factories;
 
-use App\Models\AgencySetting;
+use App\Models\Agency;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\AgencySetting>
+ * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Agency>
  */
 class AgencySettingFactory extends Factory
 {
-    protected $model = AgencySetting::class;
+    protected $model = Agency::class;
 
     public function definition()
     {

@@ -3,32 +3,40 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Src\Domain\Reports\ReportFormat;
 
 class Report extends Model
 {
-    public function template(): HasOne
+    protected $casts = [
+        'created_at' => 'immutable_datetime',
+        'period_start' => 'immutable_datetime',
+        'period_end' => 'immutable_datetime',
+        'format' => ReportFormat::class
+    ];
+
+    public function template(): BelongsTo
     {
-        return $this->hasOne(Template::class);
+        return $this->belongsTo(Template::class);
     }
 
-    public function client(): HasOne
+    public function client(): BelongsTo
     {
-        return $this->hasOne(Client::class);
+        return $this->belongsTo(Client::class);
     }
 
-    public function project(): HasOne
+    public function project(): BelongsTo
     {
-        return $this->hasOne(Project::class);
+        return $this->belongsTo(Project::class);
     }
 
-    public function specialist(): HasOne
+    public function specialist(): BelongsTo
     {
-        return $this->hasOne(User::class, 'id', 'specialist_id');
+        return $this->belongsTo(User::class, 'specialist_id', 'id');
     }
 
-    public function manager(): HasOne
+    public function manager(): BelongsTo
     {
-        return $this->hasOne(User::class, 'id', 'manager_id');
+        return $this->belongsTo(User::class, 'manager_id', 'id');
     }
 }

@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\AgencySetting;
+use App\Models\Agency;
 use App\Models\User;
 use App\Repositories\UserRepository;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -37,8 +37,8 @@ class UserRepositoryTest extends TestCase
 
     public function test_can_filter_users_by_agency_and_status()
     {
-        $agency = AgencySetting::factory()->create();
-        $otherAgency = AgencySetting::factory()->create();
+        $agency = Agency::factory()->create();
+        $otherAgency = Agency::factory()->create();
 
         $activeUser = User::factory()->create(['is_active' => true]);
         $inactiveUser = User::factory()->create(['is_active' => false]);

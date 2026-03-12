@@ -17,8 +17,6 @@ class DeleteTemplateCommandHandler
     {
         $template = $this->templateRepository->findById($command->templateId);
 
-        // TODO: check for template existence
-
         $this->templateRepository->remove($template);
     }
 }

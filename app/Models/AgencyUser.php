@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Model;
  * @property $name
  * @property $created_at
  * @property $updated_at
- * @property AgencySetting $agency
+ * @property Agency $agency
  */
-class AgencyAdmin extends Model
+class AgencyUser extends Model
 {
-    protected $table = 'agency_admins';
+    protected $table = 'agency_user';
     protected $fillable = [
         'agency_id',
         'user_id',
@@ -22,7 +22,7 @@ class AgencyAdmin extends Model
 
     public function agency()
     {
-        return $this->belongsTo(AgencySetting::class, 'agency_id');
+        return $this->belongsTo(Agency::class, 'agency_id');
     }
 
     public function user()
