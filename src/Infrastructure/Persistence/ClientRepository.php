@@ -14,12 +14,37 @@ class ClientRepository implements ClientRepositoryInterface
         return $this->mapToEntity($client);
     }
 
+    public function save(Client $client): int
+    {
+        $clientId = $client->getId();
+
+        $attributes = [
+            'name' => $client->getName(),
+            'manager_id' => $client->getManagerId(),
+            'inn' => $client->getInn(),
+            'initial_balance' => $client->getInitialBalance()
+        ];
+
+        if ($clientId === null) {
+            $eloquentClient = new EloquentClient();
+        } else {
+            $eloquentClient = EloquentClient::findOrFail($clientId);
+        }
+
+        $eloquentClient->fill($attributes);
+        $eloquentClient->save();
+        
+        return $eloquentClient->id;
+    }
+
     private function mapToEntity(EloquentClient $client): Client
     {
         return Client::restore(
             $client->id,
             $client->name,
-            $client->manager_id
+            $client->manager_id,
+            $client->inn,
+            $client->initial_balance
         );
     }
 }
