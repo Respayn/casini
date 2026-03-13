@@ -37,6 +37,14 @@ class ClientRepository implements ClientRepositoryInterface
         return $eloquentClient->id;
     }
 
+    public function findAll(): array
+    {
+        $eloquentClients = EloquentClient::all();
+        return $eloquentClients
+            ->map(fn(EloquentClient $client) => $this->mapToEntity($client))
+            ->toArray();
+    }
+
     private function mapToEntity(EloquentClient $client): Client
     {
         return Client::restore(

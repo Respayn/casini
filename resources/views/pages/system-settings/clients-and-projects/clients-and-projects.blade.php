@@ -1,14 +1,22 @@
 <div class="flex flex-col gap-3">
-    <div class="flex justify-between items-center">
+    <div class="flex items-center justify-between">
         <h1 class="text-primary-text text-xl font-semibold">Клиенты и Клиенто-проекты</h1>
 
-        <div class="flex gap-2 items-center">
-            <x-button.button label="+ Создать клиента" variant="primary" x-on:click="$dispatch('client-create')" />
-            <x-button.button href="{{ route('system-settings.clients-and-projects.projects.manage') }}"
-                label="+ Создать клиенто-проект" variant="primary" />
+        <div class="flex items-center gap-2">
+            <x-button.button
+                label="+ Создать клиента"
+                variant="primary"
+                x-on:click="$dispatch('client-create')"
+            />
+            <x-button.button
+                href="{{ route('system-settings.clients-and-projects.projects.manage') }}"
+                label="+ Создать клиенто-проект"
+                variant="primary"
+            />
         </div>
     </div>
-    <div>
+
+    <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
         <x-data.table class="w-full">
             <x-data.table-columns>
                 <x-data.table-column>
@@ -42,54 +50,64 @@
             </x-data.table-columns>
 
             <x-data.table-rows>
-                <?php /** @var \App\Data\ClientData $client */ ?>
+                <?php /** @var \Src\Application\Clients\GetClientsWithProjects\ClientDto $client */ ?>
                 @foreach ($this->clients as $clientIndex => $client)
-                    @if ($client->projects->count())
-                        @foreach($client->projects as $projectIndex => $project)
-                            <x-data.table-row wire:key="client-{{ $clientIndex }}-project-{{ $projectIndex }}">
-                                @if($projectIndex === 0)
-                                    <x-data.table-cell :rowspan="count($client->projects)">
+                    @php
+                        $clientEditPayload = Js::from([
+                            'id' => $client->id,
+                            'name' => $client->name,
+                            'inn' => $client->inn,
+                            'initialBalance' => $client->initialBalance,
+                            'managerId' => $client->managerId,
+                        ]);
+
+                        $projectCount = count($client->projects);
+                    @endphp
+
+                    @if ($projectCount > 0)
+                        <?php /** @var \Src\Application\Clients\GetClientsWithProjects\ClientProjectDto $project */ ?>
+                        @foreach ($client->projects as $project)
+                            <x-data.table-row wire:key="client-{{ $client->id }}-project-{{ $project->id }}">
+                                @if ($loop->first)
+                                    <x-data.table-cell :rowspan="$projectCount">
                                         <button
-                                            wire:click="$dispatch('client-edit', { 
-                                                id: {{ $client->id }},
-                                                name: '{{ $client->name }}',
-                                                inn: '{{ $client->inn }}',
-                                                initialBalance: {{ $client->initial_balance }},
-                                                managerId: {{ $client->manager_id }}
-                                            })"
-                                            class="link">
+                                            class="link"
+                                            x-on:click="$dispatch('client-edit', {{ $clientEditPayload }})"
+                                        >
                                             {{ $client->name }}
                                         </button>
                                     </x-data.table-cell>
-                                    <x-data.table-cell :rowspan="count($client->projects)">
+                                    <x-data.table-cell :rowspan="$projectCount">
                                         {{ $client->inn }}
                                     </x-data.table-cell>
                                 @endif
+
                                 <x-data.table-cell>
-                                    <a href="{{ route('system-settings.clients-and-projects.projects.manage', $project->id) }}"
-                                        class="link">
+                                    <a
+                                        class="link"
+                                        href="{{ route('system-settings.clients-and-projects.projects.manage', $project->id) }}"
+                                    >
                                         {{ $project->name }}
                                     </a>
                                 </x-data.table-cell>
                                 <x-data.table-cell>
-                                    {{ $project->project_type->label() }}
+                                    {{ $project->projectType }}
                                 </x-data.table-cell>
-                                <x-data.table-cell>
-                                    {{ Number::currency($client->initial_balance, in: 'RUB', locale: 'ru') }}
-                                </x-data.table-cell>
+
+                                @if ($loop->first)
+                                    <x-data.table-cell :rowspan="$projectCount">
+                                        {{ Number::currency($client->initialBalance, in: 'RUB', locale: 'ru') }}
+                                    </x-data.table-cell>
+                                @endif
                             </x-data.table-row>
                         @endforeach
                     @else
-                        <x-data.table-row wire:key="client-{{ $clientIndex }}">
+                        <x-data.table-row wire:key="client-{{ $client->id }}">
                             <x-data.table-cell>
-                                <button wire:click="$dispatch('client-edit', { 
-                                        id: {{ $client->id }},
-                                        name: '{{ $client->name }}',
-                                        inn: '{{ $client->inn }}',
-                                        initialBalance: {{ $client->initial_balance }},
-                                        managerId: {{ $client->manager_id }}
-                                    })"
-                                    class="link">
+                                <button
+                                    class="link"
+                                    wire:click="$dispatch('client-edit', {{ $clientEditPayload }})"
+                                >
                                     {{ $client->name }}
                                 </button>
                             </x-data.table-cell>
@@ -100,14 +118,14 @@
                                 Нет проектов
                             </x-data.table-cell>
                             <x-data.table-cell>
-                                {{ Number::currency($client->initial_balance, in: 'RUB', locale: 'ru') }}
+                                {{ Number::currency($client->initialBalance, in: 'RUB', locale: 'ru') }}
                             </x-data.table-cell>
                         </x-data.table-row>
                     @endif
                 @endforeach
             </x-data.table-rows>
         </x-data.table>
-    </div>
+    </x-panel.scroll-panel>
 
     <livewire:client.create-modal @clientSaved="$refresh" />
 </div>

@@ -13,15 +13,10 @@ class ClientService
     ) {}
 
     /**
-     * @return Collection<\App\Data\ClientData>
+     * @return Collection<ClientData>
      */
     public function getClients(array $with = []): Collection
     {
         return collect($this->repository->all($with));
-    }
-
-    public function getById(int $id): ClientData|null
-    {
-        return $this->repository->find($id);
     }
 }

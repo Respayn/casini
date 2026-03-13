@@ -28,6 +28,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Src\Domain\Clients\ClientRepositoryInterface;
 
 new
 #[Layout('layouts::system-settings')]
@@ -37,6 +38,8 @@ class extends Component
     public CreateClientProjectForm $clientProjectForm;
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
     public ProjectUtmMappingForm $utmMappingForm;
+
+    private ClientRepositoryInterface $clientRepository;
 
     private ClientService $clientService;
     private ProjectService $projectService;
@@ -59,7 +62,8 @@ class extends Component
         PromotionRegionService $promotionRegionService,
         PromotionTopicService $promotionTopicService,
         IntegrationService $integrationService,
-        UserService $userService
+        UserService $userService,
+        ClientRepositoryInterface $clientRepository
     )
     {
         $this->clientService = $clientService;
@@ -68,6 +72,7 @@ class extends Component
         $this->promotionTopicService = $promotionTopicService;
         $this->integrationService = $integrationService;
         $this->userService = $userService;
+        $this->clientRepository = $clientRepository;
     }
 
     public function mount(Request $request, $projectId = null)
@@ -80,10 +85,10 @@ class extends Component
         if ($projectId) {
             // Получение данных
             $project = $this->projectService->getProjectDataById($projectId);
-            $client = $this->clientService->getById($project->client_id);
+            $client = $this->clientRepository->findById($project->client_id);
             
             $this->clientProjectForm->from($project);
-            $this->clientProjectForm->manager = $client->manager_id;
+            $this->clientProjectForm->manager = $client->getManagerId();
             $this->bonusGuaranteeForm->from($project->bonusCondition);
             $this->utmMappingForm->from($project->utmMappings->toArray());
             $this->integrationSettings = $this->integrationService->getIntegrationSettingsForProject($projectId);
