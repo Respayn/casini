@@ -11,8 +11,8 @@ class AgencyData extends Data
     public function __construct(
         public int $id,
         public string $name,
-        #[DataCollectionOf(AgencyAdminData::class)]
-        public DataCollection $admins,
+        #[DataCollectionOf(AgencyUserData::class)]
+        public DataCollection $users,
         public string $timeZone,
         public ?string $url,
         public ?string $email,

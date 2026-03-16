@@ -26,13 +26,13 @@ class AgencyData {
 }
 
 class AgencySettingsService <<Сервис с логикой "Настройки агентства">> {
-    - AgencySettingsRepository $repository
+    - AgencyRepository $repository
 
     + getAgency(int $id): AgencyData
     + saveAgency(AgencyData $agency): void
 }
 
-class AgencySettingsRepository <<Репозиторий для работы с настройками агентства>> {
+class AgencyRepository <<Репозиторий для работы с настройками агентства>> {
     + getAgency(int $id): AgencyData
     + saveAgency(AgencyData $agency): void
 }
@@ -50,9 +50,9 @@ class AgencySettings <<Fullpage Компонент Livewire для страни�
 
 AgencySettings --> AgencySettingsService
 
-AgencySettingsService --> AgencySettingsRepository
+AgencySettingsService --> AgencyRepository
 
-AgencySettingsRepository --> AgencyData
+AgencyRepository --> AgencyData
 
 AgencyData --> AgencyAdminData
 AgencyData --> UrlScheme

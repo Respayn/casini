@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Services\RoleHierarchyService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -59,24 +60,19 @@ class User extends Authenticatable
         ];
     }
 
-    public function agencies()
+    public function agencies(): BelongsToMany
     {
-        return $this->belongsToMany(
-            \App\Models\Agency::class,
-            'agency_user',
-            'user_id',
-            'agency_id'
-        )->withTimestamps();
+        return $this->belongsToMany(Agency::class);
     }
 
     public function rateUser()
     {
-        return $this->hasMany(\App\Models\RateUser::class, 'user_id');
+        return $this->hasMany(RateUser::class, 'user_id');
     }
 
     public function latestRate()
     {
-        return $this->hasOne(\App\Models\RateUser::class, 'user_id', 'id')->latestOfMany();
+        return $this->hasOne(RateUser::class, 'user_id', 'id')->latestOfMany();
     }
 
     public function hasPermissionTo($permission, $guardName = null): bool

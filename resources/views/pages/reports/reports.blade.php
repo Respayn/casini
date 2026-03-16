@@ -93,7 +93,7 @@
 
                                         @case('period')
                                             <x-data.table-cell class="whitespace-nowrap">
-                                                {{ $report->periodStart->format('d.m.y') }} - {{ $report->periodEnd->format('d.m.y') }}
+                                                {{ $report->periodLabel() }}
                                             </x-data.table-cell>
                                         @break
 

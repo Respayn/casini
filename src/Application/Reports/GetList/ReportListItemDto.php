@@ -3,6 +3,7 @@
 namespace Src\Application\Reports\GetList;
 
 use DateTimeImmutable;
+use IntlDateFormatter;
 
 class ReportListItemDto
 {
@@ -23,4 +24,19 @@ class ReportListItemDto
         public bool $isAccepted,
         public bool $isSent
     ) {}
+
+    public function periodLabel(): string
+    {
+        $formatter = new IntlDateFormatter('ru_RU', IntlDateFormatter::SHORT, IntlDateFormatter::NONE);
+
+        if ($this->periodStart->format('Y') === $this->periodEnd->format('Y')
+            && $this->periodStart->format('m') === $this->periodEnd->format('m')
+        ) {
+            $formatter->setPattern('LLLL yyyy');
+            return mb_ucfirst($formatter->format($this->periodStart));
+        }
+
+        $formatter->setPattern('LLLL yyyy');
+        return mb_ucfirst($formatter->format($this->periodStart)) . ' - ' . mb_ucfirst($formatter->format($this->periodEnd));
+    }
 }

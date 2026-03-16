@@ -17,8 +17,8 @@
                 <!-- Клик по этой зоне открывает / закрывает меню -->
                 <div @click="open = !open" class="flex items-center cursor-pointer select-none min-w-[230px]">
                     @if (Auth::user()->image_path)
-                        <div class="rounded-full" style="width: 40px; height: 40px;">
-                            <img src="{{ Storage::url(Auth::user()->image_path) }}" />
+                        <div style="width: 40px; height: 40px;">
+                            <img class="rounded-full" src="{{ Storage::url(Auth::user()->image_path) }}" />
                         </div>
                     @else
                         <x-misc.skeleton shape="circle" size="40px" />

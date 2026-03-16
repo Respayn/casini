@@ -60,7 +60,9 @@ class ReportDataBuilder
         return new ReportData(
             values: $this->values,
             tables: $this->tables,
-            lists: $this->lists
+            lists: $this->lists,
+            images: $this->images,
+            conditions: $this->conditions
         );
     }
 }

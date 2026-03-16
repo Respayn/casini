@@ -1,15 +1,22 @@
 <div>
     <x-menu.back-button />
 
-    <x-form.form :is-normalized="true" wire:submit.prevent="save">
+    <x-form.form
+        :is-normalized="true"
+        wire:submit.prevent="save"
+    >
         <div class="mt-4 flex max-w-[950px] flex-col gap-4">
             <h1 class="text-xl font-semibold">Настройка агентства</h1>
 
-            <h2 class="font-semibold mt-2 mb-1">Основные настройки</h2>
+            <h2 class="mb-1 mt-2 font-semibold">Основные настройки</h2>
 
             <x-form.form-field>
                 <x-form.form-label> ID агентства </x-form.form-label>
-                <x-form.input-text :value="$form->id" disabled class="bg-gray-100"></x-form.input-text>
+                <x-form.input-text
+                    class="bg-gray-100"
+                    :value="$form->id"
+                    disabled
+                ></x-form.input-text>
             </x-form.form-field>
 
             <x-form.form-field>
@@ -18,10 +25,13 @@
             </x-form.form-field>
 
             <x-form.form-field>
-                <x-form.form-label tooltip="Список админов формируется автоматически по ролям">Пользователи с ролью администратор</x-form.form-label>
+                <x-form.form-label tooltip="Список админов формируется автоматически по ролям">Пользователи с ролью
+                    администратор</x-form.form-label>
                 <div class="flex flex-wrap gap-2">
                     @foreach ($form->admins as $admin)
-                        <span class="rounded border border-primary px-2 py-1 text-primary bg-blue-50 cursor-pointer hover:bg-blue-100 transition">
+                        <span
+                            class="border-primary text-primary cursor-pointer rounded border bg-blue-50 px-2 py-1 transition hover:bg-blue-100"
+                        >
                             {{ $admin['name'] }}
                         </span>
                     @endforeach
@@ -29,7 +39,10 @@
             </x-form.form-field>
 
             <x-form.form-field>
-                <x-form.form-label required tooltip="Выбранный часовой пояс влияет на отображение дат и автоматизацию процессов">
+                <x-form.form-label
+                    required
+                    tooltip="Выбранный часовой пояс влияет на отображение дат и автоматизацию процессов"
+                >
                     Основной часовой пояс агентства
                 </x-form.form-label>
                 <div>
@@ -41,53 +54,75 @@
                 </div>
             </x-form.form-field>
 
-            <h2 class="font-semibold mt-6 mb-1">Реквизиты в отчетах</h2>
+            <h2 class="mb-1 mt-6 font-semibold">Реквизиты в отчетах</h2>
 
             <x-form.form-field>
-                <x-form.form-label tooltip="Адрес сайта будет отображаться в отчетах">URL-адрес сайта агентства</x-form.form-label>
-                <x-form.input-text wire:model="form.url" placeholder="https://siteactiv.ru"/>
+                <x-form.form-label tooltip="Адрес сайта будет отображаться в отчетах">URL-адрес сайта
+                    агентства</x-form.form-label>
+                <x-form.input-text
+                    wire:model="form.url"
+                    placeholder="https://siteactiv.ru"
+                />
             </x-form.form-field>
 
             <x-form.form-field>
                 <x-form.form-label>Email агентства</x-form.form-label>
-                <x-form.input-text wire:model="form.email" placeholder="email@siteactiv.ru"/>
+                <x-form.input-text
+                    wire:model="form.email"
+                    placeholder="email@siteactiv.ru"
+                />
             </x-form.form-field>
 
             <x-form.form-field>
                 <x-form.form-label>Телефон агентства</x-form.form-label>
-                <x-form.input-text wire:model="form.phone" placeholder="+7 (343) 317-22-30"/>
+                <x-form.input-text
+                    wire:model="form.phone"
+                    placeholder="+7 (343) 317-22-30"
+                />
             </x-form.form-field>
 
             <x-form.form-field>
                 <x-form.form-label>Фактический адрес агентства</x-form.form-label>
                 <div>
-                    <x-form.textarea wire:model="form.address" placeholder="Центральный офис: г. Екатеринбург, ул. Добролюбова 16/2, оф.201"/>
+                    <x-form.textarea
+                        wire:model="form.address"
+                        placeholder="Центральный офис: г. Екатеринбург, ул. Добролюбова 16/2, оф.201"
+                    />
                 </div>
             </x-form.form-field>
 
             <x-form.form-field>
-                <x-form.form-label tooltip="Можно загружать только jpg, jpeg, png, gif. До 1 Мб">Логотип агентства</x-form.form-label>
-                <div class="flex flex-col gap-2 items-start max-w-[305px]">
-                    @if($form->logo)
+                <x-form.form-label tooltip="Можно загружать только jpg, jpeg, png, gif. До 1 Мб">Логотип
+                    агентства</x-form.form-label>
+                <div class="flex max-w-[305px] flex-col items-start gap-2">
+                    @if ($form->logo)
                         {{-- Превью до сохранения --}}
-                        <img src="{{ $form->logo->temporaryUrl() }}" alt="Превью логотипа" class="w-full object-contain rounded border border-secondary-text" />
+                        <img
+                            class="border-secondary-text w-full rounded border object-contain"
+                            src="{{ $form->logo->temporaryUrl() }}"
+                            alt="Превью логотипа"
+                        />
                         <x-button.button
+                            class="text-secondary-text w-full !px-3 !py-1 text-sm"
                             type="button"
                             wire:click="deleteLogo"
                             variant="link"
-                            class="!py-1 !px-3 text-sm w-full text-secondary-text"
                         >
                             <x-slot:label>Удалить</x-slot:label>
                         </x-button.button>
                     @elseif($form->logoSrc)
                         {{-- Уже сохранённый логотип --}}
                         <div>
-                            <img src="{{ Storage::url($form->logoSrc) }}" alt="Логотип агентства" class="w-full object-contain rounded border border-secondary-text" />
+                            <img
+                                class="border-secondary-text w-full rounded border object-contain"
+                                src="{{ Storage::url($form->logoSrc) }}"
+                                alt="Логотип агентства"
+                            />
                             <x-button.button
+                                class="text-secondary-text w-full !px-3 !py-1 text-sm"
                                 type="button"
                                 wire:click="deleteLogo"
                                 variant="link"
-                                class="!py-1 !px-3 text-sm w-full text-secondary-text"
                             >
                                 <x-slot:label>Удалить</x-slot:label>
                             </x-button.button>
@@ -95,11 +130,23 @@
                     @endif
 
                     {{-- Поле для загрузки всегда отображается если нет превью --}}
-                    @if(!$form->logo && !$form->logoSrc)
-                        <x-form.input-file wire:model="form.logo" accept=".jpg,.jpeg,.png,.gif" class="w-full min-h-[200px] object-contain rounded border border-secondary-text"/>
+                    @if (!$form->logo && !$form->logoSrc)
+                        <label
+                            class="border-secondary-text flex min-h-[305px] w-full cursor-pointer flex-col items-center justify-center rounded border object-contain transition hover:bg-gray-50"
+                        >
+                            <x-icons.camera class="text-secondary-text mb-2 h-10 w-10" />
+                            <x-form.input-file
+                                class="hidden"
+                                accept=".jpg,.jpeg,.png"
+                                wire:model="form.logo"
+                            />
+                            <span class="text-secondary-text mt-2 block w-full text-center text-sm">
+                                Загрузить фото
+                            </span>
+                        </label>
                     @endif
 
-                    <span class="text-xs text-secondary-text">Только jpg, jpeg, png, gif. До 1 Мб.</span>
+                    <span class="text-secondary-text text-xs">Только jpg, jpeg, png. До 1 Мб.</span>
                 </div>
             </x-form.form-field>
 

@@ -26,15 +26,8 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
             $query = $query->where('projects.is_active', '=', true);
         }
 
-        $query = $query->where(function (Builder $q) use ($period) {
-            $q->where(function (Builder $sub) use ($period) {
-                $sub->where('reports.period_start', '>=', $period->getStart()->format('Y-m-d'))
-                    ->where('reports.period_start', '<=', $period->getEnd()->format('Y-m-d'));
-            })->orWhere(function (Builder $sub) use ($period) {
-                $sub->where('reports.period_end', '>=', $period->getStart()->format('Y-m-d'))
-                    ->where('reports.period_end', '<=', $period->getEnd()->format('Y-m-d'));
-            });
-        });
+        $query = $query->where('reports.created_at', '>=', $period->start->format('Y-m-d'))
+            ->where('reports.created_at', '<=', $period->end->format('Y-m-d'));
 
         // Применяем фильтрацию по правам доступа
         $query = $this->applyAccessFilter($query, $userId);

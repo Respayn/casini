@@ -4,12 +4,13 @@ namespace App\Services;
 
 use App\Data\AgencyData;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
-use App\Repositories\Interfaces\AgencySettingsRepositoryInterface;
+use App\Repositories\Interfaces\AgencyRepositoryInterface;
+use Illuminate\Support\Facades\Auth;
 
 class AgencySettingsService
 {
     public function __construct(
-        protected AgencySettingsRepositoryInterface $repository
+        protected AgencyRepositoryInterface $repository
     ) {}
 
     public function getAgency(int $id): AgencyData
@@ -29,7 +30,7 @@ class AgencySettingsService
 
     public function getActualAgencyId()
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         $agencies = $user->agencies()->get()->map(function ($agency) {
             return [
@@ -48,7 +49,7 @@ class AgencySettingsService
 
     public function getActualAgencyIdWithList(): array
     {
-        $user = auth()->user();
+        $user = Auth::user();
 
         $agencies = $user->agencies()->get()->map(function ($agency) {
             return [

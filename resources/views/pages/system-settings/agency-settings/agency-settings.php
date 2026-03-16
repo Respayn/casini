@@ -54,7 +54,7 @@ class extends Component
             'phone' => $this->form->phone,
             'address' => $this->form->address,
             'logoSrc' => $this->form->logoSrc,
-            'admins' => $this->form->admins ?? [],
+            'users' => $this->form->admins ?? [],
         ]);
 
         $service->saveAgency($agencyDto);

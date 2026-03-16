@@ -20,8 +20,8 @@ new #[Title('Casini - Создать отчет')] class extends Component {
 
     public function mount(): void
     {
-        $this->from = Carbon::now()->subMonth();
-        $this->to = Carbon::now();
+        $this->from = Carbon::now()->subMonth()->startOfMonth();
+        $this->to = Carbon::now()->endOfMonth()->startOfDay();
 
         if (!empty($this->formData->formats)) {
             $this->format = array_first($this->formData->formats)['value'];

@@ -3,9 +3,8 @@
 namespace App\Providers;
 
 use App\Contracts\ChannelReportServiceInterface;
-use App\Repositories\AgencySettingsRepository;
+use App\Repositories\AgencyRepository;
 use App\Repositories\IntegrationRepository;
-use App\Repositories\Interfaces\AgencySettingsRepositoryInterface;
 use App\Repositories\Interfaces\IntegrationRepositoryInterface;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Repositories\ProjectUtmMappingRepository;
@@ -55,7 +54,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(AgencySettingsRepositoryInterface::class, AgencySettingsRepository::class);
         $this->app->bind(ProjectUtmMappingRepositoryInterface::class, ProjectUtmMappingRepository::class);
         $this->app->bind(IntegrationRepositoryInterface::class, IntegrationRepository::class);
         $this->app->bind(ChannelReportServiceInterface::class, ChannelReportService::class);

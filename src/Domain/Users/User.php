@@ -10,7 +10,8 @@ class User
         private string $lastName,
         private string $email,
         private string $phone,
-        private ?string $imagePath
+        private ?string $imagePath,
+        private array $agenciesIds
     ) {}
 
     public function getId(): int|null
@@ -41,5 +42,10 @@ class User
     public function getImagePath(): ?string
     {
         return $this->imagePath;
+    }
+
+    public function getAgencysIds(): array
+    {
+        return $this->agenciesIds;
     }
 }

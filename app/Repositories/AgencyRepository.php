@@ -6,34 +6,36 @@ namespace App\Repositories;
 use App\Data\AgencyData;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Models\Agency;
-use App\Repositories\Interfaces\AgencySettingsRepositoryInterface;
+use App\Repositories\Interfaces\AgencyRepositoryInterface;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
-class AgencySettingsRepository extends EloquentRepository implements AgencySettingsRepositoryInterface
+class AgencyRepository extends EloquentRepository implements AgencyRepositoryInterface
 {
     public function model()
     {
         return Agency::class;
     }
 
-    public function all(array $with = ['admins', 'admins.user'])
+    public function all(array $with = ['users'])
     {
         $agencies = Agency::with($with)->get();
 
         return AgencyData::collect($agencies->map(function ($agency) {
             $arr = $agency->toArray();
-            $arr['admins'] = $agency->admins;
+            $arr['users'] = $agency->users;
             return $arr;
         })->all());
     }
 
     public function find(int $id): ?AgencyData
     {
-        $agency = Agency::with(['admins', 'admins.user'])->find($id);
+        $agency = Agency::with(['users'])->find($id);
 
         if ($agency) {
             $arr = $agency->toArray();
-            $arr['admins'] = $agency->admins;
+            $arr['users'] = $agency->users;
             return AgencyData::from($arr);
         }
 
@@ -42,11 +44,11 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
 
     public function findBy(string $column, mixed $value)
     {
-        $agencies = Agency::where($column, $value)->with('admins')->get();
+        $agencies = Agency::where($column, $value)->with('users')->get();
 
         return AgencyData::collect($agencies->map(function ($agency) {
             $arr = $agency->toArray();
-            $arr['admins'] = $agency->admins;
+            $arr['users'] = $agency->users;
             return $arr;
         })->all());
     }
@@ -81,35 +83,21 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
             ]);
 
             if (!empty($lastLogoSrc)) {
-                \Storage::disk('public')->delete($lastLogoSrc);
+                Storage::disk('public')->delete($lastLogoSrc);
             }
         });
-
-        // Если нужны админы:
-        if (!empty($data['admins'])) {
-            // Удаляем старых
-            $agency->admins()->delete();
-
-            // Добавляем новых
-            foreach ($data['admins'] as $admin) {
-                $agency->admins()->create([
-                    'user_id' => $admin['id'],
-                    'name'    => $admin['name'],
-                ]);
-            }
-        }
     }
 
     public function getAgency(int $id): AgencyData
     {
-        $agency = Agency::with(['admins', 'admins.user'])->findOrFail($id);
+        $agency = Agency::with(['users'])->findOrFail($id);
 
         // Подготавливаем массив админов
-        $admins = $agency->admins->map(function ($admin) {
-            $name = trim("{$admin->user->first_name} {$admin->user->last_name}");
+        $users = $agency->users->map(function ($user) {
+            $name = trim("{$user->first_name} {$user->last_name}");
             return [
-                'id' => $admin->user_id,
-                'name' => empty($name) ? $admin->user->login : $name,
+                'id' => $user->id,
+                'name' => empty($name) ? $user->login : $name,
             ];
         });
 
@@ -117,7 +105,7 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         $data = [
             'id' => $agency->id,
             'name' => $agency->name,
-            'admins' => $admins,
+            'users' => $users,
             'timeZone' => $agency->time_zone,
             'url' => $agency->url,
             'email' => $agency->email,
@@ -149,18 +137,18 @@ class AgencySettingsRepository extends EloquentRepository implements AgencySetti
         ]);
 
         // 3. Получаем текущего пользователя
-        $user = auth()->user();
+        $user = Auth::user();
 
         // 4. Связываем пользователя с агентством как администратора
         if ($user) {
-            $agency->admins()->create([
+            $agency->users()->create([
                 'user_id' => $user->id,
             ]);
         }
 
         // 5. Для DTO: обновляем массив админов и timeZone
         $agencyArr = $agency->toArray();
-        $agencyArr['admins'] = $agency->admins()->get()->map(function($admin) {
+        $agencyArr['users'] = $agency->users()->get()->map(function($admin) {
             return [
                 'id' => $admin->user_id,
             ];

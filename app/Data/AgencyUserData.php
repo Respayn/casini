@@ -4,7 +4,7 @@ namespace App\Data;
 
 use Spatie\LaravelData\Data;
 
-class AgencyAdminData extends Data
+class AgencyUserData extends Data
 {
     public function __construct(
         public int $id,

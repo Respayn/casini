@@ -13,15 +13,21 @@ class Agency
         private string $phone
     ) {}
 
-    public static function restore(array $data): Agency
-    {
+    public static function restore(
+        int $id,
+        string $address,
+        string $domain,
+        string $logoPath,
+        string $email,
+        string $phone
+    ): Agency {
         return new self(
-            $data['id'],
-            $data['address'],
-            $data['url'],
-            $data['logo_src'],
-            $data['email'],
-            $data['phone']
+            $id,
+            $address,
+            $domain,
+            $logoPath,
+            $email,
+            $phone
         );
     }
 

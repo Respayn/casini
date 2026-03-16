@@ -62,7 +62,7 @@ class AgencySettingsForm extends Form
         $this->address = $agency->address ?? null;
         $this->logoSrc = $agency->logoSrc ?? null;
 
-        $this->admins = collect($agency->admins ?? [])->map(function($admin) {
+        $this->admins = collect($agency->users ?? [])->map(function($admin) {
             return [
                 'id' => is_object($admin) ? $admin->id : ($admin['id'] ?? null),
                 'name' => is_object($admin) ? $admin->name : ($admin['name'] ?? null),

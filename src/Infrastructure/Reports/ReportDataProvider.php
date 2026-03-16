@@ -2,8 +2,10 @@
 
 namespace Src\Infrastructure\Reports;
 
+use Illuminate\Support\Facades\Storage;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportDataProviderInterface;
+use Src\Domain\Agencies\AgencyRepositoryInterface;
 use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Domain\CompletedWorks\CompletedWorkRepositoryInterface;
 use Src\Domain\Leads\CallibriLeadRepositoryInterface;
@@ -16,7 +18,6 @@ use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalConversion;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
 use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
-use Src\Domain\YandexMetrika\YandexMetrikaSearchEnginesStats;
 use Src\Domain\YandexMetrika\YandexMetrikaVisitsGeo;
 use Src\Domain\YandexMetrika\YandexMetrikaVisitsSearchQueries;
 
@@ -31,6 +32,7 @@ class ReportDataProvider implements ReportDataProviderInterface
     private readonly YandexMetrikaRepositoryInterface $yandexMetrikaRepository;
     private readonly ProjectPlanValueRepositoryInterface $projectPlanValueRepository;
     private readonly CompletedWorkRepositoryInterface $completedWorkRepository;
+    private readonly AgencyRepositoryInterface $agencyRepository;
 
     public function __construct(
         ProjectRepositoryInterface $projectRepository,
@@ -41,7 +43,8 @@ class ReportDataProvider implements ReportDataProviderInterface
         YandexDirectRepositoryInterface $yandexDirectRepository,
         YandexMetrikaRepositoryInterface $yandexMetrikaRepository,
         ProjectPlanValueRepositoryInterface $projectPlanValueRepository,
-        CompletedWorkRepositoryInterface $completedWorkRepository
+        CompletedWorkRepositoryInterface $completedWorkRepository,
+        AgencyRepositoryInterface $agencyRepository
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
@@ -52,6 +55,7 @@ class ReportDataProvider implements ReportDataProviderInterface
         $this->yandexMetrikaRepository = $yandexMetrikaRepository;
         $this->projectPlanValueRepository = $projectPlanValueRepository;
         $this->completedWorkRepository = $completedWorkRepository;
+        $this->agencyRepository = $agencyRepository;
     }
 
     public function getData(int $projectId, DateTimeRange $period): ReportData
@@ -75,14 +79,24 @@ class ReportDataProvider implements ReportDataProviderInterface
             ->value('manager_first_name', $manager->getFirstName())
             ->value('manager_phone', $manager->getPhone())
             ->value('manager_email', $manager->getEmail())
-            ->image('manager_photo', $manager->getImagePath() ?? '');
+            ->image('manager_photo', !empty($manager->getImagePath()) ? Storage::disk('public')->path($manager->getImagePath()) : '');
 
         // Agency
-        $builder->value('agency_address', '')
-            ->value('agency_domain', '')
-            ->image('agency_image', '')
-            ->value('agency_email', '')
-            ->value('agency_phone', '');
+        $agencyId = empty($manager->getAgencysIds()) ? null : $manager->getAgencysIds()[0];
+        if ($agencyId === null) {
+            $builder->value('agency_address', '')
+                ->value('agency_domain', '')
+                ->image('agency_image', '')
+                ->value('agency_email', '')
+                ->value('agency_phone', '');
+        } else {
+            $agency = $this->agencyRepository->findById($agencyId);
+            $builder->value('agency_address', $agency->getAddress())
+                ->value('agency_domain', $agency->getDomain())
+                ->image('agency_image', !empty($agency->getLogoPath()) ? Storage::disk('public')->path($agency->getLogoPath()) : '')
+                ->value('agency_email', $agency->getEmail())
+                ->value('agency_phone', $agency->getPhone());
+        }
 
         // Callibri
         $callibriLeads = $this->callibriLeadRepository->findByProjectId($projectId, $period);

@@ -10,7 +10,7 @@ class UserRepository implements UserRepositoryInterface
 {
     public function findById(int $id): User
     {
-        $eloquentUser = EloquentUser::find($id);
+        $eloquentUser = EloquentUser::with('agencies')->find($id);
         return $this->mapToEntity($eloquentUser);
     }
 
@@ -22,7 +22,8 @@ class UserRepository implements UserRepositoryInterface
             $user->last_name,
             $user->email,
             $user->phone,
-            $user->image_path
+            $user->image_path,
+            $user->agencies->pluck('id')->toArray()
         );
     }
 }

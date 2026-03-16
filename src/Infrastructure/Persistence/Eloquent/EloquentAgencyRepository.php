@@ -16,6 +16,13 @@ class EloquentAgencyRepository implements AgencyRepositoryInterface
 
     public function mapToEntity(EloquentAgency $agency): Agency
     {
-        return Agency::restore($agency->toArray());
+        return Agency::restore(
+            $agency->id,
+            $agency->address,
+            $agency->url,
+            $agency->logo_src,
+            $agency->email,
+            $agency->phone
+        );
     }
 }
