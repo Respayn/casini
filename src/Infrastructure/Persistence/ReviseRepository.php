@@ -19,6 +19,7 @@ use App\Data\Revise\EmployeeData;
 use App\Data\Revise\ClientData;
 use App\Data\Revise\ChannelData;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Carbon as SupportCarbon;
 
 class ReviseRepository implements ReviseRepositoryInterface
 {
@@ -315,7 +316,7 @@ class ReviseRepository implements ReviseRepositoryInterface
                 $projects = Project::whereClientId($client->id)->get();
                 foreach ($projects as $project) {
                     $this->yandexDirectService->clientLogin = $project->integrations->where('channel_id', $this->yandexDirectChannel->id)->where('is_enabled', true)->first()->client_login ?? null;
-                    $report = $this->yandexDirectService->getProjectExpensesByMonth($periodFrom, $periodTo);
+                    $report = $this->yandexDirectService->getProjectExpensesByMonth(SupportCarbon::parse($periodFrom), SupportCarbon::parse($periodTo));
 
                     if (!isset($report['error'])) {
                         foreach ($report as $reportRow) {
