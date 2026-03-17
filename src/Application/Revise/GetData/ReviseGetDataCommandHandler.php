@@ -26,6 +26,9 @@ class ReviseGetDataCommandHandler
 
         //маппим данные и возвращаем коллекцию DTO
         return $result->map(fn($row) => new ReviseGetDataDto(
+            id: data_get($row, 'id'),
+            name: (string) data_get($row, 'name', ''),
+            clients: data_get($row, 'clients', []),
             date: Carbon::parse(data_get($row, 'date')),
             income: (float) data_get($row, 'income', 0),
             outcome: data_get($row, 'outcome', '-'),

@@ -10,6 +10,8 @@ use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use App\Enums\Role;
+use App\Enums\Department;
 
 class User extends Authenticatable
 {
@@ -103,6 +105,37 @@ class User extends Authenticatable
     {
         return $this->hasMany(PaymentOperation::class, 'manager_id');
     }
+
+    public function projects()
+    {
+        if ($this->hasRole(Role::ADMIN)) {
+            return Project::query();
+        }
+
+        if ($this->hasAnyRole([Role::SEO_SPECIALIST, Role::CA_SPECIALIST])) {
+            return $this->projectsAsSpecialist();
+        }
+
+        if ($this->hasRole(Role::MANAGER)) {
+            return $this->projectsAsManager();
+        }
+
+        if ($this->hasRole(Role::MANAGER_DEPARTMENT_HEAD)) {
+            return Project::whereNotNull('manager_id');
+        }
+
+        // Руководители SEO/КР — только проекты своего департамента
+        if ($this->hasRole(Role::SEO_DEPARTMENT_HEAD)) {
+            return Project::where('department_id', Department::SEO->value);
+        }
+
+        if ($this->hasRole(Role::CA_DEPARTMENT_HEAD)) {
+            return Project::where('department_id', Department::CA->value);
+        }
+
+        return Project::query()->whereRaw('1 = 0');
+    }
+
 
     protected function fullName(): Attribute
     {

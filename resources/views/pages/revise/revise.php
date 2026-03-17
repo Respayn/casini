@@ -46,8 +46,8 @@ class extends Component
 
         return app(ReviseGetDataCommandHandler::class)->handle(
             new ReviseGetDataCommand(
-                dateFrom: Carbon::parse("10.01.2022")->endOfDay(),
-                dateTo: Carbon::parse("10.01.2026")->endOfDay(),
+                dateFrom: Carbon::parse("10.01.2024")->endOfDay(),
+                dateTo: Carbon::parse("10.01.2026")->endOfDay()
             )
         );
     }

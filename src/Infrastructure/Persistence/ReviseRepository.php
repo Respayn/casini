@@ -113,16 +113,6 @@ class ReviseRepository implements ReviseRepositoryInterface
             }
         }
 
-        
-        // dd([
-        //     'periodFrom' => $periodFrom,
-        //     'periodTo' => $periodTo,
-        //     'clientId' => $clientId,
-        //     'managerId' => $managerId,
-        //     'fetchFromDirect' => $fetchFromDirect,
-        //     'channelId' => $channelId,
-        // ]);
-
         return $employeesData;
     }
 
@@ -212,7 +202,7 @@ class ReviseRepository implements ReviseRepositoryInterface
         $managers = User::role([Role::MANAGER, Role::MANAGER_DEPARTMENT_HEAD])
             ->with([
                 'paymentOperations' => [
-                    'project',
+                    'clientProject',
                     'channel'
                 ]
             ]);
