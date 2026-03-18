@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\Builder;
 
 /**
  * @property int $id
@@ -24,24 +25,49 @@ class Client extends Model
     use HasFactory;
 
     protected $fillable = [
-      'id',
-      'name',
-      'inn',
-      'initial_balance',
-      'manager_id',
+        'id',
+        'name',
+        'inn',
+        'initial_balance',
+        'manager_id',
     ];
 
     protected $casts = [
         'initial_balance' => 'decimal:2'
     ];
 
-    public function manager(): BelongsTo
+    /** Relations */
+    public function payments(): HasMany
     {
-        return $this->belongsTo(User::class, 'manager_id');
+        return $this->hasMany(Payment::class, 'client_id');
     }
 
     public function projects(): HasMany
     {
         return $this->hasMany(Project::class, 'client_id');
+    }
+
+    public function credits(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'client_id')->whereHas('operations', function (Builder $query) {
+            $query->where('credit_amount', '<>', 0);
+        });
+    }
+
+    public function cabinetReplenishments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'client_id')->whereHas('operations', function (Builder $query) {
+            $query->where('cabinet_top_up_amount', '>', 0);
+        });
+    }
+
+    public function manager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'manager_id');
+    }
+
+    public function performedWorkActs(): HasMany
+    {
+        return $this->hasMany(PerformedWorkAct::class, 'customer_inn', 'inn');
     }
 }

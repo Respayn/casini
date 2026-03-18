@@ -47,13 +47,14 @@
 
 								{{-- Строка с именем сотрудника --}}
 
-								<tr>
-									<x-data.table-column class="tw-text-center" colspan="8">
-										<span>{{ $employee->name }}</span>
-									</x-data.table-column>
-								</tr>
-
 								<x-data.table-columns>
+									<x-data.table-row>
+										<x-data.table-cell class="text-center" colspan="8">
+											<span>{{ $employee->name }}</span>
+										</x-data.table-cell>
+									</x-data.table-row>
+
+
 									<x-data.table-column class="whitespace-nowrap">
 										<span>Дата</span>
 									</x-data.table-column>
@@ -136,11 +137,11 @@
 													{{-- Поступления --}}
 													<x-data.table-cell class="!tw-text-center tw-text-green-500">
 														{{ $revise->income === '-' ? '-' : Number::currency($revise->income, in: 'RUB') }}
-														<a class="tw-cursor-pointer"
+														<a class="cursor-pointer"
 															onclick="Livewire.dispatch(
                             'openModal', 
                             { 
-                                component: 'ad-budget-revise.modal.income-details', 
+                                component: 'revise.modal.income-details', 
                                 arguments: { 
                                     client: {{ $client->id }},
                                     month: '{{ $revise->date->format('Y-m') }}',
@@ -157,11 +158,11 @@
 
 													<x-data.table-cell class="!tw-text-center">
 														{{ $revise->credit === '-' ? '-' : Number::currency($revise->credit, in: 'RUB') }}
-														<a class="tw-cursor-pointer"
+														<a class="cursor-pointer"
 															onclick="Livewire.dispatch(
                             'openModal',
                             {
-                                component: 'ad-budget-revise.modal.credit-details',
+                                component: 'revise.modal.credit-details',
                                 arguments: {
                                     client: {{ $client->id }},
                                     month: '{{ $revise->date->format('Y-m') }}',
@@ -176,30 +177,30 @@
 
 													<x-data.table-cell class="!tw-text-center tw-text-purple-500">
 														{{ $revise->cabinetReplenishment === '-' ? '-' : Number::currency($revise->cabinetReplenishment, in: 'RUB') }}
-														<a class="tw-cursor-pointer"
+														<a class="cursor-pointer"
 															onclick="Livewire.dispatch(
-                            'openModal',
-                            {
-                                component: 'ad-budget-revise.modal.cabinet-replenishment-details',
-                                arguments: {
-                                    client: {{ $client->id }},
-                                    month: '{{ $revise->date->format('Y-m') }}',
-                                    channelId: {{ $channel->id ?? 'null' }},
-                                    managerId: {{ $employee->id ?? 'null' }}
-                                }
-                            }
-                        )">
+       'openModal',
+       {
+           component: 'revise.modal.cabinet-replenishment-details',
+           arguments: {
+               client: {{ $client->id }},
+               month: '{{ $revise->date->format('Y-m') }}',
+               channelId: {{ $channel->id ?? 'null' }},
+               managerId: {{ $employee->id ?? 'null' }}
+           }
+       }
+   )">
 															+
 														</a>
 													</x-data.table-cell>
 
 													<x-data.table-cell class="!tw-text-center">
 														{{ Number::currency($revise->workActsSum, in: 'RUB') }}
-														<a class="tw-cursor-pointer"
+														<a class="cursor-pointer"
 															wire:click="$dispatch(
                             'openModal',
                             {
-                                component: 'ad-budget-revise.modal.work-act-details',
+                                component: 'revise.modal.work-act-details',
                                 arguments: {
                                     client: {{ $client->id }},
                                     month: '{{ $revise->date->format('Y-m') }}',
@@ -261,7 +262,7 @@
 								</x-data.table-rows>
 
 								{{-- Итого по сотруднику --}}
-								<x-data.table-row class="tw-bg-green-200">
+								<x-data.table-row class="bg-table-summary-bg">
 									<x-data.table-cell class="!tw-text-right">
 										Итого по сотруднику
 									</x-data.table-cell>
