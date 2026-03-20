@@ -8,7 +8,7 @@ class Agency
         private ?int $id,
         private string $address,
         private string $domain,
-        private string $logoPath,
+        private ?string $logoPath,
         private string $email,
         private string $phone
     ) {}
@@ -17,7 +17,7 @@ class Agency
         int $id,
         string $address,
         string $domain,
-        string $logoPath,
+        ?string $logoPath,
         string $email,
         string $phone
     ): Agency {
@@ -41,7 +41,7 @@ class Agency
         return $this->domain;
     }
 
-    public function getLogoPath(): string
+    public function getLogoPath(): ?string
     {
         return $this->logoPath;
     }
