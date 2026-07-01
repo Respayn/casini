@@ -46,6 +46,14 @@ body:has(.modal.open) {
     overflow: hidden
 }
 
+.modal .p-6 {
+    max-width: 800px;
+}
+
+.form-field label {
+    max-width: 250px;
+}
+
 /* Scrollbar */
 /* width */
 .pretty-scroll::-webkit-scrollbar {
