@@ -13,12 +13,16 @@ use App\Factories\IntegrationSettingsFactory;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
+use App\Exceptions\CallibriApiException;
+use App\Services\CallibriService;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
+use App\Services\YandexSearchApiPhraseParser;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -28,6 +32,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Src\Domain\Clients\ClientRepositoryInterface;
 
 new
@@ -35,6 +40,8 @@ new
 #[Title('Создание проекта')]
 class extends Component
 {
+    use WithFileUploads;
+
     public CreateClientProjectForm $clientProjectForm;
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
     public ProjectUtmMappingForm $utmMappingForm;
@@ -55,6 +62,8 @@ class extends Component
     public ProjectIntegrationData $selectedIntegration;
 
     public Collection $integrationSettings;
+
+    public $phraseDocxFile;
 
     public function boot(
         ClientService $clientService,
@@ -101,9 +110,7 @@ class extends Component
             $cachedData = Cache::pull('integration_data_' . $state['cache_data_id']);
 
             if ($cachedData) {
-                /** @var Layout $layout */
-                $layout = $cachedData[0];
-                $this->fill((array)$layout->getComponent());
+                $this->restoreFromOAuthCache($cachedData);
             }
 
             foreach ($state['integrations'] as $setting) {
@@ -112,6 +119,10 @@ class extends Component
                 $integrationData->settings = $setting['settings'];
                 $integrationData->isEnabled = $setting['isEnabled'];
                 $this->integrationSettings[$integrationData->integration->id] = $integrationData;
+            }
+
+            if (! empty($state['open_integration'])) {
+                $this->selectIntegration($state['open_integration']);
             }
         }
 
@@ -184,9 +195,20 @@ class extends Component
         return $this->userService->getSpecialists();
     }
 
+    #[Computed]
+    public function isYandexSearchApiConfigured(): bool
+    {
+        return filled(config('services.yandex_search_api.api_key'))
+            && filled(config('services.yandex_search_api.folder_id'));
+    }
+
     public function selectIntegration(string $code)
     {
         $integration = $this->integrations()->firstWhere('code', $code);
+
+        if ($integration === null) {
+            return;
+        }
 
         if ($this->integrationSettings->has($integration->id)) {
             $this->selectedIntegration = $this->integrationSettings->get($integration->id);
@@ -199,6 +221,13 @@ class extends Component
             $this->selectedIntegration = $selectedIntegration;
         }
 
+        $listModalName = match ($integration->category) {
+            IntegrationCategory::TOOLS => 'tools-integrations-modal',
+            IntegrationCategory::MONEY => 'money-integrations-modal',
+            IntegrationCategory::ANALYTICS => 'analytics-integrations-modal',
+        };
+
+        $this->dispatch('modal-hide', name: $listModalName);
         $this->dispatch('modal-show', name: 'integration-settings-modal');
     }
 
@@ -215,20 +244,108 @@ class extends Component
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
     }
 
-    public function updatedIntegrationSettings($value)
+
+    public function loadCallibriProjects(string $email, string $token, ?string $includeSiteId = null): array
     {
-        if ($value && empty($this->integrationSettings[16]->settings)) {
+        if (trim($email) === '' || trim($token) === '') {
+            return ['error' => 'Укажите email и API token'];
+        }
+
+        try {
+            $projects = app(CallibriService::class)
+                ->listSites(
+                    $email,
+                    $token,
+                    $includeSiteId !== null && $includeSiteId !== '' ? (int) $includeSiteId : null
+                )
+                ->map(fn (array $site) => [
+                    'value' => (string) $site['id'],
+                    'label' => $site['label'],
+                ])
+                ->values()
+                ->all();
+
+            return ['projects' => $projects];
+        } catch (CallibriApiException $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить проекты Callibri. Проверьте email и token.'];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить проекты Callibri.'];
+        }
+    }
+
+    public function testCallibriIntegration(array $settings, string $date): array
+    {
+        if (trim($settings['email'] ?? '') === '' || trim($settings['token'] ?? '') === '') {
+            return ['error' => 'Укажите email и API token'];
+        }
+
+        if (empty($settings['site_id'])) {
+            return ['error' => 'Выберите проект Callibri'];
+        }
+
+        if (empty($settings['appeals_type'])) {
+            return ['error' => 'Выберите хотя бы один тип обращений'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(CallibriService::class)->countLeadsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (CallibriApiException $e) {
+            return ['error' => 'Ошибка API Callibri. Проверьте настройки интеграции.'];
+        } catch (\Throwable $e) {
+            return ['error' => 'Не удалось проверить интеграцию.'];
+        }
+    }
+
+
+    public function updated($property): void
+    {
+        if (! preg_match('/^integrationSettings\.(\d+)\.isEnabled$/', $property, $matches)) {
+            return;
+        }
+
+        $integrationId = (int) $matches[1];
+        $integrationSettings = $this->integrationSettings[$integrationId] ?? null;
+
+        if (! $integrationSettings?->isEnabled) {
+            return;
+        }
+
+        $integration = $this->integrations()->firstWhere('id', $integrationId);
+
+        if (! $integration) {
+            return;
+        }
+
+        $settings = $integrationSettings->settings ?? [];
+
+        if ($integration->code === 'yandex_direct' && empty($settings)) {
             $this->connectYandexDirect();
         }
     }
 
     public function connectYandexDirect()
     {
-        $this->validateIntegrationSelection();
+        $this->ensureSelectedIntegration('yandex_direct');
 
-        // Сохраняем необходимые данные в кэш
-        Cache::put('integration_data_' . $this->getId(),
-            $this->getAttributes()->toArray(),
+        Cache::put(
+            'integration_data_' . $this->getId(),
+            $this->buildOAuthCachePayload(),
             now()->addMinutes(15)
         );
 
@@ -238,12 +355,85 @@ class extends Component
         ]);
     }
 
-    private function validateIntegrationSelection(): void
+    private function buildOAuthCachePayload(): array
     {
-        if (!$this->selectedIntegration->integration) {
-            $integration = $this->integrations()
-                ->firstWhere('code', 'yandex_direct');
+        return [
+            'integrationSettings' => $this->integrationSettings
+                ->map(fn (ProjectIntegrationData $item) => $item->toArray())
+                ->all(),
+            'clientProjectForm' => $this->clientProjectForm->all(),
+            'bonusGuaranteeForm' => $this->bonusGuaranteeForm->all(),
+            'utmMappingForm' => $this->utmMappingForm->all(),
+        ];
+    }
 
+    private function restoreFromOAuthCache(array $cachedData): void
+    {
+        if (isset($cachedData['clientProjectForm']) && is_array($cachedData['clientProjectForm'])) {
+            $this->clientProjectForm->fill($cachedData['clientProjectForm']);
+        }
+
+        if (isset($cachedData['bonusGuaranteeForm']) && is_array($cachedData['bonusGuaranteeForm'])) {
+            $this->bonusGuaranteeForm->fill($cachedData['bonusGuaranteeForm']);
+        }
+
+        if (isset($cachedData['utmMappingForm']) && is_array($cachedData['utmMappingForm'])) {
+            $this->utmMappingForm->fill($cachedData['utmMappingForm']);
+        }
+
+        if (! isset($cachedData['integrationSettings']) || ! is_array($cachedData['integrationSettings'])) {
+            return;
+        }
+
+        foreach ($cachedData['integrationSettings'] as $id => $setting) {
+            if (! is_array($setting)) {
+                continue;
+            }
+
+            $integrationData = new ProjectIntegrationData();
+            $integrationData->integration = IntegrationData::from($setting['integration']);
+            $integrationData->settings = $setting['settings'] ?? [];
+            $integrationData->isEnabled = $setting['isEnabled'] ?? false;
+            $this->integrationSettings[$id] = $integrationData;
+        }
+    }
+
+    /**
+     * @return array{phrases: string[], error?: string}
+     */
+    public function parsePhrasesFromDocx(): array
+    {
+        $this->validate([
+            'phraseDocxFile' => 'required|file|mimes:docx|max:5120',
+        ]);
+
+        try {
+            $phrases = app(YandexSearchApiPhraseParser::class)
+                ->parseFromPath($this->phraseDocxFile->getRealPath());
+        } catch (\Throwable $exception) {
+            $this->reset('phraseDocxFile');
+
+            return ['phrases' => [], 'error' => $exception->getMessage()];
+        }
+
+        $this->reset('phraseDocxFile');
+
+        if ($phrases === []) {
+            return ['phrases' => [], 'error' => 'В файле не найдено фраз.'];
+        }
+
+        return ['phrases' => $phrases];
+    }
+
+    private function ensureSelectedIntegration(string $code): void
+    {
+        if ($this->selectedIntegration->integration?->code === $code) {
+            return;
+        }
+
+        $integration = $this->integrations()->firstWhere('code', $code);
+
+        if ($integration) {
             $this->selectedIntegration->integration = IntegrationData::from($integration);
         }
     }

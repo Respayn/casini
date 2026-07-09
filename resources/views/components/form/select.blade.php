@@ -6,6 +6,8 @@
     'placeholder' => 'Выберите значение',
     'emptyPlaceholder' => 'Нет доступных вариантов',
     'disabled' => false,
+    'parentOptionsKey' => null,
+    'parentLoadingKey' => null,
 ])
 
 @php
@@ -19,11 +21,65 @@
         options: {{ json_encode($options) }},
         selected: '',
         disabled: {{ $disabled ? 'true' : 'false' }},
+        loading: false,
+        parentOptionsKey: {{ json_encode($parentOptionsKey) }},
+        parentLoadingKey: {{ json_encode($parentLoadingKey) }},
 
         labelKey: '{{ $labelKey }}',
         valueKey: '{{ $valueKey }}',
         placeholder: '{{ $placeholder }}',
         emptyPlaceholder: '{{ $emptyPlaceholder }}',
+
+        init() {
+            if (!this.parentOptionsKey && !this.parentLoadingKey) {
+                return;
+            }
+
+            let node = this.$el.parentElement;
+            let optionsWired = false;
+            let loadingWired = false;
+
+            while (node) {
+                const stack = node._x_dataStack;
+
+                if (stack?.length) {
+                    const parent = stack[stack.length - 1];
+
+                    if (parent !== this) {
+                        if (!optionsWired && this.parentOptionsKey && parent[this.parentOptionsKey] !== undefined) {
+                            this.options = parent[this.parentOptionsKey] ?? [];
+
+                            this.$watch(() => parent[this.parentOptionsKey], (value) => {
+                                this.options = value ?? [];
+                            });
+
+                            optionsWired = true;
+                        }
+
+                        if (!loadingWired && this.parentLoadingKey && parent[this.parentLoadingKey] !== undefined) {
+                            this.disabled = parent[this.parentLoadingKey] ?? false;
+                            this.loading = parent[this.parentLoadingKey] ?? false;
+
+                            this.$watch(() => parent[this.parentLoadingKey], (value) => {
+                                this.disabled = value ?? false;
+                                this.loading = value ?? false;
+                            });
+
+                            loadingWired = true;
+                        }
+
+                        const optionsReady = !this.parentOptionsKey || optionsWired;
+                        const loadingReady = !this.parentLoadingKey || loadingWired;
+
+                        if (optionsReady && loadingReady) {
+                            return;
+                        }
+                    }
+                }
+
+                node = node.parentElement;
+            }
+        },
 
         get hasOptions() {
             return this.options.length > 0;
@@ -31,17 +87,21 @@
 
         select(value) {
             if (this.disabled || !this.hasOptions) return;
-            
+
             this.selected = value;
             this.open = false;
 
             this.$dispatch('change', { value: value });
         },
-    
+
         getDisplayText() {
+            if (this.loading && !this.hasOptions) {
+                return 'Загрузка...';
+            }
+
             if (this.selected) {
                 const option = this.options.find(o => o[this.valueKey] == this.selected);
-    
+
                 if (option) {
                     return option[this.labelKey];
                 }
@@ -50,7 +110,7 @@
             if (!this.hasOptions) {
                 return this.emptyPlaceholder;
             }
-    
+
             return this.placeholder;
         },
 
@@ -88,7 +148,7 @@
                 <span
                     x-text="getDisplayText()"
                     class="overflow-hidden"
-                    x-bind:class="{ 
+                    x-bind:class="{
                         'opacity-50': !selected && hasOptions,
                         'text-gray-400 italic': !hasOptions
                     }"

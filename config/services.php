@@ -70,6 +70,13 @@ return [
         'cache_ttl' => 3600,
     ],
 
+    'yandex_search_api' => [
+        'api_key' => env('YANDEX_SEARCH_API_API_KEY'),
+        'folder_id' => env('YANDEX_SEARCH_API_FOLDER_ID'),
+        'test_token' => env('YANDEX_SEARCH_API_TEST_TOKEN'),
+        'test_folder_id' => env('YANDEX_SEARCH_API_TEST_FOLDER_ID'),
+    ],
+
     'callibri' => [
         'api_url' => env('CALLIBRI_API_URL', 'https://api.callibri.ru/'),
 

@@ -669,5 +669,9 @@
         :integrations="$this->analyticsIntegrations"
     />
 
-    <x-project-form.integration-settings-modal :project-integration="$selectedIntegration" />
+    <x-project-form.integration-settings-modal
+        :project-integration="$selectedIntegration"
+        :project-id="$clientProjectForm->id"
+        :platform-configured="$this->isYandexSearchApiConfigured"
+    />
 </div>

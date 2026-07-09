@@ -43,7 +43,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ->map(function ($setting) {
                 $integrationData = new ProjectIntegrationData();
                 $integrationData->integration = IntegrationData::from($setting->integration);
-                $integrationData->settings = $setting->settings;
+                $integrationData->settings = $this->normalizeSettings($setting->settings);
                 $integrationData->isEnabled = $setting->is_enabled;
                 return $integrationData;
             });
@@ -60,7 +60,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ],
             [
                 'is_enabled' => $attributes['is_enabled'],
-                'settings' => json_encode($attributes['settings']) // Сериализация в JSON
+                'settings' => collect($attributes['settings'])->toArray(),
             ]
         );
     }
@@ -108,9 +108,31 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
         return $activeIntegrations->mapToGroups(function (IntegrationProject $item) {
             $projectIntegrationData = new ProjectIntegrationData();
             $projectIntegrationData->integration = IntegrationData::from($item->integration);
-            $projectIntegrationData->settings = $item->settings ?? [];
+            $projectIntegrationData->settings = $this->normalizeSettings($item->settings);
             $projectIntegrationData->isEnabled = $item->is_enabled;
             return [$item->project_id => $projectIntegrationData];
         });
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function normalizeSettings(mixed $settings): array
+    {
+        if (is_array($settings)) {
+            return $settings;
+        }
+
+        if (! is_string($settings) || $settings === '') {
+            return [];
+        }
+
+        $decoded = json_decode($settings, true);
+
+        if (is_string($decoded)) {
+            $decoded = json_decode($decoded, true);
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 }

@@ -9,7 +9,7 @@
         </a>
     </div>
 
-    <x-form.form wire:submit="login">
+    <x-form.form wire:submit.prevent="login">
         <div class="flex flex-col gap-8">
             <div>
                 <x-form.input-text

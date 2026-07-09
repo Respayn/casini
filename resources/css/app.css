@@ -137,3 +137,19 @@ form.form_normalized {
     @apply cursor-pointer;
     @apply text-blue-500 font-semibold hover:text-blue-700 active:text-red-500 transition ease-in-out duration-300 underline;
 }
+
+.modal .p-6 {
+    max-width: 800px;
+}
+
+.form-field label {
+    max-width: 250px;
+}
+
+.modal .p-6 {
+    max-width: 800px;
+}
+
+.form-field label {
+    max-width: 250px;
+}

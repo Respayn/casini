@@ -21,9 +21,9 @@ class AppealTypeFilter implements FilterInterface
 
     private function passesAppealFilter(array $lead): bool
     {
-        return match($this->appealsFilter) {
+        return match ($this->appealsFilter) {
             'first_only' => $lead['is_lid'] ?? false,
-            default => true
+            default => true,
         };
     }
 }

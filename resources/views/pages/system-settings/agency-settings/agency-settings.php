@@ -45,19 +45,7 @@ class extends Component
             $this->form->logoSrc = $path;
         }
 
-        $agencyDto = AgencyData::from([
-            'id' => $this->form->id,
-            'name' => $this->form->name,
-            'timeZone' => $this->form->timeZone,
-            'url' => $this->form->url,
-            'email' => $this->form->email,
-            'phone' => $this->form->phone,
-            'address' => $this->form->address,
-            'logoSrc' => $this->form->logoSrc,
-            'users' => $this->form->admins ?? [],
-        ]);
-
-        $service->saveAgency($agencyDto);
+        $service->saveAgency($this->form);
 
         $this->dispatch('agenciesUpdated');
 
