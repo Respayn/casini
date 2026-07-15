@@ -232,9 +232,16 @@ class YandexDirectService
     }
 
     /**
-     * @return Collection<int, array{value: string, label: string}>
+     * Профиль Яндекс ID (Passport), под которым пройден OAuth — не Client-Login Директа.
+     *
+     * @return array{
+     *     oauth_yandex_user_id: string|null,
+     *     oauth_yandex_login: string|null,
+     *     oauth_yandex_display_name: string|null,
+     *     oauth_yandex_avatar_url: string|null
+     * }|null null — HTTP/ошибка API
      */
-    private function fetchOauthUserLogin(string $token): Collection
+    public function fetchOauthUserProfile(string $token): ?array
     {
         try {
             $response = Http::withHeaders([
@@ -246,14 +253,49 @@ class YandexDirectService
         } catch (\Throwable $e) {
             $this->logError(__METHOD__, $e);
 
-            return collect();
+            return null;
         }
 
         if ($response->failed()) {
+            return null;
+        }
+
+        $data = $response->json();
+        $login = filled($data['login'] ?? null) ? (string) $data['login'] : null;
+        $displayName = filled($data['display_name'] ?? null)
+            ? (string) $data['display_name']
+            : (filled($data['real_name'] ?? null) ? (string) $data['real_name'] : null);
+
+        $avatarId = filled($data['default_avatar_id'] ?? null)
+            ? (string) $data['default_avatar_id']
+            : null;
+
+        return [
+            'oauth_yandex_user_id' => filled($data['id'] ?? null) ? (string) $data['id'] : null,
+            'oauth_yandex_login' => $login,
+            'oauth_yandex_display_name' => $displayName,
+            'oauth_yandex_avatar_url' => $avatarId !== null ? self::buildYandexAvatarUrl($avatarId) : null,
+        ];
+    }
+
+    public static function buildYandexAvatarUrl(string $avatarId): string
+    {
+        // default_avatar_id вида «0/0-0» — сегменты path; rawurlencode ломает slash → 404
+        return 'https://avatars.yandex.net/get-yapic/'.$avatarId.'/islands-200';
+    }
+
+    /**
+     * @return Collection<int, array{value: string, label: string}>
+     */
+    private function fetchOauthUserLogin(string $token): Collection
+    {
+        $profile = $this->fetchOauthUserProfile($token);
+
+        if ($profile === null) {
             return collect();
         }
 
-        $login = $response->json('login');
+        $login = $profile['oauth_yandex_login'] ?? null;
 
         if (! filled($login)) {
             return collect();

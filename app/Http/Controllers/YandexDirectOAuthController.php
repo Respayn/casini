@@ -3,14 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Data\Integrations\IntegrationData;
-use App\Data\Integrations\YandexDirectIntegrationSettingsData;
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Services\IntegrationService;
 use App\Services\YandexDirectAuthService;
+use App\Services\YandexDirectService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Http;
 
 class YandexDirectOAuthController
 {
@@ -20,6 +19,7 @@ class YandexDirectOAuthController
     public function __construct(
         private YandexDirectAuthService $authService,
         private IntegrationService $integrationService,
+        private YandexDirectService $yandexDirectService,
     ) {
         $this->clientId = config('services.yandex_direct.client_id');
         $this->redirectUri = config('services.yandex_direct.redirect_uri');
@@ -49,7 +49,12 @@ class YandexDirectOAuthController
         $encryptedState = Crypt::encryptString($stateData);
         $state = base64_encode($encryptedState);
 
-        $scopes = ['login:email', 'direct:api'];
+        $scopes = [
+            'login:email',
+            'login:info',
+            'login:avatar',
+            'direct:api',
+        ];
 
         $params = [
             'response_type' => 'code',
@@ -112,23 +117,25 @@ class YandexDirectOAuthController
 
         $accessToken = $tokens['access_token'];
 
-        // Получаем информацию о пользователе из Яндекса
-        $userInfoResponse = Http::withHeaders([
-            'Authorization' => 'OAuth ' . $accessToken,
-        ])->get('https://login.yandex.ru/info?format=json&with_openid_identity=1');
+        $oauthProfile = $this->yandexDirectService->fetchOauthUserProfile($accessToken);
 
-        if ($userInfoResponse->failed()) {
-            return redirect()->route('login')->with('error', 'Не удалось получить информацию о пользователе от Яндекса.');
+        if ($oauthProfile === null) {
+            $message = 'Не удалось получить информацию о пользователе от Яндекса.';
+
+            if ($isPopup) {
+                return response()->view('oauth.yandex-direct-oauth-unconfigured', [
+                    'message' => $message,
+                ], 502);
+            }
+
+            return redirect()->route('login')->with('error', $message);
         }
 
-        $userInfo = $userInfoResponse->json();
-
-        $settingsArray = [
+        $settingsArray = array_merge([
             'oauth_token' => $tokens['access_token'],
             'refresh_token' => $tokens['refresh_token'] ?? null,
             'token_expires_at' => now()->addSeconds((int) ($tokens['expires_in'] ?? 0))->toDateTimeString(),
-            'account_id' => $userInfo['client_id'] ?? null,
-        ];
+        ], $oauthProfile);
 
         $integration = $this->integrationService->getIntegrations()->firstWhere('code', 'yandex_direct');
 
@@ -155,7 +162,7 @@ class YandexDirectOAuthController
         $selectedIntegration = new ProjectIntegrationData();
         $selectedIntegration->integration = IntegrationData::from($integration);
         $selectedIntegration->isEnabled = true;
-        $selectedIntegration->settings = YandexDirectIntegrationSettingsData::fromSettings(collect($settingsArray))->toArray();
+        $selectedIntegration->settings = $settingsArray;
 
         $stateData['integrations'] = [$selectedIntegration->toArray()];
         $stateData['open_integration'] = 'yandex_direct';

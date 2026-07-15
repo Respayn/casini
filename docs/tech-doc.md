@@ -172,12 +172,34 @@ php artisan tinker --execute="echo config('services.yandex_direct.client_id') ? 
 - После успешного `loadLogins` ошибки сбрасываются.
 - «Удалить интеграцию» (`titleActions`) видна, если есть `oauth_token` **или** `client_login` **или** `is_enabled` (не только полностью настроенная интеграция).
 
+### OAuth-профиль Яндекс ID
+
+После OAuth в settings сохраняется профиль **Passport-аккаунта** (кто нажал «Разрешить»), отдельно от `client_login` (рекламодатель в Директе):
+
+**OAuth scope в redirect** (`YandexDirectOAuthController::redirect`): `login:email`, `login:info`, `login:avatar`, `direct:api`. Право должно быть включено в консоли OAuth-приложения; в URL авторизации scope **обязательно** запрашивать явно — иначе токен не содержит нужных полей в `login.yandex.ru/info`. Для аватарки критичен `login:avatar` (`default_avatar_id`); для имени — `login:info` (`display_name`). После смены scope интеграции с уже выданным токеном нужен повторный OAuth.
+
+| Ключ | Назначение |
+|------|------------|
+| `oauth_yandex_user_id` | ID пользователя Яндекса (`login.yandex.ru/info` → `id`) |
+| `oauth_yandex_login` | Логин Яндекса |
+| `oauth_yandex_display_name` | Отображаемое имя |
+| `oauth_yandex_avatar_url` | URL аватарки (`default_avatar_id` → `avatars.yandex.net/get-yapic/…/islands-200`) |
+
+Источник: `YandexDirectService::fetchOauthUserProfile()` при callback и `loadYandexDirectOAuthProfile()` для backfill старых интеграций (в т.ч. при битом avatar URL с `%2F`).
+
+**UI карточки:** стиль info-блока Callibri (`border-primary bg-blue-50`); строка `@логин` показывается только если `display_name` задан и отличается от login; кнопка «Выбрать другую учетную запись» вызывает повторный OAuth (`force_confirm=yes`) без выключения синхронизации.
+
+**Avatar URL:** `https://avatars.yandex.net/get-yapic/{default_avatar_id}/islands-200` — slash в `default_avatar_id` **не** кодируется (`rawurlencode` давал 404).
+
+Legacy `account_id` (раньше ошибочно писался `client_id` OAuth-приложения) не используется для UI.
+
 ### Settings (snake_case)
 
 | Ключ | Назначение |
 |------|------------|
 | `client_login` | Client-Login для API Директа |
 | `oauth_token` / `refresh_token` / `token_expires_at` | OAuth |
+| `oauth_yandex_*` | профиль Яндекс ID (см. выше) |
 | `sync_enabled_at` | дата включения синхронизации (`Y-m-d`) |
 
 Чтение поддерживает legacy camelCase (`clientLogin`, `encryptedOauthToken`).

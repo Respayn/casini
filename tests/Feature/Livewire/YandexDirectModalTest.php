@@ -482,4 +482,61 @@ class YandexDirectModalTest extends TestCase
                 );
             });
     }
+
+    #[Test]
+    public function test_modal_shows_yandex_oauth_profile_card(): void
+    {
+        $user = $this->createUserWithAgency();
+        $integration = Integration::query()->where('code', 'yandex_direct')->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('setIntegrationSettings', $integration->id, [
+                'is_enabled' => true,
+                'oauth_token' => 'access-token',
+                'oauth_yandex_login' => 'agency-user',
+                'oauth_yandex_display_name' => 'Агентство Пример',
+                'oauth_yandex_avatar_url' => 'https://avatars.yandex.net/get-yapic/0/0-0/islands-200',
+            ])
+            ->call('selectIntegration', 'yandex_direct')
+            ->assertSet('selectedIntegration.settings.oauth_yandex_login', 'agency-user')
+            ->assertSet('selectedIntegration.settings.oauth_yandex_display_name', 'Агентство Пример')
+            ->assertSee('Авторизован для доступа к API Директа')
+            ->assertSee('Выбрать другую учетную запись')
+            ->assertSee('bg-blue-50', false);
+    }
+
+    #[Test]
+    public function test_load_yandex_direct_oauth_profile_backfills_settings(): void
+    {
+        $user = $this->createUserWithAgency();
+        $integration = Integration::query()->where('code', 'yandex_direct')->firstOrFail();
+
+        Http::fake([
+            'login.yandex.ru/info*' => Http::response([
+                'id' => '100500',
+                'login' => 'agency-user',
+                'display_name' => 'Агентство Пример',
+                'default_avatar_id' => '0/abc-0',
+            ]),
+        ]);
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('selectIntegration', 'yandex_direct')
+            ->call('loadYandexDirectOAuthProfile', 'access-token');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame('agency-user', $result['profile']['oauth_yandex_login'] ?? null);
+        $this->assertSame(
+            'Агентство Пример',
+            $result['profile']['oauth_yandex_display_name'] ?? null
+        );
+        $this->assertSame(
+            'agency-user',
+            $component->get("integrationSettings.{$integration->id}.settings.oauth_yandex_login")
+        );
+    }
 }

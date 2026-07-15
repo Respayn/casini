@@ -61,7 +61,10 @@
         'oauth_token' => (string) $getSetting('oauth_token', ''),
         'refresh_token' => (string) $getSetting('refresh_token', ''),
         'token_expires_at' => (string) $getSetting('token_expires_at', ''),
-        'account_id' => (string) $getSetting('account_id', ''),
+        'oauth_yandex_user_id' => (string) $getSetting('oauth_yandex_user_id', ''),
+        'oauth_yandex_login' => (string) $getSetting('oauth_yandex_login', ''),
+        'oauth_yandex_display_name' => (string) $getSetting('oauth_yandex_display_name', ''),
+        'oauth_yandex_avatar_url' => (string) $getSetting('oauth_yandex_avatar_url', ''),
     ];
 @endphp
 
@@ -85,6 +88,7 @@
         oauthNavigateCompleted: false,
         oauthPopupWindowName: null,
         oauthBroadcast: null,
+        oauthAvatarFailed: false,
         onOAuthAppliedHandler: null,
         onOAuthMessageHandler: null,
         integrationId: {{ (int) $projectIntegration->integration->id }},
@@ -151,6 +155,10 @@
 
             if (this.settings.oauth_token) {
                 this.loadLogins();
+
+                if (this.needsOAuthProfileRefresh) {
+                    this.loadOAuthProfile();
+                }
             }
         },
 
@@ -283,6 +291,55 @@
 
         get hasIntegrationError() {
             return this.integrationError !== null && this.integrationError !== '';
+        },
+
+        get oauthProfileLabel() {
+            return this.settings.oauth_yandex_display_name
+                || this.settings.oauth_yandex_login
+                || '';
+        },
+
+        get oauthProfileLoginLabel() {
+            const login = this.settings.oauth_yandex_login;
+            const displayName = this.settings.oauth_yandex_display_name;
+
+            if (!login || !displayName) {
+                return '';
+            }
+
+            if (displayName.toLowerCase() === login.toLowerCase()) {
+                return '';
+            }
+
+            return login.startsWith('@') ? login : '@' + login;
+        },
+
+        get oauthProfileInitial() {
+            const source = this.oauthProfileLabel || this.settings.oauth_yandex_login || '?';
+
+            return source.charAt(0).toUpperCase();
+        },
+
+        get showOAuthProfile() {
+            return Boolean(this.settings.oauth_token && this.oauthProfileLabel);
+        },
+
+        get needsOAuthProfileRefresh() {
+            if (!this.settings.oauth_token) {
+                return false;
+            }
+
+            if (!this.settings.oauth_yandex_login) {
+                return true;
+            }
+
+            const avatarUrl = this.settings.oauth_yandex_avatar_url || '';
+
+            if (!avatarUrl || avatarUrl.includes('%2F')) {
+                return true;
+            }
+
+            return false;
         },
 
         get loginSelectLabel() {
@@ -447,6 +504,28 @@
             }
         },
 
+        async reauthorizeOAuthAccount() {
+            if (this.oauthStarting || this.oauthApplying || this.oauthPopupOpened || this.oauthNavigateCompleted) {
+                return;
+            }
+
+            // Sync остаётся включённым; очищаем токены и профиль, затем новый OAuth
+            this.settings.oauth_token = '';
+            this.settings.refresh_token = '';
+            this.settings.token_expires_at = '';
+            this.settings.oauth_yandex_user_id = '';
+            this.settings.oauth_yandex_login = '';
+            this.settings.oauth_yandex_display_name = '';
+            this.settings.oauth_yandex_avatar_url = '';
+            this.settings.client_login = '';
+            this.oauthAvatarFailed = false;
+            this.loginOptions = [];
+            this.loginsError = null;
+            this.oauthError = null;
+
+            await this.startOAuth();
+        },
+
         async startOAuth() {
             if (this.oauthStarting || this.oauthPopupOpened || this.oauthNavigateCompleted) {
                 return;
@@ -460,7 +539,11 @@
             this.settings.client_login = '';
             this.settings.refresh_token = '';
             this.settings.token_expires_at = '';
-            this.settings.account_id = '';
+            this.settings.oauth_yandex_user_id = '';
+            this.settings.oauth_yandex_login = '';
+            this.settings.oauth_yandex_display_name = '';
+            this.settings.oauth_yandex_avatar_url = '';
+            this.oauthAvatarFailed = false;
             this.loginOptions = [];
             this.loginsError = null;
             this.stopOAuthWatchdog();
@@ -519,6 +602,14 @@
             }
 
             if (this.settings.oauth_token && oauthSettings?.oauth_token === this.settings.oauth_token) {
+                if (oauthSettings.oauth_yandex_login) {
+                    this.settings.oauth_yandex_user_id = oauthSettings.oauth_yandex_user_id || '';
+                    this.settings.oauth_yandex_login = oauthSettings.oauth_yandex_login || '';
+                    this.settings.oauth_yandex_display_name = oauthSettings.oauth_yandex_display_name || '';
+                    this.settings.oauth_yandex_avatar_url = oauthSettings.oauth_yandex_avatar_url || '';
+                    this.oauthAvatarFailed = false;
+                }
+
                 if (Array.isArray(logins) && logins.length > 0) {
                     this.loginOptions = logins;
                     this.loginsError = loginsError;
@@ -537,7 +628,11 @@
             this.settings.oauth_token = oauthSettings.oauth_token || '';
             this.settings.refresh_token = oauthSettings.refresh_token || '';
             this.settings.token_expires_at = oauthSettings.token_expires_at || '';
-            this.settings.account_id = oauthSettings.account_id || '';
+            this.settings.oauth_yandex_user_id = oauthSettings.oauth_yandex_user_id || '';
+            this.settings.oauth_yandex_login = oauthSettings.oauth_yandex_login || '';
+            this.settings.oauth_yandex_display_name = oauthSettings.oauth_yandex_display_name || '';
+            this.settings.oauth_yandex_avatar_url = oauthSettings.oauth_yandex_avatar_url || '';
+            this.oauthAvatarFailed = false;
             this.settings.client_login = '';
             this.settings.is_enabled = true;
             this.settings.sync_enabled_at = oauthSettings.sync_enabled_at || this.todayIso();
@@ -553,7 +648,10 @@
                         oauth_token: this.settings.oauth_token,
                         refresh_token: this.settings.refresh_token,
                         token_expires_at: this.settings.token_expires_at,
-                        account_id: this.settings.account_id,
+                        oauth_yandex_user_id: this.settings.oauth_yandex_user_id,
+                        oauth_yandex_login: this.settings.oauth_yandex_login,
+                        oauth_yandex_display_name: this.settings.oauth_yandex_display_name,
+                        oauth_yandex_avatar_url: this.settings.oauth_yandex_avatar_url,
                     });
                 } catch (e) {
                     // Alpine state already updated; Livewire sync is best-effort
@@ -572,6 +670,26 @@
             }
 
             this.oauthApplying = false;
+        },
+
+        async loadOAuthProfile() {
+            if (!this.settings.oauth_token || !this.needsOAuthProfileRefresh) {
+                return;
+            }
+
+            try {
+                const result = await $wire.loadYandexDirectOAuthProfile(this.settings.oauth_token);
+
+                if (result?.profile) {
+                    this.settings.oauth_yandex_user_id = result.profile.oauth_yandex_user_id || '';
+                    this.settings.oauth_yandex_login = result.profile.oauth_yandex_login || '';
+                    this.settings.oauth_yandex_display_name = result.profile.oauth_yandex_display_name || '';
+                    this.settings.oauth_yandex_avatar_url = result.profile.oauth_yandex_avatar_url || '';
+                    this.oauthAvatarFailed = false;
+                }
+            } catch (e) {
+                // Профиль — подсказка в UI; без него модалка остаётся рабочей
+            }
         },
 
         async loadLogins() {
@@ -649,6 +767,48 @@
             x-text="integrationError"
             x-cloak
         ></div>
+
+        <div
+            class="border-primary mb-4 break-words rounded-lg border bg-blue-50 p-4 text-sm text-primary-text"
+            x-show="showOAuthProfile"
+            x-cloak
+        >
+            <div class="flex items-center gap-3">
+                <template x-if="settings.oauth_yandex_avatar_url && !oauthAvatarFailed">
+                    <img
+                        class="h-10 w-10 shrink-0 rounded-full object-cover"
+                        x-bind:src="settings.oauth_yandex_avatar_url"
+                        x-bind:alt="oauthProfileLabel"
+                        referrerpolicy="no-referrer"
+                        x-on:error="oauthAvatarFailed = true"
+                    >
+                </template>
+                <template x-if="!settings.oauth_yandex_avatar_url || oauthAvatarFailed">
+                    <div
+                        class="bg-primary text-body flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                        x-text="oauthProfileInitial"
+                    ></div>
+                </template>
+                <div class="min-w-0">
+                    <p class="truncate font-semibold" x-text="oauthProfileLabel"></p>
+                    <p
+                        class="text-caption-text truncate text-xs"
+                        x-show="oauthProfileLoginLabel"
+                        x-text="oauthProfileLoginLabel"
+                        x-cloak
+                    ></p>
+                    <p class="text-caption-text mt-1 text-xs">Авторизован для доступа к API Директа</p>
+                </div>
+            </div>
+            <div class="mt-3">
+                <x-button.button
+                    variant="link"
+                    label="Выбрать другую учетную запись"
+                    x-bind:disabled="oauthStarting || oauthApplying"
+                    x-on:click="reauthorizeOAuthAccount()"
+                />
+            </div>
+        </div>
 
         <x-form.form-field>
             <x-form.form-label

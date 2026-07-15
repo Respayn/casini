@@ -476,9 +476,9 @@ class extends Component
                     'oauth_token' => $settings['oauth_token'] ?? null,
                     'refresh_token' => $settings['refresh_token'] ?? null,
                     'token_expires_at' => $settings['token_expires_at'] ?? null,
-                    'account_id' => $settings['account_id'] ?? null,
                     'sync_enabled_at' => now()->format('Y-m-d'),
-                ]
+                ],
+                $this->extractYandexDirectOAuthProfile($settings)
             );
 
             $this->selectedIntegration->isEnabled = true;
@@ -500,18 +500,91 @@ class extends Component
 
         $this->dispatch(
             'yandex-direct-oauth-applied',
-            settings: [
-                'oauth_token' => $mergedSettings['oauth_token'] ?? null,
-                'refresh_token' => $mergedSettings['refresh_token'] ?? null,
-                'token_expires_at' => $mergedSettings['token_expires_at'] ?? null,
-                'account_id' => $mergedSettings['account_id'] ?? null,
-                'sync_enabled_at' => $mergedSettings['sync_enabled_at'] ?? null,
-                'is_enabled' => true,
-            ],
+            settings: array_merge(
+                [
+                    'oauth_token' => $mergedSettings['oauth_token'] ?? null,
+                    'refresh_token' => $mergedSettings['refresh_token'] ?? null,
+                    'token_expires_at' => $mergedSettings['token_expires_at'] ?? null,
+                    'sync_enabled_at' => $mergedSettings['sync_enabled_at'] ?? null,
+                    'is_enabled' => true,
+                ],
+                $this->extractYandexDirectOAuthProfile($mergedSettings)
+            ),
             logins: $loginsResult['logins'] ?? [],
             loginsError: $loginsResult['error'] ?? null,
             integrationId: $integrationId,
         );
+    }
+
+    /**
+     * @return array{
+     *     profile?: array<string, string|null>,
+     *     error?: string
+     * }
+     */
+    public function loadYandexDirectOAuthProfile(string $oauthToken): array
+    {
+        if (trim($oauthToken) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
+        }
+
+        try {
+            $profile = app(YandexDirectService::class)->fetchOauthUserProfile($oauthToken);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось получить данные аккаунта Яндекса'];
+        }
+
+        if ($profile === null) {
+            return ['error' => 'Не удалось получить данные аккаунта Яндекса'];
+        }
+
+        $this->ensureSelectedIntegration('yandex_direct');
+
+        if ($this->selectedIntegration?->integration !== null) {
+            $integrationId = $this->selectedIntegration->integration->id;
+            $mergedSettings = array_merge(
+                $this->selectedIntegration->settings ?? [],
+                $profile
+            );
+
+            $this->selectedIntegration->settings = $mergedSettings;
+
+            if ($this->integrationSettings->has($integrationId)) {
+                $this->integrationSettings[$integrationId]->settings = $mergedSettings;
+            } else {
+                $projectIntegrationData = new ProjectIntegrationData();
+                $projectIntegrationData->integration = $this->selectedIntegration->integration;
+                $projectIntegrationData->isEnabled = $this->selectedIntegration->isEnabled ?? false;
+                $projectIntegrationData->settings = $mergedSettings;
+                $this->integrationSettings[$integrationId] = $projectIntegrationData;
+            }
+        }
+
+        return ['profile' => $profile];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array<string, string|null>
+     */
+    private function extractYandexDirectOAuthProfile(array $settings): array
+    {
+        return [
+            'oauth_yandex_user_id' => isset($settings['oauth_yandex_user_id'])
+                ? (string) $settings['oauth_yandex_user_id']
+                : null,
+            'oauth_yandex_login' => isset($settings['oauth_yandex_login'])
+                ? (string) $settings['oauth_yandex_login']
+                : null,
+            'oauth_yandex_display_name' => isset($settings['oauth_yandex_display_name'])
+                ? (string) $settings['oauth_yandex_display_name']
+                : null,
+            'oauth_yandex_avatar_url' => isset($settings['oauth_yandex_avatar_url'])
+                ? (string) $settings['oauth_yandex_avatar_url']
+                : null,
+        ];
     }
 
     /**

@@ -68,5 +68,9 @@ class YandexDirectOAuthRedirectGuardTest extends TestCase
         $this->assertStringContainsString('oauth.yandex.ru/authorize', $location);
         $this->assertStringContainsString('force_confirm=yes', $location);
         $this->assertStringContainsString('client_id=test-client-id', $location);
+        $this->assertStringContainsString('login%3Aavatar', $location);
+        $this->assertStringContainsString('login%3Ainfo', $location);
+        $this->assertStringContainsString('login%3Aemail', $location);
+        $this->assertStringContainsString('direct%3Aapi', $location);
     }
 }

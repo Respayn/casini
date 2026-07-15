@@ -4,6 +4,7 @@ namespace Tests\Feature\Integration;
 
 use App\Models\User;
 use App\Services\YandexDirectAuthService;
+use App\Services\YandexDirectService;
 use Database\Seeders\IntegrationSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
@@ -47,8 +48,10 @@ class YandexDirectOAuthCallbackTest extends TestCase
 
         Http::fake([
             'login.yandex.ru/info*' => Http::response([
+                'id' => '100500',
                 'login' => 'yandex-user',
-                'client_id' => 'account-1',
+                'display_name' => 'Яндекс Пользователь',
+                'default_avatar_id' => '0/abc-0',
             ]),
         ]);
 
@@ -73,7 +76,13 @@ class YandexDirectOAuthCallbackTest extends TestCase
         $this->assertIsArray($cached);
         $this->assertSame('access-token', $cached['oauth_token'] ?? null);
         $this->assertSame('refresh-token', $cached['refresh_token'] ?? null);
-        $this->assertSame('account-1', $cached['account_id'] ?? null);
+        $this->assertSame('100500', $cached['oauth_yandex_user_id'] ?? null);
+        $this->assertSame('yandex-user', $cached['oauth_yandex_login'] ?? null);
+        $this->assertSame('Яндекс Пользователь', $cached['oauth_yandex_display_name'] ?? null);
+        $this->assertSame(
+            YandexDirectService::buildYandexAvatarUrl('0/abc-0'),
+            $cached['oauth_yandex_avatar_url'] ?? null
+        );
     }
 
     #[Test]
@@ -121,8 +130,10 @@ class YandexDirectOAuthCallbackTest extends TestCase
 
         Http::fake([
             'login.yandex.ru/info*' => Http::response([
+                'id' => '100500',
                 'login' => 'yandex-user',
-                'client_id' => 'account-1',
+                'display_name' => 'Яндекс Пользователь',
+                'default_avatar_id' => '0/abc-0',
             ]),
         ]);
 
@@ -186,8 +197,10 @@ class YandexDirectOAuthCallbackTest extends TestCase
 
         Http::fake([
             'login.yandex.ru/info*' => Http::response([
+                'id' => '100500',
                 'login' => 'yandex-user',
-                'client_id' => 'account-1',
+                'display_name' => 'Яндекс Пользователь',
+                'default_avatar_id' => '0/abc-0',
             ]),
         ]);
 

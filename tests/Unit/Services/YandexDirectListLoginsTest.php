@@ -287,4 +287,39 @@ class YandexDirectListLoginsTest extends TestCase
         $this->assertTrue($resolved['logins']->isEmpty());
         $this->assertSame('У агентства нет активных клиентов в Яндекс.Директе', $resolved['error']);
     }
+
+    #[Test]
+    public function test_fetch_oauth_user_profile_returns_display_name_and_avatar_url(): void
+    {
+        Http::fake([
+            'login.yandex.ru/info*' => Http::response([
+                'id' => '777',
+                'login' => 'agency-user',
+                'display_name' => 'Агентство',
+                'default_avatar_id' => '0/0-0',
+            ]),
+        ]);
+
+        $profile = app(YandexDirectService::class)->fetchOauthUserProfile('token');
+
+        $this->assertIsArray($profile);
+        $this->assertSame('777', $profile['oauth_yandex_user_id']);
+        $this->assertSame('agency-user', $profile['oauth_yandex_login']);
+        $this->assertSame('Агентство', $profile['oauth_yandex_display_name']);
+        $this->assertSame(
+            'https://avatars.yandex.net/get-yapic/0/0-0/islands-200',
+            $profile['oauth_yandex_avatar_url']
+        );
+        $this->assertStringNotContainsString('%2F', $profile['oauth_yandex_avatar_url']);
+    }
+
+    #[Test]
+    public function test_fetch_oauth_user_profile_returns_null_on_failed_response(): void
+    {
+        Http::fake([
+            'login.yandex.ru/info*' => Http::response([], 401),
+        ]);
+
+        $this->assertNull(app(YandexDirectService::class)->fetchOauthUserProfile('token'));
+    }
 }
