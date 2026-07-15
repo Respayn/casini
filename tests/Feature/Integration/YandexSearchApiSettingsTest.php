@@ -8,14 +8,14 @@ use App\Models\Integration;
 use App\Models\Project;
 use App\Services\IntegrationService;
 use Database\Seeders\IntegrationSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class YandexSearchApiSettingsTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {

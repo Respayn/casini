@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
@@ -44,7 +43,7 @@ new #[Layout('layouts::auth')] class extends Component {
             ]);
         }
 
-        $user->password = Hash::make($this->password);
+        $user->password = $this->password;
         $user->save();
 
         $this->step = 3;

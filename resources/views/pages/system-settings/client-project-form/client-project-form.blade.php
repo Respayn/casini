@@ -1,4 +1,4 @@
-<div>
+<div data-casini-client-project-form>
     <x-menu.back-button />
     <x-form.form
         :is-normalized="true"
@@ -672,6 +672,7 @@
     <x-project-form.integration-settings-modal
         :project-integration="$selectedIntegration"
         :project-id="$clientProjectForm->id"
-        :platform-configured="$this->isYandexSearchApiConfigured"
+        :platform-configured="$this->isSelectedIntegrationPlatformConfigured"
+        :oauth-revision="$yandexDirectOAuthRevision"
     />
 </div>

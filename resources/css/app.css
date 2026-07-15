@@ -26,6 +26,9 @@
     --color-toggle-switch-handle-bg: #486388;
 
     --color-warning-red: #ff3d00;
+    --color-integration-error: #FF7373;
+    --color-integration-error-light: #FFB3B3;
+    --color-integration-error-surface: #FFF5F5;
 
     --color-card-border: #94a8c1;
 
@@ -152,4 +155,18 @@ form.form_normalized {
 
 .form-field label {
     max-width: 250px;
+}
+
+/* Яндекс.Директ: состояние ошибки в модалке интеграции */
+.yd-direct-error-toggle .peer:checked + div {
+    background-color: var(--color-integration-error-light);
+}
+
+.yd-direct-error-toggle .peer:checked + div::after {
+    background-color: var(--color-integration-error) !important;
+}
+
+.yd-direct-error-login {
+    border-color: var(--color-integration-error) !important;
+    background-color: var(--color-integration-error-surface);
 }

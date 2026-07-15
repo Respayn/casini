@@ -2,6 +2,7 @@
     'projectIntegration' => null,
     'projectId' => null,
     'platformConfigured' => true,
+    'oauthRevision' => 0,
 ])
 
 @php
@@ -11,8 +12,18 @@
             && filled($projectIntegration->settings['site_id'] ?? null),
         'yandex_search_api' => filled($projectIntegration->settings['regions'] ?? null)
             && count($projectIntegration->settings['regions'] ?? []) > 0,
+        'yandex_direct' => filled($projectIntegration->settings['oauth_token'] ?? $projectIntegration->settings['encryptedOauthToken'] ?? null)
+            || filled($projectIntegration->settings['client_login'] ?? $projectIntegration->settings['clientLogin'] ?? null)
+            || ($projectIntegration->isEnabled ?? false),
         default => false,
     };
+
+    $modalBodyKey = $projectIntegration
+        ? $projectIntegration->integration->id.'-'.md5(json_encode([
+            'settings' => $projectIntegration->settings ?? [],
+            'enabled' => $projectIntegration->isEnabled ?? false,
+        ])).'-'.$oauthRevision
+        : 'empty';
 @endphp
 
 <x-overlay.modal
@@ -31,6 +42,7 @@
     @if ($projectIntegration)
         <x-slot:body>
             <x-dynamic-component
+                wire:key="integration-modal-body-{{ $modalBodyKey }}"
                 component="project-form.{{ $formattedIntegrationCode }}-integration-modal-body"
                 :project-integration="$projectIntegration"
                 :project-id="$projectId"

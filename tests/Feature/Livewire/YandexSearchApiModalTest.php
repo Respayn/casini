@@ -2,10 +2,11 @@
 
 namespace Tests\Feature\Livewire;
 
+use App\Models\Agency;
 use App\Models\Integration;
 use App\Models\User;
 use Database\Seeders\IntegrationSeeder;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Livewire\Livewire;
 use PhpOffice\PhpWord\IOFactory;
@@ -15,7 +16,7 @@ use Tests\TestCase;
 
 class YandexSearchApiModalTest extends TestCase
 {
-    use RefreshDatabase;
+    use DatabaseTransactions;
 
     protected function setUp(): void
     {
@@ -24,10 +25,19 @@ class YandexSearchApiModalTest extends TestCase
         $this->seed(IntegrationSeeder::class);
     }
 
+    private function createUserWithAgency(): User
+    {
+        $user = User::factory()->create();
+        $agency = Agency::factory()->create();
+        $user->agencies()->attach($agency->id);
+
+        return $user;
+    }
+
     #[Test]
     public function test_select_integration_opens_yandex_search_api_modal_state(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createUserWithAgency();
 
         Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')
@@ -39,7 +49,7 @@ class YandexSearchApiModalTest extends TestCase
     #[Test]
     public function test_parse_phrases_from_docx_returns_phrases(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createUserWithAgency();
         $file = $this->makeUploadedDocx(['фраза 1', 'фраза 2']);
 
         Livewire::actingAs($user)
@@ -52,7 +62,7 @@ class YandexSearchApiModalTest extends TestCase
     #[Test]
     public function test_set_integration_settings_stores_regions(): void
     {
-        $user = User::factory()->create();
+        $user = $this->createUserWithAgency();
         $integration = Integration::query()->where('code', 'yandex_search_api')->firstOrFail();
 
         Livewire::actingAs($user)

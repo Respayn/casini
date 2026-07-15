@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -13,7 +12,7 @@ class ProductSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('products')->insert([
+        $products = [
             [
                 'name' => 'Справочник клиентов',
                 'code' => 'clients',
@@ -49,7 +48,14 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Шаблоны отчетов',
                 'code' => 'report_templates',
-            ]
-        ]);
+            ],
+        ];
+
+        foreach ($products as $product) {
+            DB::table('products')->updateOrInsert(
+                ['code' => $product['code']],
+                ['name' => $product['name']]
+            );
+        }
     }
 }

@@ -21,6 +21,7 @@ use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
+use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -28,8 +29,10 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -59,9 +62,11 @@ class extends Component
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
-    public ProjectIntegrationData $selectedIntegration;
+    public ?ProjectIntegrationData $selectedIntegration = null;
 
     public Collection $integrationSettings;
+
+    public int $yandexDirectOAuthRevision = 0;
 
     public $phraseDocxFile;
 
@@ -202,6 +207,25 @@ class extends Component
             && filled(config('services.yandex_search_api.folder_id'));
     }
 
+    #[Computed]
+    public function isYandexDirectOAuthConfigured(): bool
+    {
+        return filled(config('services.yandex_direct.client_id'))
+            && filled(config('services.yandex_direct.client_secret'));
+    }
+
+    #[Computed]
+    public function isSelectedIntegrationPlatformConfigured(): bool
+    {
+        $code = $this->selectedIntegration?->integration->code ?? null;
+
+        return match ($code) {
+            'yandex_search_api' => $this->isYandexSearchApiConfigured,
+            'yandex_direct' => $this->isYandexDirectOAuthConfigured,
+            default => true,
+        };
+    }
+
     public function selectIntegration(string $code)
     {
         $integration = $this->integrations()->firstWhere('code', $code);
@@ -313,46 +337,215 @@ class extends Component
     }
 
 
-    public function updated($property): void
-    {
-        if (! preg_match('/^integrationSettings\.(\d+)\.isEnabled$/', $property, $matches)) {
-            return;
-        }
-
-        $integrationId = (int) $matches[1];
-        $integrationSettings = $this->integrationSettings[$integrationId] ?? null;
-
-        if (! $integrationSettings?->isEnabled) {
-            return;
-        }
-
-        $integration = $this->integrations()->firstWhere('id', $integrationId);
-
-        if (! $integration) {
-            return;
-        }
-
-        $settings = $integrationSettings->settings ?? [];
-
-        if ($integration->code === 'yandex_direct' && empty($settings)) {
-            $this->connectYandexDirect();
-        }
-    }
-
-    public function connectYandexDirect()
+    /**
+     * @return array{url?: string, cache_data_id?: string, error?: string}
+     */
+    public function prepareYandexDirectOAuth(bool $popup = true): array
     {
         $this->ensureSelectedIntegration('yandex_direct');
 
+        if (! $this->isYandexDirectOAuthConfigured) {
+            return [
+                'error' => 'Интеграция Яндекс.Директ не настроена на сервере. Обратитесь к администратору.',
+            ];
+        }
+
+        $cacheDataId = (string) Str::uuid();
+
         Cache::put(
-            'integration_data_' . $this->getId(),
+            'integration_data_'.$cacheDataId,
             $this->buildOAuthCachePayload(),
             now()->addMinutes(15)
         );
 
-        return redirect()->route('yandex_direct.oauth.redirect', [
+        $url = route('yandex_direct.oauth.redirect', [
             'project_id' => $this->clientProjectForm->id,
-            'cache_data_id' => $this->getId(),
+            'cache_data_id' => $cacheDataId,
+            'popup' => $popup ? 1 : 0,
         ]);
+
+        return [
+            'url' => $url,
+            'cache_data_id' => $cacheDataId,
+        ];
+    }
+
+    /**
+     * @return array{settings?: array<string, mixed>, pending?: bool}
+     */
+    public function pullYandexDirectOAuthResult(string $cacheDataId): array
+    {
+        if (trim($cacheDataId) === '') {
+            return ['pending' => true];
+        }
+
+        $settings = Cache::pull('yandex_direct_oauth_result_'.$cacheDataId);
+
+        if (! is_array($settings) || $settings === []) {
+            return ['pending' => true];
+        }
+
+        return ['settings' => $settings];
+    }
+
+    /**
+     * @return array{applied?: bool, pending?: bool}
+     */
+    public function finalizeYandexDirectOAuth(string $cacheDataId): array
+    {
+        $cacheDataId = trim($cacheDataId);
+
+        if ($cacheDataId === '') {
+            return ['pending' => true];
+        }
+
+        $settings = Cache::pull('yandex_direct_oauth_result_'.$cacheDataId);
+
+        if (! is_array($settings) || $settings === []) {
+            return ['pending' => true];
+        }
+
+        $this->selectIntegration('yandex_direct');
+        $this->applyYandexDirectOAuthTokens($settings);
+        $this->dispatch('modal-show', name: 'integration-settings-modal');
+
+        return ['applied' => true];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function applyYandexDirectOAuthFromBroadcast(array $settings, ?int $integrationId = null): void
+    {
+        $this->selectIntegration('yandex_direct');
+
+        if ($integrationId !== null
+            && $this->selectedIntegration?->integration?->id !== $integrationId) {
+            return;
+        }
+
+        if ($settings === []) {
+            return;
+        }
+
+        $this->applyYandexDirectOAuthTokens($settings);
+        $this->dispatch('modal-show', name: 'integration-settings-modal');
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    #[On('yandex-direct-oauth-received')]
+    public function handleYandexDirectOAuthReceived(
+        ?array $settings = null,
+        ?string $cacheDataId = null,
+        ?int $integrationId = null
+    ): void {
+        if (is_array($settings) && $settings !== []) {
+            $this->applyYandexDirectOAuthFromBroadcast($settings, $integrationId);
+
+            return;
+        }
+
+        if (filled($cacheDataId)) {
+            $this->finalizeYandexDirectOAuth($cacheDataId);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function applyYandexDirectOAuthTokens(array $settings): void
+    {
+        $this->ensureSelectedIntegration('yandex_direct');
+
+        if ($this->selectedIntegration?->integration === null) {
+            return;
+        }
+
+        $integrationId = $this->selectedIntegration->integration->id;
+        $existingToken = (string) ($this->selectedIntegration->settings['oauth_token'] ?? '');
+        $newToken = (string) ($settings['oauth_token'] ?? '');
+
+        if ($existingToken !== '' && $existingToken === $newToken && ($this->selectedIntegration->isEnabled ?? false)) {
+            $mergedSettings = $this->selectedIntegration->settings ?? [];
+        } else {
+            $mergedSettings = array_merge(
+                $this->selectedIntegration->settings ?? [],
+                [
+                    'oauth_token' => $settings['oauth_token'] ?? null,
+                    'refresh_token' => $settings['refresh_token'] ?? null,
+                    'token_expires_at' => $settings['token_expires_at'] ?? null,
+                    'account_id' => $settings['account_id'] ?? null,
+                    'sync_enabled_at' => now()->format('Y-m-d'),
+                ]
+            );
+
+            $this->selectedIntegration->isEnabled = true;
+            $this->selectedIntegration->settings = $mergedSettings;
+
+            $projectIntegrationData = new ProjectIntegrationData();
+            $projectIntegrationData->integration = $this->selectedIntegration->integration;
+            $projectIntegrationData->isEnabled = true;
+            $projectIntegrationData->settings = $mergedSettings;
+            $this->integrationSettings[$integrationId] = $projectIntegrationData;
+
+            $this->yandexDirectOAuthRevision++;
+        }
+
+        $oauthToken = (string) ($mergedSettings['oauth_token'] ?? '');
+        $loginsResult = $oauthToken !== ''
+            ? $this->loadYandexDirectLogins($oauthToken)
+            : ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
+
+        $this->dispatch(
+            'yandex-direct-oauth-applied',
+            settings: [
+                'oauth_token' => $mergedSettings['oauth_token'] ?? null,
+                'refresh_token' => $mergedSettings['refresh_token'] ?? null,
+                'token_expires_at' => $mergedSettings['token_expires_at'] ?? null,
+                'account_id' => $mergedSettings['account_id'] ?? null,
+                'sync_enabled_at' => $mergedSettings['sync_enabled_at'] ?? null,
+                'is_enabled' => true,
+            ],
+            logins: $loginsResult['logins'] ?? [],
+            loginsError: $loginsResult['error'] ?? null,
+            integrationId: $integrationId,
+        );
+    }
+
+    /**
+     * @return array{logins?: array<int, array{value: string, label: string}>, error?: string}
+     */
+    public function loadYandexDirectLogins(string $oauthToken): array
+    {
+        if (trim($oauthToken) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
+        }
+
+        try {
+            $resolved = app(YandexDirectService::class)->resolveClientLogins($oauthToken);
+
+            $logins = $resolved['logins']
+                ->map(fn (array $login) => [
+                    'value' => (string) $login['value'],
+                    'label' => (string) $login['label'],
+                ])
+                ->values()
+                ->all();
+
+            if ($logins === []) {
+                return [
+                    'error' => $resolved['error'] ?? 'Не найдено доступных логинов Яндекс.Директ',
+                ];
+            }
+
+            return ['logins' => $logins];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить логины Яндекс.Директ'];
+        }
     }
 
     private function buildOAuthCachePayload(): array
@@ -427,15 +620,23 @@ class extends Component
 
     private function ensureSelectedIntegration(string $code): void
     {
-        if ($this->selectedIntegration->integration?->code === $code) {
+        if ($this->selectedIntegration?->integration?->code === $code) {
             return;
         }
 
         $integration = $this->integrations()->firstWhere('code', $code);
 
-        if ($integration) {
-            $this->selectedIntegration->integration = IntegrationData::from($integration);
+        if ($integration === null) {
+            return;
         }
+
+        if ($this->selectedIntegration === null) {
+            $this->selectedIntegration = new ProjectIntegrationData();
+            $this->selectedIntegration->isEnabled = false;
+            $this->selectedIntegration->settings = [];
+        }
+
+        $this->selectedIntegration->integration = IntegrationData::from($integration);
     }
 
     public function removeIntegration(int $integrationId)

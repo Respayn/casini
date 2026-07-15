@@ -73,6 +73,8 @@
     </div>
 
     @livewireScriptConfig
+
+    <x-scripts.yandex-direct-oauth-coordinator />
 </body>
 
 </html>

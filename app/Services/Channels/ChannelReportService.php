@@ -747,7 +747,9 @@ class ChannelReportService implements ChannelReportServiceInterface
             }
 
             if ($integrationCode === 'yandex_direct') {
-                $carry['login'] = $integration->settings['clientLogin'] ?? null;
+                $carry['login'] = $integration->settings['client_login']
+                    ?? $integration->settings['clientLogin']
+                    ?? null;
             }
 
             return $carry;

@@ -1,8 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Auth;
+use App\Services\Auth\LoginService;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -15,18 +14,38 @@ class extends Component {
     #[Validate('required|string')]
     public string $password = '';
 
-    public function login(): void
+    public function login(LoginService $loginService): void
     {
         $this->validate();
 
-        if (!Auth::attempt(['login' => $this->userLogin, 'password' => $this->password])) {
-            throw ValidationException::withMessages([
-                'userLogin' => __('auth.failed'),
-            ]);
-        }
+        $loginService->attempt($this->userLogin, $this->password);
 
         Session::regenerate();
 
-        $this->redirectIntended(default: route('system-settings.dictionaries', absolute: false), navigate: true);
+        $default = route('system-settings.dictionaries', absolute: false);
+        $intended = session()->pull('url.intended', $default);
+
+        if ($this->shouldIgnoreIntendedRedirect($intended)) {
+            $intended = $default;
+        }
+
+        // Полная перезагрузка страницы — иначе после regenerate() Livewire navigate
+        // может не подхватить новую сессию и вернуть на главную.
+        $this->redirect($intended, navigate: false);
+    }
+
+    private function shouldIgnoreIntendedRedirect(string $url): bool
+    {
+        $path = parse_url($url, PHP_URL_PATH) ?: $url;
+
+        $ignoredPaths = [
+            '/',
+            route('landing', absolute: false),
+            route('login', absolute: false),
+            route('register', absolute: false),
+            route('password.request', absolute: false),
+        ];
+
+        return in_array($path, $ignoredPaths, true);
     }
 };
