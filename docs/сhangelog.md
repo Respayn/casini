@@ -51,6 +51,10 @@
 
 
 # Releases
+## [v0.2.21] - 2026-07-16
+### Исправления
+- Каналы: страница `/channels` больше не падает с `Attempt to read property "first_name" on null`, если у клиенто-проекта нет специалиста или менеджера — в ячейках показывается «—».
+
 ## [v0.1.0] - 2025-03-04
 ### 🚀 Новое  
 #### https://yt.softorium.pro/issue/SEO-144/Obnovlenie-SAO-Razrabotka-spravochnikov-ch1-zadacha-fevralya
