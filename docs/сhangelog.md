@@ -51,6 +51,10 @@
 
 
 # Releases
+## [v0.2.20] - 2026-07-16
+### Исправления
+- Модалка интеграций: при переключении Callibri ↔ Яндекс.Директ ↔ Search API тело и сайдбар больше не «залипают» на предыдущей интеграции — универсальный remount через `integrationModalBodyRevision` и `wire:key` на обёртках body/sidebar (обход `wire:ignore` в Alpine-теле Директа).
+
 ## [v0.2.19] - 2026-07-15
 ### Исправления
 - Яндекс.Директ OAuth: в redirect добавлены scope `login:avatar` и `login:info` — без них `login.yandex.ru/info` не возвращает `default_avatar_id` и `display_name`; аватарка в карточке профиля показывалась fallback-буквой. После деплоя нужен повторный OAuth («Выбрать другую учетную запись»).

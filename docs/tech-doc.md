@@ -139,11 +139,23 @@ php artisan tinker --execute="echo config('services.yandex_direct.client_id') ? 
    - `popup=1`: Cache `yandex_direct_oauth_result_{id}` + view `oauth/yandex-direct-popup-complete` (BroadcastChannel + postMessage + localStorage);
    - `popup=0`: redirect на форму проекта со `state` + `open_integration=yandex_direct` (модалка открывается в `mount`). **`client_login` не заполняется** — выбор вручную.
 6. Координатор в layout `system-settings` (`x-scripts.yandex-direct-oauth-coordinator`): BroadcastChannel / postMessage / `storage` / polling → `Livewire.getByName(...).finalize|apply…` или `Livewire.dispatchTo('yandex-direct-oauth-received')`.
-7. После apply: `$yandexDirectOAuthRevision++`, серверный `loadYandexDirectLogins`, browser-event `yandex-direct-oauth-applied` (Alpine обновляет token + loginOptions **без** автовыбора login), `wire:key` remount, `modal-show`.
+7. После apply: `$integrationModalBodyRevision++`, серверный `loadYandexDirectLogins`, browser-event `yandex-direct-oauth-applied` (Alpine обновляет token + loginOptions **без** автовыбора login), `wire:key` remount, `modal-show`.
 
 **UI логинов:** inline Alpine-select в модалке (тот же `x-data`, без `parentOptionsKey`). Пользователь обязан выбрать Client-Login вручную.
 
 **Morph / Alpine:** тело модалки Директа с `wire:ignore` для OAuth-start; после apply смена `wire:key` (+ revision) даёт свежий UI.
+
+### Общая модалка интеграций (remount)
+
+Одна модалка [`integration-settings-modal`](resources/views/components/project-form/integration-settings-modal.blade.php) для Callibri, Яндекс.Директ, Yandex Search API и будущих интеграций (Метрика и др.).
+
+| Механизм | Назначение |
+|----------|------------|
+| `$integrationModalBodyRevision` | Счётчик remount; `++` в `selectIntegration()` и при apply OAuth Директа (аналогично — при apply других OAuth-интеграций) |
+| `wire:key` на обёртке body | `integration.code` + id + hash settings + revision — **без** `wire:ignore` на обёртке |
+| `wire:key` на обёртке sidebar | `integration.code` + revision |
+
+**Правило для новых интеграций:** body = `project-form.{kebab-code}-integration-modal-body` + sidebar. Если нужен `wire:ignore` (Alpine/OAuth) — только на **внутреннем** корне body, не на обёртке с `wire:key`. Иначе при переключении интеграций тело «залипает» на предыдущей.
 
 **Callback errors:** при `invalid_grant` popup показывает сообщение и шлёт error через BroadcastChannel / `postMessage({ type: 'yandex-direct-oauth-error' })`.
 

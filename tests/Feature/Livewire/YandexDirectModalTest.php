@@ -216,7 +216,7 @@ class YandexDirectModalTest extends TestCase
             ->assertSet('selectedIntegration.isEnabled', true)
             ->assertSet('selectedIntegration.settings.oauth_token', 'access-token')
             ->assertSet("integrationSettings.{$integration->id}.settings.oauth_token", 'access-token')
-            ->assertSet('yandexDirectOAuthRevision', 1)
+            ->assertSet('integrationModalBodyRevision', 2)
             ->assertDispatched('modal-show')
             ->assertDispatched('yandex-direct-oauth-applied');
     }
@@ -253,7 +253,7 @@ class YandexDirectModalTest extends TestCase
             ->assertSet('selectedIntegration.integration.code', 'yandex_direct')
             ->assertSet('selectedIntegration.isEnabled', true)
             ->assertSet('selectedIntegration.settings.oauth_token', 'access-token')
-            ->assertSet('yandexDirectOAuthRevision', 1)
+            ->assertSet('integrationModalBodyRevision', 2)
             ->assertDispatched('yandex-direct-oauth-applied')
             ->assertDispatched('modal-show');
     }
@@ -335,7 +335,7 @@ class YandexDirectModalTest extends TestCase
             ->assertSet('selectedIntegration.settings.oauth_token', 'access-token')
             ->assertSet("integrationSettings.{$integration->id}.isEnabled", true)
             ->assertSet("integrationSettings.{$integration->id}.settings.oauth_token", 'access-token')
-            ->assertSet('yandexDirectOAuthRevision', 1);
+            ->assertSet('integrationModalBodyRevision', 2);
     }
 
     #[Test]

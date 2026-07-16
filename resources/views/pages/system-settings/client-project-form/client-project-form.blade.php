@@ -673,6 +673,6 @@
         :project-integration="$selectedIntegration"
         :project-id="$clientProjectForm->id"
         :platform-configured="$this->isSelectedIntegrationPlatformConfigured"
-        :oauth-revision="$yandexDirectOAuthRevision"
+        :body-revision="$integrationModalBodyRevision"
     />
 </div>

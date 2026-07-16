@@ -2,12 +2,13 @@
     'projectIntegration' => null,
     'projectId' => null,
     'platformConfigured' => true,
-    'oauthRevision' => 0,
+    'bodyRevision' => 0,
 ])
 
 @php
     $formattedIntegrationCode = Str::kebab(Str::camel($projectIntegration?->integration->code));
-    $isConfigured = match ($projectIntegration?->integration->code) {
+    $integrationCode = $projectIntegration?->integration->code;
+    $isConfigured = match ($integrationCode) {
         'callibri' => filled($projectIntegration->settings['token'] ?? null)
             && filled($projectIntegration->settings['site_id'] ?? null),
         'yandex_search_api' => filled($projectIntegration->settings['regions'] ?? null)
@@ -19,10 +20,14 @@
     };
 
     $modalBodyKey = $projectIntegration
-        ? $projectIntegration->integration->id.'-'.md5(json_encode([
+        ? $integrationCode.'-'.$projectIntegration->integration->id.'-'.md5(json_encode([
             'settings' => $projectIntegration->settings ?? [],
             'enabled' => $projectIntegration->isEnabled ?? false,
-        ])).'-'.$oauthRevision
+        ])).'-'.$bodyRevision
+        : 'empty';
+
+    $modalSidebarKey = $projectIntegration
+        ? $integrationCode.'-'.$bodyRevision
         : 'empty';
 @endphp
 
@@ -41,17 +46,20 @@
 
     @if ($projectIntegration)
         <x-slot:body>
-            <x-dynamic-component
-                wire:key="integration-modal-body-{{ $modalBodyKey }}"
-                component="project-form.{{ $formattedIntegrationCode }}-integration-modal-body"
-                :project-integration="$projectIntegration"
-                :project-id="$projectId"
-                :platform-configured="$platformConfigured"
-            />
+            <div wire:key="integration-modal-body-{{ $modalBodyKey }}">
+                <x-dynamic-component
+                    component="project-form.{{ $formattedIntegrationCode }}-integration-modal-body"
+                    :project-integration="$projectIntegration"
+                    :project-id="$projectId"
+                    :platform-configured="$platformConfigured"
+                />
+            </div>
         </x-slot:body>
 
         <x-slot:sidebar>
-            <x-dynamic-component component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar" />
+            <div wire:key="integration-modal-sidebar-{{ $modalSidebarKey }}">
+                <x-dynamic-component component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar" />
+            </div>
         </x-slot:sidebar>
     @endif
 </x-overlay.modal>

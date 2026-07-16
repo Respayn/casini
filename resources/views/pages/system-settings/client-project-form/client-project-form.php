@@ -66,7 +66,7 @@ class extends Component
 
     public Collection $integrationSettings;
 
-    public int $yandexDirectOAuthRevision = 0;
+    public int $integrationModalBodyRevision = 0;
 
     public $phraseDocxFile;
 
@@ -252,6 +252,7 @@ class extends Component
         };
 
         $this->dispatch('modal-hide', name: $listModalName);
+        $this->integrationModalBodyRevision++;
         $this->dispatch('modal-show', name: 'integration-settings-modal');
     }
 
@@ -490,7 +491,7 @@ class extends Component
             $projectIntegrationData->settings = $mergedSettings;
             $this->integrationSettings[$integrationId] = $projectIntegrationData;
 
-            $this->yandexDirectOAuthRevision++;
+            $this->integrationModalBodyRevision++;
         }
 
         $oauthToken = (string) ($mergedSettings['oauth_token'] ?? '');
