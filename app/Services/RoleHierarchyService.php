@@ -22,8 +22,8 @@ class RoleHierarchyService
 
     public function userHasPermission(User $user, string $permission): bool
     {
-        foreach ($user->permissions as $permission) {
-            if ($permission->name === $permission) {
+        foreach ($user->permissions as $userPermission) {
+            if ($userPermission->name === $permission) {
                 return true;
             }
         }

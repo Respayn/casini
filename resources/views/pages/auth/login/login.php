@@ -1,7 +1,10 @@
 <?php
 
+use App\Livewire\Concerns\RedirectsAfterAuth;
 use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
@@ -11,6 +14,7 @@ use Livewire\Component;
 
 new #[Layout('layouts::auth')]
 class extends Component {
+    use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
     #[Validate('required', message: 'Поле логин или email обязательно для заполнения', onUpdate: false)]
@@ -37,14 +41,31 @@ class extends Component {
         $this->verifySmartCaptcha('login-captcha');
         $this->validate();
 
-        if (! Auth::attempt(['login' => $this->userLogin, 'password' => $this->password])) {
+        $login = trim($this->userLogin);
+
+        $user = User::query()
+            ->where(function ($query) use ($login) {
+                $query->where('login', $login)
+                    ->orWhere('email', $login);
+            })
+            ->first();
+
+        if (! $user || ! Hash::check($this->password, $user->password)) {
             throw ValidationException::withMessages([
                 'userLogin' => __('auth.failed'),
             ]);
         }
 
-        Session::regenerate();
+        if (! $user->is_active) {
+            throw ValidationException::withMessages([
+                'userLogin' => 'Подтвердите email по ссылке из письма',
+            ]);
+        }
 
-        $this->redirectIntended(default: route('system-settings.dictionaries', absolute: false), navigate: true);
+        Auth::login($user);
+        Session::regenerate();
+        $this->bindCurrentAgency($user);
+
+        $this->redirectIntended(default: $this->homeRouteAfterAuth(), navigate: true);
     }
 };

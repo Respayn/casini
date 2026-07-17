@@ -40,9 +40,9 @@
                                 Название агентства
                             </x-form.form-label>
                             <x-form.input-text
-                                wire:model.live="agencyName"
-                                wire:blur="validateField('agencyName')"
+                                wire:model="agencyName"
                                 icon="icons.edit-form"
+                                disabled
                             />
                         </div>
                         <div class="flex flex-col gap-2">
@@ -54,10 +54,10 @@
                                 Основной часовой пояс агентства
                             </x-form.form-label>
                             <x-form.select
-                                wire:model.live="timezone"
-                                wire:blur="validateField('timezone')"
+                                wire:model="timezone"
                                 :options="\App\Dictionaries\TimeZoneDictionary::optionsForSelect()"
                                 required
+                                disabled
                             />
                         </div>
                         <x-button.button

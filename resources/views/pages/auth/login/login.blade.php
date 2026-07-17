@@ -4,11 +4,17 @@
             <h1 class="text-[28px] leading-tight font-semibold text-gray-900">
                 Войти в аккаунт
             </h1>
-            <a href="{{ route('register') }}"
-               class="font-medium text-[18px] text-caption-text hover:underline">
-                Регистрация
-            </a>
+            @if (config('app.registration_enabled'))
+                <a href="{{ route('register') }}"
+                   class="font-medium text-[18px] text-caption-text hover:underline">
+                    Регистрация
+                </a>
+            @endif
         </div>
+
+        @if (session('status'))
+            <p class="mb-4 text-sm text-green-600">{{ session('status') }}</p>
+        @endif
 
         <x-auth.captcha-form captcha-id="login-captcha" wire-method="login">
             <div class="flex flex-col gap-4">

@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Concerns\RedirectsAfterAuth;
 use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
@@ -15,6 +16,7 @@ use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 new #[Layout('layouts::auth')] class extends Component {
+    use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
     public int $step = 1;
@@ -100,9 +102,10 @@ new #[Layout('layouts::auth')] class extends Component {
 
         Auth::login($user);
         Session::regenerate();
+        $this->bindCurrentAgency($user);
 
         $this->redirectIntended(
-            default: route('system-settings.dictionaries', absolute: false),
+            default: $this->homeRouteAfterAuth(),
             navigate: true
         );
     }

@@ -92,7 +92,7 @@ class SmartCaptchaAuthTest extends TestCase
             ->set('captchaToken', 'valid-token')
             ->call('login')
             ->assertHasNoErrors()
-            ->assertRedirect(route('system-settings.dictionaries', absolute: false));
+            ->assertRedirect(route('channels', absolute: false));
 
         $this->assertAuthenticatedAs($user);
 
@@ -105,6 +105,8 @@ class SmartCaptchaAuthTest extends TestCase
 
     public function test_register_fails_when_captcha_is_invalid(): void
     {
+        Config::set('app.registration_enabled', true);
+
         Http::fake([
             'smartcaptcha.yandexcloud.net/validate' => Http::response([
                 'status' => 'failed',
@@ -115,8 +117,8 @@ class SmartCaptchaAuthTest extends TestCase
             ->set('step', 2)
             ->set('firstName', 'Иван')
             ->set('lastName', 'Иванов')
-            ->set('agencyName', 'Агентство')
-            ->set('timezone', 'Europe/Moscow')
+            ->set('agencyName', 'СайтАктив')
+            ->set('timezone', 'Asia/Yekaterinburg')
             ->set('email', 'register-captcha@example.com')
             ->set('phone', '+7 (999) 123-45-67')
             ->set('password', 'pass12')
