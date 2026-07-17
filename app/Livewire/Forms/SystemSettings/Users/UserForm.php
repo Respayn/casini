@@ -33,6 +33,7 @@ class UserForm extends Form
     public bool $is_active = true;
 
     public $photo = null;
+
     #[Validate('nullable|integer|exists:rates,id')]
     public ?int $rate_id = null;
 
@@ -45,33 +46,90 @@ class UserForm extends Form
     #[Validate('nullable|boolean')]
     public bool $enable_notifications = true;
 
-    #[Validate('nullable|string|min:8')]
+    public ?string $current_password = null;
+
     public ?string $password = null;
 
-    #[Validate('nullable|string|min:8|same:password')]
     public ?string $password_confirmation = null;
 
     public bool $delete_photo = false;
 
+    public function hasPasswordChange(): bool
+    {
+        return filled(trim((string) $this->current_password))
+            || filled(trim((string) $this->password))
+            || filled(trim((string) $this->password_confirmation));
+    }
+
+    public function clearPasswordFields(): void
+    {
+        $this->current_password = null;
+        $this->password = null;
+        $this->password_confirmation = null;
+    }
+
+    public function passwordChangeRules(string $prefix = ''): array
+    {
+        $passwordField = $prefix.'password';
+
+        return [
+            $prefix.'current_password' => [
+                'required',
+                'string',
+            ],
+            $prefix.'password' => [
+                'required',
+                'min:6',
+                'regex:/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/',
+            ],
+            $prefix.'password_confirmation' => [
+                'required',
+                'same:'.$passwordField,
+            ],
+        ];
+    }
+
+    public function passwordChangeMessages(string $prefix = ''): array
+    {
+        return [
+            $prefix.'current_password.required' => 'Поле текущий пароль обязательно для заполнения',
+            $prefix.'password.required' => 'Поле пароль обязательно для заполнения',
+            $prefix.'password.min' => 'слишком короткий пароль',
+            $prefix.'password.regex' => 'пароль должен состоять не менее чем из 6 символов и содержит латинские буквы и цифры',
+            $prefix.'password_confirmation.required' => 'Поле повторите пароль обязательно для заполнения',
+            $prefix.'password_confirmation.same' => 'пароли не совпадают',
+        ];
+    }
+
     public function rules()
     {
         $id = $this->id ?: 'NULL';
+
+        $passwordRules = $this->id
+            ? 'nullable|string'
+            : 'required|string|min:8';
+
+        $passwordConfirmationRules = $this->id
+            ? 'nullable|string'
+            : 'required|string|min:8|same:password';
+
         return [
             'login' => "required|string|max:100|unique:users,login,{$id},id",
             'first_name' => 'nullable|string|max:255',
-            'last_name'  => 'nullable|string|max:255',
+            'last_name' => 'nullable|string|max:255',
             'email' => "required|email|max:255|unique:users,email,{$id},id",
-            'phone'   => 'nullable|string|max:30',
+            'phone' => 'nullable|string|max:30',
             'image_path' => 'nullable|string|max:255',
             'megaplan_id' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
-            'photo'   => 'nullable|image|mimes:jpg,jpeg,png,gif|max:1024',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:1024',
             'rate_id' => 'nullable|integer|exists:rates,id',
             'role_id' => 'nullable|integer|exists:roles,id',
             'enable_important_notifications' => 'nullable|boolean',
             'enable_notifications' => 'nullable|boolean',
-            'password' => ($this->id ? 'nullable' : 'required') . '|string|min:8',
-            'password_confirmation' => ($this->id ? 'nullable' : 'required') . '|string|min:8|same:password',
+            'current_password' => 'nullable|string',
+            'password' => $passwordRules,
+            'password_confirmation' => $passwordConfirmationRules,
         ];
     }
 
@@ -93,5 +151,6 @@ class UserForm extends Form
         $this->role_id = isset($user->roles) && count($user->roles) ? ($user->roles[0]['id'] ?? null) : null;
         $this->enable_important_notifications = $user->enable_important_notifications ?? true;
         $this->enable_notifications = $user->enable_notifications ?? true;
+        $this->clearPasswordFields();
     }
 }

@@ -4,6 +4,10 @@
             {{ isset($form->id) ? 'Редактировать пользователя' : 'Добавить пользователя' }}
         </h1>
 
+        @if (session('password_updated'))
+            <x-feedback.notice>{{ session('password_updated') }}</x-feedback.notice>
+        @endif
+
         {{-- Основная информация --}}
         <h2 class="font-semibold mt-2 mb-1">Основная информация</h2>
         <div class="flex flex-col gap-4">
@@ -57,6 +61,43 @@
                 />
             </x-form.form-field>
         </div>
+
+        @if($form->id)
+            {{-- Пароль --}}
+            <h2 class="font-semibold mt-6 mb-1">Пароль</h2>
+            <div class="flex flex-col gap-4">
+                <x-form.form-field>
+                    <x-form.form-label>Текущий пароль</x-form.form-label>
+                    <x-form.input-text
+                        type="password"
+                        wire:model.live="form.current_password"
+                        wire:blur="validatePasswordField('current_password')"
+                    />
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <x-form.form-label
+                        tooltip="пароль должен состоять не менее чем из 6 символов и содержит латинские буквы и цифры"
+                    >
+                        Новый пароль
+                    </x-form.form-label>
+                    <x-form.input-text
+                        type="password"
+                        wire:model.live="form.password"
+                        wire:blur="validatePasswordField('password')"
+                    />
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <x-form.form-label>Повторите новый пароль</x-form.form-label>
+                    <x-form.input-text
+                        type="password"
+                        wire:model.live="form.password_confirmation"
+                        wire:blur="validatePasswordField('password_confirmation')"
+                    />
+                </x-form.form-field>
+            </div>
+        @endif
 
         {{-- Контактная информация --}}
         <h2 class="font-semibold mt-6 mb-1">Контактная информация</h2>
@@ -150,6 +191,7 @@
             <x-button.button
                 type="submit"
                 variant="primary"
+                :disabled="$saveDisabled ?? false"
             >
                 <x-slot:label>
                     {{ isset($form->id) ? 'Сохранить изменения' : 'Создать пользователя' }}
