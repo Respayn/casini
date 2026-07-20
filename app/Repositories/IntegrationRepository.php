@@ -129,8 +129,16 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
 
         $decoded = json_decode($settings, true);
 
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return [];
+        }
+
         if (is_string($decoded)) {
             $decoded = json_decode($decoded, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return [];
+            }
         }
 
         return is_array($decoded) ? $decoded : [];

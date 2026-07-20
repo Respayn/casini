@@ -51,6 +51,13 @@
 
 
 # Releases
+## [v0.2.21] - 2026-07-20
+### 🛠 Исправления
+- Review PR #5: лимит страниц пагинации AgencyClients; удалён ошибочный `Agency::newFactory`
+- Review PR #5: серверная проверка фраз Yandex Search API через `PhraseDuplicateHelper`; проверка ошибок JSON в `IntegrationRepository`
+- Review PR #5: перенесены фиксы PR #2 (`select` без parent*-wiring, `form-label` Tailwind, `LeadCostFilter`)
+- Review PR #5: `UserFactory` пароль через `Hash::make` для ясности
+
 ## [v0.2.20] - 2026-07-16
 ### Исправления
 - Модалка интеграций: при переключении Callibri ↔ Яндекс.Директ ↔ Search API тело и сайдбар больше не «залипают» на предыдущей интеграции — универсальный remount через `integrationModalBodyRevision` и `wire:key` на обёртках body/sidebar (обход `wire:ignore` в Alpine-теле Директа).

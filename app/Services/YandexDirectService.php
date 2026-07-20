@@ -31,6 +31,8 @@ class YandexDirectService
 
     private const AGENCY_CLIENTS_PAGE_LIMIT = 10000;
 
+    private const AGENCY_CLIENTS_MAX_PAGES = 100;
+
     private const AGENCY_CLIENTS_ERROR = 'Не удалось получить список клиентов агентства. Авторизуйтесь под представителем агентства с доступом к клиентам в Яндекс.Директе.';
 
     private const API_UNREACHABLE_ERROR = 'Не удалось связаться с API Яндекс.Директ. Проверьте настройки YANDEX_DIRECT_*_API_URL и режим sandbox.';
@@ -114,8 +116,20 @@ class YandexDirectService
         $baseUrl = $this->directApiBaseUrl();
         $offset = 0;
         $allClients = [];
+        $page = 0;
 
         do {
+            $page++;
+
+            if ($page > self::AGENCY_CLIENTS_MAX_PAGES) {
+                Log::warning('[fetchAgencyClientLogins] Pagination page limit exceeded', [
+                    'max_pages' => self::AGENCY_CLIENTS_MAX_PAGES,
+                    'clients_collected' => count($allClients),
+                ]);
+
+                break;
+            }
+
             try {
                 $response = Http::withHeaders($this->directApiHeaders($token))
                     ->post($baseUrl.'/agencyclients', [

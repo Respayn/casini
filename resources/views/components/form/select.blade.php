@@ -6,8 +6,6 @@
     'placeholder' => 'Выберите значение',
     'emptyPlaceholder' => 'Нет доступных вариантов',
     'disabled' => false,
-    'parentOptionsKey' => null,
-    'parentLoadingKey' => null,
 ])
 
 @php
@@ -21,65 +19,11 @@
         options: {{ json_encode($options) }},
         selected: '',
         disabled: {{ $disabled ? 'true' : 'false' }},
-        loading: false,
-        parentOptionsKey: {{ json_encode($parentOptionsKey) }},
-        parentLoadingKey: {{ json_encode($parentLoadingKey) }},
 
         labelKey: '{{ $labelKey }}',
         valueKey: '{{ $valueKey }}',
         placeholder: '{{ $placeholder }}',
         emptyPlaceholder: '{{ $emptyPlaceholder }}',
-
-        init() {
-            if (!this.parentOptionsKey && !this.parentLoadingKey) {
-                return;
-            }
-
-            let node = this.$el.parentElement;
-            let optionsWired = false;
-            let loadingWired = false;
-
-            while (node) {
-                const stack = node._x_dataStack;
-
-                if (stack?.length) {
-                    const parent = stack[stack.length - 1];
-
-                    if (parent !== this) {
-                        if (!optionsWired && this.parentOptionsKey && parent[this.parentOptionsKey] !== undefined) {
-                            this.options = parent[this.parentOptionsKey] ?? [];
-
-                            this.$watch(() => parent[this.parentOptionsKey], (value) => {
-                                this.options = value ?? [];
-                            });
-
-                            optionsWired = true;
-                        }
-
-                        if (!loadingWired && this.parentLoadingKey && parent[this.parentLoadingKey] !== undefined) {
-                            this.disabled = parent[this.parentLoadingKey] ?? false;
-                            this.loading = parent[this.parentLoadingKey] ?? false;
-
-                            this.$watch(() => parent[this.parentLoadingKey], (value) => {
-                                this.disabled = value ?? false;
-                                this.loading = value ?? false;
-                            });
-
-                            loadingWired = true;
-                        }
-
-                        const optionsReady = !this.parentOptionsKey || optionsWired;
-                        const loadingReady = !this.parentLoadingKey || loadingWired;
-
-                        if (optionsReady && loadingReady) {
-                            return;
-                        }
-                    }
-                }
-
-                node = node.parentElement;
-            }
-        },
 
         get hasOptions() {
             return this.options.length > 0;
@@ -95,10 +39,6 @@
         },
 
         getDisplayText() {
-            if (this.loading && !this.hasOptions) {
-                return 'Загрузка...';
-            }
-
             if (this.selected) {
                 const option = this.options.find(o => o[this.valueKey] == this.selected);
 

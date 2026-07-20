@@ -14,10 +14,12 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Exceptions\CallibriApiException;
+use App\Helpers\PhraseDuplicateHelper;
 use App\Services\CallibriService;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
+use Illuminate\Validation\ValidationException;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
@@ -265,6 +267,16 @@ class extends Component
         $settingsCollection = collect($settings);
         $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
         $projectIntegrationData->settings = $settingsCollection->toArray();
+
+        if ($integration?->code === 'yandex_search_api' && ($projectIntegrationData->isEnabled ?? false)) {
+            $regions = $projectIntegrationData->settings['regions'] ?? [];
+
+            if (! is_array($regions) || ! PhraseDuplicateHelper::isValidForSave($regions)) {
+                throw ValidationException::withMessages([
+                    'regions' => 'Проверьте регионы и фразы: нужны код региона, непустые фразы без дубликатов.',
+                ]);
+            }
+        }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
     }
