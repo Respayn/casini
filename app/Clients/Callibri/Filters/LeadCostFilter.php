@@ -42,10 +42,8 @@ class LeadCostFilter implements FilterInterface
             }
         }
 
-        foreach ($exclusions as $pattern) {
-            if (StringHelper::matchesAnyPattern($status ?? '', [$pattern])) {
-                return false;
-            }
+        if (StringHelper::matchesAnyPattern($status ?? '', $exclusions)) {
+            return false;
         }
 
         if (empty($inclusions)) {

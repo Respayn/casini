@@ -51,6 +51,12 @@
 
 
 # Releases
+## [v0.1.5] - 2026-07-20
+### 🔧 Улучшения
+- Review PR #2: упрощён фильтр exclusions в `LeadCostFilter` через `matchesAnyPattern` с массивом
+- Из общего `x-form.select` убран неиспользуемый Alpine-wiring `parentOptionsKey` / `parentLoadingKey`
+- В `form-label` inline `max-width` заменён на Tailwind-класс `max-w-[250px]`
+
 ## [v0.1.4] - 2026-06-17
 ### 🛠 Исправления
 - Callibri: информационная плашка о часовом поясе не растягивает модальное окно
