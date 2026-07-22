@@ -19,48 +19,7 @@
     @if ($label)
         <label class="text-primary-text text-sm font-semibold">{{ $label }}</label>
     @endif
-    <div
-        class="relative"
-        @if ($isPhoneMask)
-            x-data="{
-                formatPhone(value) {
-                    let digits = String(value || '').replace(/\D/g, '');
-                    if (digits.startsWith('8')) {
-                        digits = '7' + digits.slice(1);
-                    }
-                    if (!digits.startsWith('7')) {
-                        digits = '7' + digits;
-                    }
-                    digits = digits.slice(0, 11);
-
-                    let result = '+7';
-                    if (digits.length > 1) {
-                        result += ' (' + digits.slice(1, 4);
-                    }
-                    if (digits.length >= 4) {
-                        result += ')';
-                    }
-                    if (digits.length > 4) {
-                        result += ' ' + digits.slice(4, 7);
-                    }
-                    if (digits.length > 7) {
-                        result += '-' + digits.slice(7, 9);
-                    }
-                    if (digits.length > 9) {
-                        result += '-' + digits.slice(9, 11);
-                    }
-
-                    return result;
-                },
-                onPhoneInput(event) {
-                    const formatted = this.formatPhone(event.target.value);
-                    if (event.target.value !== formatted) {
-                        event.target.value = formatted;
-                    }
-                }
-            }"
-        @endif
-    >
+    <div class="relative">
         @switch($attributes->get('type'))
             @case('number')
                 <input
@@ -106,7 +65,7 @@
                     @required($required)
                     @disabled($disabled)
                     @if ($isPhoneMask)
-                        x-on:input="onPhoneInput($event)"
+                        x-mask="+7 (999) 999-99-99"
                         inputmode="tel"
                         autocomplete="tel"
                     @endif

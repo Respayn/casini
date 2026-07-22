@@ -107,11 +107,11 @@ class UserForm extends Form
 
         $passwordRules = $this->id
             ? 'nullable|string'
-            : 'required|string|min:8';
+            : ['required', 'string', 'min:6', 'regex:/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/'];
 
         $passwordConfirmationRules = $this->id
             ? 'nullable|string'
-            : 'required|string|min:8|same:password';
+            : 'required|string|min:6|same:password';
 
         return [
             'login' => "required|string|max:100|unique:users,login,{$id},id",

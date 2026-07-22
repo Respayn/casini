@@ -5,7 +5,6 @@ use App\Mail\ResetPasswordMail;
 use App\Models\User;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
@@ -29,30 +28,28 @@ new #[Layout('layouts::auth')] class extends Component {
     public function validateField(string $field): void
     {
         $this->validateOnly($field);
-
-        if ($field === 'email') {
-            $this->assertEmailExists();
-        }
     }
 
     public function nextStep(): void
     {
         $this->verifySmartCaptcha('forgot-password-step1-captcha');
         $this->validateOnly('email');
-        $this->assertEmailExists();
 
-        $user = User::where('email', $this->email)->firstOrFail();
-        $token = Password::broker()->createToken($user);
+        $user = User::where('email', $this->email)->first();
 
-        $resetUrl = route('password.reset', [
-            'token' => $token,
-            'email' => $user->email,
-        ]);
+        if ($user) {
+            $token = Password::broker()->createToken($user);
 
-        Mail::to($user->email)->send(new ResetPasswordMail(
-            email: $user->email,
-            resetUrl: $resetUrl,
-        ));
+            $resetUrl = route('password.reset', [
+                'token' => $token,
+                'email' => $user->email,
+            ]);
+
+            Mail::to($user->email)->send(new ResetPasswordMail(
+                email: $user->email,
+                resetUrl: $resetUrl,
+            ));
+        }
 
         $this->step = 2;
     }
@@ -60,14 +57,5 @@ new #[Layout('layouts::auth')] class extends Component {
     public function prevStep(): void
     {
         $this->step = 1;
-    }
-
-    private function assertEmailExists(): void
-    {
-        if (! User::where('email', $this->email)->exists()) {
-            throw ValidationException::withMessages([
-                'email' => 'email не найден',
-            ]);
-        }
     }
 };

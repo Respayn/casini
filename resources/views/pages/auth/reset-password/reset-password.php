@@ -60,7 +60,7 @@ new #[Layout('layouts::auth')] class extends Component {
 
         if ($this->email === '') {
             throw ValidationException::withMessages([
-                'email' => 'email не найден',
+                'email' => 'Ссылка для восстановления пароля недействительна или устарела.',
             ]);
         }
 

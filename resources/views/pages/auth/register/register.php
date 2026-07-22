@@ -130,7 +130,7 @@ new #[Layout('layouts::auth')] class extends Component {
                 Rule::unique('users', 'email'),
             ],
         ], [
-            'email.unique' => 'пользователь с таким email уже зарегистрирован',
+            'email.unique' => 'Не удалось завершить регистрацию. Проверьте данные или войдите',
         ]);
 
         $agency = Agency::query()
