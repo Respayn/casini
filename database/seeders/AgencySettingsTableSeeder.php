@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\User;
 use App\Models\Agency;
 use Illuminate\Database\Seeder;
 
@@ -9,7 +10,7 @@ class AgencySettingsTableSeeder extends Seeder
 {
     public function run()
     {
-        Agency::firstOrCreate([
+        $agency = Agency::firstOrCreate([
             'name' => 'СайтАктив',
             'time_zone' => 'Europe/Moscow',
             'url' => 'https://siteactiv.ru',
@@ -18,5 +19,11 @@ class AgencySettingsTableSeeder extends Seeder
             'address' => 'г. Екатеринбург, ул. Примерная, 1',
             'logo_src' => null,
         ]);
+
+        $admin = User::query()->where('login', 'admin')->first();
+
+        if ($admin) {
+            $admin->agencies()->syncWithoutDetaching([$agency->id]);
+        }
     }
 }

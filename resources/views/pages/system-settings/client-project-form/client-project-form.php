@@ -14,11 +14,14 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Services\ClientService;
+use App\Services\CallibriService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
+use App\Exceptions\CallibriApiException;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -188,6 +191,10 @@ class extends Component
     {
         $integration = $this->integrations()->firstWhere('code', $code);
 
+        if ($integration === null) {
+            return;
+        }
+
         if ($this->integrationSettings->has($integration->id)) {
             $this->selectedIntegration = $this->integrationSettings->get($integration->id);
         } else {
@@ -199,6 +206,13 @@ class extends Component
             $this->selectedIntegration = $selectedIntegration;
         }
 
+        $listModalName = match ($integration->category) {
+            IntegrationCategory::TOOLS => 'tools-integrations-modal',
+            IntegrationCategory::MONEY => 'money-integrations-modal',
+            IntegrationCategory::ANALYTICS => 'analytics-integrations-modal',
+        };
+
+        $this->dispatch('modal-hide', name: $listModalName);
         $this->dispatch('modal-show', name: 'integration-settings-modal');
     }
 
@@ -213,6 +227,73 @@ class extends Component
         $projectIntegrationData->settings = $settingsCollection->toArray();
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
+    }
+
+    public function loadCallibriProjects(string $email, string $token, ?string $includeSiteId = null): array
+    {
+        if (trim($email) === '' || trim($token) === '') {
+            return ['error' => 'Укажите email и API token'];
+        }
+
+        try {
+            $projects = app(CallibriService::class)
+                ->listSites(
+                    $email,
+                    $token,
+                    $includeSiteId !== null && $includeSiteId !== '' ? (int) $includeSiteId : null
+                )
+                ->map(fn (array $site) => [
+                    'value' => (string) $site['id'],
+                    'label' => $site['label'],
+                ])
+                ->values()
+                ->all();
+
+            return ['projects' => $projects];
+        } catch (CallibriApiException $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить проекты Callibri. Проверьте email и token.'];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить проекты Callibri.'];
+        }
+    }
+
+    public function testCallibriIntegration(array $settings, string $date): array
+    {
+        if (trim($settings['email'] ?? '') === '' || trim($settings['token'] ?? '') === '') {
+            return ['error' => 'Укажите email и API token'];
+        }
+
+        if (empty($settings['site_id'])) {
+            return ['error' => 'Выберите проект Callibri'];
+        }
+
+        if (empty($settings['appeals_type'])) {
+            return ['error' => 'Выберите хотя бы один тип обращений'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(CallibriService::class)->countLeadsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (CallibriApiException $e) {
+            return ['error' => 'Ошибка API Callibri. Проверьте настройки интеграции.'];
+        } catch (\Throwable $e) {
+            return ['error' => 'Не удалось проверить интеграцию.'];
+        }
     }
 
     public function updatedIntegrationSettings($value)

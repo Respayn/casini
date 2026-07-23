@@ -56,7 +56,7 @@ class StringHelper
      */
     private static function normalize(string $input): string
     {
-        return preg_replace('/[^a-z0-9]/', '', strtolower($input));
+        return preg_replace('/[^\p{L}\p{N}]/u', '', mb_strtolower($input));
     }
 
     /**
