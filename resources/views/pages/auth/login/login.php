@@ -1,51 +1,71 @@
 <?php
 
-use App\Services\Auth\LoginService;
+use App\Livewire\Concerns\RedirectsAfterAuth;
+use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 new #[Layout('layouts::auth')]
 class extends Component {
-    #[Validate('required|string')]
+    use RedirectsAfterAuth;
+    use VerifiesYandexSmartCaptcha;
+
+    #[Validate('required', message: 'Поле логин или email обязательно для заполнения', onUpdate: false)]
+    #[Validate('string', onUpdate: false)]
     public string $userLogin = '';
 
-    #[Validate('required|string')]
+    #[Validate('required', message: 'Поле пароль обязательно для заполнения', onUpdate: false)]
+    #[Validate('string', onUpdate: false)]
     public string $password = '';
 
-    public function login(LoginService $loginService): void
+    #[Computed]
+    public function isLoginReady(): bool
     {
-        $this->validate();
-
-        $loginService->attempt($this->userLogin, $this->password);
-
-        Session::regenerate();
-
-        $default = route('system-settings.dictionaries', absolute: false);
-        $intended = session()->pull('url.intended', $default);
-
-        if ($this->shouldIgnoreIntendedRedirect($intended)) {
-            $intended = $default;
-        }
-
-        // Полная перезагрузка страницы — иначе после regenerate() Livewire navigate
-        // может не подхватить новую сессию и вернуть на главную.
-        $this->redirect($intended, navigate: false);
+        return filled(trim($this->userLogin)) && filled(trim($this->password));
     }
 
-    private function shouldIgnoreIntendedRedirect(string $url): bool
+    public function validateField(string $field): void
     {
-        $path = parse_url($url, PHP_URL_PATH) ?: $url;
+        $this->validateOnly($field);
+    }
 
-        $ignoredPaths = [
-            '/',
-            route('landing', absolute: false),
-            route('login', absolute: false),
-            route('register', absolute: false),
-            route('password.request', absolute: false),
-        ];
+    public function login(): void
+    {
+        $this->verifySmartCaptcha('login-captcha');
+        $this->validate();
 
-        return in_array($path, $ignoredPaths, true);
+        $login = trim($this->userLogin);
+
+        $user = User::query()
+            ->where(function ($query) use ($login) {
+                $query->where('login', $login)
+                    ->orWhere('email', $login);
+            })
+            ->first();
+
+        if (! $user || ! Hash::check($this->password, $user->password)) {
+            throw ValidationException::withMessages([
+                'userLogin' => __('auth.failed'),
+            ]);
+        }
+
+        if (! $user->is_active) {
+            throw ValidationException::withMessages([
+                'userLogin' => 'Подтвердите email по ссылке из письма',
+            ]);
+        }
+
+        Auth::login($user);
+        Session::regenerate();
+        $this->bindCurrentAgency($user);
+
+        $this->redirectIntended(default: $this->homeRouteAfterAuth(), navigate: true);
     }
 };

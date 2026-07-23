@@ -8,7 +8,10 @@ use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
+use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -18,23 +21,69 @@ class extends Component
     use WithFileUploads;
 
     public UserForm $form;
+
     public Collection $rates;
+
     public array $roles = [];
+
     public User $user;
 
     public function mount(
         RateService $ratesService,
         RoleService $roleService,
-        User $user)
-    {
+        User $user
+    ) {
+        $this->user = $user;
         $this->form->from($user);
         $this->rates = $ratesService->getRates();
         $this->roles = $roleService->getRoleOptions();
     }
 
+    #[Computed]
+    public function isSaveReady(): bool
+    {
+        if (! $this->form->hasPasswordChange()) {
+            return true;
+        }
+
+        return filled(trim((string) $this->form->current_password))
+            && (bool) preg_match('/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', (string) $this->form->password)
+            && $this->form->password === $this->form->password_confirmation;
+    }
+
+    public function validatePasswordField(string $field): void
+    {
+        if (! $this->form->hasPasswordChange()) {
+            $this->resetErrorBag("form.{$field}");
+
+            return;
+        }
+
+        $this->form->validateOnly(
+            $field,
+            $this->form->passwordChangeRules(),
+            $this->form->passwordChangeMessages(),
+        );
+    }
+
     public function save(UserService $userService)
     {
         $this->form->validate();
+
+        $passwordChanged = $this->form->hasPasswordChange();
+
+        if ($passwordChanged) {
+            $this->form->validate(
+                $this->form->passwordChangeRules(),
+                $this->form->passwordChangeMessages(),
+            );
+
+            if (! Hash::check((string) $this->form->current_password, $this->user->password)) {
+                throw ValidationException::withMessages([
+                    'form.current_password' => 'Неверный текущий пароль',
+                ]);
+            }
+        }
 
         // TODO: Вынести в репозиторий
         try {
@@ -59,9 +108,35 @@ class extends Component
             dd($exception);
         }
 
-        $userService->update($this->form->id, $this->form->toArray());
+        $data = $this->form->toArray();
+        unset(
+            $data['current_password'],
+            $data['password_confirmation'],
+            $data['photo'],
+            $data['delete_photo'],
+            $data['id'],
+        );
+
+        if (! $passwordChanged) {
+            unset($data['password']);
+        }
+
+        $userService->update($this->form->id, $data);
+
+        $this->form->clearPasswordFields();
+        $this->user = $this->user->fresh();
+
+        if ($passwordChanged) {
+            session()->flash('password_updated', 'Пароль успешно обновлен');
+
+            return $this->redirect(
+                route('system-settings.users.edit', $this->user),
+                navigate: true
+            );
+        }
 
         session()->flash('success', 'Пользователь успешно обновлен!');
+
         return redirect()->route('system-settings.users');
     }
 

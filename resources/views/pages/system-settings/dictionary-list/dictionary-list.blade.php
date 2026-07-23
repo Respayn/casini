@@ -265,10 +265,10 @@
                     </x-data.table-columns>
 
                     <x-data.table-rows>
-                        @foreach(\App\Dictionaries\AdvertisingSystemDictionary::list() as $advertisingSystem)
+                        @foreach(\App\Enums\AdvertisingSystem::cases() as $advertisingSystem)
                             <x-data.table-row>
                                 <x-data.table-cell>
-                                    {{ $advertisingSystem }}
+                                    {{ $advertisingSystem->value }}
                                 </x-data.table-cell>
                             </x-data.table-row>
                         @endforeach

@@ -1,131 +1,54 @@
 <div>
-    {{-- Шаг 1: Ввод Email --}}
     @if($step === 1)
         <div wire:key="forgot-step-1">
-            <div class="mb-7 flex items-center">
-                <a href="{{ route('login') }}">
-                    <button
-                        type="button"
-                        class="inline-flex items-center gap-3 max-h-[26px] text-[18px] text-secondary-text hover:text-[#486388] font-normal"
-                    >
-                        <x-icons.arrow-left class="w-5 h-5" />
-                        <span>Назад</span>
-                    </button>
-                </a>
-                <h1 class="text-[28px] font-semibold ml-8">Восстановление пароля</h1>
-            </div>
+            <x-auth.back-link :href="route('login')" />
+            <x-auth.card>
+                <div class="mb-7 flex items-center">
+                    <h1 class="text-[28px] font-semibold">Восстановление пароля</h1>
+                </div>
 
-            <x-form.form wire:submit.prevent="nextStep">
-                <div class="flex flex-col gap-8">
-                    <div>
-                        <x-form.input-text
-                            class="h-12 text-base"
-                            label="Email *"
-                            label-class="text-sm font-medium text-gray-700"
-                            wire:model="email"
-                            icon="icons.mail"
-                            required
+                <x-auth.captcha-form captcha-id="forgot-password-step1-captcha" wire-method="nextStep">
+                    <div class="flex flex-col gap-4">
+                        <div class="flex flex-col gap-2">
+                            <x-form.form-label class="text-caption-text font-normal" required>
+                                Email
+                            </x-form.form-label>
+                            <x-form.input-text
+                                wire:model.live="email"
+                                wire:blur="validateField('email')"
+                                icon="icons.mail"
+                            />
+                        </div>
+
+                        @error('captchaToken')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+
+                        <x-button.button
+                            class="mt-4 h-14 w-full text-lg font-medium"
+                            type="submit"
+                            label="Восстановить"
+                            variant="primary"
+                            :disabled="!$this->isStep1Ready"
                         />
                     </div>
-
-                    <x-button.button
-                        class="w-full h-14 text-lg font-medium mt-2"
-                        type="submit"
-                        label="Восстановить"
-                        variant="primary"
-                    />
-                </div>
-            </x-form.form>
-
-            <div class="mt-6 text-center text-gray-500">
-                На указанный email вышлем инструкции по восстановлению пароля
-            </div>
+                </x-auth.captcha-form>
+            </x-auth.card>
         </div>
 
-        {{-- Шаг 2: Новый пароль --}}
     @elseif($step === 2)
         <div wire:key="forgot-step-2">
-            {{-- Кнопка "Назад" — строго по макету --}}
-            <div class="mb-4">
-                <button
-                    type="button"
-                    wire:click="prevStep"
-                    class="inline-flex items-center gap-3 max-h-[26px] text-[18px] text-secondary-text hover:text-[#486388] font-normal"
-                >
-                    <x-icons.arrow-left class="w-5 h-5" />
-                    <span>Назад</span>
-                </button>
-            </div>
-            <div class="mb-7 flex items-center">
-                <h1 class="text-[28px] font-semibold">Восстановление пароля</h1>
-            </div>
-
-            <x-form.form wire:submit.prevent="resetPassword">
-                <div class="flex flex-col gap-8">
-                    <div>
-                        <x-form.input-text
-                            class="h-12 text-base"
-                            label="Новый пароль *"
-                            label-class="text-sm font-medium text-gray-700"
-                            wire:model="password"
-                            icon="icons.lock"
-                            type="password"
-                            required
-                        />
-                        @error('password')
-                        <div class="mt-1 text-sm text-red-500">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <div>
-                        <x-form.input-text
-                            class="h-12 text-base"
-                            label="Повторите пароль *"
-                            label-class="text-sm font-medium text-gray-700"
-                            wire:model="passwordConfirmation"
-                            icon="icons.lock"
-                            type="password"
-                            required
-                        />
-                        @error('passwordConfirmation')
-                        <div class="mt-1 text-sm text-red-500">{{ $message }}</div>
-                        @enderror
-                    </div>
-
-                    <x-button.button
-                        class="w-full h-14 text-lg font-medium mt-2"
-                        type="submit"
-                        label="Сохранить пароль и войти"
-                        variant="primary"
-                    />
+            <x-auth.back-link wire:click="prevStep" />
+            <x-auth.card>
+                <div class="mb-7 flex items-center">
+                    <h1 class="text-[28px] font-semibold">Восстановление пароля</h1>
                 </div>
-            </x-form.form>
-        </div>
-
-        {{-- Шаг 3: Успех --}}
-    @elseif($step === 3)
-        <div wire:key="forgot-step-3">
-            {{-- Кнопка "Назад" — строго по макету --}}
-            <div class="mb-4">
-                <button
-                    type="button"
-                    wire:click="prevStep"
-                    class="inline-flex items-center gap-3 max-h-[26px] text-[18px] text-secondary-text hover:text-[#486388] font-normal"
-                >
-                    <x-icons.arrow-left class="w-5 h-5" />
-                    <span>Назад</span>
-                </button>
-            </div>
-            <div class="mb-7 flex items-center">
-                <h1 class="text-[28px] font-semibold">Восстановление пароля</h1>
-            </div>
-            <div>
-                Пароль успешно изменён.
-                <a href="{{ route('login') }}"
-                   class="text-[#486388] font-semibold hover:underline">
-                    Войти в аккаунт
-                </a>
-            </div>
+                <div>
+                    На ваш почтовый ящик
+                    <span class="font-semibold text-caption-text">{{ $email }}</span>
+                    отправлены инструкции по восстановлению пароля
+                </div>
+            </x-auth.card>
         </div>
     @endif
 </div>

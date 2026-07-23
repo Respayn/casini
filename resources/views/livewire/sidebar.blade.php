@@ -1,7 +1,8 @@
 <div class="fixed flex h-screen max-h-screen min-w-[355px] max-w-[355px] flex-col bg-white pe-[30px] ps-5 pt-[39px]">
-    <div class="mb-[60px] flex">
-        <a href="{{ route('channels') }}">
+    <div class="mb-[60px] flex flex-col gap-2">
+        <a href="{{ route('channels') }}" class="flex flex-col gap-2">
             <x-icons.logo />
+            <x-brand.tagline />
         </a>
     </div>
 

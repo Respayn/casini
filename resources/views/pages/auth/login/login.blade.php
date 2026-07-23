@@ -1,52 +1,65 @@
 <div>
-    <div class="flex items-center justify-between mb-8">
-        <h1 class="text-[28px] leading-tight font-semibold text-gray-900">
-            Войти в аккаунт
-        </h1>
-        <a href="{{ route('register') }}"
-           class="font-medium text-[18px] text-[#486388] hover:underline">
-            Регистрация
-        </a>
-    </div>
-
-    <x-form.form wire:submit.prevent="login">
-        <div class="flex flex-col gap-8">
-            <div>
-                <x-form.input-text
-                    class="h-12 text-base"
-                    label="Логин или Email *"
-                    label-class="text-sm font-medium text-gray-700"
-                    wire:model="userLogin"
-                    icon="icons.mail"
-                    required
-                />
-            </div>
-
-            <div>
-                <x-form.input-text
-                    class="h-12 text-base"
-                    label="Пароль *"
-                    label-class="text-sm font-medium text-gray-700"
-                    wire:model="password"
-                    icon="icons.lock"
-                    type="password"
-                    required
-                />
-            </div>
-
-            <div>
-                <a href="{{ route('password.request') }}"
-                   class="text-gray-500 hover:underline">
-                    Забыли пароль?
+    <x-auth.card>
+        <div class="mb-7 flex items-center justify-between">
+            <h1 class="text-[28px] leading-tight font-semibold text-gray-900">
+                Войти в аккаунт
+            </h1>
+            @if (config('app.registration_enabled'))
+                <a href="{{ route('register') }}"
+                   class="font-medium text-[18px] text-caption-text hover:underline">
+                    Регистрация
                 </a>
-            </div>
-
-            <x-button.button
-                class="w-full h-14 text-lg font-medium"
-                type="submit"
-                label="Войти"
-                variant="primary"
-            />
+            @endif
         </div>
-    </x-form.form>
+
+        @if (session('status'))
+            <p class="mb-4 text-sm text-green-600">{{ session('status') }}</p>
+        @endif
+
+        <x-auth.captcha-form captcha-id="login-captcha" wire-method="login">
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-col gap-2">
+                    <x-form.form-label class="text-caption-text font-normal" required>
+                        Логин или Email
+                    </x-form.form-label>
+                    <x-form.input-text
+                        wire:model.live="userLogin"
+                        wire:blur="validateField('userLogin')"
+                        icon="icons.mail"
+                    />
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <x-form.form-label class="text-caption-text font-normal" required>
+                        Пароль
+                    </x-form.form-label>
+                    <x-form.input-text
+                        wire:model.live="password"
+                        wire:blur="validateField('password')"
+                        icon="icons.lock"
+                        type="password"
+                    />
+                </div>
+
+                <div>
+                    <a href="{{ route('password.request') }}"
+                       class="text-gray-500 hover:underline">
+                        Забыли пароль?
+                    </a>
+                </div>
+
+                @error('captchaToken')
+                    <p class="text-sm text-red-500">{{ $message }}</p>
+                @enderror
+
+                <x-button.button
+                    class="mt-4 h-14 w-full text-lg font-medium"
+                    type="submit"
+                    label="Войти"
+                    variant="primary"
+                    :disabled="!$this->isLoginReady"
+                />
+            </div>
+        </x-auth.captcha-form>
+    </x-auth.card>
 </div>
