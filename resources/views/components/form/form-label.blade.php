@@ -4,7 +4,7 @@
 ])
 
 <div class="flex gap-3">
-    <label {{ $attributes->class(['text-sm', "after:content-['*']" => $required]) }}>
+    <label {{ $attributes->class(['text-sm', 'max-w-[250px]', "after:content-['*']" => $required]) }}>
         {{ $slot }}
     </label>
     @if($tooltip)

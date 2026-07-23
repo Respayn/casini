@@ -31,17 +31,17 @@
 
         select(value) {
             if (this.disabled || !this.hasOptions) return;
-            
+
             this.selected = value;
             this.open = false;
 
             this.$dispatch('change', { value: value });
         },
-    
+
         getDisplayText() {
             if (this.selected) {
                 const option = this.options.find(o => o[this.valueKey] == this.selected);
-    
+
                 if (option) {
                     return option[this.labelKey];
                 }
@@ -50,7 +50,7 @@
             if (!this.hasOptions) {
                 return this.emptyPlaceholder;
             }
-    
+
             return this.placeholder;
         },
 
@@ -88,7 +88,7 @@
                 <span
                     x-text="getDisplayText()"
                     class="overflow-hidden"
-                    x-bind:class="{ 
+                    x-bind:class="{
                         'opacity-50': !selected && hasOptions,
                         'text-gray-400 italic': !hasOptions
                     }"
