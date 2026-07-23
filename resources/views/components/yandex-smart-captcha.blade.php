@@ -8,30 +8,30 @@
             widget: null,
             token: null,
             init() {
-                this.widget = window.smartCaptcha.render('{{ $captchaId }}', {
+                const container = document.getElementById('{{ $captchaId }}');
+                if (!window.smartCaptcha || !container) {
+                    return;
+                }
+
+                this.widget = window.smartCaptcha.render(container, {
                     sitekey: '{{ $clientKey }}',
                     invisible: true,
                     callback: (token) => {
-                        console.log('captcha callback', token);
                         this.token = token;
                         this.dispatchSuccess();
                     },
                 });
-                console.log('init', this.widget);
             },
             onExecuteCaptcha(event) {
-                console.log('onExecuteCaptcha', event.detail.captchaId);
                 if (event.detail.captchaId !== '{{ $captchaId }}') return;
                 window.smartCaptcha.execute(this.widget);
             },
             onResetCaptcha(event) {
-                console.log('onResetCaptcha', event.detail.captchaId);
                 if (event.detail.captchaId !== '{{ $captchaId }}') return;
                 window.smartCaptcha.destroy(this.widget);
                 this.init();
             },
             dispatchSuccess() {
-                console.log('dispatchSuccess');
                 this.$dispatch('captcha-success', {
                     captchaId: '{{ $captchaId }}',
                     token: this.token
@@ -43,7 +43,10 @@
         x-modelable="token"
         {{ $attributes }}
     >
-        <div id="{{ $captchaId }}"></div>
+        {{-- Protect Yandex DOM from Livewire morph (wire:model.live on form fields). --}}
+        <div wire:ignore>
+            <div id="{{ $captchaId }}"></div>
+        </div>
         <input
             name="captcha_token"
             type="hidden"

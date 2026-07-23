@@ -1,52 +1,61 @@
 <?php
 
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
+use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
+use App\Mail\ResetPasswordMail;
+use App\Models\User;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Password;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
-use App\Models\User;
 
 new #[Layout('layouts::auth')] class extends Component {
+    use VerifiesYandexSmartCaptcha;
+
     public int $step = 1;
 
-    // Шаг 1: email
-    #[Validate('required|email')]
+    #[Validate('required', onUpdate: false)]
+    #[Validate('email', message: 'некорректный email', onUpdate: false)]
     public string $email = '';
 
-    // Шаг 2: новый пароль
-    #[Validate('required|string|min:8')]
-    public string $password = '';
+    #[Computed]
+    public function isStep1Ready(): bool
+    {
+        return filled(trim($this->email));
+    }
 
-    #[Validate('required|string|same:password')]
-    public string $passwordConfirmation = '';
+    public function validateField(string $field): void
+    {
+        $this->validateOnly($field);
+    }
 
     public function nextStep(): void
     {
+        $this->verifySmartCaptcha('forgot-password-step1-captcha');
         $this->validateOnly('email');
+
+        $user = User::where('email', $this->email)->first();
+
+        if ($user) {
+            $token = Password::broker()->createToken($user);
+
+            $resetUrl = route('password.reset', [
+                'token' => $token,
+                'email' => $user->email,
+            ]);
+
+            Mail::to($user->email)->send(new ResetPasswordMail(
+                email: $user->email,
+                resetUrl: $resetUrl,
+            ));
+        }
+
         $this->step = 2;
     }
 
     public function prevStep(): void
     {
-        $this->step = max(1, $this->step - 1);
-    }
-
-    public function resetPassword(): void
-    {
-        $this->validateOnly('password');
-        $this->validateOnly('passwordConfirmation');
-
-        $user = User::where('email', $this->email)->first();
-        if (! $user) {
-            throw ValidationException::withMessages([
-                'email' => 'Пользователь с таким E-mail не найден.',
-            ]);
-        }
-
-        $user->password = Hash::make($this->password);
-        $user->save();
-
-        $this->step = 3;
+        $this->step = 1;
     }
 };

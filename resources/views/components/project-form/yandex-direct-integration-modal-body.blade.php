@@ -25,14 +25,12 @@
         @if(!empty($this->integrationSettings[$this->selectedIntegration->integration->id])
             && $this->integrationSettings[$this->selectedIntegration->integration->id]->isEnabled
             && !empty($this->selectedIntegration->settings))
-            <div class="bg-green-100 p-4 rounded-lg mb-4">
-                <p class="text-green-700">
-                    Аккаунт подключен: {{ $this->selectedIntegration->settings['clientLogin'] }}
-                </p>
-                <p class="text-sm text-green-600 mt-2">
+            <x-feedback.notice variant="success">
+                <p>Аккаунт подключен: {{ $this->selectedIntegration->settings['clientLogin'] }}</p>
+                <p class="mt-2 text-green-600">
                     Токен действителен до: {{ \Carbon\Carbon::parse($this->selectedIntegration->settings['tokenExpiresAt'])->format('d.m.Y H:i') }}
                 </p>
-            </div>
+            </x-feedback.notice>
         @endif
 
         <x-form.form-field>

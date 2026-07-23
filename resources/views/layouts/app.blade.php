@@ -18,11 +18,7 @@
 
     <title>{{ $title ?? 'Page Title' }}</title>
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="images/favicon_graph_v4.png">
-    <link rel="icon" type="image/x-icon" href="images/favicon_graph_v4.ico">
-    <link rel="shortcut icon" href="images/favicon_graph_v4.ico">
-    <link rel="apple-touch-icon" href="images/favicon_graph_v4.png">
+    <x-layout.favicon />
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles

@@ -16,11 +16,7 @@
         href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&display=swap"
         rel="stylesheet">
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/png" href="images/favicon_graph_v4.png">
-    <link rel="icon" type="image/x-icon" href="images/favicon_graph_v4.ico">
-    <link rel="shortcut icon" href="images/favicon_graph_v4.ico">
-    <link rel="apple-touch-icon" href="images/favicon_graph_v4.png">
+    <x-layout.favicon />
 
     <!-- Yandex SmartCaptcha -->
     <script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>
