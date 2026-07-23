@@ -13,24 +13,31 @@ use App\Factories\IntegrationSettingsFactory;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
-use App\Services\ClientService;
+use App\Exceptions\CallibriApiException;
+use App\Helpers\PhraseDuplicateHelper;
 use App\Services\CallibriService;
+use App\Services\ClientService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
+use Illuminate\Validation\ValidationException;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
-use App\Exceptions\CallibriApiException;
+use App\Services\YandexDirectService;
+use App\Services\YandexSearchApiPhraseParser;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Src\Domain\Clients\ClientRepositoryInterface;
 
 new
@@ -38,6 +45,8 @@ new
 #[Title('Создание проекта')]
 class extends Component
 {
+    use WithFileUploads;
+
     public CreateClientProjectForm $clientProjectForm;
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
     public ProjectUtmMappingForm $utmMappingForm;
@@ -55,9 +64,13 @@ class extends Component
     public Collection $promotionRegions;
     public Collection $promotionTopics;
 
-    public ProjectIntegrationData $selectedIntegration;
+    public ?ProjectIntegrationData $selectedIntegration = null;
 
     public Collection $integrationSettings;
+
+    public int $integrationModalBodyRevision = 0;
+
+    public $phraseDocxFile;
 
     public function boot(
         ClientService $clientService,
@@ -104,9 +117,7 @@ class extends Component
             $cachedData = Cache::pull('integration_data_' . $state['cache_data_id']);
 
             if ($cachedData) {
-                /** @var Layout $layout */
-                $layout = $cachedData[0];
-                $this->fill((array)$layout->getComponent());
+                $this->restoreFromOAuthCache($cachedData);
             }
 
             foreach ($state['integrations'] as $setting) {
@@ -115,6 +126,10 @@ class extends Component
                 $integrationData->settings = $setting['settings'];
                 $integrationData->isEnabled = $setting['isEnabled'];
                 $this->integrationSettings[$integrationData->integration->id] = $integrationData;
+            }
+
+            if (! empty($state['open_integration'])) {
+                $this->selectIntegration($state['open_integration']);
             }
         }
 
@@ -187,6 +202,32 @@ class extends Component
         return $this->userService->getSpecialists();
     }
 
+    #[Computed]
+    public function isYandexSearchApiConfigured(): bool
+    {
+        return filled(config('services.yandex_search_api.api_key'))
+            && filled(config('services.yandex_search_api.folder_id'));
+    }
+
+    #[Computed]
+    public function isYandexDirectOAuthConfigured(): bool
+    {
+        return filled(config('services.yandex_direct.client_id'))
+            && filled(config('services.yandex_direct.client_secret'));
+    }
+
+    #[Computed]
+    public function isSelectedIntegrationPlatformConfigured(): bool
+    {
+        $code = $this->selectedIntegration?->integration->code ?? null;
+
+        return match ($code) {
+            'yandex_search_api' => $this->isYandexSearchApiConfigured,
+            'yandex_direct' => $this->isYandexDirectOAuthConfigured,
+            default => true,
+        };
+    }
+
     public function selectIntegration(string $code)
     {
         $integration = $this->integrations()->firstWhere('code', $code);
@@ -213,6 +254,7 @@ class extends Component
         };
 
         $this->dispatch('modal-hide', name: $listModalName);
+        $this->integrationModalBodyRevision++;
         $this->dispatch('modal-show', name: 'integration-settings-modal');
     }
 
@@ -226,8 +268,19 @@ class extends Component
         $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
         $projectIntegrationData->settings = $settingsCollection->toArray();
 
+        if ($integration?->code === 'yandex_search_api' && ($projectIntegrationData->isEnabled ?? false)) {
+            $regions = $projectIntegrationData->settings['regions'] ?? [];
+
+            if (! is_array($regions) || ! PhraseDuplicateHelper::isValidForSave($regions)) {
+                throw ValidationException::withMessages([
+                    'regions' => 'Проверьте регионы и фразы: нужны код региона, непустые фразы без дубликатов.',
+                ]);
+            }
+        }
+
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
     }
+
 
     public function loadCallibriProjects(string $email, string $token, ?string $includeSiteId = null): array
     {
@@ -296,37 +349,380 @@ class extends Component
         }
     }
 
-    public function updatedIntegrationSettings($value)
+
+    /**
+     * @return array{url?: string, cache_data_id?: string, error?: string}
+     */
+    public function prepareYandexDirectOAuth(bool $popup = true): array
     {
-        if ($value && empty($this->integrationSettings[16]->settings)) {
-            $this->connectYandexDirect();
+        $this->ensureSelectedIntegration('yandex_direct');
+
+        if (! $this->isYandexDirectOAuthConfigured) {
+            return [
+                'error' => 'Интеграция Яндекс.Директ не настроена на сервере. Обратитесь к администратору.',
+            ];
         }
-    }
 
-    public function connectYandexDirect()
-    {
-        $this->validateIntegrationSelection();
+        $cacheDataId = (string) Str::uuid();
 
-        // Сохраняем необходимые данные в кэш
-        Cache::put('integration_data_' . $this->getId(),
-            $this->getAttributes()->toArray(),
+        Cache::put(
+            'integration_data_'.$cacheDataId,
+            $this->buildOAuthCachePayload(),
             now()->addMinutes(15)
         );
 
-        return redirect()->route('yandex_direct.oauth.redirect', [
+        $url = route('yandex_direct.oauth.redirect', [
             'project_id' => $this->clientProjectForm->id,
-            'cache_data_id' => $this->getId(),
+            'cache_data_id' => $cacheDataId,
+            'popup' => $popup ? 1 : 0,
         ]);
+
+        return [
+            'url' => $url,
+            'cache_data_id' => $cacheDataId,
+        ];
     }
 
-    private function validateIntegrationSelection(): void
+    /**
+     * @return array{settings?: array<string, mixed>, pending?: bool}
+     */
+    public function pullYandexDirectOAuthResult(string $cacheDataId): array
     {
-        if (!$this->selectedIntegration->integration) {
-            $integration = $this->integrations()
-                ->firstWhere('code', 'yandex_direct');
-
-            $this->selectedIntegration->integration = IntegrationData::from($integration);
+        if (trim($cacheDataId) === '') {
+            return ['pending' => true];
         }
+
+        $settings = Cache::pull('yandex_direct_oauth_result_'.$cacheDataId);
+
+        if (! is_array($settings) || $settings === []) {
+            return ['pending' => true];
+        }
+
+        return ['settings' => $settings];
+    }
+
+    /**
+     * @return array{applied?: bool, pending?: bool}
+     */
+    public function finalizeYandexDirectOAuth(string $cacheDataId): array
+    {
+        $cacheDataId = trim($cacheDataId);
+
+        if ($cacheDataId === '') {
+            return ['pending' => true];
+        }
+
+        $settings = Cache::pull('yandex_direct_oauth_result_'.$cacheDataId);
+
+        if (! is_array($settings) || $settings === []) {
+            return ['pending' => true];
+        }
+
+        $this->selectIntegration('yandex_direct');
+        $this->applyYandexDirectOAuthTokens($settings);
+        $this->dispatch('modal-show', name: 'integration-settings-modal');
+
+        return ['applied' => true];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function applyYandexDirectOAuthFromBroadcast(array $settings, ?int $integrationId = null): void
+    {
+        $this->selectIntegration('yandex_direct');
+
+        if ($integrationId !== null
+            && $this->selectedIntegration?->integration?->id !== $integrationId) {
+            return;
+        }
+
+        if ($settings === []) {
+            return;
+        }
+
+        $this->applyYandexDirectOAuthTokens($settings);
+        $this->dispatch('modal-show', name: 'integration-settings-modal');
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    #[On('yandex-direct-oauth-received')]
+    public function handleYandexDirectOAuthReceived(
+        ?array $settings = null,
+        ?string $cacheDataId = null,
+        ?int $integrationId = null
+    ): void {
+        if (is_array($settings) && $settings !== []) {
+            $this->applyYandexDirectOAuthFromBroadcast($settings, $integrationId);
+
+            return;
+        }
+
+        if (filled($cacheDataId)) {
+            $this->finalizeYandexDirectOAuth($cacheDataId);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function applyYandexDirectOAuthTokens(array $settings): void
+    {
+        $this->ensureSelectedIntegration('yandex_direct');
+
+        if ($this->selectedIntegration?->integration === null) {
+            return;
+        }
+
+        $integrationId = $this->selectedIntegration->integration->id;
+        $existingToken = (string) ($this->selectedIntegration->settings['oauth_token'] ?? '');
+        $newToken = (string) ($settings['oauth_token'] ?? '');
+
+        if ($existingToken !== '' && $existingToken === $newToken && ($this->selectedIntegration->isEnabled ?? false)) {
+            $mergedSettings = $this->selectedIntegration->settings ?? [];
+        } else {
+            $mergedSettings = array_merge(
+                $this->selectedIntegration->settings ?? [],
+                [
+                    'oauth_token' => $settings['oauth_token'] ?? null,
+                    'refresh_token' => $settings['refresh_token'] ?? null,
+                    'token_expires_at' => $settings['token_expires_at'] ?? null,
+                    'sync_enabled_at' => now()->format('Y-m-d'),
+                ],
+                $this->extractYandexDirectOAuthProfile($settings)
+            );
+
+            $this->selectedIntegration->isEnabled = true;
+            $this->selectedIntegration->settings = $mergedSettings;
+
+            $projectIntegrationData = new ProjectIntegrationData();
+            $projectIntegrationData->integration = $this->selectedIntegration->integration;
+            $projectIntegrationData->isEnabled = true;
+            $projectIntegrationData->settings = $mergedSettings;
+            $this->integrationSettings[$integrationId] = $projectIntegrationData;
+
+            $this->integrationModalBodyRevision++;
+        }
+
+        $oauthToken = (string) ($mergedSettings['oauth_token'] ?? '');
+        $loginsResult = $oauthToken !== ''
+            ? $this->loadYandexDirectLogins($oauthToken)
+            : ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
+
+        $this->dispatch(
+            'yandex-direct-oauth-applied',
+            settings: array_merge(
+                [
+                    'oauth_token' => $mergedSettings['oauth_token'] ?? null,
+                    'refresh_token' => $mergedSettings['refresh_token'] ?? null,
+                    'token_expires_at' => $mergedSettings['token_expires_at'] ?? null,
+                    'sync_enabled_at' => $mergedSettings['sync_enabled_at'] ?? null,
+                    'is_enabled' => true,
+                ],
+                $this->extractYandexDirectOAuthProfile($mergedSettings)
+            ),
+            logins: $loginsResult['logins'] ?? [],
+            loginsError: $loginsResult['error'] ?? null,
+            integrationId: $integrationId,
+        );
+    }
+
+    /**
+     * @return array{
+     *     profile?: array<string, string|null>,
+     *     error?: string
+     * }
+     */
+    public function loadYandexDirectOAuthProfile(string $oauthToken): array
+    {
+        if (trim($oauthToken) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
+        }
+
+        try {
+            $profile = app(YandexDirectService::class)->fetchOauthUserProfile($oauthToken);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось получить данные аккаунта Яндекса'];
+        }
+
+        if ($profile === null) {
+            return ['error' => 'Не удалось получить данные аккаунта Яндекса'];
+        }
+
+        $this->ensureSelectedIntegration('yandex_direct');
+
+        if ($this->selectedIntegration?->integration !== null) {
+            $integrationId = $this->selectedIntegration->integration->id;
+            $mergedSettings = array_merge(
+                $this->selectedIntegration->settings ?? [],
+                $profile
+            );
+
+            $this->selectedIntegration->settings = $mergedSettings;
+
+            if ($this->integrationSettings->has($integrationId)) {
+                $this->integrationSettings[$integrationId]->settings = $mergedSettings;
+            } else {
+                $projectIntegrationData = new ProjectIntegrationData();
+                $projectIntegrationData->integration = $this->selectedIntegration->integration;
+                $projectIntegrationData->isEnabled = $this->selectedIntegration->isEnabled ?? false;
+                $projectIntegrationData->settings = $mergedSettings;
+                $this->integrationSettings[$integrationId] = $projectIntegrationData;
+            }
+        }
+
+        return ['profile' => $profile];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array<string, string|null>
+     */
+    private function extractYandexDirectOAuthProfile(array $settings): array
+    {
+        return [
+            'oauth_yandex_user_id' => isset($settings['oauth_yandex_user_id'])
+                ? (string) $settings['oauth_yandex_user_id']
+                : null,
+            'oauth_yandex_login' => isset($settings['oauth_yandex_login'])
+                ? (string) $settings['oauth_yandex_login']
+                : null,
+            'oauth_yandex_display_name' => isset($settings['oauth_yandex_display_name'])
+                ? (string) $settings['oauth_yandex_display_name']
+                : null,
+            'oauth_yandex_avatar_url' => isset($settings['oauth_yandex_avatar_url'])
+                ? (string) $settings['oauth_yandex_avatar_url']
+                : null,
+        ];
+    }
+
+    /**
+     * @return array{logins?: array<int, array{value: string, label: string}>, error?: string}
+     */
+    public function loadYandexDirectLogins(string $oauthToken): array
+    {
+        if (trim($oauthToken) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
+        }
+
+        try {
+            $resolved = app(YandexDirectService::class)->resolveClientLogins($oauthToken);
+
+            $logins = $resolved['logins']
+                ->map(fn (array $login) => [
+                    'value' => (string) $login['value'],
+                    'label' => (string) $login['label'],
+                ])
+                ->values()
+                ->all();
+
+            if ($logins === []) {
+                return [
+                    'error' => $resolved['error'] ?? 'Не найдено доступных логинов Яндекс.Директ',
+                ];
+            }
+
+            return ['logins' => $logins];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить логины Яндекс.Директ'];
+        }
+    }
+
+    private function buildOAuthCachePayload(): array
+    {
+        return [
+            'integrationSettings' => $this->integrationSettings
+                ->map(fn (ProjectIntegrationData $item) => $item->toArray())
+                ->all(),
+            'clientProjectForm' => $this->clientProjectForm->all(),
+            'bonusGuaranteeForm' => $this->bonusGuaranteeForm->all(),
+            'utmMappingForm' => $this->utmMappingForm->all(),
+        ];
+    }
+
+    private function restoreFromOAuthCache(array $cachedData): void
+    {
+        if (isset($cachedData['clientProjectForm']) && is_array($cachedData['clientProjectForm'])) {
+            $this->clientProjectForm->fill($cachedData['clientProjectForm']);
+        }
+
+        if (isset($cachedData['bonusGuaranteeForm']) && is_array($cachedData['bonusGuaranteeForm'])) {
+            $this->bonusGuaranteeForm->fill($cachedData['bonusGuaranteeForm']);
+        }
+
+        if (isset($cachedData['utmMappingForm']) && is_array($cachedData['utmMappingForm'])) {
+            $this->utmMappingForm->fill($cachedData['utmMappingForm']);
+        }
+
+        if (! isset($cachedData['integrationSettings']) || ! is_array($cachedData['integrationSettings'])) {
+            return;
+        }
+
+        foreach ($cachedData['integrationSettings'] as $id => $setting) {
+            if (! is_array($setting)) {
+                continue;
+            }
+
+            $integrationData = new ProjectIntegrationData();
+            $integrationData->integration = IntegrationData::from($setting['integration']);
+            $integrationData->settings = $setting['settings'] ?? [];
+            $integrationData->isEnabled = $setting['isEnabled'] ?? false;
+            $this->integrationSettings[$id] = $integrationData;
+        }
+    }
+
+    /**
+     * @return array{phrases: string[], error?: string}
+     */
+    public function parsePhrasesFromDocx(): array
+    {
+        $this->validate([
+            'phraseDocxFile' => 'required|file|mimes:docx|max:5120',
+        ]);
+
+        try {
+            $phrases = app(YandexSearchApiPhraseParser::class)
+                ->parseFromPath($this->phraseDocxFile->getRealPath());
+        } catch (\Throwable $exception) {
+            $this->reset('phraseDocxFile');
+
+            return ['phrases' => [], 'error' => $exception->getMessage()];
+        }
+
+        $this->reset('phraseDocxFile');
+
+        if ($phrases === []) {
+            return ['phrases' => [], 'error' => 'В файле не найдено фраз.'];
+        }
+
+        return ['phrases' => $phrases];
+    }
+
+    private function ensureSelectedIntegration(string $code): void
+    {
+        if ($this->selectedIntegration?->integration?->code === $code) {
+            return;
+        }
+
+        $integration = $this->integrations()->firstWhere('code', $code);
+
+        if ($integration === null) {
+            return;
+        }
+
+        if ($this->selectedIntegration === null) {
+            $this->selectedIntegration = new ProjectIntegrationData();
+            $this->selectedIntegration->isEnabled = false;
+            $this->selectedIntegration->settings = [];
+        }
+
+        $this->selectedIntegration->integration = IntegrationData::from($integration);
     }
 
     public function removeIntegration(int $integrationId)

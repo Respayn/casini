@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(DisableSessionAuthForApi::class);
 
+        $middleware->redirectUsersTo(fn () => route('system-settings.dictionaries'));
+
         // Явно определите группы middleware
         $middleware->web([
             \Illuminate\Cookie\Middleware\EncryptCookies::class,

@@ -46,6 +46,19 @@ class IntegrationProjectFactory extends Factory
         ]);
     }
 
+    public function forYandexSearchApi(): self
+    {
+        return $this->state([
+            'integration_id' => Integration::where('code', 'yandex_search_api')->firstOrFail()->id,
+            'settings' => [
+                'regions' => [
+                    ['code' => 213, 'phrases' => ['тестовая фраза']],
+                ],
+                'sync_enabled_at' => now()->format('Y-m-d'),
+            ],
+        ]);
+    }
+
     public function disabled(): self
     {
         return $this->state(['is_enabled' => false]);

@@ -11,6 +11,10 @@ class YandexDirectIntegrationSettingsData extends IntegrationSettingsData
 {
     public ?string $clientLogin;
     public ?string $accountId;
+    public ?string $oauthYandexUserId;
+    public ?string $oauthYandexLogin;
+    public ?string $oauthYandexDisplayName;
+    public ?string $oauthYandexAvatarUrl;
     public ?string $encryptedOauthToken;
     public ?string $encryptedRefreshToken;
     public ?string $tokenExpiresAt;
@@ -22,6 +26,10 @@ class YandexDirectIntegrationSettingsData extends IntegrationSettingsData
         $data = new self();
         $data->clientLogin = $settings->get('client_login');
         $data->accountId = $settings->get('account_id');
+        $data->oauthYandexUserId = $settings->get('oauth_yandex_user_id');
+        $data->oauthYandexLogin = $settings->get('oauth_yandex_login');
+        $data->oauthYandexDisplayName = $settings->get('oauth_yandex_display_name');
+        $data->oauthYandexAvatarUrl = $settings->get('oauth_yandex_avatar_url');
         $data->encryptedOauthToken = $settings->get('oauth_token');
         $data->encryptedRefreshToken = $settings->get('refresh_token');
         $data->tokenExpiresAt = $settings->get('token_expires_at');

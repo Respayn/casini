@@ -71,18 +71,19 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         $lastLogoSrc = $agency->logo_src;
 
         DB::transaction(function () use ($lastLogoSrc, $data, $agency) {
-            // Обновляем поля
-            $agency->update([
-                'name'      => $data['name'],
+            $update = [
+                'name' => $data['name'],
                 'time_zone' => $data['timeZone'],
-                'url'       => $data['url'] ?? null,
-                'email'     => $data['email'] ?? null,
-                'phone'     => $data['phone'] ?? null,
-                'address'   => $data['address'] ?? null,
-                'logo_src'  => $data['logoSrc'] ?? null,
-            ]);
+                'url' => $data['url'] ?? null,
+                'email' => $data['email'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'address' => $data['address'] ?? null,
+                'logo_src' => $data['logoSrc'] ?? null,
+            ];
 
-            if (!empty($lastLogoSrc)) {
+            $agency->update($update);
+
+            if (! empty($lastLogoSrc)) {
                 Storage::disk('public')->delete($lastLogoSrc);
             }
         });
