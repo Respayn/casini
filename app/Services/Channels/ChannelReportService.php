@@ -133,24 +133,21 @@ class ChannelReportService implements ChannelReportServiceInterface
                 false => 'inactive'
             };
 
-            $client = $clients->firstWhere('id', $project->client_id);
+            $team = $this->resolveProjectTeam($clients, $users, $project);
+            $client = $team['client'];
+            $manager = $team['manager'];
+            $specialist = $team['specialist'];
 
-            $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
-
-            $specialist = $users->firstWhere('id', $project->specialist_id);
-            $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
-
-            $kpi = $project->kpi->label();
+            $kpi = $project->kpi?->label() ?? '—';
 
             $projectIntegrations = $integrations->get($project->id, []);
 
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
+                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -179,6 +176,39 @@ class ChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
+    private function formatUserShortName(?object $user): string
+    {
+        if ($user === null) {
+            return '—';
+        }
+
+        $lastInitial = filled($user->last_name ?? null)
+            ? mb_substr((string) $user->last_name, 0, 1).'.'
+            : '';
+
+        $name = trim(((string) ($user->first_name ?? '')).' '.$lastInitial);
+
+        return $name !== '' ? $name : '—';
+    }
+
+    /**
+     * @return array{client: mixed, manager: mixed, specialist: mixed, managerName: string, specialistName: string}
+     */
+    private function resolveProjectTeam($clients, $users, $project): array
+    {
+        $client = $clients->firstWhere('id', $project->client_id);
+        $manager = $client ? $users->firstWhere('id', $client->manager_id) : null;
+        $specialist = $users->firstWhere('id', $project->specialist_id);
+
+        return [
+            'client' => $client,
+            'manager' => $manager,
+            'specialist' => $specialist,
+            'managerName' => $this->formatUserShortName($manager),
+            'specialistName' => $this->formatUserShortName($specialist),
+        ];
+    }
+
     public function createReportGroupedByProjectType($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
         $report = new TableReportData();
@@ -204,24 +234,21 @@ class ChannelReportService implements ChannelReportServiceInterface
                 false => 'inactive'
             };
 
-            $client = $clients->firstWhere('id', $project->client_id);
+            $team = $this->resolveProjectTeam($clients, $users, $project);
+            $client = $team['client'];
+            $manager = $team['manager'];
+            $specialist = $team['specialist'];
 
-            $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
-
-            $specialist = $users->firstWhere('id', $project->specialist_id);
-            $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
-
-            $kpi = $project->kpi->label();
+            $kpi = $project->kpi?->label() ?? '—';
 
             $projectIntegrations = $integrations->get($project->id, []);
 
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
+                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -320,24 +347,21 @@ class ChannelReportService implements ChannelReportServiceInterface
                     false => 'inactive'
                 };
 
-                $client = $clients->firstWhere('id', $project->client_id);
+                $team = $this->resolveProjectTeam($clients, $users, $project);
+                $client = $team['client'];
+                $manager = $team['manager'];
+                $specialist = $team['specialist'];
 
-                $manager = $users->firstWhere('id', $client->manager_id);
-                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
-
-                $specialist = $users->firstWhere('id', $project->specialist_id);
-                $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
-
-                $kpi = $project->kpi->label();
+                $kpi = $project->kpi?->label() ?? '—';
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                    $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
+                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -421,24 +445,21 @@ class ChannelReportService implements ChannelReportServiceInterface
                     false => 'inactive'
                 };
 
-                $client = $clients->firstWhere('id', $project->client_id);
+                $team = $this->resolveProjectTeam($clients, $users, $project);
+                $client = $team['client'];
+                $manager = $team['manager'];
+                $specialist = $team['specialist'];
 
-                $manager = $users->firstWhere('id', $client->manager_id);
-                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
-
-                $specialist = $users->firstWhere('id', $project->specialist_id);
-                $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
-
-                $kpi = $project->kpi->label();
+                $kpi = $project->kpi?->label() ?? '—';
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                    $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
+                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -488,24 +509,21 @@ class ChannelReportService implements ChannelReportServiceInterface
                 false => 'inactive'
             };
 
-            $client = $clients->firstWhere('id', $project->client_id);
+            $team = $this->resolveProjectTeam($clients, $users, $project);
+            $client = $team['client'];
+            $manager = $team['manager'];
+            $specialist = $team['specialist'];
 
-            $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
-
-            $specialist = $users->firstWhere('id', $project->specialist_id);
-            $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
-
-            $kpi = $project->kpi->label();
+            $kpi = $project->kpi?->label() ?? '—';
 
             $projectIntegrations = $integrations->get($project->id, []);
 
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
+                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -562,11 +580,12 @@ class ChannelReportService implements ChannelReportServiceInterface
             $rows = new Collection();
 
             $projectsWithRole = $projects->filter(function ($project) use ($clients, $users, $role) {
-                $client = $clients->firstWhere('id', $project->client_id);
-                $manager = $users->firstWhere('id', $client->manager_id);
-                $specialist = $users->firstWhere('id', $project->specialist_id);
+                $team = $this->resolveProjectTeam($clients, $users, $project);
+                $manager = $team['manager'];
+                $specialist = $team['specialist'];
 
-                return $manager->roles->contains($role) || $specialist->roles->contains($role);
+                return ($manager && $manager->roles->contains($role))
+                    || ($specialist && $specialist->roles->contains($role));
             });
 
             foreach ($projectsWithRole as $project) {
@@ -583,24 +602,21 @@ class ChannelReportService implements ChannelReportServiceInterface
                     false => 'inactive'
                 };
 
-                $client = $clients->firstWhere('id', $project->client_id);
+                $team = $this->resolveProjectTeam($clients, $users, $project);
+                $client = $team['client'];
+                $manager = $team['manager'];
+                $specialist = $team['specialist'];
 
-                $manager = $users->firstWhere('id', $client->manager_id);
-                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
-
-                $specialist = $users->firstWhere('id', $project->specialist_id);
-                $specialistName = $specialist->first_name . ' ' . mb_substr($specialist->last_name, 0, 1) . '.';
-
-                $kpi = $project->kpi->label();
+                $kpi = $project->kpi?->label() ?? '—';
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client->name, $project->name, $project->id, $status),
-                    $this->createTeamData($managerName, $manager->id, $specialistName, $specialist->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition->client_payment, 0, 0),
+                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -667,7 +683,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createTeamData(string $managerName, int $managerId, string $specialistName, int $specialistId): array
+    public function createTeamData(string $managerName, ?int $managerId, string $specialistName, ?int $specialistId): array
     {
         return [
             'manager' => [
