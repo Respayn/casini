@@ -31,9 +31,14 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('/channels', 'pages::channels')->name('channels');
     });
 
-    Route::livewire('/statistics', 'pages::statistics')->name('statistics');
-    Route::livewire('/reports', 'pages::reports')->name('reports');
-    Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
+    Route::middleware(['permission:read statistics|full statistics'])->group(function () {
+        Route::livewire('/statistics', 'pages::statistics')->name('statistics');
+    });
+
+    Route::middleware(['permission:read reports|full reports'])->group(function () {
+        Route::livewire('/reports', 'pages::reports')->name('reports');
+        Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
+    });
 
     Route::livewire('/templates', 'pages::templates')->name('templates');
 

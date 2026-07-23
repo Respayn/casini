@@ -29,6 +29,7 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    <x-form.checkbox-styles />
 </head>
 
 <body class="bg-body text-primary-text flex gap-5 font-sans">

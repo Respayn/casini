@@ -4,6 +4,8 @@ namespace App\Repositories;
 
 use App\Data\PermissionData;
 use App\Data\RoleData;
+use App\Enums\PermissionGroup;
+use App\Enums\Role as RoleEnum;
 use App\Models\Role;
 use App\OperationResult;
 use Exception;
@@ -127,6 +129,12 @@ class RoleRepository
                     $permissions[] = 'full ' . $permission['name'];
                 }
             }
+
+            $permissions = array_values(array_unique(array_merge(
+                $permissions,
+                $this->hiddenGroupPermissionNames($role)
+            )));
+
             $role->syncPermissions($permissions);
 
             if ($roleData['hasChildRoles']) {
@@ -142,9 +150,14 @@ class RoleRepository
         }
     }
 
-    public function deleteRole(int $roleId)
+    public function deleteRole(int $roleId): void
     {
         $role = Role::findById($roleId);
+
+        if ($role->name === RoleEnum::ADMIN->value) {
+            throw new Exception('Нельзя удалить роль администратор');
+        }
+
         $role->syncPermissions([]);
         $role->delete();
     }
@@ -168,5 +181,21 @@ class RoleRepository
                 ($role->users_count ?? 0) > 0
             );
         });
+    }
+
+    /**
+     * Права скрытых на UI групп (например media planning), которые нельзя затирать при sync.
+     *
+     * @return list<string>
+     */
+    private function hiddenGroupPermissionNames(Role $role): array
+    {
+        $hiddenGroups = PermissionGroup::hiddenOnSettingsPageGroupNames();
+
+        return $role->permissions
+            ->filter(fn ($permission) => in_array($permission->group, $hiddenGroups, true))
+            ->pluck('name')
+            ->values()
+            ->all();
     }
 }

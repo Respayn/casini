@@ -6,7 +6,7 @@ use App\Data\RoleData;
 use App\Data\SystemSettings\PermissionEditData;
 use App\Data\SystemSettings\RoleEditData;
 use App\Enums\PermissionGroup;
-use App\Models\User;
+use App\Enums\Role as RoleEnum;
 use App\OperationResult;
 use App\Repositories\RoleRepository;
 use Illuminate\Support\Facades\DB;
@@ -51,28 +51,37 @@ class RoleService
     {
         $roles = $this->roleRepository->getRolesWithPermissions();
         $permissions = $this->roleRepository->getPermissions();
-        $permissionGroups = $permissions->groupBy('group');
+        $permissionGroups = $permissions
+            ->groupBy('group')
+            ->filter(function ($permissions, $groupName) {
+                return ! PermissionGroup::from($groupName)->isHiddenOnSettingsPage();
+            });
 
         return $roles->map(function (RoleData $role) use ($permissionGroups) {
+            $permissions = $permissionGroups->map(function ($permissions, $groupName) use ($role) {
+                return new PermissionEditData(
+                    $groupName,
+                    PermissionGroup::from($groupName)->label(),
+                    $role->permissions->contains(fn ($perm) => $perm->name === ('read ' . $groupName)),
+                    $role->permissions->contains(fn ($perm) => $perm->name === ('edit ' . $groupName)),
+                    $role->permissions->contains(fn ($perm) => $perm->name === ('full ' . $groupName)),
+                    PermissionGroup::from($groupName)->isSecondary()
+                );
+            })->values()->all();
+
+            $permissions = $this->normalizeRolePermissions($role->name, $permissions);
+
             return new RoleEditData(
-                $role->id,
-                $role->displayName,
-                $permissionGroups->map(function ($permissions, $groupName) use ($role) {
-                    return new PermissionEditData(
-                        $groupName,
-                        PermissionGroup::from($groupName)->label(),
-                        $role->permissions->containsOneItem(fn($perm) => $perm->name === ('read ' . $groupName)),
-                        $role->permissions->containsOneItem(fn($perm) => $perm->name === ('edit ' . $groupName)),
-                        $role->permissions->containsOneItem(fn($perm) => $perm->name === ('full ' . $groupName)),
-                        PermissionGroup::from($groupName)->isSecondary()
-                    );
-                })->toArray(),
+                (string) $role->id,
+                $role->displayName ?? $role->name,
+                $permissions,
                 $role->useInProjectFilter,
                 $role->useInManagersList,
                 $role->useInSpecialistList,
                 $role->childRoles->isNotEmpty(),
-                $role->childRoles
-
+                $role->childRoles,
+                $role->name,
+                $role->hasAssignedUsers,
             );
         })->toArray();
     }
@@ -91,9 +100,14 @@ class RoleService
     public function getPermissionsWithDefaultValuesForSettingsPage()
     {
         $permissions = $this->roleRepository->getPermissions();
-        $permissionGroups = $permissions->groupBy('group')->toArray();
+        $permissionGroups = $permissions
+            ->groupBy('group')
+            ->filter(function ($permissions, $groupName) {
+                return ! PermissionGroup::from($groupName)->isHiddenOnSettingsPage();
+            })
+            ->toArray();
 
-        return array_map(function ($groupName, $permissions) {
+        return array_map(function ($groupName) {
             return new PermissionEditData(
                 $groupName,
                 PermissionGroup::from($groupName)->label(),
@@ -102,7 +116,7 @@ class RoleService
                 false,
                 PermissionGroup::from($groupName)->isSecondary()
             );
-        }, array_keys($permissionGroups), $permissionGroups);
+        }, array_keys($permissionGroups));
     }
 
     public function saveChanges(array $roles): OperationResult
@@ -113,12 +127,19 @@ class RoleService
         DB::beginTransaction();
 
         $incomingExistingIds = $roles
-            ->map(fn($r) => is_numeric($r['id']) ? (int) $r['id'] : null)
+            ->map(fn ($r) => is_numeric($r['id']) ? (int) $r['id'] : null)
             ->filter()
             ->values();
 
-        $existingIds = $this->roleRepository->getRoles()->pluck('id');
-        $idsToDelete = $existingIds->diff($incomingExistingIds);
+        $existingRoles = $this->roleRepository->getRoles();
+        $adminRoleIds = $existingRoles
+            ->filter(fn (RoleData $role) => $role->name === RoleEnum::ADMIN->value)
+            ->pluck('id');
+
+        $idsToDelete = $existingRoles
+            ->pluck('id')
+            ->diff($incomingExistingIds)
+            ->diff($adminRoleIds);
 
         if ($idsToDelete->isNotEmpty()) {
             foreach ($idsToDelete as $id) {
@@ -126,30 +147,89 @@ class RoleService
                     $this->roleRepository->deleteRole($id);
                 } catch (\Exception $e) {
                     DB::rollBack();
+
                     return OperationResult::failure($e->getMessage());
                 }
             }
         }
 
         foreach ($roles as $roleDto) {
-            $isNew = !is_numeric($roleDto['id']);
+            $systemName = $roleDto['systemName']
+                ?? (is_numeric($roleDto['id'])
+                    ? ($existingRoles->firstWhere('id', (int) $roleDto['id'])?->name ?? '')
+                    : '');
+
+            $roleDto['permissions'] = $this->normalizeRolePermissions(
+                $systemName,
+                array_values($roleDto['permissions'] ?? [])
+            );
+
+            $isNew = ! is_numeric($roleDto['id']);
 
             if ($isNew) {
                 $result = $this->roleRepository->createRole($roleDto);
                 if ($result->isFailure()) {
                     DB::rollBack();
+
                     return $result;
                 }
             } else {
                 $result = $this->roleRepository->updateRole($roleDto);
                 if ($result->isFailure()) {
                     DB::rollBack();
+
                     return $result;
                 }
             }
         }
 
         DB::commit();
+
         return $result;
+    }
+
+    /**
+     * @param  array<int, array|PermissionEditData>  $permissions
+     * @return array<int, array>
+     */
+    private function normalizeRolePermissions(string $systemName, array $permissions): array
+    {
+        $isAdmin = $systemName === RoleEnum::ADMIN->value;
+
+        return array_map(function ($permission) use ($isAdmin) {
+            $permission = is_array($permission) ? $permission : $permission->toArray();
+            $groupName = $permission['name'] ?? '';
+
+            if ($isAdmin) {
+                $permission['canRead'] = true;
+                $permission['canEdit'] = true;
+                $permission['haveFullAccess'] = true;
+
+                return $permission;
+            }
+
+            try {
+                $group = PermissionGroup::from($groupName);
+            } catch (\ValueError) {
+                return $permission;
+            }
+
+            if ($group->isFullAccessLockedForNonAdmin()) {
+                $permission['haveFullAccess'] = false;
+            }
+
+            if ($group->isEditAccessLockedForNonAdmin()) {
+                $permission['canEdit'] = false;
+            }
+
+            if ($permission['haveFullAccess']) {
+                $permission['canEdit'] = true;
+                $permission['canRead'] = true;
+            } elseif ($permission['canEdit']) {
+                $permission['canRead'] = true;
+            }
+
+            return $permission;
+        }, $permissions);
     }
 }

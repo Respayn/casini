@@ -89,4 +89,87 @@ enum PermissionGroup: string
             self::SYSTEM_SETTINGS => []
         ];
     }
+
+    /**
+     * Группы, у которых колонка «Полный доступ» недоступна для ролей кроме администратора.
+     *
+     * @return list<self>
+     */
+    public static function fullAccessLockedForNonAdmin(): array
+    {
+        return [
+            self::CHANNELS,
+            self::STATISTICS,
+            self::BUDGET_RECONCILIATION,
+            self::ADVERTISING_FUNDS_MOVEMENT_STATUS,
+            self::ADVERTISING_FUNDS_MOVEMENT_INVOICE,
+            self::PLANNING_APPROVAL,
+            self::REPORTS,
+            self::SYSTEM_SETTINGS,
+        ];
+    }
+
+    /**
+     * Группы, у которых колонка «Изменение» недоступна для ролей кроме администратора.
+     *
+     * @return list<self>
+     */
+    public static function editAccessLockedForNonAdmin(): array
+    {
+        return [
+            self::STATISTICS,
+            self::BUDGET_RECONCILIATION,
+        ];
+    }
+
+    /**
+     * Группы, скрытые на странице «Продукты и права» (модуль вне текущего scope).
+     *
+     * @return list<self>
+     */
+    public static function hiddenOnSettingsPage(): array
+    {
+        return [
+            self::MEDIA_PLANNING,
+        ];
+    }
+
+    public function isFullAccessLockedForNonAdmin(): bool
+    {
+        return in_array($this, self::fullAccessLockedForNonAdmin(), true);
+    }
+
+    public function isEditAccessLockedForNonAdmin(): bool
+    {
+        return in_array($this, self::editAccessLockedForNonAdmin(), true);
+    }
+
+    public function isHiddenOnSettingsPage(): bool
+    {
+        return in_array($this, self::hiddenOnSettingsPage(), true);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function fullAccessLockedGroupNames(): array
+    {
+        return array_map(fn (self $group) => $group->value, self::fullAccessLockedForNonAdmin());
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function editAccessLockedGroupNames(): array
+    {
+        return array_map(fn (self $group) => $group->value, self::editAccessLockedForNonAdmin());
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function hiddenOnSettingsPageGroupNames(): array
+    {
+        return array_map(fn (self $group) => $group->value, self::hiddenOnSettingsPage());
+    }
 }
