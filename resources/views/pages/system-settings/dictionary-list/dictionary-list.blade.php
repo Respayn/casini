@@ -194,7 +194,7 @@
                         </x-data.table-row>
                         <x-data.table-row>
                             <x-data.table-cell>
-                                Визитов
+                                <strong>Визитов</strong>
                             </x-data.table-cell>
                         </x-data.table-row>
                         <x-data.table-row>
@@ -215,7 +215,7 @@
                         </x-data.table-row>
                         <x-data.table-row>
                             <x-data.table-cell>
-                                Лидов
+                                <strong>Лидов</strong>
                             </x-data.table-cell>
                         </x-data.table-row>
                         <x-data.table-row>
@@ -226,7 +226,7 @@
                                 SEO
                             </x-data.table-cell>
                             <x-data.table-cell>
-                                Объем визитов
+                                <strong>Объем визитов</strong>
                             </x-data.table-cell>
                         </x-data.table-row>
                         <x-data.table-row>
@@ -242,7 +242,7 @@
                                 Позиции
                             </x-data.table-cell>
                             <x-data.table-cell>
-                                % позиций в ТОП 10
+                                <strong>% позиций в ТОП 10</strong>
                             </x-data.table-cell>
                         </x-data.table-row>
                         <x-data.table-row>
@@ -265,21 +265,13 @@
                     </x-data.table-columns>
 
                     <x-data.table-rows>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Яндекс
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Google
-                            </x-data.table-cell>
-                        </x-data.table-row>
-                        <x-data.table-row>
-                            <x-data.table-cell>
-                                Вконтакте
-                            </x-data.table-cell>
-                        </x-data.table-row>
+                        @foreach(\App\Dictionaries\AdvertisingSystemDictionary::list() as $advertisingSystem)
+                            <x-data.table-row>
+                                <x-data.table-cell>
+                                    {{ $advertisingSystem }}
+                                </x-data.table-cell>
+                            </x-data.table-row>
+                        @endforeach
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.accordion-content>

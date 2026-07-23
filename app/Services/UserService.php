@@ -29,8 +29,13 @@ class UserService
     public function getManagers(?int $agencyId = null, array $with = []): Collection
     {
         if (!$agencyId) {
-            $agencyId = Auth::user()->agencies()->first()->id;
+            $agencyId = Auth::user()?->agencies()->first()?->id;
         }
+
+        if (!$agencyId) {
+            return collect();
+        }
+
         return $this->repository->allByAgency($agencyId, null, $with)
             ->filter(fn(UserData $user) => $user->roles->contains(fn($role) => $role->use_in_managers_list))
             ->values();
@@ -39,8 +44,13 @@ class UserService
     public function getSpecialists(?int $agencyId = null, array $with = []): Collection
     {
         if (!$agencyId) {
-            $agencyId = Auth::user()->agencies()->first()->id;
+            $agencyId = Auth::user()?->agencies()->first()?->id;
         }
+
+        if (!$agencyId) {
+            return collect();
+        }
+
         return $this->repository->allByAgency($agencyId, null, $with)
             ->filter(fn(UserData $user) => $user->roles->contains(fn($role) => $role->use_in_specialist_list))
             ->values();
