@@ -1,9 +1,10 @@
 @props([
-    'checked' => false
+    'checked' => false,
+    'disabled' => false,
 ])
 
 @php
-    $isDisabled = $attributes->has('disabled');
+    $isDisabled = filter_var($disabled, FILTER_VALIDATE_BOOLEAN);
 @endphp
 
 <div @class(['checkbox', 'disabled' => $isDisabled])>
@@ -11,7 +12,8 @@
         class="checkbox-input"
         type="checkbox"
         @checked($checked)
-        {{ $attributes }}
+        @disabled($isDisabled)
+        {{ $attributes->except('disabled') }}
     >
     <div class="checkbox-box">
         <svg

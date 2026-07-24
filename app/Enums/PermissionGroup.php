@@ -27,7 +27,7 @@ enum PermissionGroup: string
             self::CHANNELS => 'Каналы',
             self::STATISTICS => 'Статистика',
             self::CLIENTS_AND_PROJECTS => 'Справочник клиентов и клиенто-проектов',
-            self::STATISTICS_SETTLEMENT => 'Начальная статистика взаиморасчетов',
+            self::STATISTICS_SETTLEMENT => 'начальная статистика взаиморасчетов',
             self::CLIENTS_AND_PROJECTS_SELF => 'доступ к своим клиенто-проектам и клиентам',
             self::CLIENTS_AND_PROJECTS_ALL => 'доступ ко всем клиенто-проектам и клиентам',
             self::BUDGET_RECONCILIATION => 'Сверка бюджетов',

@@ -92,6 +92,8 @@ class RoleRepository
                 }
             }
 
+            $this->revokeDirectProductPermissionsForRoleUsers($role->fresh(['users']));
+
             if ($roleData['hasChildRoles']) {
                 $childIds = array_filter(array_column($roleData['childRoles'], 'id'));
                 $role->childRoles()->sync($childIds);
@@ -136,6 +138,7 @@ class RoleRepository
             )));
 
             $role->syncPermissions($permissions);
+            $this->revokeDirectProductPermissionsForRoleUsers($role);
 
             if ($roleData['hasChildRoles']) {
                 $childIds = array_filter(array_column($roleData['childRoles'], 'id'));
@@ -197,5 +200,28 @@ class RoleRepository
             ->pluck('name')
             ->values()
             ->all();
+    }
+
+    /**
+     * Права продуктов задаются через роли. Прямые назначения на пользователя
+     * иначе переживают снятие галочки в «Продукты и права».
+     */
+    private function revokeDirectProductPermissionsForRoleUsers(Role $role): void
+    {
+        $productGroups = PermissionGroup::flatValues();
+        $role->loadMissing('users');
+
+        foreach ($role->users as $user) {
+            $directProductPermissions = $user->getDirectPermissions()
+                ->filter(fn (Permission $permission) => in_array($permission->group, $productGroups, true));
+
+            if ($directProductPermissions->isEmpty()) {
+                continue;
+            }
+
+            $user->revokePermissionTo($directProductPermissions);
+        }
+
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }
