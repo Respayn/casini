@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\ClientsAndProjectsPermissions;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -16,6 +18,12 @@ new
         public function clients()
         {
             return app(GetClientsWithProjectsQueryHandler::class)
-                ->handle(new GetClientsWithProjectsQuery());
+                ->handle(new GetClientsWithProjectsQuery(auth()->id()));
+        }
+
+        #[Computed]
+        public function canEditClientsAndProjects(): bool
+        {
+            return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
         }
     };

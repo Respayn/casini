@@ -1,15 +1,50 @@
 @php
+    use App\Support\SystemSettingsSectionPermissions;
+
     $user = auth()->user();
     $hasAgencies = $user->agencies()->exists();
     $currentAgencyId = session('current_agency_id') ?? (auth()->user()->agency_id ?? null);
     $isAgencyExist = !empty(\App\Models\Agency::query()->find(session('current_agency_id')));
 
-    $navbarItems = [
-        ['label' => 'Продукты и права', 'route' => 'system-settings.roles-and-permissions'],
-        ['label' => 'Пользователи и роли', 'route' => 'system-settings.users'],
-        ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
-        ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
-    ];
+    $canSeeRolesAndPermissions = SystemSettingsSectionPermissions::userCanRead(
+        SystemSettingsSectionPermissions::rolesAndPermissions(),
+        $user
+    );
+    $canSeeUsers = SystemSettingsSectionPermissions::userCanRead(
+        SystemSettingsSectionPermissions::users(),
+        $user
+    );
+    $canSeeClients = $user->hasAnyPermission([
+        'read clients and projects self',
+        'edit clients and projects self',
+        'full clients and projects self',
+        'read clients and projects all',
+        'edit clients and projects all',
+        'full clients and projects all',
+    ]);
+    $canSeeDictionaries = SystemSettingsSectionPermissions::userCanRead(
+        SystemSettingsSectionPermissions::dictionaries(),
+        $user
+    );
+    $canSeeAgency = SystemSettingsSectionPermissions::userCanRead(
+        SystemSettingsSectionPermissions::agency(),
+        $user
+    );
+
+    $navbarItems = array_values(array_filter([
+        $canSeeRolesAndPermissions
+            ? ['label' => 'Продукты и права', 'route' => 'system-settings.roles-and-permissions']
+            : null,
+        $canSeeUsers
+            ? ['label' => 'Пользователи и роли', 'route' => 'system-settings.users']
+            : null,
+        $canSeeClients
+            ? ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects']
+            : null,
+        $canSeeDictionaries
+            ? ['label' => 'Справочники', 'route' => 'system-settings.dictionaries']
+            : null,
+    ]));
 @endphp
 
 <!DOCTYPE html>
@@ -37,29 +72,26 @@
     <div class="flex w-full flex-col gap-[25px] pl-[375px]">
         <livewire:header />
 
-        <x-menu.navbar :items="[
-            ['label' => 'Продукты и права', 'route' => 'system-settings.roles-and-permissions'],
-            ['label' => 'Пользователи и роли', 'route' => 'system-settings.users'],
-            ['label' => 'Клиенты и клиенто-проекты', 'route' => 'system-settings.clients-and-projects'],
-            ['label' => 'Справочники', 'route' => 'system-settings.dictionaries'],
-        ]">
+        <x-menu.navbar :items="$navbarItems">
             {{-- Настройки агенства (с открытием модалки) --}}
             <x-slot:after>
-                @if ($isAgencyExist)
-                    <x-button.button
-                        class="hover:!bg-primary hover:!text-white"
-                        :href="route('system-settings.agency')"
-                        label="Настройки агентства"
-                        :variant="request()->routeIs('system-settings.agency*') ? 'primary' : 'outlined'"
-                    />
-                @else
-                    <x-button.button
-                        class="hover:bg-primary hover:text-white"
-                        variant="outlined"
-                        label="Настройки агентства"
-                        x-data
-                        x-on:click="Livewire.dispatch('createIfNotSelected')"
-                    />
+                @if ($canSeeAgency)
+                    @if ($isAgencyExist)
+                        <x-button.button
+                            class="hover:!bg-primary hover:!text-white"
+                            :href="route('system-settings.agency')"
+                            label="Настройки агентства"
+                            :variant="request()->routeIs('system-settings.agency*') ? 'primary' : 'outlined'"
+                        />
+                    @else
+                        <x-button.button
+                            class="hover:bg-primary hover:text-white"
+                            variant="outlined"
+                            label="Настройки агентства"
+                            x-data
+                            x-on:click="Livewire.dispatch('createIfNotSelected')"
+                        />
+                    @endif
                 @endif
             </x-slot:after>
         </x-menu.navbar>

@@ -9,8 +9,8 @@
             </x-overlay.modal>
         </div>
         <div class="flex items-center">
-            @canany(['read system settings', 'full system settings'])
-                <x-button.button href="{{ route('system-settings.dictionaries') }}" icon="icons.gear" variant="outlined"
+            @canany(['read system settings', 'edit system settings', 'full system settings'])
+                <x-button.button href="{{ route('system-settings.agency') }}" icon="icons.gear" variant="outlined"
                     rounded />
             @endcanany
             <x-notifications.bell-button />

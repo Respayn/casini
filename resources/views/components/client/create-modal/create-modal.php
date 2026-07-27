@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\UserService;
+use App\Support\ClientsAndProjectsPermissions;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -28,6 +29,8 @@ new class extends Component
     #[On('client-create')]
     public function onClientCreate()
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         $this->reset();
         $this->dispatch('modal-show', name: 'client-modal');
     }
@@ -78,6 +81,10 @@ new class extends Component
 
     public function saveClient(CreateClientCommandHandler $createCommand, UpdateClientCommandHandler $updateCommand)
     {
+        if ($this->id === null) {
+            ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+        }
+
         $this->validate([
             'name' => 'required|string|max:255',
             'inn' => [

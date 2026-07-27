@@ -1,28 +1,50 @@
 <?php
 
+use App\Enums\PermissionGroup;
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
 use App\Livewire\LandingPage;
 use App\Livewire\PrivacyPage;
+use App\Support\SystemSettingsSectionPermissions;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth'])->group(function () {
-    Route::middleware(['permission:read system settings|full system settings'])
-        ->prefix('system-settings')
+    Route::prefix('system-settings')
         ->name('system-settings.')
         ->group(function () {
-            Route::livewire('/dictionaries', 'pages::system-settings.dictionary-list')->name('dictionaries');
-            Route::livewire('/clients-and-projects', 'pages::system-settings.clients-and-projects')->name('clients-and-projects');
-            Route::livewire('/clients-and-projects/project/{projectId?}', 'pages::system-settings.client-project-form')->name('clients-and-projects.projects.manage');
+            Route::middleware([
+                SystemSettingsSectionPermissions::middleware(PermissionGroup::SYSTEM_SETTINGS_DICTIONARIES),
+            ])->group(function () {
+                Route::livewire('/dictionaries', 'pages::system-settings.dictionary-list')->name('dictionaries');
+            });
 
-            Route::livewire('/agency/{agency?}', 'pages::system-settings.agency-settings')->name('agency');
-            Route::livewire('/agency', 'pages::system-settings.agency-settings')->name('agency.default');
+            Route::middleware([
+                'permission:read clients and projects self|edit clients and projects self|full clients and projects self|read clients and projects all|edit clients and projects all|full clients and projects all',
+            ])->group(function () {
+                Route::livewire('/clients-and-projects', 'pages::system-settings.clients-and-projects')->name('clients-and-projects');
+                Route::livewire('/clients-and-projects/project/{projectId?}', 'pages::system-settings.client-project-form')->name('clients-and-projects.projects.manage');
+            });
 
-            Route::livewire('/users', 'pages::system-settings.users-list')->name('users');
-            Route::livewire('/users/create', 'pages::system-settings.users-create')->name('users.create');
-            Route::livewire('/users/{user}/edit', 'pages::system-settings.users-edit')->name('users.edit');
+            Route::middleware([
+                SystemSettingsSectionPermissions::middleware(PermissionGroup::SYSTEM_SETTINGS),
+            ])->group(function () {
+                Route::livewire('/agency/{agency?}', 'pages::system-settings.agency-settings')->name('agency');
+                Route::livewire('/agency', 'pages::system-settings.agency-settings')->name('agency.default');
+            });
 
-            Route::livewire('/roles-and-permissions', 'pages::system-settings.roles-and-permissions')->name('roles-and-permissions');
+            Route::middleware([
+                SystemSettingsSectionPermissions::middleware(PermissionGroup::SYSTEM_SETTINGS_USERS),
+            ])->group(function () {
+                Route::livewire('/users', 'pages::system-settings.users-list')->name('users');
+                Route::livewire('/users/create', 'pages::system-settings.users-create')->name('users.create');
+                Route::livewire('/users/{user}/edit', 'pages::system-settings.users-edit')->name('users.edit');
+            });
+
+            Route::middleware([
+                SystemSettingsSectionPermissions::middleware(PermissionGroup::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS),
+            ])->group(function () {
+                Route::livewire('/roles-and-permissions', 'pages::system-settings.roles-and-permissions')->name('roles-and-permissions');
+            });
         });
 
     Route::livewire('/notifications', 'pages::notifications-list')->name('notifications.index');
@@ -65,4 +87,4 @@ Route::middleware(['auth'])->group(function () {
 Route::livewire('/', LandingPage::class)->name('landing');
 Route::livewire('/privacy', PrivacyPage::class)->name('privacy');
 
-require __DIR__ . '/auth.php';
+require __DIR__.'/auth.php';

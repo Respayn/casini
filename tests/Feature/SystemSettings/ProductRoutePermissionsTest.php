@@ -61,4 +61,51 @@ class ProductRoutePermissionsTest extends TestCase
             ->assertForbidden()
             ->assertSee(__('permissions.denied'), false);
     }
+
+    public function test_user_with_system_settings_but_without_clients_projects_cannot_open_project_form(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions(['read system settings']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+
+        $this->actingAs($user)
+            ->get(route('system-settings.clients-and-projects.projects.manage', ['projectId' => 1]))
+            ->assertForbidden()
+            ->assertSee(__('permissions.denied'), false);
+    }
+
+    public function test_user_with_read_all_cannot_open_create_project_form(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions([
+            'read clients and projects all',
+        ]);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+
+        $this->actingAs($user)
+            ->get(route('system-settings.clients-and-projects.projects.manage'))
+            ->assertForbidden()
+            ->assertSee(__('permissions.denied'), false);
+    }
+
+    public function test_user_with_edit_all_is_not_forbidden_on_create_project_form(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions([
+            'read clients and projects all',
+            'edit clients and projects all',
+        ]);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+
+        $response = $this->actingAs($user)
+            ->get(route('system-settings.clients-and-projects.projects.manage'));
+
+        $this->assertNotSame(403, $response->status());
+    }
 }

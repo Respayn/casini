@@ -20,13 +20,16 @@ enum PermissionGroup: string
     case REPORTS = 'reports';
     case REPORT_TEMPLATES = 'report templates';
     case SYSTEM_SETTINGS = 'system settings';
+    case SYSTEM_SETTINGS_DICTIONARIES = 'system settings dictionaries';
+    case SYSTEM_SETTINGS_USERS = 'system settings users';
+    case SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS = 'system settings roles and permissions';
 
     public function label(): string
     {
         return match ($this) {
             self::CHANNELS => 'Каналы',
             self::STATISTICS => 'Статистика',
-            self::CLIENTS_AND_PROJECTS => 'Справочник клиентов и клиенто-проектов',
+            self::CLIENTS_AND_PROJECTS => 'Клиенты и клиенто-проекты',
             self::STATISTICS_SETTLEMENT => 'начальная статистика взаиморасчетов',
             self::CLIENTS_AND_PROJECTS_SELF => 'доступ к своим клиенто-проектам и клиентам',
             self::CLIENTS_AND_PROJECTS_ALL => 'доступ ко всем клиенто-проектам и клиентам',
@@ -39,7 +42,10 @@ enum PermissionGroup: string
             self::MEDIA_PLANNING => 'Медиапланирование',
             self::REPORTS => 'Отчеты',
             self::REPORT_TEMPLATES => 'Шаблоны отчетов',
-            self::SYSTEM_SETTINGS => 'Настройки системы'
+            self::SYSTEM_SETTINGS => 'Настройки агентства',
+            self::SYSTEM_SETTINGS_DICTIONARIES => 'Справочники',
+            self::SYSTEM_SETTINGS_USERS => 'Пользователи и роли',
+            self::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS => 'Продукты и права',
         };
     }
 
@@ -51,7 +57,6 @@ enum PermissionGroup: string
     /**
      * Используется для определения, является ли группа вторичной. У таких групп в
      * интерфейсе отображается дополнительный значок в виде треугольника.
-     * @return bool
      */
     public function isSecondary(): bool
     {
@@ -61,33 +66,56 @@ enum PermissionGroup: string
             self::CLIENTS_AND_PROJECTS_ALL,
             self::ADVERTISING_FUNDS_MOVEMENT_STATUS,
             self::ADVERTISING_FUNDS_MOVEMENT_INVOICE,
-            self::PLANNING_APPROVAL
-        ]);
+            self::PLANNING_APPROVAL,
+        ], true);
     }
 
     public static function hierarchicalValues(): array
     {
         return [
-            self::CHANNELS => [],
-            self::STATISTICS => [],
-            self::CLIENTS_AND_PROJECTS => [
+            self::CHANNELS->value => [],
+            self::STATISTICS->value => [],
+            self::BUDGET_RECONCILIATION->value => [],
+            self::ADVERTISING_FUNDS_MOVEMENT->value => [
+                self::ADVERTISING_FUNDS_MOVEMENT_STATUS,
+                self::ADVERTISING_FUNDS_MOVEMENT_INVOICE,
+            ],
+            self::PLANNING->value => [
+                self::PLANNING_APPROVAL,
+            ],
+            self::MEDIA_PLANNING->value => [],
+            self::REPORTS->value => [],
+            self::REPORT_TEMPLATES->value => [],
+            self::SYSTEM_SETTINGS->value => [],
+            self::SYSTEM_SETTINGS_DICTIONARIES->value => [],
+            self::SYSTEM_SETTINGS_USERS->value => [],
+            self::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS->value => [],
+            self::CLIENTS_AND_PROJECTS->value => [
                 self::STATISTICS_SETTLEMENT,
                 self::CLIENTS_AND_PROJECTS_SELF,
-                self::CLIENTS_AND_PROJECTS_ALL
+                self::CLIENTS_AND_PROJECTS_ALL,
             ],
-            self::BUDGET_RECONCILIATION => [],
-            self::ADVERTISING_FUNDS_MOVEMENT => [
-                self::ADVERTISING_FUNDS_MOVEMENT_STATUS,
-                self::ADVERTISING_FUNDS_MOVEMENT_INVOICE
-            ],
-            self::PLANNING => [
-                self::PLANNING_APPROVAL
-            ],
-            self::MEDIA_PLANNING => [],
-            self::REPORTS => [],
-            self::REPORT_TEMPLATES => [],
-            self::SYSTEM_SETTINGS => []
         ];
+    }
+
+    /**
+     * Порядок групп на странице «Продукты и права»: родитель, затем дети.
+     *
+     * @return list<string>
+     */
+    public static function settingsPageGroupOrder(): array
+    {
+        $order = [];
+
+        foreach (self::hierarchicalValues() as $parentValue => $children) {
+            $order[] = $parentValue;
+
+            foreach ($children as $child) {
+                $order[] = $child->value;
+            }
+        }
+
+        return $order;
     }
 
     /**
@@ -100,12 +128,17 @@ enum PermissionGroup: string
         return [
             self::CHANNELS,
             self::STATISTICS,
+            self::CLIENTS_AND_PROJECTS_SELF,
+            self::CLIENTS_AND_PROJECTS_ALL,
             self::BUDGET_RECONCILIATION,
             self::ADVERTISING_FUNDS_MOVEMENT_STATUS,
             self::ADVERTISING_FUNDS_MOVEMENT_INVOICE,
             self::PLANNING_APPROVAL,
             self::REPORTS,
             self::SYSTEM_SETTINGS,
+            self::SYSTEM_SETTINGS_DICTIONARIES,
+            self::SYSTEM_SETTINGS_USERS,
+            self::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS,
         ];
     }
 

@@ -21,9 +21,11 @@ use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
 use App\Exceptions\CallibriApiException;
+use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -80,6 +82,10 @@ class extends Component
 
     public function mount(Request $request, $projectId = null)
     {
+        if ($projectId === null) {
+            ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+        }
+
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();

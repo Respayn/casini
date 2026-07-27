@@ -69,6 +69,7 @@ class RoleService
                 );
             })->values()->all();
 
+            $permissions = $this->sortPermissionsForSettingsPage($permissions);
             $permissions = $this->normalizeRolePermissions($role->name, $permissions);
 
             return new RoleEditData(
@@ -107,7 +108,7 @@ class RoleService
             })
             ->toArray();
 
-        return array_map(function ($groupName) {
+        $permissions = array_map(function ($groupName) {
             return new PermissionEditData(
                 $groupName,
                 PermissionGroup::from($groupName)->label(),
@@ -117,6 +118,29 @@ class RoleService
                 PermissionGroup::from($groupName)->isSecondary()
             );
         }, array_keys($permissionGroups));
+
+        return $this->sortPermissionsForSettingsPage($permissions);
+    }
+
+    /**
+     * @param  array<int, array|PermissionEditData>  $permissions
+     * @return array<int, array|PermissionEditData>
+     */
+    private function sortPermissionsForSettingsPage(array $permissions): array
+    {
+        $order = array_flip(PermissionGroup::settingsPageGroupOrder());
+
+        usort($permissions, function ($left, $right) use ($order) {
+            $leftName = is_array($left) ? ($left['name'] ?? '') : $left->name;
+            $rightName = is_array($right) ? ($right['name'] ?? '') : $right->name;
+
+            $leftIndex = $order[$leftName] ?? PHP_INT_MAX;
+            $rightIndex = $order[$rightName] ?? PHP_INT_MAX;
+
+            return $leftIndex <=> $rightIndex;
+        });
+
+        return array_values($permissions);
     }
 
     public function saveChanges(array $roles): OperationResult

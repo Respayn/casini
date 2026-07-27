@@ -56,6 +56,71 @@ class RolePermissionsSettingsTest extends TestCase
         $this->assertFalse($defaultNames->contains(PermissionGroup::MEDIA_PLANNING->value));
     }
 
+    public function test_settings_page_includes_new_system_settings_sections_in_order(): void
+    {
+        $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
+        $admin = collect($roles)->firstWhere('systemName', RoleEnum::ADMIN->value);
+
+        $groupNames = collect($admin['permissions'])->pluck('name')->values();
+
+        $agencyIndex = $groupNames->search(PermissionGroup::SYSTEM_SETTINGS->value);
+        $dictionariesIndex = $groupNames->search(PermissionGroup::SYSTEM_SETTINGS_DICTIONARIES->value);
+        $usersIndex = $groupNames->search(PermissionGroup::SYSTEM_SETTINGS_USERS->value);
+        $rolesIndex = $groupNames->search(PermissionGroup::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS->value);
+
+        $this->assertNotFalse($agencyIndex);
+        $this->assertNotFalse($dictionariesIndex);
+        $this->assertNotFalse($usersIndex);
+        $this->assertNotFalse($rolesIndex);
+
+        $this->assertSame(
+            PermissionGroup::SYSTEM_SETTINGS->label(),
+            collect($admin['permissions'])->firstWhere('name', PermissionGroup::SYSTEM_SETTINGS->value)['displayName']
+        );
+        $this->assertLessThan($dictionariesIndex, $agencyIndex);
+        $this->assertLessThan($usersIndex, $dictionariesIndex);
+        $this->assertLessThan($rolesIndex, $usersIndex);
+
+        $clientsIndex = $groupNames->search(PermissionGroup::CLIENTS_AND_PROJECTS->value);
+        $this->assertNotFalse($clientsIndex);
+        $this->assertLessThan($clientsIndex, $rolesIndex);
+
+        $dictionaries = collect($admin['permissions'])
+            ->firstWhere('name', PermissionGroup::SYSTEM_SETTINGS_DICTIONARIES->value);
+        $this->assertFalse($dictionaries['isSecondary']);
+    }
+
+    public function test_save_strips_locked_full_access_for_new_settings_sections(): void
+    {
+        $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
+        $roles = collect($roles)->map(function (array $role) {
+            if ($role['systemName'] !== RoleEnum::MANAGER->value) {
+                return $role;
+            }
+
+            $role['permissions'] = collect($role['permissions'])->map(function (array $permission) {
+                if ($permission['name'] === PermissionGroup::SYSTEM_SETTINGS_DICTIONARIES->value) {
+                    $permission['haveFullAccess'] = true;
+                    $permission['canRead'] = true;
+                    $permission['canEdit'] = true;
+                }
+
+                return $permission;
+            })->all();
+
+            return $role;
+        })->all();
+
+        $result = $this->roleService->saveChanges($roles);
+
+        $this->assertTrue($result->isSuccess());
+
+        $manager = Role::findByName(RoleEnum::MANAGER->value);
+        $this->assertFalse($manager->hasPermissionTo('full system settings dictionaries'));
+        $this->assertTrue($manager->hasPermissionTo('edit system settings dictionaries'));
+        $this->assertTrue($manager->hasPermissionTo('read system settings dictionaries'));
+    }
+
     public function test_save_strips_locked_full_access_for_non_admin(): void
     {
         $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();

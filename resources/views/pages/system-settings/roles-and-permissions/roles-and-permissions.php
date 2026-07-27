@@ -3,6 +3,7 @@
 namespace App\Livewire\SystemSettings;
 
 use App\Services\RoleService;
+use App\Support\SystemSettingsSectionPermissions;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -30,8 +31,10 @@ class extends Component
 
     public function save(): void
     {
-        if (!Auth::user()->canAny(['edit system settings', 'full system settings'])) {
-            // Toaster::error('Недостаточно прав!');
+        if (! SystemSettingsSectionPermissions::userCanEdit(
+            SystemSettingsSectionPermissions::rolesAndPermissions(),
+            Auth::user()
+        )) {
             return;
         }
 

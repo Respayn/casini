@@ -169,7 +169,7 @@
                             <div class="flex items-center justify-between">
                                 <template x-if="editingRoleId !== role.id">
                                     <div class="flex gap-x-3 text-[#599CFF]">
-                                        @canany(['edit system settings', 'full system settings'])
+                                        @canany(['edit system settings roles and permissions', 'full system settings roles and permissions'])
                                             <x-icons.edit-2
                                                 class="hover:text-[#4070E0]"
                                                 x-on:click.stop="startEdit(role.id)"
@@ -194,7 +194,7 @@
                                     </div>
                                 </template>
 
-                                @canany(['edit system settings', 'full system settings'])
+                                @canany(['edit system settings roles and permissions', 'full system settings roles and permissions'])
                                     <template x-if="isAdminRole(role)">
                                         <div
                                             class="relative mr-9 inline-block"

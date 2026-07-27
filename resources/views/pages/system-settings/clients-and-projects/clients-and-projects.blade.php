@@ -3,16 +3,41 @@
         <h1 class="text-primary-text text-xl font-semibold">Клиенты и Клиенто-проекты</h1>
 
         <div class="flex items-center gap-2">
-            <x-button.button
-                label="+ Создать клиента"
-                variant="primary"
-                x-on:click="$dispatch('client-create')"
-            />
-            <x-button.button
-                href="{{ route('system-settings.clients-and-projects.projects.manage') }}"
-                label="+ Создать клиенто-проект"
-                variant="primary"
-            />
+            @php
+                $canEdit = $this->canEditClientsAndProjects;
+            @endphp
+
+            <x-permissions.field-guard :enabled="$canEdit">
+                @if ($canEdit)
+                    <x-button.button
+                        label="+ Создать клиента"
+                        variant="primary"
+                        x-on:click="$dispatch('client-create')"
+                    />
+                @else
+                    <x-button.button
+                        label="+ Создать клиента"
+                        variant="primary"
+                        disabled
+                    />
+                @endif
+            </x-permissions.field-guard>
+
+            <x-permissions.field-guard :enabled="$canEdit">
+                @if ($canEdit)
+                    <x-button.button
+                        href="{{ route('system-settings.clients-and-projects.projects.manage') }}"
+                        label="+ Создать клиенто-проект"
+                        variant="primary"
+                    />
+                @else
+                    <x-button.button
+                        label="+ Создать клиенто-проект"
+                        variant="primary"
+                        disabled
+                    />
+                @endif
+            </x-permissions.field-guard>
         </div>
     </div>
 
