@@ -51,6 +51,16 @@ class SystemSettingsSectionPermissionsTest extends TestCase
         );
     }
 
+    public function test_edit_middleware_includes_edit_and_full_only(): void
+    {
+        $middleware = SystemSettingsSectionPermissions::editMiddleware(PermissionGroup::SYSTEM_SETTINGS_USERS);
+
+        $this->assertSame(
+            'permission:edit system settings users|full system settings users',
+            $middleware
+        );
+    }
+
     public function test_any_settings_section_true_for_clients_only(): void
     {
         $role = Role::findByName('manager');

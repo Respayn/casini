@@ -40,6 +40,11 @@ class SystemSettingsSectionPermissions
         return 'permission:'.implode('|', self::readPermissionNames($group));
     }
 
+    public static function editMiddleware(PermissionGroup $group): string
+    {
+        return 'permission:'.implode('|', self::editPermissionNames($group));
+    }
+
     public static function userCanRead(PermissionGroup $group, ?User $user = null): bool
     {
         $user ??= Auth::user();

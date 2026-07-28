@@ -37,6 +37,11 @@ Route::middleware(['auth'])->group(function () {
                 SystemSettingsSectionPermissions::middleware(PermissionGroup::SYSTEM_SETTINGS_USERS),
             ])->group(function () {
                 Route::livewire('/users', 'pages::system-settings.users-list')->name('users');
+            });
+
+            Route::middleware([
+                SystemSettingsSectionPermissions::editMiddleware(PermissionGroup::SYSTEM_SETTINGS_USERS),
+            ])->group(function () {
                 Route::livewire('/users/create', 'pages::system-settings.users-create')->name('users.create');
             });
 
