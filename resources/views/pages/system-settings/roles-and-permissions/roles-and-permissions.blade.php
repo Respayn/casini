@@ -2,6 +2,8 @@
     use App\Enums\PermissionGroup;
     use App\Enums\Role as RoleEnum;
 
+    $canEditRoles = $this->canEditRolesAndPermissions;
+
     $permissionRules = [
         'adminSystemName' => RoleEnum::ADMIN->value,
         'fullAccessLocked' => PermissionGroup::fullAccessLockedGroupNames(),
@@ -16,6 +18,8 @@
         roles: $wire.entangle('roles'),
         editingRoleId: null,
         hasPendingChanges: false,
+        canEditPage: @js($canEditRoles),
+        deniedMessage: @js(__('permissions.denied')),
         permissionRules: @js($permissionRules),
 
         init() {
@@ -31,18 +35,21 @@
         },
 
         isFullAccessDisabled(role, permission) {
-            return this.isAdminRole(role)
+            return !this.canEditPage
+                || this.isAdminRole(role)
                 || this.permissionRules.fullAccessLocked.includes(permission.name);
         },
 
         isEditAccessDisabled(role, permission) {
-            return this.isAdminRole(role)
+            return !this.canEditPage
+                || this.isAdminRole(role)
                 || this.permissionRules.editAccessLocked.includes(permission.name)
                 || this.isEditInherited(role, permission);
         },
 
         isReadAccessDisabled(role, permission) {
-            return this.isAdminRole(role)
+            return !this.canEditPage
+                || this.isAdminRole(role)
                 || this.isReadInherited(role, permission);
         },
 
@@ -56,6 +63,10 @@
         },
 
         syncInheritedPermissions(permission) {
+            if (!this.canEditPage) {
+                return;
+            }
+
             if (permission.haveFullAccess) {
                 permission.canEdit = true;
                 permission.canRead = true;
@@ -65,7 +76,7 @@
         },
 
         markPendingIfEnabled(event) {
-            if (event.target.disabled) {
+            if (!this.canEditPage || event.target.disabled) {
                 event.preventDefault();
                 return;
             }
@@ -74,6 +85,10 @@
         },
 
         createRole() {
+            if (!this.canEditPage) {
+                return;
+            }
+
             this.roles.push({
                 id: 'new-' + Date.now() + '-' + Math.random().toString().slice(2),
                 name: 'Новая роль',
@@ -90,6 +105,10 @@
         },
 
         deleteRole(roleId) {
+            if (!this.canEditPage) {
+                return;
+            }
+
             const role = this.roles.find(r => r.id === roleId);
             if (role && this.isAdminRole(role)) {
                 return;
@@ -100,15 +119,27 @@
         },
 
         startEdit(roleId) {
+            if (!this.canEditPage) {
+                return;
+            }
+
             this.editingRoleId = roleId;
         },
 
         stopEdit() {
+            if (!this.canEditPage) {
+                return;
+            }
+
             this.editingRoleId = null;
             this.hasPendingChanges = true;
         },
 
         addChildRole(roleId) {
+            if (!this.canEditPage) {
+                return;
+            }
+
             this.roles.find(r => r.id === roleId)
                 .childRoles.push({ id: '' });
             this.hasPendingChanges = true;
@@ -136,6 +167,10 @@
         },
 
         deleteChildRole(roleId, childRoleId) {
+            if (!this.canEditPage) {
+                return;
+            }
+
             const parentRole = this.roles.find(r => r.id === roleId);
             if (parentRole) {
                 parentRole.childRoles = parentRole.childRoles.filter(child => child.id !== childRoleId);
@@ -169,12 +204,38 @@
                             <div class="flex items-center justify-between">
                                 <template x-if="editingRoleId !== role.id">
                                     <div class="flex gap-x-3 text-[#599CFF]">
-                                        @canany(['edit system settings roles and permissions', 'full system settings roles and permissions'])
+                                        <template x-if="canEditPage">
                                             <x-icons.edit-2
                                                 class="hover:text-[#4070E0]"
                                                 x-on:click.stop="startEdit(role.id)"
                                             />
-                                        @endcan
+                                        </template>
+                                        <template x-if="!canEditPage">
+                                            <div
+                                                class="relative inline-block"
+                                                x-data="{ open: false }"
+                                            >
+                                                <span
+                                                    x-ref="editDeniedTrigger"
+                                                    @mouseenter="open = true"
+                                                    @mouseleave="open = false"
+                                                >
+                                                    <x-icons.edit-2
+                                                        class="cursor-not-allowed opacity-50"
+                                                    />
+                                                </span>
+                                                <template x-teleport="body">
+                                                    <div
+                                                        class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                        style="z-index: 1000"
+                                                        x-show="open"
+                                                        x-cloak
+                                                        x-anchor.bottom="$refs.editDeniedTrigger"
+                                                        x-text="deniedMessage"
+                                                    ></div>
+                                                </template>
+                                            </div>
+                                        </template>
                                         <span
                                             class="underline"
                                             x-text="role.name"
@@ -194,76 +255,103 @@
                                     </div>
                                 </template>
 
-                                @canany(['edit system settings roles and permissions', 'full system settings roles and permissions'])
-                                    <template x-if="isAdminRole(role)">
-                                        <div
-                                            class="relative mr-9 inline-block"
-                                            x-data="{ open: false }"
+                                <template x-if="!canEditPage">
+                                    <div
+                                        class="relative mr-9 inline-block"
+                                        x-data="{ open: false }"
+                                    >
+                                        <span
+                                            x-ref="deleteDeniedTrigger"
+                                            @mouseenter="open = true"
+                                            @mouseleave="open = false"
                                         >
-                                            <span
-                                                x-ref="deleteTrigger"
-                                                @mouseenter="open = true"
-                                                @mouseleave="open = false"
-                                            >
-                                                <x-button.button
-                                                    class="text-secondary-text font-normal"
-                                                    variant="link"
-                                                    label="Удалить роль"
-                                                    disabled
-                                                />
-                                            </span>
-                                            <template x-teleport="body">
-                                                <div
-                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                                    style="z-index: 1000"
-                                                    x-show="open"
-                                                    x-cloak
-                                                    x-anchor.bottom="$refs.deleteTrigger"
-                                                >
-                                                    Нельзя удалить роль администратор
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </template>
-                                    <template x-if="!isAdminRole(role) && role.hasAssignedUsers">
-                                        <div
-                                            class="relative mr-9 inline-block"
-                                            x-data="{ open: false }"
+                                            <x-button.button
+                                                class="text-secondary-text font-normal"
+                                                variant="link"
+                                                label="Удалить роль"
+                                                disabled
+                                            />
+                                        </span>
+                                        <template x-teleport="body">
+                                            <div
+                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                style="z-index: 1000"
+                                                x-show="open"
+                                                x-cloak
+                                                x-anchor.bottom="$refs.deleteDeniedTrigger"
+                                                x-text="deniedMessage"
+                                            ></div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="canEditPage && isAdminRole(role)">
+                                    <div
+                                        class="relative mr-9 inline-block"
+                                        x-data="{ open: false }"
+                                    >
+                                        <span
+                                            x-ref="deleteTrigger"
+                                            @mouseenter="open = true"
+                                            @mouseleave="open = false"
                                         >
-                                            <span
-                                                x-ref="deleteTrigger"
-                                                @mouseenter="open = true"
-                                                @mouseleave="open = false"
+                                            <x-button.button
+                                                class="text-secondary-text font-normal"
+                                                variant="link"
+                                                label="Удалить роль"
+                                                disabled
+                                            />
+                                        </span>
+                                        <template x-teleport="body">
+                                            <div
+                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                style="z-index: 1000"
+                                                x-show="open"
+                                                x-cloak
+                                                x-anchor.bottom="$refs.deleteTrigger"
                                             >
-                                                <x-button.button
-                                                    class="text-secondary-text font-normal"
-                                                    variant="link"
-                                                    label="Удалить роль"
-                                                    disabled
-                                                />
-                                            </span>
-                                            <template x-teleport="body">
-                                                <div
-                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                                    style="z-index: 1000"
-                                                    x-show="open"
-                                                    x-cloak
-                                                    x-anchor.bottom="$refs.deleteTrigger"
-                                                >
-                                                    Нельзя удалить роль, пока к ней привязаны пользователи
-                                                </div>
-                                            </template>
-                                        </div>
-                                    </template>
-                                    <template x-if="!isAdminRole(role) && !role.hasAssignedUsers">
-                                        <x-button.button
-                                            class="text-secondary-text mr-9 font-normal"
-                                            variant="link"
-                                            x-on:click="deleteRole(role.id)"
-                                            label="Удалить роль"
-                                        />
-                                    </template>
-                                @endcan
+                                                Нельзя удалить роль администратор
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="canEditPage && !isAdminRole(role) && role.hasAssignedUsers">
+                                    <div
+                                        class="relative mr-9 inline-block"
+                                        x-data="{ open: false }"
+                                    >
+                                        <span
+                                            x-ref="deleteTrigger"
+                                            @mouseenter="open = true"
+                                            @mouseleave="open = false"
+                                        >
+                                            <x-button.button
+                                                class="text-secondary-text font-normal"
+                                                variant="link"
+                                                label="Удалить роль"
+                                                disabled
+                                            />
+                                        </span>
+                                        <template x-teleport="body">
+                                            <div
+                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                style="z-index: 1000"
+                                                x-show="open"
+                                                x-cloak
+                                                x-anchor.bottom="$refs.deleteTrigger"
+                                            >
+                                                Нельзя удалить роль, пока к ней привязаны пользователи
+                                            </div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="canEditPage && !isAdminRole(role) && !role.hasAssignedUsers">
+                                    <x-button.button
+                                        class="text-secondary-text mr-9 font-normal"
+                                        variant="link"
+                                        x-on:click="deleteRole(role.id)"
+                                        label="Удалить роль"
+                                    />
+                                </template>
                             </div>
                         </x-panel.accordion-header>
                         <x-panel.accordion-content>
@@ -275,17 +363,75 @@
                                         клиенто-проектов
                                     </x-overlay.tooltip>
                                 </span>
-                                <x-form.toggle-switch
-                                    x-model="role.useInProjectFilter"
-                                    x-on:click="hasPendingChanges = true;"
-                                />
+                                <template x-if="!canEditPage">
+                                    <div
+                                        class="relative inline-block"
+                                        x-data="{ open: false }"
+                                    >
+                                        <span
+                                            x-ref="projectFilterDeniedTrigger"
+                                            @mouseenter="open = true"
+                                            @mouseleave="open = false"
+                                        >
+                                            <x-form.toggle-switch
+                                                x-model="role.useInProjectFilter"
+                                                disabled
+                                            />
+                                        </span>
+                                        <template x-teleport="body">
+                                            <div
+                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                style="z-index: 1000"
+                                                x-show="open"
+                                                x-cloak
+                                                x-anchor.bottom="$refs.projectFilterDeniedTrigger"
+                                                x-text="deniedMessage"
+                                            ></div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="canEditPage">
+                                    <x-form.toggle-switch
+                                        x-model="role.useInProjectFilter"
+                                        x-on:click="hasPendingChanges = true;"
+                                    />
+                                </template>
                             </div>
                             <div class="mb-2 flex justify-between">
                                 <span>У роли есть подчиненные</span>
-                                <x-form.toggle-switch
-                                    x-model="role.hasChildRoles"
-                                    x-on:click="hasPendingChanges = true;"
-                                />
+                                <template x-if="!canEditPage">
+                                    <div
+                                        class="relative inline-block"
+                                        x-data="{ open: false }"
+                                    >
+                                        <span
+                                            x-ref="childRolesDeniedTrigger"
+                                            @mouseenter="open = true"
+                                            @mouseleave="open = false"
+                                        >
+                                            <x-form.toggle-switch
+                                                x-model="role.hasChildRoles"
+                                                disabled
+                                            />
+                                        </span>
+                                        <template x-teleport="body">
+                                            <div
+                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                style="z-index: 1000"
+                                                x-show="open"
+                                                x-cloak
+                                                x-anchor.bottom="$refs.childRolesDeniedTrigger"
+                                                x-text="deniedMessage"
+                                            ></div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="canEditPage">
+                                    <x-form.toggle-switch
+                                        x-model="role.hasChildRoles"
+                                        x-on:click="hasPendingChanges = true;"
+                                    />
+                                </template>
                             </div>
 
                             <template x-if="role.hasChildRoles">
@@ -293,28 +439,122 @@
                                     <div class="flex flex-col gap-y-1">
                                         <template x-for="(childRole, index) in role.childRoles">
                                             <div class="flex">
-                                                <x-form.select
-                                                    x-bind:data-options="getChildOptions(role.id, childRole.id)"
-                                                    x-model="childRole.id"
-                                                />
-                                                <x-button.button
-                                                    class="text-secondary-text"
-                                                    label="Удалить"
-                                                    variant="link"
-                                                    x-on:click="deleteChildRole(role.id, childRole.id)"
-                                                />
+                                                <template x-if="!canEditPage">
+                                                    <div
+                                                        class="relative w-full"
+                                                        x-data="{ open: false }"
+                                                    >
+                                                        <span
+                                                            class="block w-full"
+                                                            x-ref="childSelectDeniedTrigger"
+                                                            @mouseenter="open = true"
+                                                            @mouseleave="open = false"
+                                                        >
+                                                            <x-form.select
+                                                                x-bind:data-options="getChildOptions(role.id, childRole.id)"
+                                                                x-model="childRole.id"
+                                                                disabled
+                                                            />
+                                                        </span>
+                                                        <template x-teleport="body">
+                                                            <div
+                                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                style="z-index: 1000"
+                                                                x-show="open"
+                                                                x-cloak
+                                                                x-anchor.bottom="$refs.childSelectDeniedTrigger"
+                                                                x-text="deniedMessage"
+                                                            ></div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="canEditPage">
+                                                    <x-form.select
+                                                        x-bind:data-options="getChildOptions(role.id, childRole.id)"
+                                                        x-model="childRole.id"
+                                                    />
+                                                </template>
+                                                <template x-if="!canEditPage">
+                                                    <div
+                                                        class="relative inline-block"
+                                                        x-data="{ open: false }"
+                                                    >
+                                                        <span
+                                                            x-ref="deleteChildDeniedTrigger"
+                                                            @mouseenter="open = true"
+                                                            @mouseleave="open = false"
+                                                        >
+                                                            <x-button.button
+                                                                class="text-secondary-text"
+                                                                label="Удалить"
+                                                                variant="link"
+                                                                disabled
+                                                            />
+                                                        </span>
+                                                        <template x-teleport="body">
+                                                            <div
+                                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                style="z-index: 1000"
+                                                                x-show="open"
+                                                                x-cloak
+                                                                x-anchor.bottom="$refs.deleteChildDeniedTrigger"
+                                                                x-text="deniedMessage"
+                                                            ></div>
+                                                        </template>
+                                                    </div>
+                                                </template>
+                                                <template x-if="canEditPage">
+                                                    <x-button.button
+                                                        class="text-secondary-text"
+                                                        label="Удалить"
+                                                        variant="link"
+                                                        x-on:click="deleteChildRole(role.id, childRole.id)"
+                                                    />
+                                                </template>
                                             </div>
                                         </template>
                                     </div>
 
                                     <div class="mt-1 flex justify-start">
-                                        <x-button.button
-                                            class="self-start"
-                                            label="Добавить подчиненную роль"
-                                            variant="outlined"
-                                            icon="icons.plus"
-                                            x-on:click="addChildRole(role.id)"
-                                        />
+                                        <template x-if="!canEditPage">
+                                            <div
+                                                class="relative inline-block"
+                                                x-data="{ open: false }"
+                                            >
+                                                <span
+                                                    x-ref="addChildDeniedTrigger"
+                                                    @mouseenter="open = true"
+                                                    @mouseleave="open = false"
+                                                >
+                                                    <x-button.button
+                                                        class="self-start"
+                                                        label="Добавить подчиненную роль"
+                                                        variant="outlined"
+                                                        icon="icons.plus"
+                                                        disabled
+                                                    />
+                                                </span>
+                                                <template x-teleport="body">
+                                                    <div
+                                                        class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                        style="z-index: 1000"
+                                                        x-show="open"
+                                                        x-cloak
+                                                        x-anchor.bottom="$refs.addChildDeniedTrigger"
+                                                        x-text="deniedMessage"
+                                                    ></div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="canEditPage">
+                                            <x-button.button
+                                                class="self-start"
+                                                label="Добавить подчиненную роль"
+                                                variant="outlined"
+                                                icon="icons.plus"
+                                                x-on:click="addChildRole(role.id)"
+                                            />
+                                        </template>
                                     </div>
                                 </div>
                             </template>
@@ -344,7 +584,34 @@
                                             </x-data.table-cell>
                                             <x-data.table-cell>
                                                 <div class="flex justify-center">
-                                                    <template x-if="isReadInherited(role, permission)">
+                                                    <template x-if="!canEditPage">
+                                                        <div
+                                                            class="relative inline-block"
+                                                            x-data="{ open: false }"
+                                                        >
+                                                            <span
+                                                                x-ref="readDeniedTrigger"
+                                                                @mouseenter="open = true"
+                                                                @mouseleave="open = false"
+                                                            >
+                                                                <x-form.checkbox
+                                                                    x-model="permission.canRead"
+                                                                    disabled
+                                                                />
+                                                            </span>
+                                                            <template x-teleport="body">
+                                                                <div
+                                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                    style="z-index: 1000"
+                                                                    x-show="open"
+                                                                    x-cloak
+                                                                    x-anchor.bottom="$refs.readDeniedTrigger"
+                                                                    x-text="deniedMessage"
+                                                                ></div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="canEditPage && isReadInherited(role, permission)">
                                                         <div
                                                             class="relative inline-block"
                                                             x-data="{ open: false }"
@@ -372,7 +639,7 @@
                                                             </template>
                                                         </div>
                                                     </template>
-                                                    <template x-if="!isReadInherited(role, permission)">
+                                                    <template x-if="canEditPage && !isReadInherited(role, permission)">
                                                         <x-form.checkbox
                                                             x-model="permission.canRead"
                                                             x-bind:disabled="isReadAccessDisabled(role, permission)"
@@ -383,7 +650,34 @@
                                             </x-data.table-cell>
                                             <x-data.table-cell>
                                                 <div class="flex justify-center">
-                                                    <template x-if="isEditInherited(role, permission)">
+                                                    <template x-if="!canEditPage">
+                                                        <div
+                                                            class="relative inline-block"
+                                                            x-data="{ open: false }"
+                                                        >
+                                                            <span
+                                                                x-ref="editDeniedTrigger"
+                                                                @mouseenter="open = true"
+                                                                @mouseleave="open = false"
+                                                            >
+                                                                <x-form.checkbox
+                                                                    x-model="permission.canEdit"
+                                                                    disabled
+                                                                />
+                                                            </span>
+                                                            <template x-teleport="body">
+                                                                <div
+                                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                    style="z-index: 1000"
+                                                                    x-show="open"
+                                                                    x-cloak
+                                                                    x-anchor.bottom="$refs.editDeniedTrigger"
+                                                                    x-text="deniedMessage"
+                                                                ></div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="canEditPage && isEditInherited(role, permission)">
                                                         <div
                                                             class="relative inline-block"
                                                             x-data="{ open: false }"
@@ -411,7 +705,7 @@
                                                             </template>
                                                         </div>
                                                     </template>
-                                                    <template x-if="!isEditInherited(role, permission)">
+                                                    <template x-if="canEditPage && !isEditInherited(role, permission)">
                                                         <x-form.checkbox
                                                             x-model="permission.canEdit"
                                                             x-bind:disabled="isEditAccessDisabled(role, permission)"
@@ -423,12 +717,41 @@
                                             </x-data.table-cell>
                                             <x-data.table-cell>
                                                 <div class="flex justify-center">
-                                                    <x-form.checkbox
-                                                        x-model="permission.haveFullAccess"
-                                                        x-bind:disabled="isFullAccessDisabled(role, permission)"
-                                                        x-on:change="syncInheritedPermissions(permission)"
-                                                        x-on:click="markPendingIfEnabled($event)"
-                                                    />
+                                                    <template x-if="!canEditPage">
+                                                        <div
+                                                            class="relative inline-block"
+                                                            x-data="{ open: false }"
+                                                        >
+                                                            <span
+                                                                x-ref="fullDeniedTrigger"
+                                                                @mouseenter="open = true"
+                                                                @mouseleave="open = false"
+                                                            >
+                                                                <x-form.checkbox
+                                                                    x-model="permission.haveFullAccess"
+                                                                    disabled
+                                                                />
+                                                            </span>
+                                                            <template x-teleport="body">
+                                                                <div
+                                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                    style="z-index: 1000"
+                                                                    x-show="open"
+                                                                    x-cloak
+                                                                    x-anchor.bottom="$refs.fullDeniedTrigger"
+                                                                    x-text="deniedMessage"
+                                                                ></div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="canEditPage">
+                                                        <x-form.checkbox
+                                                            x-model="permission.haveFullAccess"
+                                                            x-bind:disabled="isFullAccessDisabled(role, permission)"
+                                                            x-on:change="syncInheritedPermissions(permission)"
+                                                            x-on:click="markPendingIfEnabled($event)"
+                                                        />
+                                                    </template>
                                                 </div>
                                             </x-data.table-cell>
                                         </x-data.table-row>
@@ -441,17 +764,28 @@
             </x-panel.accordion>
 
             <div class="flex justify-end">
-                <x-button.button
-                    x-on:click="createRole()"
-                    variant="primary"
-                    label="Добавить роль"
-                    icon="icons.plus"
-                />
+                <x-permissions.field-guard :enabled="$canEditRoles">
+                    @if ($canEditRoles)
+                        <x-button.button
+                            x-on:click="createRole()"
+                            variant="primary"
+                            label="Добавить роль"
+                            icon="icons.plus"
+                        />
+                    @else
+                        <x-button.button
+                            variant="primary"
+                            label="Добавить роль"
+                            icon="icons.plus"
+                            disabled
+                        />
+                    @endif
+                </x-permissions.field-guard>
             </div>
         </div>
     </x-panel.scroll-panel>
 
-    <template x-if="hasPendingChanges">
+    <template x-if="hasPendingChanges && canEditPage">
         <div class="flex justify-between">
             <x-button.button
                 label="Сохранить изменения"

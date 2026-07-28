@@ -9,6 +9,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 
 new
 #[Layout('layouts::system-settings')]
@@ -35,7 +36,11 @@ class extends Component
             SystemSettingsSectionPermissions::rolesAndPermissions(),
             Auth::user()
         )) {
-            return;
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::editPermissionNames(
+                    SystemSettingsSectionPermissions::rolesAndPermissions()
+                )
+            );
         }
 
         $result = $this->roleService->saveChanges($this->roles);
@@ -44,6 +49,15 @@ class extends Component
         } else {
             // Toaster::success('Изменения сохранены!');
         }
+    }
+
+    #[Computed]
+    public function canEditRolesAndPermissions(): bool
+    {
+        return SystemSettingsSectionPermissions::userCanEdit(
+            SystemSettingsSectionPermissions::rolesAndPermissions(),
+            Auth::user()
+        );
     }
 
     #[Computed]

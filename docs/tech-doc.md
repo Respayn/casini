@@ -98,6 +98,8 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 **Свой профиль:** маршрут `system-settings.users.edit` для `user.id === auth()->id()` доступен любому авторизованному (middleware `EnsureCanAccessUserEdit`). Список пользователей — с `read|edit|full system settings users`; создание (`/users/create`) — только с `edit|full system settings users` (кнопка «+ Добавить пользователя» disabled без edit). Поля логин / статус / роль / ставка / Мегаплан редактируются только при `edit|full system settings users`; без этого права — disabled в UI и отсекаются в `UserProfileAccess::mergeSavePayload`.
 
+**Продукты и права:** `read` открывает страницу; `edit|full` — изменение. Без edit UI в режиме read-only: кнопки, ссылки, чекбоксы и переключатели disabled, при наведении — `permissions.denied` (`field-guard` / Alpine-тултип). `save()` без edit бросает `UnauthorizedException`.
+
 **Шестерёнка в header:** показывается, если есть чтение хотя бы одного из пяти продуктов (Продукты и права, Пользователи и роли, Клиенты и клиенто-проекты, Справочники, Настройки агентства). Ссылка — первый доступный раздел в том же порядке (`SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName`).
 
 ## Клиенты и клиенто-проекты (доступ)
