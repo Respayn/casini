@@ -1,4 +1,5 @@
 @php
+    use App\Support\ClientsAndProjectsPermissions;
     use App\Support\SystemSettingsSectionPermissions;
 
     $user = auth()->user();
@@ -14,14 +15,7 @@
         SystemSettingsSectionPermissions::users(),
         $user
     );
-    $canSeeClients = $user->hasAnyPermission([
-        'read clients and projects self',
-        'edit clients and projects self',
-        'full clients and projects self',
-        'read clients and projects all',
-        'edit clients and projects all',
-        'full clients and projects all',
-    ]);
+    $canSeeClients = ClientsAndProjectsPermissions::userCanRead($user);
     $canSeeDictionaries = SystemSettingsSectionPermissions::userCanRead(
         SystemSettingsSectionPermissions::dictionaries(),
         $user

@@ -87,6 +87,7 @@
                         ]);
 
                         $projectCount = count($client->projects);
+                        $canEdit = $this->canEditClientsAndProjects;
                     @endphp
 
                     @if ($projectCount > 0)
@@ -95,12 +96,18 @@
                             <x-data.table-row wire:key="client-{{ $client->id }}-project-{{ $project->id }}">
                                 @if ($loop->first)
                                     <x-data.table-cell :rowspan="$projectCount">
-                                        <button
-                                            class="link"
-                                            x-on:click="$dispatch('client-edit', {{ $clientEditPayload }})"
-                                        >
-                                            {{ $client->name }}
-                                        </button>
+                                        @if ($canEdit)
+                                            <button
+                                                class="link"
+                                                x-on:click="$dispatch('client-edit', {{ $clientEditPayload }})"
+                                            >
+                                                {{ $client->name }}
+                                            </button>
+                                        @else
+                                            <x-permissions.field-guard :enabled="false" anchor="bottom-start">
+                                                <span class="text-primary-text">{{ $client->name }}</span>
+                                            </x-permissions.field-guard>
+                                        @endif
                                     </x-data.table-cell>
                                     <x-data.table-cell :rowspan="$projectCount">
                                         {{ $client->inn }}
@@ -129,12 +136,18 @@
                     @else
                         <x-data.table-row wire:key="client-{{ $client->id }}">
                             <x-data.table-cell>
-                                <button
-                                    class="link"
-                                    wire:click="$dispatch('client-edit', {{ $clientEditPayload }})"
-                                >
-                                    {{ $client->name }}
-                                </button>
+                                @if ($canEdit)
+                                    <button
+                                        class="link"
+                                        wire:click="$dispatch('client-edit', {{ $clientEditPayload }})"
+                                    >
+                                        {{ $client->name }}
+                                    </button>
+                                @else
+                                    <x-permissions.field-guard :enabled="false" anchor="bottom-start">
+                                        <span class="text-primary-text">{{ $client->name }}</span>
+                                    </x-permissions.field-guard>
+                                @endif
                             </x-data.table-cell>
                             <x-data.table-cell>
                                 {{ $client->inn }}

@@ -74,6 +74,38 @@ Controller -> QueryHandler -> Repository -> Data Source
 3. **Infrastructure Layer**:
    - Создать реализацию репозитория в `src/Infrastructure/Persistence/{Entity}Repository.php`
 
+## Права разделов настроек системы
+
+Продукт «Настройки» разделён на независимые группы Spatie Permission:
+
+| Группа (value) | Раздел UI / URL |
+|----------------|-----------------|
+| `system settings` | Настройки агентства `/system-settings/agency` |
+| `system settings dictionaries` | Справочники |
+| `system settings users` | Пользователи и роли |
+| `system settings roles and permissions` | Продукты и права |
+
+Уровни: `read` / `edit` / `full` + имя группы.
+
+**Миграция ролей со старого единого права:** после `PermissionSeeder` на стенде с уже выданными `* system settings` выполнить:
+
+```bash
+php artisan db:seed --class=PermissionSeeder --force
+php artisan db:seed --class=MigrateSystemSettingsPermissionsSeeder --force
+```
+
+Seeder копирует read/edit/full с `system settings` на три новых группы; право на агентство не снимает. Admin получает новые permissions через `PermissionSeeder`. Seeder **не** в `DatabaseSeeder` — одноразовый перенос.
+
+**Свой профиль:** маршрут `system-settings.users.edit` для `user.id === auth()->id()` доступен любому авторизованному (middleware `EnsureCanAccessUserEdit`). Список и создание пользователей — только с `* system settings users`. Поля логин / статус / роль / ставка / Мегаплан редактируются только при `edit|full system settings users`; без этого права — disabled в UI и отсекаются в `UserProfileAccess::mergeSavePayload`.
+
+## Клиенты и клиенто-проекты (доступ)
+
+Маршруты списка и формы проекта: middleware `ClientsAndProjectsPermissions` — любое из read|edit|full для родителя `clients and projects`, `… self`, `… all`.
+
+- Список фильтруется `ClientListVisibilityFilter` (self: менеджер клиента / specialist проекта; all: всё).
+- Создание и сохранение клиента/проекта — `ensureUserCanEdit` (edit|full self|all).
+- Открытие существующего проекта — `ClientProjectAccessPolicy` (all или self с привязкой).
+
 ## Тестирование
 
 - **Unit-тесты** для доменной логики в `tests/Unit/Domain/`

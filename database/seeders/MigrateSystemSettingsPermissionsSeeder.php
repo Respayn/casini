@@ -11,6 +11,11 @@ use Spatie\Permission\Models\Role;
 /**
  * Копирует уровни доступа «system settings» на три новых раздела настроек.
  * Старые права на агентство (system settings) не снимает.
+ *
+ * На новой среде после PermissionSeeder:
+ * php artisan db:seed --class=MigrateSystemSettingsPermissionsSeeder --force
+ *
+ * Не подключён к DatabaseSeeder — одноразовый перенос существующих ролей.
  */
 class MigrateSystemSettingsPermissionsSeeder extends Seeder
 {

@@ -5,6 +5,7 @@ use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
 use App\Livewire\LandingPage;
 use App\Livewire\PrivacyPage;
+use App\Support\ClientsAndProjectsPermissions;
 use App\Support\SystemSettingsSectionPermissions;
 use Illuminate\Support\Facades\Route;
 
@@ -19,7 +20,7 @@ Route::middleware(['auth'])->group(function () {
             });
 
             Route::middleware([
-                'permission:read clients and projects self|edit clients and projects self|full clients and projects self|read clients and projects all|edit clients and projects all|full clients and projects all',
+                ClientsAndProjectsPermissions::middleware(),
             ])->group(function () {
                 Route::livewire('/clients-and-projects', 'pages::system-settings.clients-and-projects')->name('clients-and-projects');
                 Route::livewire('/clients-and-projects/project/{projectId?}', 'pages::system-settings.client-project-form')->name('clients-and-projects.projects.manage');
@@ -37,6 +38,9 @@ Route::middleware(['auth'])->group(function () {
             ])->group(function () {
                 Route::livewire('/users', 'pages::system-settings.users-list')->name('users');
                 Route::livewire('/users/create', 'pages::system-settings.users-create')->name('users.create');
+            });
+
+            Route::middleware(['can.access.user.edit'])->group(function () {
                 Route::livewire('/users/{user}/edit', 'pages::system-settings.users-edit')->name('users.edit');
             });
 

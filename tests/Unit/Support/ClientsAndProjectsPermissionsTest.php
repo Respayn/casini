@@ -57,4 +57,26 @@ class ClientsAndProjectsPermissionsTest extends TestCase
 
         ClientsAndProjectsPermissions::ensureUserCanEdit($user);
     }
+
+    public function test_user_can_read_with_parent_permission(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions(['read clients and projects']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+
+        $this->assertTrue(ClientsAndProjectsPermissions::userCanRead($user));
+        $this->assertFalse(ClientsAndProjectsPermissions::userCanEdit($user));
+    }
+
+    public function test_middleware_includes_parent_self_and_all(): void
+    {
+        $middleware = ClientsAndProjectsPermissions::middleware();
+
+        $this->assertStringContainsString('read clients and projects|', $middleware);
+        $this->assertStringContainsString('read clients and projects self|', $middleware);
+        $this->assertStringContainsString('read clients and projects all|', $middleware);
+        $this->assertStringStartsWith('permission:', $middleware);
+    }
 }

@@ -121,6 +121,37 @@ class RolePermissionsSettingsTest extends TestCase
         $this->assertTrue($manager->hasPermissionTo('read system settings dictionaries'));
     }
 
+    public function test_save_strips_locked_full_access_for_clients_and_projects_parent(): void
+    {
+        $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
+        $roles = collect($roles)->map(function (array $role) {
+            if ($role['systemName'] !== RoleEnum::MANAGER->value) {
+                return $role;
+            }
+
+            $role['permissions'] = collect($role['permissions'])->map(function (array $permission) {
+                if ($permission['name'] === PermissionGroup::CLIENTS_AND_PROJECTS->value) {
+                    $permission['haveFullAccess'] = true;
+                    $permission['canRead'] = true;
+                    $permission['canEdit'] = true;
+                }
+
+                return $permission;
+            })->all();
+
+            return $role;
+        })->all();
+
+        $result = $this->roleService->saveChanges($roles);
+
+        $this->assertTrue($result->isSuccess());
+
+        $manager = Role::findByName(RoleEnum::MANAGER->value);
+        $this->assertFalse($manager->hasPermissionTo('full clients and projects'));
+        $this->assertTrue($manager->hasPermissionTo('edit clients and projects'));
+        $this->assertTrue($manager->hasPermissionTo('read clients and projects'));
+    }
+
     public function test_save_strips_locked_full_access_for_non_admin(): void
     {
         $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();

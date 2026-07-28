@@ -128,6 +128,7 @@ enum PermissionGroup: string
         return [
             self::CHANNELS,
             self::STATISTICS,
+            self::CLIENTS_AND_PROJECTS,
             self::CLIENTS_AND_PROJECTS_SELF,
             self::CLIENTS_AND_PROJECTS_ALL,
             self::BUDGET_RECONCILIATION,

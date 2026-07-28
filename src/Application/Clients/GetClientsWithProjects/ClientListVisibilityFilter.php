@@ -2,8 +2,8 @@
 
 namespace Src\Application\Clients\GetClientsWithProjects;
 
-use App\Enums\PermissionGroup;
 use App\Models\User;
+use App\Support\ClientsAndProjectsPermissions;
 
 class ClientListVisibilityFilter
 {
@@ -13,11 +13,11 @@ class ClientListVisibilityFilter
      */
     public function filterForUser(array $clients, User $user): array
     {
-        if ($this->userCanSeeAll($user)) {
+        if (ClientsAndProjectsPermissions::userCanSeeAll($user)) {
             return $clients;
         }
 
-        if (! $this->userCanSeeSelf($user)) {
+        if (! ClientsAndProjectsPermissions::userCanSeeSelf($user)) {
             return [];
         }
 
@@ -46,29 +46,5 @@ class ClientListVisibilityFilter
             $client->managerId,
             $projects
         );
-    }
-
-    private function userCanSeeAll(User $user): bool
-    {
-        return $user->hasAnyPermission($this->permissionNames(PermissionGroup::CLIENTS_AND_PROJECTS_ALL));
-    }
-
-    private function userCanSeeSelf(User $user): bool
-    {
-        return $user->hasAnyPermission($this->permissionNames(PermissionGroup::CLIENTS_AND_PROJECTS_SELF));
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function permissionNames(PermissionGroup $group): array
-    {
-        $name = $group->value;
-
-        return [
-            'read '.$name,
-            'edit '.$name,
-            'full '.$name,
-        ];
     }
 }

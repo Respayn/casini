@@ -33,6 +33,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
 
 new
@@ -95,7 +96,10 @@ class extends Component
             // Получение данных
             $project = $this->projectService->getProjectDataById($projectId);
             $client = $this->clientRepository->findById($project->client_id);
-            
+
+            app(ClientProjectAccessPolicy::class)
+                ->ensureUserCanViewProject(Auth::user(), $project, $client->getManagerId());
+
             $this->clientProjectForm->from($project);
             $this->clientProjectForm->manager = $client->getManagerId();
             $this->bonusGuaranteeForm->from($project->bonusCondition);
@@ -389,6 +393,8 @@ class extends Component
 
     public function save()
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
         $this->bonusGuaranteeForm->validate();

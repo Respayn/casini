@@ -159,33 +159,41 @@ class UserRepository extends EloquentRepository
             /** @var User|null $user */
             $user = User::findOrFail($userId);
 
-            // 1. Обновляем поля пользователя
-            $updateData = [
-                'login'   => $data['login'],
-                'first_name' => $data['first_name'],
-                'last_name'  => $data['last_name'],
-                'is_active'  => !empty($data['is_active']),
-                'email'      => $data['email'],
-                'phone'      => $data['phone'],
-                'image_path' => $data['image_path'] ?? null,
-                'megaplan_id' => $data['megaplan_id'] ?? null,
-                'enable_important_notifications' => !empty($data['enable_important_notifications']),
-                'enable_notifications' => !empty($data['enable_notifications']),
-                'email_verified_at' => $data['email_verified_at'] ?? null,
-            ];
+            // 1. Обновляем только переданные поля пользователя
+            $updateData = [];
+
+            foreach (['login', 'first_name', 'last_name', 'email', 'phone', 'image_path', 'megaplan_id', 'email_verified_at'] as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updateData[$field] = $data[$field];
+                }
+            }
+
+            if (array_key_exists('is_active', $data)) {
+                $updateData['is_active'] = ! empty($data['is_active']);
+            }
+
+            if (array_key_exists('enable_important_notifications', $data)) {
+                $updateData['enable_important_notifications'] = ! empty($data['enable_important_notifications']);
+            }
+
+            if (array_key_exists('enable_notifications', $data)) {
+                $updateData['enable_notifications'] = ! empty($data['enable_notifications']);
+            }
 
             // Обновлять пароль, только если он был явно передан
-            if (!empty($data['password'])) {
+            if (! empty($data['password'])) {
                 $updateData['password'] = bcrypt($data['password']);
             }
 
-            $user->update($updateData);
+            if ($updateData !== []) {
+                $user->update($updateData);
+            }
 
             // 2. Проверка: изменилась ли ставка?
-            if (!empty($data['rate_id'])) {
+            if (! empty($data['rate_id'])) {
                 /** @var RateUser|null $latestRate */
                 $latestRate = $user->rateUser()->latest('created_at')->first();
-                if (!$latestRate || $latestRate->rate_id != $data['rate_id']) {
+                if (! $latestRate || $latestRate->rate_id != $data['rate_id']) {
                     // 3. Новая ставка: сохраняем в истории (rate_user)
                     RateUser::create([
                         'user_id' => $user->id,
