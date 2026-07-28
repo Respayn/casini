@@ -40,8 +40,8 @@ return [
         'client_secret' => env('YANDEX_DIRECT_CLIENT_SECRET'),
         'redirect_uri' => env('YANDEX_DIRECT_REDIRECT_URI', 'https://oauth.yandex.ru/verification_code'),
 
-        'api_url' => env('YANDEX_DIRECT_API_URL', 'https://api.direct.yandex.com/v5/json/'),
-        'sandbox_api_url' => env('YANDEX_DIRECT_SANDBOX_API_URL', 'https://api-sandbox.direct.yandex.com/v5/json/'),
+        'api_url' => env('YANDEX_DIRECT_API_URL', 'https://api.direct.yandex.com/json/v5/'),
+        'sandbox_api_url' => env('YANDEX_DIRECT_SANDBOX_API_URL', 'https://api-sandbox.direct.yandex.com/json/v5/'),
 
         'test_token' => env('YANDEX_DIRECT_TEST_TOKEN'),
         'test_client_login' => env('YANDEX_DIRECT_TEST_CLIENT_LOGIN'),
@@ -68,6 +68,13 @@ return [
         // Настройки запросов
         'timeout' => 15,
         'cache_ttl' => 3600,
+    ],
+
+    'yandex_search_api' => [
+        'api_key' => env('YANDEX_SEARCH_API_API_KEY'),
+        'folder_id' => env('YANDEX_SEARCH_API_FOLDER_ID'),
+        'test_token' => env('YANDEX_SEARCH_API_TEST_TOKEN'),
+        'test_folder_id' => env('YANDEX_SEARCH_API_TEST_FOLDER_ID'),
     ],
 
     'callibri' => [

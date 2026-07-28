@@ -60,7 +60,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ],
             [
                 'is_enabled' => $attributes['is_enabled'],
-                'settings' => $attributes['settings'],
+                'settings' => collect($attributes['settings'])->toArray(),
             ]
         );
     }
@@ -114,6 +114,9 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
         });
     }
 
+    /**
+     * @return array<string, mixed>
+     */
     private function normalizeSettings(mixed $settings): array
     {
         if (is_array($settings)) {
@@ -126,16 +129,18 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
 
         $decoded = json_decode($settings, true);
 
-        if (is_array($decoded)) {
-            return $decoded;
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return [];
         }
 
         if (is_string($decoded)) {
-            $decodedAgain = json_decode($decoded, true);
+            $decoded = json_decode($decoded, true);
 
-            return is_array($decodedAgain) ? $decodedAgain : [];
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                return [];
+            }
         }
 
-        return [];
+        return is_array($decoded) ? $decoded : [];
     }
 }

@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Mail\EarlyAccessRequest;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Foundation\Testing\WithFaker;
 use Tests\TestCase;
 
 class EarlyAccessRequestMailableTest extends TestCase

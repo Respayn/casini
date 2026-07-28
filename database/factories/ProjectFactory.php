@@ -20,7 +20,7 @@ class ProjectFactory extends Factory
             'domain' => $this->faker->word(),
             'project_type' => $this->faker->randomElement(ProjectType::cases()),
             'service_type' => $this->faker->randomElement(ServiceType::cases()),
-            'kpi' => $this->faker->word(),
+            'kpi' => $this->faker->randomElement(\Src\Domain\ValueObjects\Kpi::cases()),
             'is_internal' => $this->faker->boolean(),
             'is_active' => $this->faker->boolean(),
             'traffic_attribution' => $this->faker->word(),

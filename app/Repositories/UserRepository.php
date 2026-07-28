@@ -116,7 +116,7 @@ class UserRepository extends EloquentRepository
                 'enable_important_notifications' => !empty($data['enable_important_notifications']),
                 'enable_notifications' => !empty($data['enable_notifications']),
                 'email_verified_at' => $data['email_verified_at'] ?? null,
-                'password' => bcrypt($data['password'] ?? Str::random(12)),
+                'password' => $data['password'] ?? Str::random(12),
             ]);
 
             // 2. Привязка к агентству (если нужно, иначе убери этот блок)
@@ -182,7 +182,7 @@ class UserRepository extends EloquentRepository
 
             // Обновлять пароль, только если он был явно передан
             if (! empty($data['password'])) {
-                $updateData['password'] = bcrypt($data['password']);
+                $updateData['password'] = $data['password'];
             }
 
             if ($updateData !== []) {

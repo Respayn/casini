@@ -1,4 +1,4 @@
-<div class="mt-auto flex justify-between" {{ $attributes }}>
+<div class="flex shrink-0 justify-between border-t border-gray-100 pt-5" {{ $attributes }}>
     <x-button.button
         variant="primary"
         label="Сохранить изменения"

@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -13,52 +12,62 @@ class IntegrationSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('integrations')->insert([
+        $integrations = [
             [
                 'name' => '1С акты',
                 'category' => 'money',
-                'code' => '1c_acts'
+                'code' => '1c_acts',
             ],
             [
                 'name' => '1С движение рекламных средств',
                 'category' => 'money',
-                'code' => '1c_ad_budget_flow'
+                'code' => '1c_ad_budget_flow',
             ],
             [
                 'name' => '1С сверка',
                 'category' => 'money',
-                'code' => '1c_check'
+                'code' => '1c_check',
             ],
             [
                 'name' => 'Yandex Search API',
                 'category' => 'analytics',
-                'code' => 'yandex_search_api'
+                'code' => 'yandex_search_api',
             ],
             [
                 'name' => 'Google Таблицы',
                 'category' => 'analytics',
-                'code' => 'google_sheets'
+                'code' => 'google_sheets',
             ],
             [
                 'name' => 'Мегаплан',
                 'category' => 'analytics',
-                'code' => 'megaplan'
+                'code' => 'megaplan',
             ],
             [
                 'name' => 'Яндекс Директ',
                 'category' => 'tools',
-                'code' => 'yandex_direct'
+                'code' => 'yandex_direct',
             ],
             [
                 'name' => 'Яндекс Метрика',
                 'category' => 'analytics',
-                'code' => 'yandex_metrika'
+                'code' => 'yandex_metrika',
             ],
             [
                 'name' => 'Callibri',
                 'category' => 'analytics',
-                'code' => 'callibri'
-            ]
-        ]);
+                'code' => 'callibri',
+            ],
+        ];
+
+        foreach ($integrations as $integration) {
+            DB::table('integrations')->updateOrInsert(
+                ['code' => $integration['code']],
+                [
+                    'name' => $integration['name'],
+                    'category' => $integration['category'],
+                ]
+            );
+        }
     }
 }
