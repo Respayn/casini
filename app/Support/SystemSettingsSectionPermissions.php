@@ -81,4 +81,57 @@ class SystemSettingsSectionPermissions
     {
         return PermissionGroup::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS;
     }
+
+    /**
+     * Порядок разделов для шестерёнки и «первого доступного» URL — как вкладки layout.
+     *
+     * @return list<array{check: callable(User): bool, route: string}>
+     */
+    public static function settingsEntryPoints(): array
+    {
+        return [
+            [
+                'check' => fn (User $user): bool => self::userCanRead(self::rolesAndPermissions(), $user),
+                'route' => 'system-settings.roles-and-permissions',
+            ],
+            [
+                'check' => fn (User $user): bool => self::userCanRead(self::users(), $user),
+                'route' => 'system-settings.users',
+            ],
+            [
+                'check' => fn (User $user): bool => ClientsAndProjectsPermissions::userCanRead($user),
+                'route' => 'system-settings.clients-and-projects',
+            ],
+            [
+                'check' => fn (User $user): bool => self::userCanRead(self::dictionaries(), $user),
+                'route' => 'system-settings.dictionaries',
+            ],
+            [
+                'check' => fn (User $user): bool => self::userCanRead(self::agency(), $user),
+                'route' => 'system-settings.agency',
+            ],
+        ];
+    }
+
+    public static function userCanAccessAnySettingsSection(?User $user = null): bool
+    {
+        return self::firstAccessibleSettingsRouteName($user) !== null;
+    }
+
+    public static function firstAccessibleSettingsRouteName(?User $user = null): ?string
+    {
+        $user ??= Auth::user();
+
+        if ($user === null) {
+            return null;
+        }
+
+        foreach (self::settingsEntryPoints() as $entry) {
+            if ($entry['check']($user)) {
+                return $entry['route'];
+            }
+        }
+
+        return null;
+    }
 }
