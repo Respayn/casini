@@ -9,6 +9,7 @@ use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
 use App\OperationResult;
 use App\Repositories\RoleRepository;
+use App\Support\DefaultRole;
 use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Role;
 
@@ -156,14 +157,15 @@ class RoleService
             ->values();
 
         $existingRoles = $this->roleRepository->getRoles();
-        $adminRoleIds = $existingRoles
-            ->filter(fn (RoleData $role) => $role->name === RoleEnum::ADMIN->value)
+        $protectedRoleIds = $existingRoles
+            ->filter(fn (RoleData $role) => $role->name === RoleEnum::ADMIN->value
+                || DefaultRole::isDefault($role->name))
             ->pluck('id');
 
         $idsToDelete = $existingRoles
             ->pluck('id')
             ->diff($incomingExistingIds)
-            ->diff($adminRoleIds);
+            ->diff($protectedRoleIds);
 
         if ($idsToDelete->isNotEmpty()) {
             foreach ($idsToDelete as $id) {
@@ -219,8 +221,9 @@ class RoleService
     private function normalizeRolePermissions(string $systemName, array $permissions): array
     {
         $isAdmin = $systemName === RoleEnum::ADMIN->value;
+        $isDefault = DefaultRole::isDefault($systemName);
 
-        return array_map(function ($permission) use ($isAdmin) {
+        return array_map(function ($permission) use ($isAdmin, $isDefault) {
             $permission = is_array($permission) ? $permission : $permission->toArray();
             $groupName = $permission['name'] ?? '';
 
@@ -228,6 +231,14 @@ class RoleService
                 $permission['canRead'] = true;
                 $permission['canEdit'] = true;
                 $permission['haveFullAccess'] = true;
+
+                return $permission;
+            }
+
+            if ($isDefault) {
+                $permission['canEdit'] = false;
+                $permission['haveFullAccess'] = false;
+                $permission['canRead'] = DefaultRole::isReadEditable($groupName);
 
                 return $permission;
             }

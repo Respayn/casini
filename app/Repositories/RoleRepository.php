@@ -8,6 +8,7 @@ use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
 use App\Models\Role;
 use App\OperationResult;
+use App\Support\DefaultRole;
 use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
@@ -111,40 +112,59 @@ class RoleRepository
     {
         try {
             $role = Role::findById($roleData['id']);
-            $role->display_name = $roleData['name'];
-            $role->use_in_project_filter = $roleData['useInProjectFilter'];
-            $role->use_in_managers_list = $roleData['useInManagersList'];
-            $role->use_in_specialist_list = $roleData['useInSpecialistList'];
+            $isDefault = DefaultRole::isDefault($role->name);
+            $isAdmin = $role->name === RoleEnum::ADMIN->value;
+
+            if ($isDefault) {
+                $role->display_name = RoleEnum::DEFAULT->label();
+                $role->use_in_project_filter = false;
+                $role->use_in_managers_list = false;
+                $role->use_in_specialist_list = false;
+            } elseif ($isAdmin) {
+                $role->display_name = RoleEnum::ADMIN->label();
+                $role->use_in_project_filter = $roleData['useInProjectFilter'];
+                $role->use_in_managers_list = $roleData['useInManagersList'];
+                $role->use_in_specialist_list = $roleData['useInSpecialistList'];
+            } else {
+                $role->display_name = $roleData['name'];
+                $role->use_in_project_filter = $roleData['useInProjectFilter'];
+                $role->use_in_managers_list = $roleData['useInManagersList'];
+                $role->use_in_specialist_list = $roleData['useInSpecialistList'];
+            }
             $role->save();
 
             $permissions = [];
             foreach ($roleData['permissions'] as $permission) {
                 if ($permission['canRead']) {
-                    $permissions[] = 'read ' . $permission['name'];
+                    $permissions[] = 'read '.$permission['name'];
                 }
 
                 if ($permission['canEdit']) {
-                    $permissions[] = 'edit ' . $permission['name'];
+                    $permissions[] = 'edit '.$permission['name'];
                 }
 
                 if ($permission['haveFullAccess']) {
-                    $permissions[] = 'full ' . $permission['name'];
+                    $permissions[] = 'full '.$permission['name'];
                 }
             }
 
-            $permissions = array_values(array_unique(array_merge(
-                $permissions,
-                $this->hiddenGroupPermissionNames($role)
-            )));
+            if ($isDefault) {
+                $permissions = DefaultRole::grantedPermissionNames();
+            } else {
+                $permissions = array_values(array_unique(array_merge(
+                    $permissions,
+                    $this->hiddenGroupPermissionNames($role)
+                )));
+            }
 
             $role->syncPermissions($permissions);
             $this->revokeDirectProductPermissionsForRoleUsers($role);
 
-            if ($roleData['hasChildRoles']) {
+            if ($isDefault || empty($roleData['hasChildRoles'])) {
+                $role->childRoles()->detach();
+            } else {
                 $childIds = array_filter(array_column($roleData['childRoles'], 'id'));
                 $role->childRoles()->sync($childIds);
-            } else {
-                $role->childRoles()->detach();
             }
 
             return OperationResult::success();
@@ -159,6 +179,10 @@ class RoleRepository
 
         if ($role->name === RoleEnum::ADMIN->value) {
             throw new Exception('Нельзя удалить роль администратор');
+        }
+
+        if (DefaultRole::isDefault($role->name)) {
+            throw new Exception(__('permissions.default_role_undeletable'));
         }
 
         $role->syncPermissions([]);

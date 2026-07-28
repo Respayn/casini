@@ -388,4 +388,109 @@ class RolePermissionsSettingsTest extends TestCase
         $this->assertTrue($manager->hasPermissionTo('edit planning'));
         $this->assertTrue($manager->hasPermissionTo('read planning'));
     }
+
+    public function test_delete_role_throws_for_default(): void
+    {
+        $default = Role::findByName(RoleEnum::DEFAULT->value);
+
+        $this->expectException(\Exception::class);
+        $this->expectExceptionMessage(__('permissions.default_role_undeletable'));
+
+        app(\App\Repositories\RoleRepository::class)->deleteRole($default->id);
+    }
+
+    public function test_default_role_cannot_be_deleted_when_missing_from_payload(): void
+    {
+        $default = Role::findByName(RoleEnum::DEFAULT->value);
+        $roles = collect($this->roleService->getRolesAndPermissionsForSettingsPage())
+            ->reject(fn (array $role) => $role['systemName'] === RoleEnum::DEFAULT->value)
+            ->values()
+            ->all();
+
+        $result = $this->roleService->saveChanges($roles);
+
+        $this->assertTrue($result->isSuccess());
+        $this->assertNotNull(Role::findById($default->id));
+    }
+
+    public function test_default_role_save_always_restores_granted_reads(): void
+    {
+        $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
+        $roles = collect($roles)->map(function (array $role) {
+            if ($role['systemName'] !== RoleEnum::DEFAULT->value) {
+                return $role;
+            }
+
+            $role['name'] = 'Hacked Name';
+            $role['useInProjectFilter'] = true;
+            $role['useInManagersList'] = true;
+            $role['hasChildRoles'] = true;
+            $role['permissions'] = collect($role['permissions'])->map(function (array $permission) {
+                $permission['canRead'] = false;
+                $permission['canEdit'] = true;
+                $permission['haveFullAccess'] = true;
+
+                return $permission;
+            })->all();
+
+            return $role;
+        })->all();
+
+        $result = $this->roleService->saveChanges($roles);
+
+        $this->assertTrue($result->isSuccess());
+
+        $default = Role::findByName(RoleEnum::DEFAULT->value);
+        $default->refresh();
+
+        $this->assertSame(RoleEnum::DEFAULT->label(), $default->display_name);
+        $this->assertFalse((bool) $default->use_in_project_filter);
+        $this->assertFalse((bool) $default->use_in_managers_list);
+        $this->assertTrue($default->hasPermissionTo('read channels'));
+        $this->assertTrue($default->hasPermissionTo('read statistics'));
+        $this->assertTrue($default->hasPermissionTo('read reports'));
+        $this->assertTrue($default->hasPermissionTo('read planning'));
+        $this->assertTrue($default->hasPermissionTo('read clients and projects self'));
+        $this->assertFalse($default->hasPermissionTo('edit channels'));
+        $this->assertFalse($default->hasPermissionTo('full channels'));
+        $this->assertFalse($default->hasPermissionTo('read system settings'));
+    }
+
+    public function test_default_role_loads_with_seeded_permissions(): void
+    {
+        $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
+        $default = collect($roles)->firstWhere('systemName', RoleEnum::DEFAULT->value);
+
+        $this->assertNotNull($default);
+
+        $channels = collect($default['permissions'])->firstWhere('name', PermissionGroup::CHANNELS->value);
+        $self = collect($default['permissions'])->firstWhere('name', PermissionGroup::CLIENTS_AND_PROJECTS_SELF->value);
+        $agency = collect($default['permissions'])->firstWhere('name', PermissionGroup::SYSTEM_SETTINGS->value);
+
+        $this->assertTrue($channels['canRead']);
+        $this->assertFalse($channels['canEdit']);
+        $this->assertTrue($self['canRead']);
+        $this->assertFalse($agency['canRead']);
+    }
+
+    public function test_admin_role_save_preserves_display_name(): void
+    {
+        $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
+        $roles = collect($roles)->map(function (array $role) {
+            if ($role['systemName'] !== RoleEnum::ADMIN->value) {
+                return $role;
+            }
+
+            $role['name'] = 'Hacked Admin';
+
+            return $role;
+        })->all();
+
+        $result = $this->roleService->saveChanges($roles);
+
+        $this->assertTrue($result->isSuccess());
+
+        $admin = Role::findByName(RoleEnum::ADMIN->value);
+        $this->assertSame(RoleEnum::ADMIN->label(), $admin->display_name);
+    }
 }

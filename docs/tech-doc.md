@@ -100,6 +100,8 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 **Продукты и права:** `read` открывает страницу; `edit|full` — изменение. Без edit UI в режиме read-only: кнопки, ссылки, чекбоксы и переключатели disabled, при наведении — `permissions.denied` (`field-guard` / Alpine-тултип). `save()` без edit бросает `UnauthorizedException`.
 
+**Роль по умолчанию** (`default`): системная роль для регистрации / приглашений. Seed: `read channels`, `read statistics`, `read reports`, `read planning`, `read clients and projects self`. Удаление запрещено (UI + `RoleRepository`). На «Продукты и права» у этой роли и у **Администратора** скрыты блоки «Собрать портфель…» и «Подчинённые»; у default все чекбоксы locked (пять read всегда включены и disabled, остальные выкл.) с `permissions.default_role_locked`. При save права всегда восстанавливаются в `DefaultRole::grantedPermissionNames()`. Переименование **Администратора** тоже запрещено (`permissions.admin_role_name_locked`).
+
 **Шестерёнка в header:** показывается, если есть чтение хотя бы одного из пяти продуктов (Продукты и права, Пользователи и роли, Клиенты и клиенто-проекты, Справочники, Настройки агентства). Ссылка — первый доступный раздел в том же порядке (`SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName`).
 
 ## Клиенты и клиенто-проекты (доступ)

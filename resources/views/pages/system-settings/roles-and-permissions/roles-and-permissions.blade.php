@@ -1,11 +1,14 @@
 @php
     use App\Enums\PermissionGroup;
     use App\Enums\Role as RoleEnum;
+    use App\Support\DefaultRole;
 
     $canEditRoles = $this->canEditRolesAndPermissions;
 
     $permissionRules = [
         'adminSystemName' => RoleEnum::ADMIN->value,
+        'defaultSystemName' => DefaultRole::systemName(),
+        'defaultEditableGroups' => DefaultRole::editableGroupNames(),
         'fullAccessLocked' => PermissionGroup::fullAccessLockedGroupNames(),
         'editAccessLocked' => PermissionGroup::editAccessLockedGroupNames(),
     ];
@@ -20,6 +23,9 @@
         hasPendingChanges: false,
         canEditPage: @js($canEditRoles),
         deniedMessage: @js(__('permissions.denied')),
+        defaultLockedMessage: @js(__('permissions.default_role_locked')),
+        defaultUndeletableMessage: @js(__('permissions.default_role_undeletable')),
+        adminNameLockedMessage: @js(__('permissions.admin_role_name_locked')),
         permissionRules: @js($permissionRules),
 
         init() {
@@ -30,6 +36,14 @@
             return role.systemName === this.permissionRules.adminSystemName;
         },
 
+        isDefaultRole(role) {
+            return role.systemName === this.permissionRules.defaultSystemName;
+        },
+
+        isDefaultReadEditable(permission) {
+            return this.permissionRules.defaultEditableGroups.includes(permission.name);
+        },
+
         isAllPermissionsDisabled(role) {
             return this.isAdminRole(role);
         },
@@ -37,12 +51,14 @@
         isFullAccessDisabled(role, permission) {
             return !this.canEditPage
                 || this.isAdminRole(role)
+                || this.isDefaultRole(role)
                 || this.permissionRules.fullAccessLocked.includes(permission.name);
         },
 
         isEditAccessDisabled(role, permission) {
             return !this.canEditPage
                 || this.isAdminRole(role)
+                || this.isDefaultRole(role)
                 || this.permissionRules.editAccessLocked.includes(permission.name)
                 || this.isEditInherited(role, permission);
         },
@@ -50,16 +66,20 @@
         isReadAccessDisabled(role, permission) {
             return !this.canEditPage
                 || this.isAdminRole(role)
+                || this.isDefaultRole(role)
                 || this.isReadInherited(role, permission);
         },
 
         isReadInherited(role, permission) {
             return !this.isAdminRole(role)
+                && !this.isDefaultRole(role)
                 && (permission.haveFullAccess || permission.canEdit);
         },
 
         isEditInherited(role, permission) {
-            return !this.isAdminRole(role) && permission.haveFullAccess;
+            return !this.isAdminRole(role)
+                && !this.isDefaultRole(role)
+                && permission.haveFullAccess;
         },
 
         syncInheritedPermissions(permission) {
@@ -110,7 +130,7 @@
             }
 
             const role = this.roles.find(r => r.id === roleId);
-            if (role && this.isAdminRole(role)) {
+            if (role && (this.isAdminRole(role) || this.isDefaultRole(role))) {
                 return;
             }
 
@@ -120,6 +140,11 @@
 
         startEdit(roleId) {
             if (!this.canEditPage) {
+                return;
+            }
+
+            const role = this.roles.find(r => r.id === roleId);
+            if (role && (this.isDefaultRole(role) || this.isAdminRole(role))) {
                 return;
             }
 
@@ -137,6 +162,11 @@
 
         addChildRole(roleId) {
             if (!this.canEditPage) {
+                return;
+            }
+
+            const role = this.roles.find(r => r.id === roleId);
+            if (role && this.isDefaultRole(role)) {
                 return;
             }
 
@@ -172,6 +202,10 @@
             }
 
             const parentRole = this.roles.find(r => r.id === roleId);
+            if (parentRole && this.isDefaultRole(parentRole)) {
+                return;
+            }
+
             if (parentRole) {
                 parentRole.childRoles = parentRole.childRoles.filter(child => child.id !== childRoleId);
             }
@@ -204,11 +238,63 @@
                             <div class="flex items-center justify-between">
                                 <template x-if="editingRoleId !== role.id">
                                     <div class="flex gap-x-3 text-[#599CFF]">
-                                        <template x-if="canEditPage">
+                                        <template x-if="canEditPage && !isDefaultRole(role) && !isAdminRole(role)">
                                             <x-icons.edit-2
                                                 class="hover:text-[#4070E0]"
                                                 x-on:click.stop="startEdit(role.id)"
                                             />
+                                        </template>
+                                        <template x-if="canEditPage && isAdminRole(role)">
+                                            <div
+                                                class="relative inline-block"
+                                                x-data="{ open: false }"
+                                            >
+                                                <span
+                                                    x-ref="editAdminLockedTrigger"
+                                                    @mouseenter="open = true"
+                                                    @mouseleave="open = false"
+                                                >
+                                                    <x-icons.edit-2
+                                                        class="cursor-not-allowed opacity-50"
+                                                    />
+                                                </span>
+                                                <template x-teleport="body">
+                                                    <div
+                                                        class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                        style="z-index: 1000"
+                                                        x-show="open"
+                                                        x-cloak
+                                                        x-anchor.bottom="$refs.editAdminLockedTrigger"
+                                                        x-text="adminNameLockedMessage"
+                                                    ></div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                        <template x-if="canEditPage && isDefaultRole(role)">
+                                            <div
+                                                class="relative inline-block"
+                                                x-data="{ open: false }"
+                                            >
+                                                <span
+                                                    x-ref="editDefaultLockedTrigger"
+                                                    @mouseenter="open = true"
+                                                    @mouseleave="open = false"
+                                                >
+                                                    <x-icons.edit-2
+                                                        class="cursor-not-allowed opacity-50"
+                                                    />
+                                                </span>
+                                                <template x-teleport="body">
+                                                    <div
+                                                        class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                        style="z-index: 1000"
+                                                        x-show="open"
+                                                        x-cloak
+                                                        x-anchor.bottom="$refs.editDefaultLockedTrigger"
+                                                        x-text="defaultLockedMessage"
+                                                    ></div>
+                                                </template>
+                                            </div>
                                         </template>
                                         <template x-if="!canEditPage">
                                             <div
@@ -314,7 +400,36 @@
                                         </template>
                                     </div>
                                 </template>
-                                <template x-if="canEditPage && !isAdminRole(role) && role.hasAssignedUsers">
+                                <template x-if="canEditPage && isDefaultRole(role)">
+                                    <div
+                                        class="relative mr-9 inline-block"
+                                        x-data="{ open: false }"
+                                    >
+                                        <span
+                                            x-ref="deleteDefaultTrigger"
+                                            @mouseenter="open = true"
+                                            @mouseleave="open = false"
+                                        >
+                                            <x-button.button
+                                                class="text-secondary-text font-normal"
+                                                variant="link"
+                                                label="Удалить роль"
+                                                disabled
+                                            />
+                                        </span>
+                                        <template x-teleport="body">
+                                            <div
+                                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                style="z-index: 1000"
+                                                x-show="open"
+                                                x-cloak
+                                                x-anchor.bottom="$refs.deleteDefaultTrigger"
+                                                x-text="defaultUndeletableMessage"
+                                            ></div>
+                                        </template>
+                                    </div>
+                                </template>
+                                <template x-if="canEditPage && !isAdminRole(role) && !isDefaultRole(role) && role.hasAssignedUsers">
                                     <div
                                         class="relative mr-9 inline-block"
                                         x-data="{ open: false }"
@@ -344,7 +459,7 @@
                                         </template>
                                     </div>
                                 </template>
-                                <template x-if="canEditPage && !isAdminRole(role) && !role.hasAssignedUsers">
+                                <template x-if="canEditPage && !isAdminRole(role) && !isDefaultRole(role) && !role.hasAssignedUsers">
                                     <x-button.button
                                         class="text-secondary-text mr-9 font-normal"
                                         variant="link"
@@ -355,6 +470,13 @@
                             </div>
                         </x-panel.accordion-header>
                         <x-panel.accordion-content>
+                            <template x-if="isDefaultRole(role)">
+                                <x-feedback.notice class="mb-4">
+                                    {{ __('permissions.default_role_description') }}
+                                </x-feedback.notice>
+                            </template>
+                            <template x-if="!isDefaultRole(role) && !isAdminRole(role)">
+                                <div>
                             <div class="mb-2.5 flex justify-between">
                                 <span>
                                     Собрать портфель клиенто-проектов
@@ -558,6 +680,8 @@
                                     </div>
                                 </div>
                             </template>
+                                </div>
+                            </template>
 
                             <x-data.table class="w-full">
                                 <x-data.table-columns>
@@ -611,7 +735,34 @@
                                                             </template>
                                                         </div>
                                                     </template>
-                                                    <template x-if="canEditPage && isReadInherited(role, permission)">
+                                                    <template x-if="canEditPage && isDefaultRole(role)">
+                                                        <div
+                                                            class="relative inline-block"
+                                                            x-data="{ open: false }"
+                                                        >
+                                                            <span
+                                                                x-ref="readDefaultLockedTrigger"
+                                                                @mouseenter="open = true"
+                                                                @mouseleave="open = false"
+                                                            >
+                                                                <x-form.checkbox
+                                                                    x-model="permission.canRead"
+                                                                    disabled
+                                                                />
+                                                            </span>
+                                                            <template x-teleport="body">
+                                                                <div
+                                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                    style="z-index: 1000"
+                                                                    x-show="open"
+                                                                    x-cloak
+                                                                    x-anchor.bottom="$refs.readDefaultLockedTrigger"
+                                                                    x-text="defaultLockedMessage"
+                                                                ></div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="canEditPage && !isDefaultRole(role) && isReadInherited(role, permission)">
                                                         <div
                                                             class="relative inline-block"
                                                             x-data="{ open: false }"
@@ -639,7 +790,7 @@
                                                             </template>
                                                         </div>
                                                     </template>
-                                                    <template x-if="canEditPage && !isReadInherited(role, permission)">
+                                                    <template x-if="canEditPage && !isDefaultRole(role) && !isReadInherited(role, permission)">
                                                         <x-form.checkbox
                                                             x-model="permission.canRead"
                                                             x-bind:disabled="isReadAccessDisabled(role, permission)"
@@ -677,7 +828,34 @@
                                                             </template>
                                                         </div>
                                                     </template>
-                                                    <template x-if="canEditPage && isEditInherited(role, permission)">
+                                                    <template x-if="canEditPage && isDefaultRole(role)">
+                                                        <div
+                                                            class="relative inline-block"
+                                                            x-data="{ open: false }"
+                                                        >
+                                                            <span
+                                                                x-ref="editDefaultLockedTrigger"
+                                                                @mouseenter="open = true"
+                                                                @mouseleave="open = false"
+                                                            >
+                                                                <x-form.checkbox
+                                                                    x-model="permission.canEdit"
+                                                                    disabled
+                                                                />
+                                                            </span>
+                                                            <template x-teleport="body">
+                                                                <div
+                                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                    style="z-index: 1000"
+                                                                    x-show="open"
+                                                                    x-cloak
+                                                                    x-anchor.bottom="$refs.editDefaultLockedTrigger"
+                                                                    x-text="defaultLockedMessage"
+                                                                ></div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="canEditPage && !isDefaultRole(role) && isEditInherited(role, permission)">
                                                         <div
                                                             class="relative inline-block"
                                                             x-data="{ open: false }"
@@ -705,7 +883,7 @@
                                                             </template>
                                                         </div>
                                                     </template>
-                                                    <template x-if="canEditPage && !isEditInherited(role, permission)">
+                                                    <template x-if="canEditPage && !isDefaultRole(role) && !isEditInherited(role, permission)">
                                                         <x-form.checkbox
                                                             x-model="permission.canEdit"
                                                             x-bind:disabled="isEditAccessDisabled(role, permission)"
@@ -744,7 +922,34 @@
                                                             </template>
                                                         </div>
                                                     </template>
-                                                    <template x-if="canEditPage">
+                                                    <template x-if="canEditPage && isDefaultRole(role)">
+                                                        <div
+                                                            class="relative inline-block"
+                                                            x-data="{ open: false }"
+                                                        >
+                                                            <span
+                                                                x-ref="fullDefaultLockedTrigger"
+                                                                @mouseenter="open = true"
+                                                                @mouseleave="open = false"
+                                                            >
+                                                                <x-form.checkbox
+                                                                    x-model="permission.haveFullAccess"
+                                                                    disabled
+                                                                />
+                                                            </span>
+                                                            <template x-teleport="body">
+                                                                <div
+                                                                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                    style="z-index: 1000"
+                                                                    x-show="open"
+                                                                    x-cloak
+                                                                    x-anchor.bottom="$refs.fullDefaultLockedTrigger"
+                                                                    x-text="defaultLockedMessage"
+                                                                ></div>
+                                                            </template>
+                                                        </div>
+                                                    </template>
+                                                    <template x-if="canEditPage && !isDefaultRole(role)">
                                                         <x-form.checkbox
                                                             x-model="permission.haveFullAccess"
                                                             x-bind:disabled="isFullAccessDisabled(role, permission)"
