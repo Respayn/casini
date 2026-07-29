@@ -12,10 +12,11 @@
     {{ $slot }}
 @else
     <div
-        class="relative inline-block"
+        {{ $attributes->class(['relative block w-full']) }}
         x-data="{ open: false }"
     >
         <span
+            class="block w-full"
             x-ref="fieldGuardTrigger"
             @mouseenter="open = true"
             @mouseleave="open = false"

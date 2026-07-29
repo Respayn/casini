@@ -40,6 +40,7 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
 
@@ -94,6 +95,21 @@ class extends Component
         $this->clientRepository = $clientRepository;
     }
 
+    #[Computed]
+    public function canEditClientsAndProjects(): bool
+    {
+        return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
+    }
+
+    private function ensureCanEdit(): void
+    {
+        if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
+            throw UnauthorizedException::forPermissions(
+                ClientsAndProjectsPermissions::editPermissionNames()
+            );
+        }
+    }
+
     public function mount(Request $request, $projectId = null)
     {
         if ($projectId === null) {
@@ -122,7 +138,7 @@ class extends Component
             $this->clientProjectForm->isActive = true;
         }
 
-        if ($request->input('state')) {
+        if ($request->input('state') && ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
             $state = json_decode(Crypt::decryptString(base64_decode($request->input('state'))), true);
             $cachedData = Cache::pull('integration_data_' . $state['cache_data_id']);
 
@@ -240,6 +256,8 @@ class extends Component
 
     public function selectIntegration(string $code)
     {
+        $this->ensureCanEdit();
+
         $integration = $this->integrations()->firstWhere('code', $code);
 
         if ($integration === null) {
@@ -270,6 +288,8 @@ class extends Component
 
     public function setIntegrationSettings(int $integrationId, array $settings)
     {
+        $this->ensureCanEdit();
+
         $integration = $this->integrations()->firstWhere('id', $integrationId);
 
         $projectIntegrationData = new ProjectIntegrationData();
@@ -294,6 +314,8 @@ class extends Component
 
     public function loadCallibriProjects(string $email, string $token, ?string $includeSiteId = null): array
     {
+        $this->ensureCanEdit();
+
         if (trim($email) === '' || trim($token) === '') {
             return ['error' => 'Укажите email и API token'];
         }
@@ -326,6 +348,8 @@ class extends Component
 
     public function testCallibriIntegration(array $settings, string $date): array
     {
+        $this->ensureCanEdit();
+
         if (trim($settings['email'] ?? '') === '' || trim($settings['token'] ?? '') === '') {
             return ['error' => 'Укажите email и API token'];
         }
@@ -365,6 +389,7 @@ class extends Component
      */
     public function prepareYandexDirectOAuth(bool $popup = true): array
     {
+        $this->ensureCanEdit();
         $this->ensureSelectedIntegration('yandex_direct');
 
         if (! $this->isYandexDirectOAuthConfigured) {
@@ -398,6 +423,8 @@ class extends Component
      */
     public function pullYandexDirectOAuthResult(string $cacheDataId): array
     {
+        $this->ensureCanEdit();
+
         if (trim($cacheDataId) === '') {
             return ['pending' => true];
         }
@@ -416,6 +443,8 @@ class extends Component
      */
     public function finalizeYandexDirectOAuth(string $cacheDataId): array
     {
+        $this->ensureCanEdit();
+
         $cacheDataId = trim($cacheDataId);
 
         if ($cacheDataId === '') {
@@ -440,6 +469,8 @@ class extends Component
      */
     public function applyYandexDirectOAuthFromBroadcast(array $settings, ?int $integrationId = null): void
     {
+        $this->ensureCanEdit();
+
         $this->selectIntegration('yandex_direct');
 
         if ($integrationId !== null
@@ -464,6 +495,8 @@ class extends Component
         ?string $cacheDataId = null,
         ?int $integrationId = null
     ): void {
+        $this->ensureCanEdit();
+
         if (is_array($settings) && $settings !== []) {
             $this->applyYandexDirectOAuthFromBroadcast($settings, $integrationId);
 
@@ -480,6 +513,7 @@ class extends Component
      */
     public function applyYandexDirectOAuthTokens(array $settings): void
     {
+        $this->ensureCanEdit();
         $this->ensureSelectedIntegration('yandex_direct');
 
         if ($this->selectedIntegration?->integration === null) {
@@ -547,6 +581,8 @@ class extends Component
      */
     public function loadYandexDirectOAuthProfile(string $oauthToken): array
     {
+        $this->ensureCanEdit();
+
         if (trim($oauthToken) === '') {
             return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
         }
@@ -615,6 +651,8 @@ class extends Component
      */
     public function loadYandexDirectLogins(string $oauthToken): array
     {
+        $this->ensureCanEdit();
+
         if (trim($oauthToken) === '') {
             return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
         }
@@ -692,6 +730,8 @@ class extends Component
      */
     public function parsePhrasesFromDocx(): array
     {
+        $this->ensureCanEdit();
+
         $this->validate([
             'phraseDocxFile' => 'required|file|mimes:docx|max:5120',
         ]);
@@ -737,59 +777,79 @@ class extends Component
 
     public function removeIntegration(int $integrationId)
     {
+        $this->ensureCanEdit();
+
         $this->integrationSettings->forget($integrationId);
     }
 
     public function setIntegrationEnabled(int $integrationId, bool $isEnabled)
     {
+        $this->ensureCanEdit();
+
         $this->integrationSettings[$integrationId]->isEnabled = $isEnabled;
     }
 
     public function addRegion()
     {
+        $this->ensureCanEdit();
+
         $this->clientProjectForm->promotionRegions[] = null;
     }
 
     public function removeRegion($index)
     {
+        $this->ensureCanEdit();
+
         unset($this->clientProjectForm->promotionRegions[$index]);
         $this->clientProjectForm->promotionRegions = array_values($this->clientProjectForm->promotionRegions);
     }
 
     public function addTopic()
     {
+        $this->ensureCanEdit();
+
         $this->clientProjectForm->promotionTopics[] = null;
     }
 
     public function removeTopic($index)
     {
+        $this->ensureCanEdit();
+
         unset($this->clientProjectForm->promotionTopics[$index]);
         $this->clientProjectForm->promotionTopics = array_values($this->clientProjectForm->promotionTopics);
     }
 
     public function addInterval()
     {
+        $this->ensureCanEdit();
+
         $this->bonusGuaranteeForm->intervals[] = [];
     }
 
     public function removeInterval($index)
     {
+        $this->ensureCanEdit();
+
         unset($this->bonusGuaranteeForm->intervals[$index]);
     }
 
     public function addMapping()
     {
-        $this->utmMappingForm->addMapping(); // Внутренний метод формы
+        $this->ensureCanEdit();
+
+        $this->utmMappingForm->addMapping();
     }
 
     public function removeMapping(int $index)
     {
-        $this->utmMappingForm->removeMapping($index); // Внутренний метод формы
+        $this->ensureCanEdit();
+
+        $this->utmMappingForm->removeMapping($index);
     }
 
     public function save()
     {
-        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+        $this->ensureCanEdit();
 
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
