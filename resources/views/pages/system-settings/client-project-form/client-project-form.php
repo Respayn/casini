@@ -101,6 +101,26 @@ class extends Component
         return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
     }
 
+    #[Computed]
+    public function canSubmitClientProject(): bool
+    {
+        if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
+            return false;
+        }
+
+        if ($this->clientProjectForm->projectType !== ProjectType::CONTEXT_AD->value) {
+            return true;
+        }
+
+        foreach ($this->utmMappingForm->utmMappings as $mapping) {
+            if (blank($mapping['utmValue'] ?? null) || blank($mapping['replacementValue'] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function ensureCanEdit(): void
     {
         if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
@@ -166,6 +186,11 @@ class extends Component
         if (empty($this->clientProjectForm->promotionTopics)) {
             $this->clientProjectForm->promotionTopics[] = null;
         }
+    }
+
+    public function validateUtmField(int $index, string $attribute): void
+    {
+        $this->utmMappingForm->validateOnly("utmMappings.{$index}.{$attribute}");
     }
 
     #[Computed]
@@ -845,6 +870,12 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->utmMappingForm->removeMapping($index);
+
+        foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+            if (str_starts_with($key, 'utmMappingForm.utmMappings')) {
+                $this->resetErrorBag($key);
+            }
+        }
     }
 
     public function save()
@@ -854,6 +885,10 @@ class extends Component
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
         $this->bonusGuaranteeForm->validate();
+
+        if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
+            $this->utmMappingForm->validate();
+        }
 
         DB::beginTransaction();
 
@@ -886,11 +921,12 @@ class extends Component
             // Подготовка данных для бонусных настроек
             $intervals = array_map(function ($intervalData) {
                 $intervalData = new IntervalData(
-                    from_percentage: (float)$intervalData['fromPercentage'],
-                    to_percentage: (float)$intervalData['toPercentage'],
-                    bonus_amount: isset($intervalData['bonusAmount']) ? (float)$intervalData['bonusAmount'] : null,
-                    bonus_percentage: isset($intervalData['bonusPercentage']) ? (float)$intervalData['bonusPercentage'] : null,
+                    from_percentage: (float) $intervalData['fromPercentage'],
+                    to_percentage: (float) $intervalData['toPercentage'],
+                    bonus_amount: isset($intervalData['bonusAmount']) ? (float) $intervalData['bonusAmount'] : null,
+                    bonus_percentage: isset($intervalData['bonusPercentage']) ? (float) $intervalData['bonusPercentage'] : null,
                 );
+
                 return $intervalData;
             }, $this->bonusGuaranteeForm->intervals);
 
@@ -908,9 +944,6 @@ class extends Component
             $utmMappingsData = [];
 
             if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
-                // Валидация формы UTM-мэппингов
-                $this->utmMappingForm->validate();
-
                 // Подготовка данных для UTM-мэппингов с указанием project_id
                 $utmMappingsData = array_map(function ($utmMapping) use ($project) {
                     $projectUtmMappingData = new ProjectUtmMappingData(
@@ -920,6 +953,7 @@ class extends Component
                         utm_value: $utmMapping['utmValue'],
                         replacement_value: $utmMapping['replacementValue'],
                     );
+
                     return $projectUtmMappingData;
                 }, $this->utmMappingForm->utmMappings ?? []);
             }

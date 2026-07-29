@@ -19,7 +19,7 @@ class CreateClientProjectForm extends Form
     public int $client;
 
     #[Validate('required|url|max:255', message: 'Введите корректный URL-адрес')]
-    public string $domain;
+    public string $domain = '';
 
     #[Validate('nullable|exists:users,id', message: 'Укажите менеджера')]
     public ?int $manager = null;

@@ -74,7 +74,11 @@
                     >URL-адрес сайта</x-form.form-label>
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
-                            <x-form.input-text wire:model="clientProjectForm.domain" :disabled="! $canEdit"></x-form.input-text>
+                            <x-form.input-url
+                                wire:model="clientProjectForm.domain"
+                                placeholder="example.com"
+                                :disabled="! $canEdit"
+                            />
                         </x-permissions.field-guard>
                     </div>
                 </x-form.form-field>
@@ -644,67 +648,80 @@
             @if ($clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
                 <div class="mt-4 flex flex-col gap-4">
                     <h1>Генерация клиентских отчетов</h1>
+                    <div class="text-caption-text">
+                        Задайте условия подмены UTM-меток в отчетах
+                    </div>
 
                     {{-- Таблица с логикой расчета --}}
+                    <style>
+                        .utm-mapping-grid {
+                            grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr) 30px minmax(0, 1fr) 100px;
+                        }
+                    </style>
                     <div
-                        class="grid w-full grid-cols-8 grid-cols-[auto_30px_auto_30px_auto_30px_auto_100px] items-center gap-x-1 gap-y-2 text-[14px]">
-                        <div class="text-secondary-text max-w-xs">Задайте условия подмены UTM-меток в отчетах</div>
+                        class="utm-mapping-grid grid w-full items-start gap-x-1 gap-y-2 text-[14px]">
+                        <div class="text-secondary-text">Выберите UTM-метку</div>
                         <div></div>
-                        <div class="text-secondary-text max-w-xs">Выберите UTM-метку</div>
+                        <div class="text-secondary-text">Введите значение подменяемой UTM-метки</div>
                         <div></div>
-                        <div class="text-secondary-text max-w-xs">Введите значение подменяемой UTM-метки</div>
+                        <div class="text-secondary-text">Введите значение, которое отобразится в отчете</div>
                         <div></div>
-                        <div class="text-secondary-text max-w-xs">Введите значение, которое отобразится в отчете</div>
 
                         <?php /** @var \App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm $utmMappingForm */ ?>
                         @foreach ($utmMappingForm->utmMappings as $index => $utmMappingItem)
-                            <div class="col-start-3 flex items-center gap-2">
+                            <div class="flex items-start gap-2">
                                 <x-form.input-text
                                     placeholder="Выберите UTM-метку"
                                     wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.utmType"
                                     disabled
                                 />
                             </div>
-                            <div class="text-secondary-text text-center">-</div>
-                            <div class="flex items-center gap-2">
+                            <div class="text-secondary-text pt-3 text-center">-</div>
+                            <div class="flex items-start gap-2">
                                 <x-permissions.field-guard :enabled="$canEdit">
                                     <x-form.input-text
                                         placeholder="Введите значение"
-                                        wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.utmValue"
+                                        wire:model.live="utmMappingForm.utmMappings.{{ $index }}.utmValue"
+                                        wire:blur="validateUtmField({{ $index }}, 'utmValue')"
                                         :disabled="! $canEdit"
                                     />
                                 </x-permissions.field-guard>
                             </div>
-                            <div class="text-secondary-text text-center">=</div>
+                            <div class="text-secondary-text pt-3 text-center">=</div>
                             <x-permissions.field-guard :enabled="$canEdit">
                                 <x-form.input-text
                                     placeholder="Значение в отчете"
-                                    wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.replacementValue"
+                                    wire:model.live="utmMappingForm.utmMappings.{{ $index }}.replacementValue"
+                                    wire:blur="validateUtmField({{ $index }}, 'replacementValue')"
                                     :disabled="! $canEdit"
                                 />
                             </x-permissions.field-guard>
                             @if ($canEdit)
-                                <x-button.button
-                                    type="button"
-                                    wire:click.prevent="removeMapping({{ $index }})"
-                                    variant="action"
-                                >
-                                    <x-slot:label>Удалить</x-slot:label>
-                                </x-button.button>
+                                <div class="pt-1">
+                                    <x-button.button
+                                        type="button"
+                                        wire:click.prevent="removeMapping({{ $index }})"
+                                        variant="action"
+                                    >
+                                        <x-slot:label>Удалить</x-slot:label>
+                                    </x-button.button>
+                                </div>
+                            @else
+                                <div></div>
                             @endif
                         @endforeach
-                        @if ($canEdit)
-                            <div class="col-start-1 flex items-center justify-center">
-                                <x-button.button
-                                    type="button"
-                                    wire:click.prevent="addMapping"
-                                    variant="action"
-                                >
-                                    <x-slot:label>Добавить условие</x-slot:label>
-                                </x-button.button>
-                            </div>
-                        @endif
                     </div>
+                    @if ($canEdit)
+                        <div class="flex items-center justify-center">
+                            <x-button.button
+                                type="button"
+                                wire:click.prevent="addMapping"
+                                variant="action"
+                            >
+                                <x-slot:label>Добавить условие</x-slot:label>
+                            </x-button.button>
+                        </div>
+                    @endif
                 </div>
             @endif
         </div>
@@ -713,7 +730,7 @@
                 <x-button.button
                     type="submit"
                     variant="primary"
-                    :disabled="! $canEdit"
+                    :disabled="! $canEdit || ! $this->canSubmitClientProject"
                 >
                     <x-slot:label>
                         Сохранить клиенто-проект
