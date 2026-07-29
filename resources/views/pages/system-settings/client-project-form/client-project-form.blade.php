@@ -19,7 +19,7 @@
                     >Статус клиенто-проекта</x-form.form-label>
                     <div>
                         <div class="ml-auto flex w-[126px] items-center justify-between">
-                            <x-permissions.field-guard :enabled="$canEdit">
+                            <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                                 <x-form.toggle-switch wire:model="clientProjectForm.isActive" :disabled="! $canEdit">
                                 </x-form.toggle-switch>
                             </x-permissions.field-guard>
@@ -179,7 +179,7 @@
                     <x-form.form-label class="self-baseline">Свой проект</x-form.form-label>
                     <div class="flex items-center justify-end gap-3">
                         <label>Проект клиента</label>
-                        <x-permissions.field-guard :enabled="$canEdit">
+                        <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                             <x-form.toggle-switch wire:model="clientProjectForm.isInternal" :disabled="! $canEdit"></x-form.toggle-switch>
                         </x-permissions.field-guard>
                     </div>
@@ -287,7 +287,7 @@
                     </x-form.form-label>
                     <div class="flex items-center justify-end gap-3">
                         <label>Да</label>
-                        <x-permissions.field-guard :enabled="$canEdit">
+                        <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                             <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.bonusesEnabled" :disabled="! $canEdit" />
                         </x-permissions.field-guard>
                     </div>
@@ -301,7 +301,7 @@
                         </x-form.form-label>
                         <div class="flex items-center justify-end gap-3">
                             <label>Да</label>
-                            <x-permissions.field-guard :enabled="$canEdit">
+                            <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                                 <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.calculateInPercentage" :disabled="! $canEdit" />
                             </x-permissions.field-guard>
                         </div>

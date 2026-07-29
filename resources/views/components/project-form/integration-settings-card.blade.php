@@ -26,14 +26,14 @@
                                     {{ $integration->integration->name }}
                                 </span>
                             @else
-                                <x-permissions.field-guard :enabled="false">
+                                <x-permissions.field-guard :enabled="false" :fill="false">
                                     <span class="text-primary text-sm">
                                         {{ $integration->integration->name }}
                                     </span>
                                 </x-permissions.field-guard>
                             @endif
                         </div>
-                        <x-permissions.field-guard :enabled="$canEdit">
+                        <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                             <x-form.toggle-switch
                                 wire:model="integrationSettings.{{ $integration->integration->id }}.isEnabled"
                                 :disabled="! $canEdit"

@@ -2,6 +2,7 @@
     'enabled' => true,
     'message' => null,
     'anchor' => 'bottom',
+    'fill' => true,
 ])
 
 @php
@@ -12,11 +13,18 @@
     {{ $slot }}
 @else
     <div
-        {{ $attributes->class(['relative block w-full']) }}
+        {{ $attributes->class([
+            'relative',
+            'block w-full' => $fill,
+            'inline-flex w-auto' => ! $fill,
+        ]) }}
         x-data="{ open: false }"
     >
         <span
-            class="block w-full"
+            @class([
+                'block w-full' => $fill,
+                'inline-flex' => ! $fill,
+            ])
             x-ref="fieldGuardTrigger"
             @mouseenter="open = true"
             @mouseleave="open = false"
