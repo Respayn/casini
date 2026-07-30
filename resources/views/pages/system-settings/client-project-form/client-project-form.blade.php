@@ -2,14 +2,42 @@
     $canEdit = $this->canEditClientsAndProjects;
 @endphp
 
-<div data-casini-client-project-form>
+<div
+    data-casini-client-project-form
+    x-data="{
+        hasPendingChanges: @js($startWithPendingChanges),
+        successMessage: @js($startWithSuccessMessage) ? 'Изменения сохранены' : null,
+        canEditPage: @js($canEdit),
+        markDirty() {
+            if (this.canEditPage) {
+                this.hasPendingChanges = true;
+                this.successMessage = null;
+            }
+        }
+    }"
+    x-on:input.capture="markDirty()"
+    x-on:change.capture="markDirty()"
+    x-on:client-project-mark-dirty.window="markDirty()"
+>
     <x-menu.back-button />
-    <x-form.form
-        :is-normalized="true"
-        wire:submit.prevent="save"
+
+    <div
+        x-show="successMessage"
+        x-cloak
+        class="border-primary mt-4 mb-4 max-w-[950px] break-words rounded-lg border bg-blue-50 p-4 text-sm text-primary-text"
+        x-text="successMessage"
+    ></div>
+
+    <x-panel.scroll-panel
+        class="mb-3 mt-4"
+        style="max-height: calc(100vh - 300px);"
     >
-        <div class="mt-4 flex max-w-[950px] flex-col gap-4">
-            <h1>Добавить клиенто-проект</h1>
+        <x-form.form
+            :is-normalized="true"
+            wire:submit.prevent="save"
+        >
+            <div class="flex max-w-[950px] flex-col gap-4">
+                <h1>Добавить клиенто-проект</h1>
             <div class="flex flex-col gap-4">
                 <h2>Основная информация</h2>
                 <x-form.form-field>
@@ -812,11 +840,18 @@
                 </div>
             @endif
         </div>
-        <div class="mt-4 flex justify-between">
+        </x-form.form>
+    </x-panel.scroll-panel>
+
+    <template x-if="hasPendingChanges && canEditPage">
+        <div class="flex max-w-[950px] justify-between">
             <x-permissions.field-guard :enabled="$canEdit">
                 <x-button.button
-                    type="submit"
+                    type="button"
                     variant="primary"
+                    wire:click="save"
+                    wire:loading.attr="disabled"
+                    wire:target="save"
                     :disabled="! $canEdit || ! $this->canSubmitClientProject"
                 >
                     <x-slot:label>
@@ -825,15 +860,15 @@
                 </x-button.button>
             </x-permissions.field-guard>
             <x-button.button
-                href="javascript:void(0);"
-                onclick="window.history.back()"
+                type="button"
+                x-on:click="$wire.cancelChanges()"
             >
                 <x-slot:label>
                     Отменить
                 </x-slot:label>
             </x-button.button>
         </div>
-    </x-form.form>
+    </template>
 
     <x-project-form.integration-list-modal
         name="tools-integrations-modal"

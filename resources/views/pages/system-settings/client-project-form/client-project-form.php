@@ -82,6 +82,12 @@ class extends Component
 
     public ?Carbon $statisticsRebuildTo = null;
 
+    /** После возврата из OAuth форма уже содержит несохранённые данные */
+    public bool $startWithPendingChanges = false;
+
+    /** Показать баннер «Изменения сохранены» после редиректа с успешного save */
+    public bool $startWithSuccessMessage = false;
+
     public function boot(
         ClientService $clientService,
         ProjectService $projectService,
@@ -181,6 +187,28 @@ class extends Component
         }
     }
 
+    private function markPendingChanges(): void
+    {
+        if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
+            return;
+        }
+
+        $this->dispatch('client-project-mark-dirty');
+    }
+
+    public function cancelChanges(): mixed
+    {
+        $projectId = $this->clientProjectForm->id;
+
+        return $this->redirect(
+            route(
+                'system-settings.clients-and-projects.projects.manage',
+                $projectId ? ['projectId' => $projectId] : []
+            ),
+            navigate: true
+        );
+    }
+
     public function mount(Request $request, $projectId = null)
     {
         if ($projectId === null) {
@@ -241,6 +269,8 @@ class extends Component
             if (! empty($state['open_integration'])) {
                 $this->selectIntegration($state['open_integration']);
             }
+
+            $this->startWithPendingChanges = true;
         }
 
         if (empty($this->clientProjectForm->promotionRegions)) {
@@ -249,6 +279,10 @@ class extends Component
 
         if (empty($this->clientProjectForm->promotionTopics)) {
             $this->clientProjectForm->promotionTopics[] = null;
+        }
+
+        if (session()->pull('client_project_saved')) {
+            $this->startWithSuccessMessage = true;
         }
     }
 
@@ -403,6 +437,7 @@ class extends Component
         }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
+        $this->markPendingChanges();
     }
 
 
@@ -642,6 +677,7 @@ class extends Component
             $this->integrationSettings[$integrationId] = $projectIntegrationData;
 
             $this->integrationModalBodyRevision++;
+            $this->markPendingChanges();
         }
 
         $oauthToken = (string) ($mergedSettings['oauth_token'] ?? '');
@@ -874,6 +910,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->integrationSettings->forget($integrationId);
+        $this->markPendingChanges();
     }
 
     public function setIntegrationEnabled(int $integrationId, bool $isEnabled)
@@ -881,6 +918,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->integrationSettings[$integrationId]->isEnabled = $isEnabled;
+        $this->markPendingChanges();
     }
 
     public function addRegion()
@@ -888,6 +926,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->clientProjectForm->promotionRegions[] = null;
+        $this->markPendingChanges();
     }
 
     public function removeRegion($index)
@@ -896,6 +935,7 @@ class extends Component
 
         unset($this->clientProjectForm->promotionRegions[$index]);
         $this->clientProjectForm->promotionRegions = array_values($this->clientProjectForm->promotionRegions);
+        $this->markPendingChanges();
     }
 
     public function addTopic()
@@ -903,6 +943,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->clientProjectForm->promotionTopics[] = null;
+        $this->markPendingChanges();
     }
 
     public function removeTopic($index)
@@ -911,6 +952,7 @@ class extends Component
 
         unset($this->clientProjectForm->promotionTopics[$index]);
         $this->clientProjectForm->promotionTopics = array_values($this->clientProjectForm->promotionTopics);
+        $this->markPendingChanges();
     }
 
     public function addInterval()
@@ -918,6 +960,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->bonusGuaranteeForm->intervals[] = [];
+        $this->markPendingChanges();
     }
 
     public function removeInterval($index)
@@ -932,6 +975,8 @@ class extends Component
                 $this->resetErrorBag($key);
             }
         }
+
+        $this->markPendingChanges();
     }
 
     public function addMapping()
@@ -939,6 +984,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->utmMappingForm->addMapping();
+        $this->markPendingChanges();
     }
 
     public function removeMapping(int $index)
@@ -946,6 +992,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->utmMappingForm->removeMapping($index);
+        $this->markPendingChanges();
 
         foreach (array_keys($this->getErrorBag()->messages()) as $key) {
             if (str_starts_with($key, 'utmMappingForm.utmMappings')) {
@@ -1041,8 +1088,14 @@ class extends Component
 
             DB::commit();
 
-            // Перенаправление или другие действия
-            return redirect()->route('system-settings.clients-and-projects');
+            session()->flash('client_project_saved', true);
+
+            return $this->redirect(
+                route('system-settings.clients-and-projects.projects.manage', [
+                    'projectId' => $project->id,
+                ]),
+                navigate: true
+            );
         } catch (\Exception $e) {
             DB::rollBack();
 
