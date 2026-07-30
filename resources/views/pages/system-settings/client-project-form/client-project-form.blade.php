@@ -20,13 +20,35 @@
                     <div>
                         <div class="ml-auto flex w-[126px] items-center justify-between">
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                <x-form.toggle-switch wire:model="clientProjectForm.isActive" :disabled="! $canEdit">
+                                <x-form.toggle-switch wire:model.live="clientProjectForm.isActive" :disabled="! $canEdit">
                                 </x-form.toggle-switch>
                             </x-permissions.field-guard>
                             <label>
                                 Активен
                             </label>
                         </div>
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <x-form.form-label>Дата создания клиенто-проекта</x-form.form-label>
+                    <div>
+                        <x-form.input-text
+                            wire:model="clientProjectForm.createdAt"
+                            placeholder="дд.мм.гггг"
+                            disabled
+                        />
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <x-form.form-label>Дата архивации клиенто-проекта</x-form.form-label>
+                    <div wire:key="archived-at-{{ $clientProjectForm->isActive ? 'active' : 'archived-'.$clientProjectForm->archivedAt }}">
+                        <x-form.input-text
+                            :value="$clientProjectForm->isActive ? '' : $clientProjectForm->archivedAt"
+                            placeholder="дд.мм.гггг"
+                            disabled
+                        />
                     </div>
                 </x-form.form-field>
 

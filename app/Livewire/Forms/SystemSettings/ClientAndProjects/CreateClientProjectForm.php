@@ -40,6 +40,12 @@ class CreateClientProjectForm extends Form
     #[Validate('nullable|bool|max:255')]
     public ?bool $isInternal = null;
 
+    /** Дата создания для отображения (дд.мм.гггг), только чтение */
+    public string $createdAt = '';
+
+    /** Дата архивации для отображения (дд.мм.гггг), только чтение */
+    public string $archivedAt = '';
+
     #[Validate('nullable|array')]
     public array $promotionRegions = [];
 

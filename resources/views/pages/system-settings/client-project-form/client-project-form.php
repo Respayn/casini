@@ -26,6 +26,8 @@ use App\Services\UserService;
 use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
 use App\Support\ClientsAndProjectsPermissions;
+use App\Models\Project;
+use App\Models\ProjectFieldHistory;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -159,6 +161,17 @@ class extends Component
         $this->statisticsRebuildTo = $this->statisticsRebuildTo->endOfMonth()->startOfDay();
     }
 
+    public function updatedClientProjectFormIsActive(mixed $value): void
+    {
+        if (filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        if ($this->clientProjectForm->archivedAt === '') {
+            $this->clientProjectForm->archivedAt = now()->format('d.m.Y');
+        }
+    }
+
     private function ensureCanEdit(): void
     {
         if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
@@ -189,6 +202,19 @@ class extends Component
 
             $this->clientProjectForm->from($project);
             $this->clientProjectForm->manager = $client->getManagerId();
+            $createdAt = Project::query()->whereKey($projectId)->value('created_at');
+            $this->clientProjectForm->createdAt = $createdAt
+                ? Carbon::parse($createdAt)->format('d.m.Y')
+                : '';
+            $archivedAt = ProjectFieldHistory::query()
+                ->where('project_id', $projectId)
+                ->where('field', 'is_active')
+                ->whereIn('new_value', [0, '0', false, 'false'])
+                ->orderByDesc('changed_at')
+                ->value('changed_at');
+            $this->clientProjectForm->archivedAt = $archivedAt
+                ? Carbon::parse($archivedAt)->format('d.m.Y')
+                : '';
             $this->bonusGuaranteeForm->from($project->bonusCondition);
             $this->utmMappingForm->from($project->utmMappings->toArray());
             $this->integrationSettings = $this->integrationService->getIntegrationSettingsForProject($projectId);
