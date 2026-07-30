@@ -21,6 +21,7 @@
         roles: $wire.entangle('roles'),
         editingRoleId: null,
         hasPendingChanges: false,
+        successMessage: null,
         canEditPage: @js($canEditRoles),
         deniedMessage: @js(__('permissions.denied')),
         defaultLockedMessage: @js(__('permissions.default_role_locked')),
@@ -30,6 +31,13 @@
 
         init() {
             this.initialRoles = JSON.parse(JSON.stringify(this.roles));
+
+            Livewire.on('roles-saved', () => {
+                this.hasPendingChanges = false;
+                this.editingRoleId = null;
+                this.successMessage = 'Изменения сохранены';
+                this.initialRoles = JSON.parse(JSON.stringify(this.roles));
+            });
         },
 
         isAdminRole(role) {
@@ -102,6 +110,8 @@
             }
 
             this.hasPendingChanges = true;
+            this.successMessage = null;
+            $wire.set('flashMessage', null);
         },
 
         createRole() {
@@ -119,9 +129,12 @@
                 useInManagersList: false,
                 useInSpecialistList: false,
                 isNew: true,
+                hasChildRoles: false,
                 childRoles: []
             });
             this.hasPendingChanges = true;
+            this.successMessage = null;
+            $wire.set('flashMessage', null);
         },
 
         deleteRole(roleId) {
@@ -221,6 +234,13 @@
 >
     {{-- Заголовок --}}
     <h1 class="mb-7">Продукты и права</h1>
+
+    <div
+        x-show="successMessage"
+        x-cloak
+        class="border-primary mb-4 break-words rounded-lg border bg-blue-50 p-4 text-sm text-primary-text"
+        x-text="successMessage"
+    ></div>
 
     {{-- Блок с ролями --}}
     <x-panel.scroll-panel
@@ -968,18 +988,18 @@
                 </template>
             </x-panel.accordion>
 
-            <div class="flex justify-end">
+            <div class="flex justify-start">
                 <x-permissions.field-guard :enabled="$canEditRoles">
                     @if ($canEditRoles)
                         <x-button.button
                             x-on:click="createRole()"
-                            variant="primary"
+                            variant="action"
                             label="Добавить роль"
                             icon="icons.plus"
                         />
                     @else
                         <x-button.button
-                            variant="primary"
+                            variant="action"
                             label="Добавить роль"
                             icon="icons.plus"
                             disabled
@@ -993,6 +1013,7 @@
     <template x-if="hasPendingChanges && canEditPage">
         <div class="flex justify-between">
             <x-button.button
+                variant="primary"
                 label="Сохранить изменения"
                 wire:click="save"
                 wire:loading.attr="disabled"

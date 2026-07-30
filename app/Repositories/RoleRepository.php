@@ -95,8 +95,8 @@ class RoleRepository
 
             $this->revokeDirectProductPermissionsForRoleUsers($role->fresh(['users']));
 
-            if ($roleData['hasChildRoles']) {
-                $childIds = array_filter(array_column($roleData['childRoles'], 'id'));
+            if ($roleData['hasChildRoles'] ?? false) {
+                $childIds = array_filter(array_column($roleData['childRoles'] ?? [], 'id'));
                 $role->childRoles()->sync($childIds);
             } else {
                 $role->childRoles()->detach();

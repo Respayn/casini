@@ -20,6 +20,8 @@ class extends Component
 
     public array $roles;
 
+    public ?string $flashMessage = null;
+
     public function boot(RoleService $roleService): void
     {
         $this->roleService = $roleService;
@@ -45,10 +47,14 @@ class extends Component
 
         $result = $this->roleService->saveChanges($this->roles);
         if ($result->isFailure()) {
-            // Toaster::error($result->getError());
-        } else {
-            // Toaster::success('Изменения сохранены!');
+            $this->flashMessage = null;
+
+            return;
         }
+
+        $this->roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
+        $this->flashMessage = 'Изменения сохранены';
+        $this->dispatch('roles-saved');
     }
 
     #[Computed]
