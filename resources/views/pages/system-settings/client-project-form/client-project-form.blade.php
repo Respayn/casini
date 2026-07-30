@@ -189,6 +189,8 @@
                     </div>
                 </x-form.form-field>
             </div>
+            {{-- Временно скрыто: показатели по рынку (регион / тематика) --}}
+            @if (false)
             <div class="mt-4 flex flex-col gap-4">
                 <h2>Показатели по рынку</h2>
                 <x-form.form-field>
@@ -279,6 +281,7 @@
                     </div>
                 </x-form.form-field>
             </div>
+            @endif
             <div class="mt-4 flex flex-col gap-4">
                 <!-- Бонусы и гарантии -->
                 <h2>Бонусы и гарантии</h2>
@@ -535,7 +538,7 @@
                         </div>
                     </x-form.form-field>
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">Визитов</x-form.form-label>
+                        <x-form.form-label>Визитов</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -550,7 +553,7 @@
                     $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::LEADS->value &&
                         $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">CPL</x-form.form-label>
+                        <x-form.form-label>CPL</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -562,7 +565,7 @@
                         </div>
                     </x-form.form-field>
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">Рекламный бюджет</x-form.form-label>
+                        <x-form.form-label>Рекламный бюджет</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -574,7 +577,7 @@
                         </div>
                     </x-form.form-field>
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">Лиды</x-form.form-label>
+                        <x-form.form-label>Лиды</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -589,7 +592,7 @@
                     $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::POSITIONS->value &&
                         $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::SEO_PROMOTION->value)
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">% позиций в топ 10</x-form.form-label>
+                        <x-form.form-label>% позиций в топ 10</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -601,7 +604,7 @@
                         </div>
                     </x-form.form-field>
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">Конверсии</x-form.form-label>
+                        <x-form.form-label>Конверсии</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -616,7 +619,7 @@
                     $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::TRAFFIC->value &&
                         $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::SEO_PROMOTION->value)
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">Объем визитов</x-form.form-label>
+                        <x-form.form-label>Объем визитов</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -628,7 +631,7 @@
                         </div>
                     </x-form.form-field>
                     <x-form.form-field>
-                        <x-form.form-label class="font-bold">Конверсии</x-form.form-label>
+                        <x-form.form-label>Конверсии</x-form.form-label>
                         <div class="w-full max-w-[489px]">
                             <span class="text-[14px]">
                                 Данные из интеграций поступают с учетом заданных настроек
@@ -646,24 +649,56 @@
                 <h1>Пересбор статистики клиенто-проекта</h1>
                 <x-form.form-field>
                     <x-form.form-label
-                        class="font-bold"
                         tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций"
                     >Выберите период</x-form.form-label>
                     <div class="flex flex-col gap-2">
                         <div class="flex flex-row items-center gap-2">
-                            <x-form.date-picker />
+                            <x-form.month-picker wire:model.live="statisticsRebuildFrom" />
                             <span>-</span>
-                            <x-form.date-picker />
+                            <x-form.month-picker wire:model.live="statisticsRebuildTo" />
                         </div>
                         <x-permissions.field-guard :enabled="$canEdit">
-                            <x-button.button
-                                class="w-full"
-                                variant="implicit-action"
-                                label="Пересобрать статистику"
-                                :disabled="! $canEdit"
-                            />
+                            <div
+                                @class(['relative block w-full'])
+                                @if (! $this->canRebuildStatistics)
+                                    x-data="{ open: false }"
+                                @endif
+                            >
+                                <span
+                                    class="block w-full"
+                                    @if (! $this->canRebuildStatistics)
+                                        x-ref="rebuildStatisticsTrigger"
+                                        @mouseenter="open = true"
+                                        @mouseleave="open = false"
+                                    @endif
+                                >
+                                    <x-button.button
+                                        class="w-full"
+                                        label="Пересобрать статистику"
+                                        :disabled="! $this->canRebuildStatistics"
+                                    />
+                                </span>
+                                @if ($canEdit && ! $this->canRebuildStatistics)
+                                    <template x-teleport="body">
+                                        <div
+                                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                            style="z-index: 1000"
+                                            x-show="open"
+                                            x-cloak
+                                            x-anchor.top="$refs.rebuildStatisticsTrigger"
+                                        >
+                                            Сначала выберите период
+                                        </div>
+                                    </template>
+                                @endif
+                            </div>
                         </x-permissions.field-guard>
-                        <div class="ml-auto mt-5 rounded-full bg-red-100 px-3 py-1">
+                    </div>
+                </x-form.form-field>
+                <x-form.form-field>
+                    <x-form.form-label>Статус обновления</x-form.form-label>
+                    <div>
+                        <div class="ml-auto rounded-full bg-red-100 px-3 py-1 text-center">
                             Не начато
                         </div>
                     </div>

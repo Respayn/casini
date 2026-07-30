@@ -76,6 +76,10 @@ class extends Component
 
     public $phraseDocxFile;
 
+    public ?Carbon $statisticsRebuildFrom = null;
+
+    public ?Carbon $statisticsRebuildTo = null;
+
     public function boot(
         ClientService $clientService,
         ProjectService $projectService,
@@ -127,6 +131,32 @@ class extends Component
         }
 
         return true;
+    }
+
+    #[Computed]
+    public function canRebuildStatistics(): bool
+    {
+        return ClientsAndProjectsPermissions::userCanEdit(Auth::user())
+            && $this->statisticsRebuildFrom !== null
+            && $this->statisticsRebuildTo !== null;
+    }
+
+    public function updatedStatisticsRebuildFrom(mixed $value): void
+    {
+        if ($this->statisticsRebuildFrom === null) {
+            return;
+        }
+
+        $this->statisticsRebuildFrom = $this->statisticsRebuildFrom->startOfMonth();
+    }
+
+    public function updatedStatisticsRebuildTo(mixed $value): void
+    {
+        if ($this->statisticsRebuildTo === null) {
+            return;
+        }
+
+        $this->statisticsRebuildTo = $this->statisticsRebuildTo->endOfMonth()->startOfDay();
     }
 
     private function ensureCanEdit(): void

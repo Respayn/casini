@@ -40,10 +40,10 @@ class CreateClientProjectForm extends Form
     #[Validate('nullable|bool|max:255')]
     public ?bool $isInternal = null;
 
-    #[Validate('required|array', message: 'Выберите хотя бы один регион продвижения')]
+    #[Validate('nullable|array')]
     public array $promotionRegions = [];
 
-    #[Validate('required|array', message: 'Выберите хотя бы одну тематику продвижения')]
+    #[Validate('nullable|array')]
     public array $promotionTopics = [];
 
     public function rules()
@@ -60,8 +60,8 @@ class CreateClientProjectForm extends Form
                 'kpi' => 'required|string|max:255',
                 'projectType' => 'required|string|max:255',
                 'isInternal' => 'nullable|string|max:255',
-                'promotionRegions' => 'required|array',
-                'promotionTopics' => 'required|array',
+                'promotionRegions' => 'nullable|array',
+                'promotionTopics' => 'nullable|array',
             ],
         );
     }
