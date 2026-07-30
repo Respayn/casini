@@ -108,6 +108,14 @@ class extends Component
             return false;
         }
 
+        if ($this->bonusGuaranteeForm->bonusesEnabled) {
+            foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+                if (str_starts_with($key, 'bonusGuaranteeForm.')) {
+                    return false;
+                }
+            }
+        }
+
         if ($this->clientProjectForm->projectType !== ProjectType::CONTEXT_AD->value) {
             return true;
         }
@@ -191,6 +199,11 @@ class extends Component
     public function validateUtmField(int $index, string $attribute): void
     {
         $this->utmMappingForm->validateOnly("utmMappings.{$index}.{$attribute}");
+    }
+
+    public function validateBonusIntervalField(int $index, string $attribute): void
+    {
+        $this->bonusGuaranteeForm->validateOnly("intervals.{$index}.{$attribute}");
     }
 
     #[Computed]
@@ -856,6 +869,13 @@ class extends Component
         $this->ensureCanEdit();
 
         unset($this->bonusGuaranteeForm->intervals[$index]);
+        $this->bonusGuaranteeForm->intervals = array_values($this->bonusGuaranteeForm->intervals);
+
+        foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+            if (str_starts_with($key, 'bonusGuaranteeForm.intervals')) {
+                $this->resetErrorBag($key);
+            }
+        }
     }
 
     public function addMapping()

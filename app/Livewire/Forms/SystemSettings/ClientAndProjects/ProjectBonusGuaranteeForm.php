@@ -51,10 +51,71 @@ class ProjectBonusGuaranteeForm extends Form
         return $rules;
     }
 
+    public function messages(): array
+    {
+        return [
+            'intervals.*.fromPercentage.required_if' => 'Укажите начало диапазона выполнения плана.',
+            'intervals.*.toPercentage.required_if' => 'Укажите конец диапазона выполнения плана.',
+            'intervals.*.toPercentage.gte' => 'Значение «До» не должно быть меньше значения «От».',
+            'intervals.*.bonusAmount.required_if' => 'Укажите сумму бонуса или гарантии.',
+            'intervals.*.bonusPercentage.required_if' => 'Укажите процент бонуса или гарантии.',
+            'startMonth.required_if' => 'Выберите месяц начала расчёта бонусов и гарантий.',
+        ];
+    }
+
+    public function validationAttributes(): array
+    {
+        return [
+            'intervals.*.fromPercentage' => 'начало диапазона',
+            'intervals.*.toPercentage' => 'конец диапазона',
+            'intervals.*.bonusAmount' => 'сумма бонуса или гарантии',
+            'intervals.*.bonusPercentage' => 'процент бонуса или гарантии',
+            'startMonth' => 'месяц начала расчёта',
+            'clientPayment' => 'чек клиента',
+        ];
+    }
+
+    public function validate($rules = null, $messages = [], $attributes = [], $dataOverrides = [])
+    {
+        $this->normalizeIntervalNumericFields();
+
+        return parent::validate($rules, $messages, $attributes, $dataOverrides);
+    }
+
+    public function validateOnly($field, $rules = null, $messages = [], $attributes = [], $dataOverrides = [])
+    {
+        $this->normalizeIntervalNumericFields();
+
+        return parent::validateOnly($field, $rules, $messages, $attributes, $dataOverrides);
+    }
+
+    private function normalizeIntervalNumericFields(): void
+    {
+        foreach ($this->intervals as $index => $interval) {
+            if (! is_array($interval)) {
+                continue;
+            }
+
+            foreach (['fromPercentage', 'toPercentage', 'bonusAmount', 'bonusPercentage'] as $key) {
+                if (! array_key_exists($key, $interval) || ! is_string($interval[$key])) {
+                    continue;
+                }
+
+                $clean = preg_replace('/[\s\x{00A0}\x{202F}]/u', '', $interval[$key]);
+                $this->intervals[$index][$key] = $clean ?? $interval[$key];
+            }
+        }
+
+        if (is_string($this->clientPayment)) {
+            $cleanPayment = preg_replace('/[\s\x{00A0}\x{202F}]/u', '', (string) $this->clientPayment);
+            $this->clientPayment = $cleanPayment === '' ? null : (float) $cleanPayment;
+        }
+    }
+
     /**
      * Метод для заполнения данных формы из модели бонусных условий.
      *
-     * @param BonusConditionData|ProjectBonusCondition $bonusCondition
+     * @param  BonusConditionData|ProjectBonusCondition  $bonusCondition
      * @return void
      */
     public function from(BonusConditionData|ProjectBonusCondition $bonusCondition)

@@ -349,93 +349,118 @@
                     </x-form.form-field>
 
                     <div class="mt-4 flex flex-col gap-4">
-                        <!-- Логика расчета бонуса и/или гарантии -->
-                        <h2>Задайте логику расчета бонуса и/или гарантии</h2>
+                        <h1>Задайте логику расчета бонуса и/или гарантии</h1>
+                        <div class="text-caption-text">
+                            Укажите диапазоны выполнения плана и размер бонуса или гарантии
+                        </div>
 
-                        <x-form.form-field>
-                            <x-form.form-label required>Выполнение плана в % (включительно)</x-form.form-label>
+                        <style>
+                            .bonus-intervals-wrap {
+                                width: fit-content;
+                                max-width: 100%;
+                                margin-left: auto;
+                                margin-right: auto;
+                            }
 
-                            {{-- Таблица с логикой расчета --}}
-                            <div
-                                class="grid max-w-[489px] grid-cols-4 grid-cols-[30px_auto_30px_auto] items-center gap-x-1 gap-y-2 text-[14px]">
-                                <div></div>
-                                <div class="text-secondary-text max-w-xs">Выполнение плана в % (включительно)</div>
-                                <div></div>
-                                <div class="text-secondary-text max-w-xs">Бонус и/или гарантия в % от чека клиента</div>
+                            .bonus-intervals-grid {
+                                grid-template-columns: 40px 120px 40px 120px 32px 140px 56px;
+                                column-gap: 16px;
+                            }
 
-                                @foreach ($bonusGuaranteeForm->intervals as $index => $interval)
-                                    <div class="text-secondary-text text-center">От</div>
-                                    <div class="flex items-center gap-2">
-                                        <x-permissions.field-guard :enabled="$canEdit">
-                                            <x-form.input-text
-                                                type="number"
-                                                wire:model="bonusGuaranteeForm.intervals.{{ $index }}.fromPercentage"
-                                                placeholder="От"
-                                                suffix="%"
-                                                :disabled="! $canEdit"
-                                            />
-                                        </x-permissions.field-guard>
-                                        <span class="text-secondary-text">
-                                            До
-                                        </span>
-                                        <x-permissions.field-guard :enabled="$canEdit">
-                                            <x-form.input-text
-                                                type="number"
-                                                wire:model="bonusGuaranteeForm.intervals.{{ $index }}.toPercentage"
-                                                placeholder="До"
-                                                suffix="%"
-                                                :disabled="! $canEdit"
-                                            />
-                                        </x-permissions.field-guard>
-                                    </div>
-                                    <div class="text-secondary-text text-center">-</div>
-                                    <div class="flex items-center gap-2">
-                                        @if ($bonusGuaranteeForm->calculateInPercentage)
-                                            <x-permissions.field-guard :enabled="$canEdit">
-                                                <x-form.input-text
-                                                    type="number"
-                                                    wire:model="bonusGuaranteeForm.intervals.{{ $index }}.bonusPercentage"
-                                                    placeholder="Сумма в процентах"
-                                                    suffix="%"
-                                                    :disabled="! $canEdit"
-                                                />
-                                            </x-permissions.field-guard>
-                                        @else
-                                            <x-permissions.field-guard :enabled="$canEdit">
-                                                <x-form.input-text
-                                                    type="number"
-                                                    wire:model="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
-                                                    placeholder="Сумма в рублях"
-                                                    suffix="₽"
-                                                    :disabled="! $canEdit"
-                                                />
-                                            </x-permissions.field-guard>
-                                        @endif
+                            .bonus-intervals-grid .bonus-interval-remove {
+                                margin-left: 8px;
+                            }
 
-                                        @if ($canEdit)
-                                            <x-button.button
-                                                type="button"
-                                                wire:click.prevent="removeInterval({{ $index }})"
-                                                variant="action"
-                                            >
-                                                <x-slot:label>Удалить</x-slot:label>
-                                            </x-button.button>
-                                        @endif
-                                    </div>
-                                @endforeach
+                            .bonus-intervals-grid .bonus-interval-label,
+                            .bonus-intervals-grid .bonus-interval-sep {
+                                display: flex;
+                                min-height: 42px;
+                                align-items: center;
+                                justify-content: center;
+                            }
+                        </style>
+                        <div class="bonus-intervals-wrap">
+                            <div class="bonus-intervals-grid grid items-start gap-y-2 text-[14px]">
+                            <div class="text-secondary-text col-span-4">Выполнение плана в % (включительно)</div>
+                            <div></div>
+                            <div class="text-secondary-text">Бонус и/или гарантия в % от чека клиента</div>
+                            <div></div>
+
+                            @foreach ($bonusGuaranteeForm->intervals as $index => $interval)
+                                <div class="bonus-interval-label text-secondary-text">От</div>
+                                <x-permissions.field-guard :enabled="$canEdit">
+                                    <x-form.input-text
+                                        type="number"
+                                        wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.fromPercentage"
+                                        wire:blur="validateBonusIntervalField({{ $index }}, 'fromPercentage')"
+                                        placeholder="От"
+                                        suffix="%"
+                                        :disabled="! $canEdit"
+                                    />
+                                </x-permissions.field-guard>
+                                <div class="bonus-interval-label text-secondary-text">До</div>
+                                <x-permissions.field-guard :enabled="$canEdit">
+                                    <x-form.input-text
+                                        type="number"
+                                        wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.toPercentage"
+                                        wire:blur="validateBonusIntervalField({{ $index }}, 'toPercentage')"
+                                        placeholder="До"
+                                        suffix="%"
+                                        :disabled="! $canEdit"
+                                    />
+                                </x-permissions.field-guard>
+                                <div class="bonus-interval-sep text-secondary-text">-</div>
+                                @if ($bonusGuaranteeForm->calculateInPercentage)
+                                    <x-permissions.field-guard :enabled="$canEdit">
+                                        <x-form.input-text
+                                            type="number"
+                                            wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusPercentage"
+                                            wire:blur="validateBonusIntervalField({{ $index }}, 'bonusPercentage')"
+                                            placeholder="%"
+                                            suffix="%"
+                                            :allow-negative="true"
+                                            :disabled="! $canEdit"
+                                        />
+                                    </x-permissions.field-guard>
+                                @else
+                                    <x-permissions.field-guard :enabled="$canEdit">
+                                        <x-form.input-text
+                                            type="number"
+                                            wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
+                                            wire:blur="validateBonusIntervalField({{ $index }}, 'bonusAmount')"
+                                            placeholder="₽"
+                                            suffix="₽"
+                                            :allow-negative="true"
+                                            :disabled="! $canEdit"
+                                        />
+                                    </x-permissions.field-guard>
+                                @endif
                                 @if ($canEdit)
-                                    <div class="col-span-4 flex items-center justify-center">
+                                    <div class="bonus-interval-remove pt-1">
                                         <x-button.button
                                             type="button"
-                                            wire:click.prevent="addInterval"
-                                            variant="action"
-                                        >
-                                            <x-slot:label>Добавить диапазон</x-slot:label>
-                                        </x-button.button>
+                                            wire:click.prevent="removeInterval({{ $index }})"
+                                            icon="icons.delete"
+                                            title="Удалить"
+                                        />
                                     </div>
+                                @else
+                                    <div class="bonus-interval-remove"></div>
                                 @endif
+                            @endforeach
                             </div>
-                        </x-form.form-field>
+                            @if ($canEdit)
+                                <div class="mt-3 flex items-center justify-center">
+                                    <x-button.button
+                                        type="button"
+                                        wire:click.prevent="addInterval"
+                                        variant="action"
+                                    >
+                                        <x-slot:label>Добавить диапазон</x-slot:label>
+                                    </x-button.button>
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 @endif
             </div>
@@ -652,14 +677,24 @@
                         Задайте условия подмены UTM-меток в отчетах
                     </div>
 
-                    {{-- Таблица с логикой расчета --}}
+                    {{-- Таблица с логикой расчета — как блок гарантий --}}
                     <style>
                         .utm-mapping-grid {
-                            grid-template-columns: minmax(0, 1fr) 30px minmax(0, 1fr) 30px minmax(0, 1fr) 100px;
+                            grid-template-columns: minmax(0, 1fr) 32px minmax(0, 1fr) 32px minmax(0, 1fr) 56px;
+                        }
+
+                        .utm-mapping-grid .utm-mapping-remove {
+                            margin-left: 8px;
+                        }
+
+                        .utm-mapping-grid .utm-mapping-sep {
+                            display: flex;
+                            min-height: 42px;
+                            align-items: center;
+                            justify-content: center;
                         }
                     </style>
-                    <div
-                        class="utm-mapping-grid grid w-full items-start gap-x-1 gap-y-2 text-[14px]">
+                    <div class="utm-mapping-grid grid w-full items-start gap-x-2 gap-y-2 text-[14px]">
                         <div class="text-secondary-text">Выберите UTM-метку</div>
                         <div></div>
                         <div class="text-secondary-text">Введите значение подменяемой UTM-метки</div>
@@ -669,25 +704,21 @@
 
                         <?php /** @var \App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm $utmMappingForm */ ?>
                         @foreach ($utmMappingForm->utmMappings as $index => $utmMappingItem)
-                            <div class="flex items-start gap-2">
+                            <x-form.input-text
+                                placeholder="Выберите UTM-метку"
+                                wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.utmType"
+                                disabled
+                            />
+                            <div class="utm-mapping-sep text-secondary-text">-</div>
+                            <x-permissions.field-guard :enabled="$canEdit">
                                 <x-form.input-text
-                                    placeholder="Выберите UTM-метку"
-                                    wire:model.defer="utmMappingForm.utmMappings.{{ $index }}.utmType"
-                                    disabled
+                                    placeholder="Введите значение"
+                                    wire:model.live="utmMappingForm.utmMappings.{{ $index }}.utmValue"
+                                    wire:blur="validateUtmField({{ $index }}, 'utmValue')"
+                                    :disabled="! $canEdit"
                                 />
-                            </div>
-                            <div class="text-secondary-text pt-3 text-center">-</div>
-                            <div class="flex items-start gap-2">
-                                <x-permissions.field-guard :enabled="$canEdit">
-                                    <x-form.input-text
-                                        placeholder="Введите значение"
-                                        wire:model.live="utmMappingForm.utmMappings.{{ $index }}.utmValue"
-                                        wire:blur="validateUtmField({{ $index }}, 'utmValue')"
-                                        :disabled="! $canEdit"
-                                    />
-                                </x-permissions.field-guard>
-                            </div>
-                            <div class="text-secondary-text pt-3 text-center">=</div>
+                            </x-permissions.field-guard>
+                            <div class="utm-mapping-sep text-secondary-text">=</div>
                             <x-permissions.field-guard :enabled="$canEdit">
                                 <x-form.input-text
                                     placeholder="Значение в отчете"
@@ -697,17 +728,16 @@
                                 />
                             </x-permissions.field-guard>
                             @if ($canEdit)
-                                <div class="pt-1">
+                                <div class="utm-mapping-remove pt-1">
                                     <x-button.button
                                         type="button"
                                         wire:click.prevent="removeMapping({{ $index }})"
-                                        variant="action"
-                                    >
-                                        <x-slot:label>Удалить</x-slot:label>
-                                    </x-button.button>
+                                        icon="icons.delete"
+                                        title="Удалить"
+                                    />
                                 </div>
                             @else
-                                <div></div>
+                                <div class="utm-mapping-remove"></div>
                             @endif
                         @endforeach
                     </div>
