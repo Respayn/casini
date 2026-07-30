@@ -19,7 +19,7 @@ class CreateClientProjectForm extends Form
     public int $client;
 
     #[Validate('required|url|max:255', message: 'Введите корректный URL-адрес')]
-    public string $domain;
+    public string $domain = '';
 
     #[Validate('nullable|exists:users,id', message: 'Укажите менеджера')]
     public ?int $manager = null;
@@ -40,10 +40,16 @@ class CreateClientProjectForm extends Form
     #[Validate('nullable|bool|max:255')]
     public ?bool $isInternal = null;
 
-    #[Validate('required|array', message: 'Выберите хотя бы один регион продвижения')]
+    /** Дата создания для отображения (дд.мм.гггг), только чтение */
+    public string $createdAt = '';
+
+    /** Дата архивации для отображения (дд.мм.гггг), только чтение */
+    public string $archivedAt = '';
+
+    #[Validate('nullable|array')]
     public array $promotionRegions = [];
 
-    #[Validate('required|array', message: 'Выберите хотя бы одну тематику продвижения')]
+    #[Validate('nullable|array')]
     public array $promotionTopics = [];
 
     public function rules()
@@ -60,8 +66,8 @@ class CreateClientProjectForm extends Form
                 'kpi' => 'required|string|max:255',
                 'projectType' => 'required|string|max:255',
                 'isInternal' => 'nullable|string|max:255',
-                'promotionRegions' => 'required|array',
-                'promotionTopics' => 'required|array',
+                'promotionRegions' => 'nullable|array',
+                'promotionTopics' => 'nullable|array',
             ],
         );
     }
@@ -85,5 +91,8 @@ class CreateClientProjectForm extends Form
         $this->isInternal = $project->is_internal;
         $this->promotionRegions = $project->promotionRegions->toArray();
         $this->promotionTopics = $project->promotionTopics->toArray();
+        $this->assistants = $project->assistantIds !== []
+            ? $project->assistantIds
+            : [];
     }
 }
