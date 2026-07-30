@@ -91,5 +91,8 @@ class CreateClientProjectForm extends Form
         $this->isInternal = $project->is_internal;
         $this->promotionRegions = $project->promotionRegions->toArray();
         $this->promotionTopics = $project->promotionTopics->toArray();
+        $this->assistants = $project->assistantIds !== []
+            ? $project->assistantIds
+            : [];
     }
 }

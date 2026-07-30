@@ -281,6 +281,10 @@ class extends Component
             $this->clientProjectForm->promotionTopics[] = null;
         }
 
+        if (empty($this->clientProjectForm->assistants)) {
+            $this->clientProjectForm->assistants[] = null;
+        }
+
         if (session()->pull('client_project_saved')) {
             $this->startWithSuccessMessage = true;
         }
@@ -353,7 +357,50 @@ class extends Component
     #[Computed]
     public function specialists()
     {
-        return $this->userService->getSpecialists();
+        $agencyId = Auth::user()?->agencies()->first()?->id;
+
+        return $agencyId
+            ? $this->userService->getByAgency((int) $agencyId)
+            : collect();
+    }
+
+    /**
+     * @return list<array{label: string, value: int|null}>
+     */
+    #[Computed]
+    public function specialistSelectOptions(): array
+    {
+        return $this->mapUsersToSelectOptions($this->specialists);
+    }
+
+    /**
+     * @param  \Illuminate\Support\Collection<int, \App\Data\UserData>  $users
+     * @return list<array{label: string, value: int|null}>
+     */
+    private function mapUsersToSelectOptions(Collection $users): array
+    {
+        return $users
+            ->map(fn ($user) => [
+                'label' => $this->formatUserSelectLabel($user),
+                'value' => $user->id,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatUserSelectLabel(object $user): string
+    {
+        $name = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+        $role = collect($user->roles ?? [])
+            ->map(fn ($role) => $role->display_name ?? $role['display_name'] ?? null)
+            ->filter()
+            ->first();
+
+        if ($role === null || $role === '') {
+            return $name;
+        }
+
+        return $name.' ('.$role.')';
     }
 
     #[Computed]
@@ -929,6 +976,32 @@ class extends Component
         $this->markPendingChanges();
     }
 
+    public function addAssistant()
+    {
+        $this->ensureCanEdit();
+
+        $this->clientProjectForm->assistants[] = null;
+        $this->markPendingChanges();
+    }
+
+    public function removeAssistant(int $index)
+    {
+        $this->ensureCanEdit();
+
+        if ($index <= 0) {
+            return;
+        }
+
+        unset($this->clientProjectForm->assistants[$index]);
+        $this->clientProjectForm->assistants = array_values($this->clientProjectForm->assistants);
+
+        if ($this->clientProjectForm->assistants === []) {
+            $this->clientProjectForm->assistants[] = null;
+        }
+
+        $this->markPendingChanges();
+    }
+
     public function removeRegion($index)
     {
         $this->ensureCanEdit();
@@ -1036,6 +1109,10 @@ class extends Component
                 recommendation_url: $this->clientProjectForm->recommendationUrl ?? null,
                 legal_entity: $this->clientProjectForm->legalEntity ?? null,
                 inn: $this->clientProjectForm->inn ?? null,
+                assistantIds: array_values(array_filter(array_map(
+                    static fn ($id) => filled($id) ? (int) $id : null,
+                    $this->clientProjectForm->assistants
+                ))),
             );
 
             // Сохраняем проект через сервис

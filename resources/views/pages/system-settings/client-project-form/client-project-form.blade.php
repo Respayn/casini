@@ -46,14 +46,14 @@
                         required
                     >Статус клиенто-проекта</x-form.form-label>
                     <div>
-                        <div class="ml-auto flex w-[126px] items-center justify-between">
+                        <div class="flex items-center justify-end gap-3">
+                            <label>
+                                Активен
+                            </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                                 <x-form.toggle-switch wire:model.live="clientProjectForm.isActive" :disabled="! $canEdit">
                                 </x-form.toggle-switch>
                             </x-permissions.field-guard>
-                            <label>
-                                Активен
-                            </label>
                         </div>
                     </div>
                 </x-form.form-field>
@@ -155,9 +155,7 @@
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-form.select
-                                :options="$this->specialists->map(function ($item) {
-                                    return ['label' => $item->first_name . ' ' . $item->last_name, 'value' => $item->id];
-                                })"
+                                :options="$this->specialistSelectOptions"
                                 wire:model="clientProjectForm.specialist"
                                 placeholder="Выберите специалиста"
                                 :disabled="! $canEdit"
@@ -171,18 +169,36 @@
                         Помощники
                     </x-form.form-label>
                     <div class="flex flex-col gap-1">
-                        <x-permissions.field-guard :enabled="$canEdit">
-                            <x-form.select
-                                class="w-full"
-                                wire:model="clientProjectForm.assistants"
-                                placeholder="Выберите помощника"
-                                :disabled="! $canEdit"
-                            />
-                        </x-permissions.field-guard>
+                        @foreach ($clientProjectForm->assistants as $index => $assistant)
+                            <div
+                                class="flex w-full items-center gap-2"
+                                wire:key="assistant-row-{{ $index }}"
+                            >
+                                <x-permissions.field-guard :enabled="$canEdit">
+                                    <x-form.select
+                                        class="w-full flex-1"
+                                        :options="$this->specialistSelectOptions"
+                                        wire:model="clientProjectForm.assistants.{{ $index }}"
+                                        placeholder="Выберите помощника"
+                                        :disabled="! $canEdit"
+                                    />
+                                </x-permissions.field-guard>
+                                @if ($canEdit && $index > 0)
+                                    <x-button.button
+                                        type="button"
+                                        wire:click="removeAssistant({{ $index }})"
+                                        icon="icons.delete"
+                                        title="Удалить"
+                                    />
+                                @endif
+                            </div>
+                        @endforeach
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-button.button
                                 class="self-start"
+                                type="button"
                                 variant="action"
+                                wire:click.prevent="addAssistant"
                                 :disabled="! $canEdit"
                             >
                                 <x-slot:label>
