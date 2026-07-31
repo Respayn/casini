@@ -133,6 +133,8 @@ class extends Component
             unset($data['password']);
         }
 
+        $data = $this->form->applyAccountStatus($data, $this->user);
+
         $userService->update($this->form->id, $data);
 
         $this->form->clearPasswordFields();

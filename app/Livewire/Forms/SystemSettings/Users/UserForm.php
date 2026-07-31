@@ -2,7 +2,9 @@
 
 namespace App\Livewire\Forms\SystemSettings\Users;
 
+use App\Enums\UserAccountStatus;
 use App\Models\User;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
@@ -29,8 +31,7 @@ class UserForm extends Form
     #[Validate('nullable|string|max:255')]
     public ?string $megaplan_id = null;
 
-    #[Validate('nullable|boolean')]
-    public bool $is_active = true;
+    public string $account_status = UserAccountStatus::Active->value;
 
     public $photo = null;
 
@@ -121,7 +122,7 @@ class UserForm extends Form
             'phone' => 'nullable|string|max:30',
             'image_path' => 'nullable|string|max:255',
             'megaplan_id' => 'nullable|string|max:255',
-            'is_active' => 'nullable|boolean',
+            'account_status' => ['required', 'string', Rule::enum(UserAccountStatus::class)],
             'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
             'rate_id' => 'nullable|integer|exists:rates,id',
             'role_id' => 'nullable|integer|exists:roles,id',
@@ -136,7 +137,7 @@ class UserForm extends Form
     /**
      * Заполнить форму из объекта пользователя User.
      */
-    public function from(User $user)
+    public function from(User $user): void
     {
         $this->id = $user->id ?? null;
         $this->login = $user->login ?? '';
@@ -146,11 +147,26 @@ class UserForm extends Form
         $this->phone = $user->phone ?? '';
         $this->image_path = $user->image_path ?? '';
         $this->megaplan_id = $user->megaplan_id ?? '';
-        $this->is_active = $user->is_active ?? true;
+        $this->account_status = UserAccountStatus::fromUser($user)->value;
         $this->rate_id = $user->latestRate?->rateValue->rate_id ?? null;
         $this->role_id = isset($user->roles) && count($user->roles) ? ($user->roles[0]['id'] ?? null) : null;
         $this->enable_important_notifications = $user->enable_important_notifications ?? true;
         $this->enable_notifications = $user->enable_notifications ?? true;
         $this->clearPasswordFields();
+    }
+
+    /**
+     * Подменяет account_status на is_active / email_verified_at для сохранения.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public function applyAccountStatus(array $data, ?User $existing = null): array
+    {
+        unset($data['account_status']);
+
+        $status = UserAccountStatus::tryFrom($this->account_status) ?? UserAccountStatus::Active;
+
+        return array_merge($data, $status->toPersistence($existing));
     }
 }

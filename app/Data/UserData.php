@@ -23,5 +23,6 @@ class UserData extends Data implements Wireable
         public ?bool $is_active = null,
         public ?string $rate_name = null,
         public ?int $rate_value = null,
+        public mixed $email_verified_at = null,
     ) {}
 }

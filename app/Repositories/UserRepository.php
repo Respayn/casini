@@ -59,6 +59,7 @@ class UserRepository extends EloquentRepository
                 is_active: $user->is_active,
                 rate_name: optional($user->latestRate?->rate)->name,
                 rate_value: $user->latestRate?->rateValue->value,
+                email_verified_at: $user->email_verified_at,
             );
         });
     }
@@ -171,8 +172,11 @@ class UserRepository extends EloquentRepository
                 'megaplan_id' => $data['megaplan_id'] ?? null,
                 'enable_important_notifications' => !empty($data['enable_important_notifications']),
                 'enable_notifications' => !empty($data['enable_notifications']),
-                'email_verified_at' => $data['email_verified_at'] ?? null,
             ];
+
+            if (array_key_exists('email_verified_at', $data)) {
+                $updateData['email_verified_at'] = $data['email_verified_at'];
+            }
 
             // Обновлять пароль, только если он был явно передан
             if (!empty($data['password'])) {

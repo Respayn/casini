@@ -56,7 +56,6 @@ class extends Component
             'phone'      => $this->form->phone,
             'image_path' => $this->form->image_path,
             'megaplan_id'=> $this->form->megaplan_id,
-            'is_active'  => $this->form->is_active,
             'rate_id'    => $this->form->rate_id,
             'role_id'    => $this->form->role_id,
             'enable_important_notifications' => $this->form->enable_important_notifications,
@@ -64,6 +63,8 @@ class extends Component
             'password'   => $this->form->password,
             'agency_id' => $currentAgencyId,
         ];
+
+        $userData = $this->form->applyAccountStatus($userData);
 
         // Создаём пользователя через сервис
         $userService->create($userData);

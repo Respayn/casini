@@ -108,8 +108,13 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 ## Авторизация
 
 - Livewire-страница: `resources/views/pages/auth/login/`.
-- Логика входа: `App\Services\Auth\LoginService` — поиск по `login` или `email` (case-insensitive), проверка пароля, проверка `is_active`, затем `Auth::login`.
-- Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`).
+- Логика входа: `App\Services\Auth\LoginService` — поиск по `login` или `email` (case-insensitive), проверка пароля, проверка статуса, затем `Auth::login`.
+- Статусы учётки (`App\Enums\UserAccountStatus`) на базе `is_active` + `email_verified_at`:
+  - **Активен** (`is_active=true`) — вход разрешён;
+  - **Неактивен** (`is_active=false`, `email_verified_at` задан) — вход запрещён, сообщение `auth.inactive`;
+  - **Подтвердить email** (`is_active=false`, `email_verified_at=null`) — вход запрещён, сообщение `auth.pending_email`, на форме входа ссылка «Повторно выслать письмо» (`LoginService::resendVerificationEmail`, письмо `VerifyRegistrationMail`, throttle 3/10 мин).
+- Middleware `App\Http\Middleware\EnsureUserIsActive` в группе `web`: если сессия есть, а `is_active=false` — logout, invalidate session, redirect на login с flash `inactive` или `pending_email`.
+- Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`, `pending_email`, `verification_resent`, `verification_resend_throttle`).
 - Пароли: в Eloquent передаётся plain-text; cast `password => hashed` в `User` хеширует при сохранении. Не вызывать `Hash::make` / `bcrypt` перед записью в модель.
 
 ## Интеграция Яндекс.Директ (настройки клиенто-проекта)

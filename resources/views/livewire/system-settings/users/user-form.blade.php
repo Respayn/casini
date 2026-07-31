@@ -37,8 +37,8 @@
             <x-form.form-field>
                 <x-form.form-label required tooltip="Пользователь сможет войти только если активен">Статус</x-form.form-label>
                 <x-form.select
-                    wire:model="form.is_active"
-                    :options="[['label'=>'Активен','value'=>true],['label'=>'Неактивен','value'=>false]]"
+                    wire:model="form.account_status"
+                    :options="\App\Enums\UserAccountStatus::selectOptions()"
                     placeholder="Выберите значение"
                 />
             </x-form.form-field>

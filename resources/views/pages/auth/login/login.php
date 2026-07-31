@@ -2,11 +2,9 @@
 
 use App\Livewire\Concerns\RedirectsAfterAuth;
 use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
-use App\Models\User;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
+use App\Services\Auth\LoginService;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
-use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
@@ -25,6 +23,8 @@ class extends Component {
     #[Validate('string', onUpdate: false)]
     public string $password = '';
 
+    public ?string $resendStatus = null;
+
     #[Computed]
     public function isLoginReady(): bool
     {
@@ -36,36 +36,57 @@ class extends Component {
         $this->validateOnly($field);
     }
 
-    public function login(): void
+    public function login(LoginService $loginService): void
     {
+        $this->resendStatus = null;
         $this->verifySmartCaptcha('login-captcha');
         $this->validate();
 
-        $login = trim($this->userLogin);
+        $user = $loginService->attempt(trim($this->userLogin), $this->password);
 
-        $user = User::query()
-            ->where(function ($query) use ($login) {
-                $query->where('login', $login)
-                    ->orWhere('email', $login);
-            })
-            ->first();
-
-        if (! $user || ! Hash::check($this->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'userLogin' => __('auth.failed'),
-            ]);
-        }
-
-        if (! $user->is_active) {
-            throw ValidationException::withMessages([
-                'userLogin' => 'Подтвердите email по ссылке из письма',
-            ]);
-        }
-
-        Auth::login($user);
         Session::regenerate();
         $this->bindCurrentAgency($user);
 
+        $intended = Session::get('url.intended');
+        $landingPath = parse_url(route('landing'), PHP_URL_PATH) ?: '/';
+        $intendedPath = is_string($intended) ? (parse_url($intended, PHP_URL_PATH) ?: $intended) : null;
+
+        if ($intendedPath === $landingPath || $intendedPath === '/') {
+            Session::forget('url.intended');
+        }
+
         $this->redirectIntended(default: $this->homeRouteAfterAuth(), navigate: true);
+    }
+
+    public function resendVerificationEmail(LoginService $loginService): void
+    {
+        $this->resendStatus = null;
+        $this->validate([
+            'userLogin' => ['required', 'string'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $login = trim($this->userLogin);
+        $throttleKey = 'resend-verification:'.mb_strtolower($login).'|'.request()->ip();
+
+        if (RateLimiter::tooManyAttempts($throttleKey, 3)) {
+            $this->addError('pending_email', __('auth.verification_resend_throttle'));
+
+            return;
+        }
+
+        RateLimiter::hit($throttleKey, 600);
+
+        $sent = $loginService->resendVerificationEmail($login, $this->password);
+
+        if (! $sent) {
+            // Не раскрываем причину (нет пользователя / неверный пароль / другой статус)
+            $this->addError('pending_email', __('auth.pending_email'));
+
+            return;
+        }
+
+        $this->resendStatus = __('auth.verification_resent');
+        $this->resetErrorBag('pending_email');
     }
 };

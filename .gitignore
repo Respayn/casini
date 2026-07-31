@@ -22,3 +22,8 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Локальные pre-deploy проверки staging (не для GitHub)
+/scripts/staging-pre-deploy-check.sh
+/scripts/staging-deploy-files.sh
+/scripts/staging-hot-zones.conf

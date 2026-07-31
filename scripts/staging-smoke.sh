@@ -89,4 +89,35 @@ else
   echo "OK: YANDEX_DIRECT_CLIENT_ID задан"
 fi
 
+echo "==> Route users.edit exists"
+route_list="$(php artisan route:list --path='users/{user}/edit' --columns=method,uri,name,middleware 2>/dev/null || true)"
+if ! printf '%s' "${route_list}" | grep -qE 'users\.edit|users/\{user\}/edit'; then
+  echo "FAIL: маршрут users/{user}/edit (users.edit) не найден"
+  printf '%s\n' "${route_list}"
+  exit 1
+fi
+echo "OK: route users.edit present"
+
+echo "==> Middleware alias can.access.user.edit (если используется в routes)"
+if grep -qE "can\.access\.user\.edit" "${APP_DIR}/routes/web.php" 2>/dev/null; then
+  if ! grep -qE "['\"]can\.access\.user\.edit['\"]" "${APP_DIR}/bootstrap/app.php"; then
+    echo "FAIL: routes используют can.access.user.edit, но alias не объявлен в bootstrap/app.php"
+    echo "HINT: не выкатывайте bootstrap/app.php без merge с feature/roles-permissions; см. scripts/staging-pre-deploy-check.sh"
+    exit 1
+  fi
+  # Доп. проверка: класс middleware резолвится через контейнер
+  mw_resolve="$(php artisan tinker --execute="echo class_exists(\\App\\Http\\Middleware\\EnsureCanAccessUserEdit::class) ? 'OK' : 'FAIL';" 2>/dev/null | tr -d '[:space:]' || true)"
+  if [[ "${mw_resolve}" == "FAIL" ]]; then
+    echo "FAIL: класс EnsureCanAccessUserEdit не найден (alias есть, файла middleware нет)"
+    exit 1
+  fi
+  if [[ "${mw_resolve}" == "OK" ]]; then
+    echo "OK: alias can.access.user.edit + class EnsureCanAccessUserEdit"
+  else
+    echo "OK: alias can.access.user.edit present in bootstrap (class check skipped)"
+  fi
+else
+  echo "OK: can.access.user.edit не используется в routes — skip"
+fi
+
 echo "==> Smoke passed"
