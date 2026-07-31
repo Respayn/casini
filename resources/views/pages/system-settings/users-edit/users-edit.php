@@ -54,6 +54,10 @@ class extends Component
     #[Computed]
     public function isSaveReady(): bool
     {
+        if (! $this->form->isEmailValid() || $this->getErrorBag()->has('form.email')) {
+            return false;
+        }
+
         if (! $this->form->hasPasswordChange()) {
             return true;
         }
@@ -61,6 +65,11 @@ class extends Component
         return filled(trim((string) $this->form->current_password))
             && (bool) preg_match('/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', (string) $this->form->password)
             && $this->form->password === $this->form->password_confirmation;
+    }
+
+    public function validateFormField(string $field): void
+    {
+        $this->form->validateOnly($field);
     }
 
     public function validatePasswordField(string $field): void

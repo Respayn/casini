@@ -37,6 +37,11 @@ class extends Component
         $this->roles = $roleService->getRoleOptions();
     }
 
+    public function validateFormField(string $field): void
+    {
+        $this->form->validateOnly($field);
+    }
+
     public function save(UserService $userService)
     {
         $this->validate();

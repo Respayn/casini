@@ -118,7 +118,12 @@
 
             <x-form.form-field>
                 <x-form.form-label required tooltip="Email для авторизации и уведомлений">Email</x-form.form-label>
-                <x-form.input-text wire:model="form.email" type="email" placeholder="email@siteactiv.ru" />
+                <x-form.input-text
+                    wire:model.live="form.email"
+                    wire:blur="validateFormField('email')"
+                    type="email"
+                    placeholder="email@siteactiv.ru"
+                />
             </x-form.form-field>
 
             <x-form.form-field>

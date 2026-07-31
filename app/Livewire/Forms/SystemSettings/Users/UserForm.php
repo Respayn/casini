@@ -134,6 +134,25 @@ class UserForm extends Form
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'Поле email обязательно для заполнения',
+            'email.email' => 'некорректный email',
+            'email.max' => 'Поле email не должно превышать 255 символов',
+            'email.unique' => 'Пользователь с таким email уже существует',
+            'login.required' => 'Поле логин обязательно для заполнения',
+            'login.unique' => 'Пользователь с таким логином уже существует',
+        ];
+    }
+
+    public function isEmailValid(): bool
+    {
+        $email = trim($this->email);
+
+        return $email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
     /**
      * Заполнить форму из объекта пользователя User.
      */
