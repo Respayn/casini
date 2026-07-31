@@ -219,18 +219,16 @@
         <h2 class="font-semibold mt-6 mb-1">Прочее</h2>
 
         <x-form.form-field>
-            <x-form.form-label tooltip="ID из интеграции Мегаплан">ID пользователя в Мегаплан</x-form.form-label>
-            <x-form.input-text wire:model="form.megaplan_id" placeholder="1000272" />
-        </x-form.form-field>
-
-        <x-form.form-field>
             <x-form.form-label>Важные уведомления</x-form.form-label>
             <x-form.toggle-switch wire:model="form.enable_important_notifications" />
         </x-form.form-field>
 
         <x-form.form-field>
             <x-form.form-label>Обновление сервиса</x-form.form-label>
-            <x-form.toggle-switch wire:model="form.enable_notifications" />
+            <x-form.toggle-switch
+                wire:model="form.enable_notifications"
+                :disabled="true"
+            />
         </x-form.form-field>
 
         @if ($showInlineActions ?? true)
