@@ -42,6 +42,14 @@ if ! sudo -u "${WEB_USER}" test -w "${LIVEWIRE_CLASSES}"; then
 fi
 echo "OK: Livewire cache writable"
 
+echo "==> public/storage symlink (user photos, logos)"
+if [[ ! -L "${APP_DIR}/public/storage" ]]; then
+  echo "FAIL: отсутствует симлинк ${APP_DIR}/public/storage"
+  echo "HINT: cd ${APP_DIR} && php artisan storage:link && chown -h ${WEB_USER}:${WEB_USER} public/storage"
+  exit 1
+fi
+echo "OK: public/storage -> $(readlink "${APP_DIR}/public/storage")"
+
 echo "==> Dictionaries without auth (expect 302 to login, not 500)"
 dict_headers="$(curl -sI --max-time 20 "${BASE_URL}/system-settings/dictionaries")"
 dict_status="$(printf '%s' "${dict_headers}" | awk 'NR==1 {print $2}')"

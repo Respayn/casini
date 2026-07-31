@@ -125,19 +125,26 @@ class extends Component
 
         $this->form->clearPasswordFields();
         $this->user = $this->user->fresh();
+        $this->form->from($this->user);
 
         if ($passwordChanged) {
             session()->flash('password_updated', 'Пароль успешно обновлен');
-
-            return $this->redirect(
-                route('system-settings.users.edit', $this->user),
-                navigate: true
-            );
+        } else {
+            session()->flash('success', 'Изменения сохранены');
         }
 
-        session()->flash('success', 'Пользователь успешно обновлен!');
+        return $this->redirect(
+            route('system-settings.users.edit', $this->user),
+            navigate: true
+        );
+    }
 
-        return redirect()->route('system-settings.users');
+    public function cancelChanges(): mixed
+    {
+        return $this->redirect(
+            route('system-settings.users.edit', $this->user),
+            navigate: true
+        );
     }
 
     public function deletePhoto()

@@ -101,6 +101,10 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 
 Исправление: `bash scripts/staging-fix-permissions.sh --clear`. Профилактика: runtime-artisan только как `sudo -u www-data php artisan ...`.
 
+Фото пользователей и логотипы агентства отдаются по URL `/storage/...` через симлинк `public/storage` → `storage/app/public`. Без `php artisan storage:link` браузер получает 403/битую картинку при живом файле на диске. Smoke: `scripts/staging-smoke.sh` проверяет наличие симлинка.
+
+Загрузка фото (Livewire temporary upload): PHP-FPM `upload_max_filesize` должен быть не меньше лимита в форме (сейчас подсказка «До 2 Мб», правило `max:2048`). На staging выставлено `upload_max_filesize=8M` при `post_max_size=8M`. При заниженном лимите PHP пользователь видит `validation.uploaded` («Не удалось загрузить файл…»), а не сообщение о размере.
+
 ## Авторизация
 
 - Livewire-страница: `resources/views/pages/auth/login/`.

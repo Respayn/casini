@@ -27,7 +27,7 @@
                     @endif
                     <div class="ml-2.5">
                         <div class="font-semibold">{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</div>
-                        <div class="text-xs text-gray-400">{{ Auth::user()->role ?? 'Администратор' }}</div>
+                        <div class="text-xs text-gray-400">{{ Auth::user()->roles->first()?->display_name }}</div>
                     </div>
                 </div>
 

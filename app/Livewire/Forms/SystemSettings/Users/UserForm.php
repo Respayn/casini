@@ -122,7 +122,7 @@ class UserForm extends Form
             'image_path' => 'nullable|string|max:255',
             'megaplan_id' => 'nullable|string|max:255',
             'is_active' => 'nullable|boolean',
-            'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:1024',
+            'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
             'rate_id' => 'nullable|integer|exists:rates,id',
             'role_id' => 'nullable|integer|exists:roles,id',
             'enable_important_notifications' => 'nullable|boolean',
