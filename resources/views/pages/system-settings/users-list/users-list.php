@@ -5,10 +5,12 @@ namespace App\Livewire\Users;
 use App\Services\AgencySettingsService;
 use App\Services\UserService;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new
 #[Layout('layouts::system-settings')]
+#[Title('Пользователи и роли')]
 class extends Component
 {
     public bool $onlyActive = false;

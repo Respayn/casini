@@ -8,14 +8,17 @@ use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new
+#[Layout('layouts::system-settings')]
 class extends Component
 {
     use WithFileUploads;
@@ -37,6 +40,15 @@ class extends Component
         $this->form->from($user);
         $this->rates = $ratesService->getRates();
         $this->roles = $roleService->getRoleOptions();
+    }
+
+    public function rendering($view): void
+    {
+        $view->title(
+            Auth::id() === $this->user->id
+                ? 'Настройки профиля'
+                : 'Редактировать пользователя'
+        );
     }
 
     #[Computed]

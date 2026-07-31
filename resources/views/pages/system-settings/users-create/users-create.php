@@ -10,11 +10,13 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new
 #[Layout('layouts::system-settings')]
+#[Title('Добавить пользователя')]
 class extends Component
 {
     use WithFileUploads;
