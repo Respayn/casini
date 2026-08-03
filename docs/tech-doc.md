@@ -215,3 +215,46 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `sync_enabled_at` | дата включения синхронизации (`Y-m-d`) |
 
 Чтение поддерживает legacy camelCase (`clientLogin`, `encryptedOauthToken`).
+
+## Каналы: остаток бюджета и расход в Директе
+
+Колонки `direct-budget` / `direct-spendings` на странице `/channels`.
+
+| Что | Как |
+|-----|-----|
+| Источник credentials | `integration_project.settings` проекта: `oauth_token` + `client_login` (код интеграции `yandex_direct`) |
+| Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` (TTL 7 дней); клик / bulk |
+| Расход | сумма дней из `yandex_direct_daily_spendings` за месяц `queryData.dateTo` (колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
+| Обновление расхода | клик / bulk `refresh_spendings` — досъём дней периода тем же коллектором в БД |
+| Сервис UI | `ChannelDirectMetricsService`; строки — `ChannelReportService::enrichWithDirectMetrics()` |
+
+Пока расхода нет в БД, в ячейке `-`. Без настроенного Директа клик недоступен.
+
+### Лимит ручных запросов к API Директа (и образец для Статистики)
+
+Класс: `App\Services\Channels\ChannelDirectApiThrottle`. Правила зафиксированы в `.cursor/rules/casini-project-workflow.mdc` (раздел «Ручные запросы к внешнему API»).
+
+| Параметр | Значение |
+|----------|----------|
+| Интервал | ≥ 5 минут между запросами |
+| Серия | ≤ 3 запроса подряд |
+| После серии | блок 60 минут |
+| Ключ кэша | `channels.direct.api_throttle.user.{userId}` |
+
+Клик при уже загруженных данных (кэш бюджета / дни расхода в БД) API и throttle **не** трогает. Массовое действие = один `consume()`.
+
+## Ночной съём интеграций (единый каркас)
+
+Правила съёма (полночь по `agencies.time_zone`, вчерашний день, только активные проекты, requeue при ошибке API) — этот раздел; локально для агента также может лежать `.cursor/rules/integration-data-sync.mdc` (в git не коммитится).
+
+| Компонент | Назначение |
+|-----------|------------|
+| `agencies.time_zone` | «Основной часовой пояс агентства»; окно старта **00:01** локально |
+| `php artisan integrations:dispatch-due-syncs` | Schedule `everyMinute()`: если 00:01 и нет run за текущую local-дату → создать run + items за **вчера** |
+| `integration_sync_runs` / `integration_sync_items` | run и очередь проектов; при ошибке API item → в хвост, max 3 attempts |
+| `ProcessIntegrationSyncItem` | Job: один item → collector → upsert |
+| `yandex_direct_daily_spendings` | `project_id`, `date`, `cost_with_vat`, `cost_without_vat`, unique `(project_id, date)` |
+
+Кандидаты: `projects.is_active` + enabled `yandex_direct` с token и client_login.
+
+Staging: cron `schedule:run` + Supervisor `queue:work`.

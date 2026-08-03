@@ -6,7 +6,9 @@ use App\Contracts\ChannelReportServiceInterface;
 use App\Data\Channels\ChannelReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
+use App\Enums\ChannelBulkAction;
 use App\Enums\ChannelReportGrouping;
+use App\Services\Channels\ChannelDirectMetricsService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -32,16 +34,24 @@ class extends Component
 
     /**
      * Выбранное действие для массовых операций
-     * TODO: перевести на Backed Enum
      * @var string
      */
     public string $bulkAction = "";
 
+    public ?string $actionMessage = null;
+
+    public string $actionMessageType = 'success';
+
     private ChannelReportServiceInterface $channelReportService;
 
-    public function boot(ChannelReportServiceInterface $channelReportService)
-    {
+    private ChannelDirectMetricsService $directMetricsService;
+
+    public function boot(
+        ChannelReportServiceInterface $channelReportService,
+        ChannelDirectMetricsService $directMetricsService
+    ) {
         $this->channelReportService = $channelReportService;
+        $this->directMetricsService = $directMetricsService;
     }
 
     public function mount()
@@ -233,12 +243,100 @@ class extends Component
         $this->selectAll = false;
     }
 
-    public function makeBulkAction()
+    public function refreshDirectBudget(int $projectId): void
     {
-        if ($this->bulkAction === "") {
-            // select action
-        } else {
-            // success
+        $result = $this->directMetricsService->refreshBudget($projectId, force: false);
+        unset($this->reportData);
+
+        if (! ($result['ok'] ?? false)) {
+            $this->setActionMessage($result['error'] ?? 'Не удалось обновить остаток бюджета', 'error');
+
+            return;
         }
+
+        if ($result['fromCache'] ?? false) {
+            $this->setActionMessage('Показан остаток из кэша (без запроса к Директу). Принудительно — массовое действие «Обновить остаток бюджета».', 'success');
+
+            return;
+        }
+
+        $this->setActionMessage('Остаток бюджета загружен', 'success');
+    }
+
+    public function refreshDirectSpendings(int $projectId): void
+    {
+        $result = $this->directMetricsService->refreshSpendings(
+            $projectId,
+            $this->queryData->dateTo,
+            $this->queryData->includeVat,
+            force: false,
+        );
+        unset($this->reportData);
+
+        if (! ($result['ok'] ?? false)) {
+            $this->setActionMessage($result['error'] ?? 'Не удалось обновить расход в Директе', 'error');
+
+            return;
+        }
+
+        if ($result['fromCache'] ?? false) {
+            $this->setActionMessage('Показан расход из базы (без запроса к Директу). Чтобы обновить принудительно — массовое действие «Обновить расходы».', 'success');
+
+            return;
+        }
+
+        $this->setActionMessage('Расход в Директе загружен и сохранён', 'success');
+    }
+
+    public function makeBulkAction(): void
+    {
+        $action = ChannelBulkAction::tryFrom($this->bulkAction);
+
+        if ($action === null) {
+            $this->setActionMessage('Выберите массовое действие', 'error');
+
+            return;
+        }
+
+        if ($this->selectedProjects === []) {
+            $this->setActionMessage('Выберите клиенто-проекты', 'error');
+
+            return;
+        }
+
+        $stats = match ($action) {
+            ChannelBulkAction::RefreshBudgetRemains => $this->directMetricsService->refreshBudgets(
+                $this->selectedProjects,
+            ),
+            ChannelBulkAction::RefreshSpendings => $this->directMetricsService->refreshSpendingsForProjects(
+                $this->selectedProjects,
+                $this->queryData->dateTo,
+                $this->queryData->includeVat,
+            ),
+        };
+
+        unset($this->reportData);
+
+        if (! empty($stats['error'])) {
+            $this->setActionMessage($stats['error'], 'error');
+
+            return;
+        }
+
+        $this->setActionMessage(
+            sprintf(
+                'Обновлено: %d, ошибок: %d, без Директа: %d',
+                $stats['updated'],
+                $stats['failed'],
+                $stats['skipped'],
+            ),
+            $stats['failed'] > 0 ? 'error' : 'success',
+        );
+    }
+
+    private function setActionMessage(string $message, string $type): void
+    {
+        $this->actionMessage = $message;
+        $this->actionMessageType = $type;
     }
 };

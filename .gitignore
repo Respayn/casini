@@ -22,3 +22,6 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Локальные правила агента (не в GitHub)
+/.cursor/rules/integration-data-sync.mdc

@@ -18,13 +18,13 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex items-center">
-        <div class="mr-3.5">
+    <div class="flex flex-wrap items-center gap-y-3">
+        <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="queryData.showInactive" />
         </div>
 
-        <div class="mr-[26px]">
+        <div class="mr-[26px] flex items-center gap-2">
             <label>НДС</label>
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
@@ -33,7 +33,7 @@
             <x-form.month-picker wire:model.live="queryData.dateTo" />
         </div>
 
-        <div class="flex-end ml-auto">
+        <div class="ml-auto flex flex-wrap items-center gap-2">
             <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
                 <x-button.button
                     icon="icons.edit"
@@ -52,19 +52,28 @@
     </div>
 
     @if (!empty($selectedProjects))
-        <div class="flex gap-2">
+        <div class="mt-3 flex gap-2">
             <div class="w-xs">
                 <x-form.select
                     wire:model="bulkAction"
-                    :options="[
-                        ['label' => 'Обновить расходы', 'value' => 'refresh_spendings'],
-                        ['label' => 'Обновить остаток бюджета', 'value' => 'refresh_budget_remains'],
-                    ]"
+                    :options="collect(\App\Enums\ChannelBulkAction::cases())->map(fn ($action) => [
+                        'label' => $action->label(),
+                        'value' => $action->value,
+                    ])->all()"
                     placeholder="Массовые действия"
                 />
             </div>
             <x-button.button wire:click="makeBulkAction" label="Выполнить" />
         </div>
+    @endif
+
+    @if ($actionMessage)
+        <x-feedback.notice
+            class="mt-3 mb-0"
+            :variant="$actionMessageType === 'error' ? 'error' : 'info'"
+        >
+            {{ $actionMessage }}
+        </x-feedback.notice>
     @endif
 
     @if ($this->reportData->groups->isEmpty())
@@ -108,7 +117,7 @@
                                     <x-data.table-cell colspan="100">
                                         <div
                                             class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']; console.log(expandedGroups)"
+                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
                                         >
                                             <span class="font-bold">{{ $group->groupLabel }}</span>
                                             <x-icons.accordion-arrow

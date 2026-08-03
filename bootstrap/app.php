@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\DisableSessionAuthForApi;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -16,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         channels: __DIR__.'/../routes/channels.php',
         health: '/up',
     )
+    ->withSchedule(function (Schedule $schedule) {
+        $schedule->command('integrations:dispatch-due-syncs')->everyMinute();
+    })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(DisableSessionAuthForApi::class);
 

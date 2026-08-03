@@ -434,7 +434,8 @@ class YandexDirectService
     public function getPerformanceReport(
         Carbon $startDate,
         Carbon $endDate,
-        array $metrics = ['Impressions', 'Clicks', 'Cost']
+        array $metrics = ['Impressions', 'Clicks', 'Cost'],
+        bool $includeVat = true
     ): Collection {
         $this->validateDateRange($startDate, $endDate);
 
@@ -444,7 +445,8 @@ class YandexDirectService
                     'ACCOUNT_PERFORMANCE_REPORT',
                     $startDate,
                     $endDate,
-                    $metrics
+                    $metrics,
+                    includeVat: $includeVat
                 )
             ]);
             return $this->parser->parsePerformanceReport($reportData);
@@ -505,7 +507,8 @@ class YandexDirectService
         Carbon $startDate,
         Carbon $endDate,
         array $fields,
-        array $additionalCriteria = []
+        array $additionalCriteria = [],
+        bool $includeVat = true
     ): array {
         $baseParams = [
             'SelectionCriteria' => (object)[
@@ -517,7 +520,7 @@ class YandexDirectService
             'ReportType' => $reportType,
             'DateRangeType' => 'CUSTOM_DATE',
             'Format' => 'TSV',
-            'IncludeVAT' => 'YES',
+            'IncludeVAT' => $includeVat ? 'YES' : 'NO',
             'IncludeDiscount' => 'NO'
         ];
 
@@ -546,15 +549,58 @@ class YandexDirectService
      * @return float
      * @throws YandexDirectApiException
      */
-    public function getProjectExpenses(Carbon $startDate, Carbon $endDate): float
+    public function getProjectExpenses(Carbon $startDate, Carbon $endDate, bool $includeVat = true): float
     {
         $report = $this->getPerformanceReport(
             $startDate,
             $endDate,
-            ['Cost', 'Impressions', 'Clicks']
+            ['Cost', 'Impressions', 'Clicks'],
+            $includeVat
         );
 
         return $report->sum('cost');
+    }
+
+    /**
+     * Расход по дням за период (один отчёт ACCOUNT_PERFORMANCE_REPORT с полем Date).
+     *
+     * @return array<string, float> ключ Y-m-d => cost
+     *
+     * @throws YandexDirectApiException
+     */
+    public function getDailyProjectExpenses(Carbon $startDate, Carbon $endDate, bool $includeVat = true): array
+    {
+        $this->validateDateRange($startDate, $endDate);
+
+        try {
+            $reportData = $this->getClient()->requestReport([
+                'params' => $this->buildReportParams(
+                    'ACCOUNT_PERFORMANCE_REPORT',
+                    $startDate,
+                    $endDate,
+                    ['Date', 'Cost'],
+                    includeVat: $includeVat
+                ),
+            ]);
+
+            $byDay = [];
+            foreach ($reportData as $row) {
+                if (! isset($row['Date'])) {
+                    continue;
+                }
+                $day = Carbon::parse($row['Date'])->toDateString();
+                $byDay[$day] = ($byDay[$day] ?? 0) + (float) ($row['Cost'] ?? 0);
+            }
+
+            return $byDay;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $startDate->toDateString(),
+                'end' => $endDate->toDateString(),
+                'include_vat' => $includeVat,
+            ]);
+            throw new YandexDirectApiException('Failed to get daily expenses', 0, $e);
+        }
     }
 
     /**

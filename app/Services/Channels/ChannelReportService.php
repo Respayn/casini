@@ -27,6 +27,7 @@ class ChannelReportService implements ChannelReportServiceInterface
     private IntegrationRepository $integrationRepository;
     private RateRepository $rateRepository;
     private ProjectPlanService $projectPlanService;
+    private ChannelDirectMetricsService $directMetricsService;
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -34,7 +35,8 @@ class ChannelReportService implements ChannelReportServiceInterface
         UserRepository $userRepository,
         IntegrationRepository $integrationRepository,
         RateRepository $rateRepository,
-        ProjectPlanService $projectPlanService
+        ProjectPlanService $projectPlanService,
+        ChannelDirectMetricsService $directMetricsService
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
@@ -42,6 +44,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->integrationRepository = $integrationRepository;
         $this->rateRepository = $rateRepository;
         $this->projectPlanService = $projectPlanService;
+        $this->directMetricsService = $directMetricsService;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
@@ -94,22 +97,72 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $plans);
+            $report = $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $plans);
+        } elseif ($query->grouping === ChannelReportGrouping::CLIENTS) {
+            $report = $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $plans);
+        } elseif ($query->grouping === ChannelReportGrouping::TOOLS) {
+            $report = $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $plans);
+        } elseif ($query->grouping === ChannelReportGrouping::ROLE) {
+            $report = $this->createReportGroupedByRoles($clients, $projects, $users, $integrations, $plans);
+        } else {
+            $report = $this->createFlatReport($clients, $projects, $users, $integrations, $plans);
         }
 
-        if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $plans);
+        $this->enrichWithDirectMetrics($report, $query, $integrations);
+
+        return $report;
+    }
+
+    private function enrichWithDirectMetrics(
+        TableReportData $report,
+        ChannelReportQueryData $query,
+        Collection $integrations
+    ): void {
+        $budgetTotal = null;
+        $spendingsTotal = null;
+
+        foreach ($report->groups as $group) {
+            $groupBudget = null;
+            $groupSpendings = null;
+
+            foreach ($group->rows as $row) {
+                $projectIntegrations = $integrations->get($row->id, collect());
+
+                $budgetParams = $this->directMetricsService->budgetCellParams(
+                    (int) $row->id,
+                    $projectIntegrations
+                );
+                $spendingsParams = $this->directMetricsService->spendingsCellParams(
+                    (int) $row->id,
+                    $projectIntegrations,
+                    $query->dateTo,
+                    $query->includeVat
+                );
+
+                $row->data->put('direct-budget', $budgetParams);
+                $row->data->put('direct-spendings', $spendingsParams);
+
+                if ($budgetParams['value'] !== null) {
+                    $groupBudget = ($groupBudget ?? 0) + $budgetParams['value'];
+                    $budgetTotal = ($budgetTotal ?? 0) + $budgetParams['value'];
+                }
+
+                if ($spendingsParams['value'] !== null) {
+                    $groupSpendings = ($groupSpendings ?? 0) + $spendingsParams['value'];
+                    $spendingsTotal = ($spendingsTotal ?? 0) + $spendingsParams['value'];
+                }
+            }
+
+            if ($group->summary instanceof Collection) {
+                $group->summary->put('direct-budget', $groupBudget);
+                $group->summary->put('direct-spendings', $groupSpendings);
+            }
         }
 
-        if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $plans);
+        if ($report->summary instanceof Collection) {
+            $report->summary->put('direct-budget', $budgetTotal);
+            $report->summary->put('direct-spendings', $spendingsTotal);
         }
-
-        if ($query->grouping === ChannelReportGrouping::ROLE) {
-            return $this->createReportGroupedByRoles($clients, $projects, $users, $integrations, $plans);
-        }
-
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $plans);
     }
 
     public function createFlatReport($clients, $projects, $users, Collection $integrations, array $plans): TableReportData

@@ -9,6 +9,7 @@ use App\Repositories\Interfaces\IntegrationRepositoryInterface;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Repositories\ProjectUtmMappingRepository;
 use App\Services\Channels\ChannelReportService;
+use App\Services\IntegrationSync\IntegrationSyncDispatcher;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
@@ -57,6 +58,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProjectUtmMappingRepositoryInterface::class, ProjectUtmMappingRepository::class);
         $this->app->bind(IntegrationRepositoryInterface::class, IntegrationRepository::class);
         $this->app->bind(ChannelReportServiceInterface::class, ChannelReportService::class);
+
+        $this->app->singleton(IntegrationSyncDispatcher::class, function ($app) {
+            return new IntegrationSyncDispatcher(
+                IntegrationSyncDispatcher::defaultCollectors()
+            );
+        });
 
         // Привязка по Clean Architecture, отрефакторить остальное на неё
         $this->app->bind(AgencyRepositoryInterface::class, EloquentAgencyRepository::class);
