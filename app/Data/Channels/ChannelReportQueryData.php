@@ -85,8 +85,8 @@ class ChannelReportQueryData extends Data implements Wireable
 
         // сумма по должностям и программингу, копирайтеру и ссылкам
         $instance->columns->add(new TableReportColumnData('summary-spendings', 'Расходы итого (₽)', $colOrder++));
-        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток на сейчас. Клик берёт из кэша, если уже загружали; новый запрос к Директу — не чаще раза в 5 минут, не более 3 раз подряд (затем пауза 60 минут). Принудительно — массовое «Обновить остаток бюджета»'));
-        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за выбранный период из базы Касини. Клик к Директу только если данных нет. Лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут. Принудительно — массовое «Обновить расходы»'));
+        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток на сейчас. Обновление — массовое действие «Обновить остаток бюджета» (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
+        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за выбранный период из базы Касини. Обновление — массовое действие «Обновить расходы» (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
 
         return $instance;
     }
@@ -117,9 +117,26 @@ class ChannelReportQueryData extends Data implements Wireable
         }
 
         $instance = self::from($payload);
+        $instance->syncCanonicalColumnTooltips();
         $instance->clampPeriodToPresent();
 
         return $instance;
+    }
+
+    /**
+     * Подтянуть актуальные tooltip из create(), чтобы правки в коде доходили
+     * до пользователей с уже сохранёнными настройками колонок.
+     */
+    public function syncCanonicalColumnTooltips(): void
+    {
+        $defaults = self::create()->columns->keyBy(fn (TableReportColumnData $column) => $column->field);
+
+        foreach ($this->columns as $column) {
+            $default = $defaults->get($column->field);
+            if ($default !== null) {
+                $column->tooltip = $default->tooltip;
+            }
+        }
     }
 
     public function isSingleMonthPeriod(): bool

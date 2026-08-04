@@ -256,52 +256,6 @@ class extends Component
         $this->selectAll = false;
     }
 
-    public function refreshDirectBudget(int $projectId): void
-    {
-        $result = $this->directMetricsService->refreshBudget($projectId, force: false);
-        unset($this->reportData);
-
-        if (! ($result['ok'] ?? false)) {
-            $this->setActionMessage($result['error'] ?? 'Не удалось обновить остаток бюджета', 'error');
-
-            return;
-        }
-
-        if ($result['fromCache'] ?? false) {
-            $this->setActionMessage('Показан остаток из кэша (без запроса к Директу). Принудительно — массовое действие «Обновить остаток бюджета».', 'success');
-
-            return;
-        }
-
-        $this->setActionMessage('Остаток бюджета загружен', 'success');
-    }
-
-    public function refreshDirectSpendings(int $projectId): void
-    {
-        $result = $this->directMetricsService->refreshSpendings(
-            $projectId,
-            $this->queryData->dateFrom,
-            $this->queryData->dateTo,
-            $this->queryData->includeVat,
-            force: false,
-        );
-        unset($this->reportData);
-
-        if (! ($result['ok'] ?? false)) {
-            $this->setActionMessage($result['error'] ?? 'Не удалось обновить расход в Директе', 'error');
-
-            return;
-        }
-
-        if ($result['fromCache'] ?? false) {
-            $this->setActionMessage('Показан расход из базы (без запроса к Директу). Чтобы обновить принудительно — массовое действие «Обновить расходы».', 'success');
-
-            return;
-        }
-
-        $this->setActionMessage('Расход в Директе загружен и сохранён', 'success');
-    }
-
     public function makeBulkAction(): void
     {
         $action = ChannelBulkAction::tryFrom($this->bulkAction);

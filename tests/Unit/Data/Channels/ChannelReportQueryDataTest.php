@@ -39,6 +39,26 @@ class ChannelReportQueryDataTest extends TestCase
         $this->assertSame('2026-07-01', $data->dateTo->toDateString());
     }
 
+    public function test_hydrate_refreshes_direct_budget_tooltip_from_canonical(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-04'));
+
+        $payload = ChannelReportQueryData::create()->toArray();
+        foreach ($payload['columns'] as &$column) {
+            if (($column['field'] ?? null) === 'direct-budget') {
+                $column['tooltip'] = 'старый текст — кликните на ячейку и данные обновятся';
+            }
+        }
+        unset($column);
+
+        $data = ChannelReportQueryData::hydrateFromSavedSettings($payload);
+        $budget = $data->columns->first(fn ($column) => $column->field === 'direct-budget');
+
+        $this->assertNotNull($budget);
+        $this->assertStringContainsString('массовое действие', (string) $budget->tooltip);
+        $this->assertStringNotContainsString('кликните', (string) $budget->tooltip);
+    }
+
     public function test_clamp_period_blocks_future_and_swaps_inverted_range(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-04'));

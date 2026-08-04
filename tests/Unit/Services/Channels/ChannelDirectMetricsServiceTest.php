@@ -71,8 +71,35 @@ class ChannelDirectMetricsServiceTest extends TestCase
         $this->assertSame(1234.5, $params['value']);
         $this->assertNotNull($params['updatedAt']);
         $this->assertTrue($params['updatedAt']->equalTo(Carbon::parse('2026-08-04T14:30:00+05:00')));
+        $this->assertSame('04.08.26', $params['updatedAt']->format('d.m.y'));
         $this->assertSame(15, $params['projectId']);
         $this->assertTrue($params['canRefresh']);
+    }
+
+    public function test_budget_cell_params_convert_updated_at_to_agency_timezone(): void
+    {
+        config(['app.timezone' => 'UTC']);
+
+        $agency = \App\Models\Agency::query()->orderBy('id')->first();
+        if ($agency === null) {
+            $agency = \App\Models\Agency::factory()->create([
+                'time_zone' => 'Asia/Yekaterinburg',
+            ]);
+        } else {
+            $agency->update(['time_zone' => 'Asia/Yekaterinburg']);
+        }
+
+        Cache::put('channels.direct.budget.16', [
+            'value' => 100.0,
+            'updated_at' => '2026-08-04T09:30:00+00:00',
+        ], 60);
+
+        $params = $this->makeService()->budgetCellParams(16, collect([$this->makeDirectIntegration()]));
+
+        $this->assertNotNull($params['updatedAt']);
+        $this->assertSame('Asia/Yekaterinburg', $params['updatedAt']->timezoneName);
+        $this->assertSame('14:30', $params['updatedAt']->format('H:i'));
+        $this->assertSame('04.08.26', $params['updatedAt']->format('d.m.y'));
     }
 
     public function test_budget_cell_params_support_legacy_numeric_cache(): void

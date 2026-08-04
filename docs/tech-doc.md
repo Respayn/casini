@@ -225,13 +225,13 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Что | Как |
 |-----|-----|
 | Источник credentials | `integration_project.settings` проекта: `oauth_token` + `client_login` (код интеграции `yandex_direct`) |
-| Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` = `{value, updated_at}` (TTL 7 дней); в ячейке `ЧЧ:мм, дд.мм.гггг / сумма ₽` (дата — `text-secondary-text`); клик / bulk |
+| Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` = `{value, updated_at}` (TTL 7 дней); в ячейке `ЧЧ:мм, дд.мм.гг / сумма ₽` (время по `agencies.time_zone`, дата — `text-secondary-text`); обновление только bulk |
 | План | только если `dateFrom` и `dateTo` в одном месяце; иначе в ячейке `-` |
-| Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
-| Обновление расхода | клик / bulk `refresh_spendings` — досъём дней периода тем же коллектором в БД |
+| Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + bulk refresh через `YandexDirectDailySpendCollector` |
+| Обновление | только массовые действия `refresh_budget_remains` / `refresh_spendings` (клик по ячейке отключён) |
 | Сервис UI | `ChannelDirectMetricsService`; строки — `ChannelReportService::enrichWithDirectMetrics()` |
 
-Пока расхода нет в БД, в ячейке `-`. Без настроенного Директа клик недоступен.
+Пока расхода нет в БД, в ячейке `-`.
 
 ### Лимит ручных запросов к API Директа (и образец для Статистики)
 
@@ -244,7 +244,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | После серии | блок 60 минут |
 | Ключ кэша | `channels.direct.api_throttle.user.{userId}` |
 
-Клик при уже загруженных данных (кэш бюджета / дни расхода в БД) API и throttle **не** трогает. Массовое действие = один `consume()`.
+Массовое действие = один `consume()`.
 
 ## Ночной съём интеграций (единый каркас)
 

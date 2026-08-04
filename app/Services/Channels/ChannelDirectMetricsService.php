@@ -2,6 +2,7 @@
 
 namespace App\Services\Channels;
 
+use App\Models\Agency;
 use App\Models\YandexDirectDailySpending;
 use App\Repositories\IntegrationRepository;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
@@ -16,6 +17,8 @@ class ChannelDirectMetricsService
     private const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
 
     private const BULK_MAX_PROJECTS = 50;
+
+    private ?string $agencyTimezone = null;
 
     public function __construct(
         private readonly IntegrationRepository $integrationRepository,
@@ -369,10 +372,14 @@ class ChannelDirectMetricsService
     public function budgetCellParams(int $projectId, Collection|array $integrations): array
     {
         $payload = $this->getCachedBudgetPayload($projectId);
+        $updatedAt = $payload['updatedAt'];
+        if ($updatedAt !== null) {
+            $updatedAt = $updatedAt->copy()->timezone($this->resolveAgencyTimezone());
+        }
 
         return [
             'value' => $payload['value'],
-            'updatedAt' => $payload['updatedAt'],
+            'updatedAt' => $updatedAt,
             'projectId' => $projectId,
             'canRefresh' => $this->hasDirectCredentials($integrations),
         ];
@@ -477,6 +484,21 @@ class ChannelDirectMetricsService
     public function resolveMonthPeriod(Carbon $month): array
     {
         return $this->resolvePeriod($month, $month);
+    }
+
+    private function resolveAgencyTimezone(): string
+    {
+        if ($this->agencyTimezone !== null) {
+            return $this->agencyTimezone;
+        }
+
+        $timezone = Agency::query()->orderBy('id')->value('time_zone');
+
+        $this->agencyTimezone = filled($timezone)
+            ? (string) $timezone
+            : (string) config('app.timezone', 'UTC');
+
+        return $this->agencyTimezone;
     }
 
     private function putBudgetCache(int $projectId, float $value): void
