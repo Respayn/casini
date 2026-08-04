@@ -153,6 +153,7 @@ class extends Component
         $rebuilt->grouping = $previous->grouping;
         $rebuilt->showInactive = $previous->showInactive;
         $rebuilt->includeVat = $previous->includeVat;
+        $rebuilt->accumulateData = $previous->accumulateData;
 
         $this->queryData = $rebuilt;
         unset($this->reportData);

@@ -39,6 +39,11 @@ class StatisticsReportQueryData extends Data implements Wireable
 
     public bool $includeVat = false;
 
+    /**
+     * План и факт накапливаются в отчёте (UI настроек отчёта).
+     */
+    public string $accumulateData = 'Y';
+
     public function __construct() {}
 
     public static function create(

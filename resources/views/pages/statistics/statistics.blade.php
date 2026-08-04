@@ -162,8 +162,8 @@
     <x-overlay.modal name="report-settings-modal" title="Настроить отчет">
         <x-slot:body>
             <div>
-                <x-form.form>
-                    <x-form.form-field class="w-[603px]">
+                <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
+                    <x-form.form-field>
                         <x-form.form-label>Выделять клиенто-проекты с невыполненными KPI</x-form.form-label>
                         <div>
                             <x-form.select :options="[
@@ -176,10 +176,13 @@
                     <x-form.form-field>
                         <x-form.form-label>План и факт накапливаются в отчете</x-form.form-label>
                         <div>
-                            <x-form.select :options="[
-        ['label' => 'Да', 'value' => 'Y'],
-        ['label' => 'Нет', 'value' => 'N']
-    ]"></x-form.select>
+                            <x-form.select
+                                wire:model="queryData.accumulateData"
+                                :options="[
+                                    ['label' => 'Да', 'value' => 'Y'],
+                                    ['label' => 'Нет', 'value' => 'N'],
+                                ]"
+                            />
                         </div>
                     </x-form.form-field>
 
