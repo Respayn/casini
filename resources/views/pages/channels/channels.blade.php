@@ -29,8 +29,10 @@
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
 
-        <div>
-            <x-form.month-picker wire:model.live="queryData.dateTo" />
+        <div class="mr-[26px] flex items-center gap-2">
+            <x-form.month-picker wire:model.live="queryData.dateFrom" disable-future />
+            <span class="text-secondary-text">—</span>
+            <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
         </div>
 
         <div class="ml-auto flex flex-wrap items-center gap-2">

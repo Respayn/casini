@@ -42,6 +42,22 @@ class ChannelDirectMetricsServiceTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_resolve_period_spans_multiple_months_and_clips_end(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-03 12:00:00'));
+
+        $service = $this->makeService();
+        [$from, $to] = $service->resolvePeriod(
+            Carbon::parse('2026-07-01'),
+            Carbon::parse('2026-08-01'),
+        );
+
+        $this->assertSame('2026-07-01', $from->toDateString());
+        $this->assertSame('2026-08-03', $to->toDateString());
+
+        Carbon::setTestNow();
+    }
+
     public function test_budget_cell_params_read_cache_and_credentials_flag(): void
     {
         Cache::put('channels.direct.budget.15', [
@@ -85,13 +101,36 @@ class ChannelDirectMetricsServiceTest extends TestCase
             'cost_with_vat' => 50.25,
             'cost_without_vat' => 40.00,
         ]);
+        YandexDirectDailySpending::query()->create([
+            'project_id' => $project->id,
+            'date' => '2026-08-01',
+            'cost_with_vat' => 10.00,
+            'cost_without_vat' => 8.00,
+        ]);
 
-        Carbon::setTestNow(Carbon::parse('2026-07-31'));
+        Carbon::setTestNow(Carbon::parse('2026-08-31'));
 
-        $sumVat = $this->makeService()->getStoredSpendings($project->id, Carbon::parse('2026-07-15'), true);
-        $sumNoVat = $this->makeService()->getStoredSpendings($project->id, Carbon::parse('2026-07-15'), false);
+        $sumMonth = $this->makeService()->getStoredSpendings(
+            $project->id,
+            Carbon::parse('2026-07-15'),
+            Carbon::parse('2026-07-15'),
+            true,
+        );
+        $sumRange = $this->makeService()->getStoredSpendings(
+            $project->id,
+            Carbon::parse('2026-07-01'),
+            Carbon::parse('2026-08-01'),
+            true,
+        );
+        $sumNoVat = $this->makeService()->getStoredSpendings(
+            $project->id,
+            Carbon::parse('2026-07-15'),
+            Carbon::parse('2026-07-15'),
+            false,
+        );
 
-        $this->assertSame(150.75, $sumVat);
+        $this->assertSame(150.75, $sumMonth);
+        $this->assertSame(160.75, $sumRange);
         $this->assertSame(120.0, $sumNoVat);
 
         Carbon::setTestNow();
@@ -100,7 +139,12 @@ class ChannelDirectMetricsServiceTest extends TestCase
     public function test_get_stored_spendings_returns_null_when_no_rows(): void
     {
         $this->assertNull(
-            $this->makeService()->getStoredSpendings(999999, Carbon::parse('2026-07-01'), true)
+            $this->makeService()->getStoredSpendings(
+                999999,
+                Carbon::parse('2026-07-01'),
+                Carbon::parse('2026-07-01'),
+                true,
+            )
         );
     }
 

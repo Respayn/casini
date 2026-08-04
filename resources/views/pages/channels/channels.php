@@ -59,6 +59,19 @@ class extends Component
         $this->queryData = $this->channelReportService->getUserSettings(
             Auth::user()->id,
         );
+        $this->queryData->clampPeriodToPresent();
+    }
+
+    public function updatedQueryDataDateFrom(): void
+    {
+        $this->queryData->clampPeriodToPresent();
+        unset($this->reportData);
+    }
+
+    public function updatedQueryDataDateTo(): void
+    {
+        $this->queryData->clampPeriodToPresent();
+        unset($this->reportData);
     }
 
     public function updatedSelectAll($value)
@@ -267,6 +280,7 @@ class extends Component
     {
         $result = $this->directMetricsService->refreshSpendings(
             $projectId,
+            $this->queryData->dateFrom,
             $this->queryData->dateTo,
             $this->queryData->includeVat,
             force: false,
@@ -310,6 +324,7 @@ class extends Component
             ),
             ChannelBulkAction::RefreshSpendings => $this->directMetricsService->refreshSpendingsForProjects(
                 $this->selectedProjects,
+                $this->queryData->dateFrom,
                 $this->queryData->dateTo,
                 $this->queryData->includeVat,
             ),

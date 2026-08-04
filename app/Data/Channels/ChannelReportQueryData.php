@@ -26,6 +26,8 @@ class ChannelReportQueryData extends Data implements Wireable
      */
     public Collection $columns;
 
+    public Carbon $dateFrom;
+
     public Carbon $dateTo;
 
     public bool $showInactive = false;
@@ -47,7 +49,9 @@ class ChannelReportQueryData extends Data implements Wireable
 
         $instance = new self();
 
-        $instance->dateTo = Carbon::now();
+        $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+        $instance->dateFrom = $currentMonth->copy();
+        $instance->dateTo = $currentMonth->copy();
 
         $colOrder = 0;
 
@@ -82,8 +86,68 @@ class ChannelReportQueryData extends Data implements Wireable
         // сумма по должностям и программингу, копирайтеру и ссылкам
         $instance->columns->add(new TableReportColumnData('summary-spendings', 'Расходы итого (₽)', $colOrder++));
         $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток на сейчас. Клик берёт из кэша, если уже загружали; новый запрос к Директу — не чаще раза в 5 минут, не более 3 раз подряд (затем пауза 60 минут). Принудительно — массовое «Обновить остаток бюджета»'));
-        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за месяц из базы Касини. Клик к Директу только если данных нет. Лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут. Принудительно — массовое «Обновить расходы»'));
-            
+        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за выбранный период из базы Касини. Клик к Директу только если данных нет. Лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут. Принудительно — массовое «Обновить расходы»'));
+
         return $instance;
+    }
+
+    /**
+     * Загрузка сохранённых настроек с поддержкой legacy без dateFrom.
+     *
+     * Важно: имя НЕ должно начинаться с from* — Spatie Laravel Data
+     * считает такие методы «магическими» конструкторами и уходит в рекурсию.
+     *
+     * @param  array<string, mixed>|string  $settings
+     */
+    public static function hydrateFromSavedSettings(array|string $settings): self
+    {
+        $payload = is_string($settings) ? json_decode($settings, true) : $settings;
+        if (! is_array($payload)) {
+            $payload = [];
+        }
+
+        if (! array_key_exists('dateFrom', $payload) && array_key_exists('dateTo', $payload)) {
+            $payload['dateFrom'] = $payload['dateTo'];
+        }
+
+        if (! array_key_exists('dateFrom', $payload) && ! array_key_exists('dateTo', $payload)) {
+            $current = Carbon::now()->startOfMonth()->toIso8601String();
+            $payload['dateFrom'] = $current;
+            $payload['dateTo'] = $current;
+        }
+
+        $instance = self::from($payload);
+        $instance->clampPeriodToPresent();
+
+        return $instance;
+    }
+
+    public function isSingleMonthPeriod(): bool
+    {
+        return $this->dateFrom->year === $this->dateTo->year
+            && $this->dateFrom->month === $this->dateTo->month;
+    }
+
+    /**
+     * Нормализация: начало месяца, не позже текущего месяца, dateFrom <= dateTo.
+     */
+    public function clampPeriodToPresent(): void
+    {
+        $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+
+        $this->dateFrom = $this->dateFrom->copy()->startOfMonth()->startOfDay();
+        $this->dateTo = $this->dateTo->copy()->startOfMonth()->startOfDay();
+
+        if ($this->dateFrom->greaterThan($currentMonth)) {
+            $this->dateFrom = $currentMonth->copy();
+        }
+
+        if ($this->dateTo->greaterThan($currentMonth)) {
+            $this->dateTo = $currentMonth->copy();
+        }
+
+        if ($this->dateFrom->greaterThan($this->dateTo)) {
+            $this->dateTo = $this->dateFrom->copy();
+        }
     }
 }

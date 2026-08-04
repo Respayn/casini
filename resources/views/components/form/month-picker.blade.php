@@ -1,10 +1,16 @@
 @props([
-    'borderColor' => '#C4D0E0'
+    'borderColor' => '#C4D0E0',
+    'disableFuture' => false,
 ])
 
 {{-- TODO: объединить этот компонент с компонентом date-picker. Сделать по аналогии с компонентом из библиотеки PrimeVue
 --}}
-<div class="monthpicker" x-data="monthpicker" x-modelable="value" {{ $attributes }}>
+<div
+    class="monthpicker"
+    x-data="monthpicker({ disableFuture: {{ $disableFuture ? 'true' : 'false' }} })"
+    x-modelable="value"
+    {{ $attributes }}
+>
     {{-- Trigger --}}
     <button type="button" class="monthpicker-trigger" x-ref="trigger" x-on:click="toggle">
         <span class="monthpicker-trigger__icon">
@@ -24,7 +30,13 @@
 
             <div class="monthpicker-year-nav__label" x-text="year"></div>
 
-            <button type="button" class="monthpicker-btn monthpicker-btn--square" x-on:click="nextYear">
+            <button
+                type="button"
+                class="monthpicker-btn monthpicker-btn--square"
+                x-on:click="nextYear"
+                x-bind:disabled="isNextYearDisabled()"
+                x-bind:class="{ 'disabled': isNextYearDisabled() }"
+            >
                 <x-icons.accordion-arrow class="rotate-270" />
             </button>
         </nav>
@@ -32,8 +44,14 @@
         {{-- Month grid --}}
         <div class="monthpicker-grid">
             <template x-for="(monthData, index) in monthMap">
-                <button class="monthpicker-btn monthpicker-btn--month" x-bind:class="{ 'selected': monthSelected(index) }"
-                    x-text="monthData.short" x-on:click="selectMonth(index)"></button>
+                <button
+                    type="button"
+                    class="monthpicker-btn monthpicker-btn--month"
+                    x-bind:class="{ 'selected': monthSelected(index), 'disabled': isMonthDisabled(index) }"
+                    x-bind:disabled="isMonthDisabled(index)"
+                    x-text="monthData.short"
+                    x-on:click="selectMonth(index)"
+                ></button>
             </template>
         </div>
     </div>
@@ -42,11 +60,12 @@
 @once
     @script
     <script>
-        Alpine.data('monthpicker', () => ({
+        Alpine.data('monthpicker', (config = {}) => ({
             value: new Date().toISOString(),
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
             isOpen: false,
+            disableFuture: config.disableFuture ?? false,
             monthMap: {
                 0: {
                     short: 'Янв.',
@@ -116,7 +135,34 @@
                 this.month = date.getMonth();
             },
 
+            currentMonthStart() {
+                const now = new Date();
+                return new Date(now.getFullYear(), now.getMonth(), 1);
+            },
+
+            isNextYearDisabled() {
+                if (!this.disableFuture) {
+                    return false;
+                }
+
+                return this.year >= this.currentMonthStart().getFullYear();
+            },
+
+            isMonthDisabled(monthIndex) {
+                if (!this.disableFuture) {
+                    return false;
+                }
+
+                const candidate = new Date(this.year, monthIndex, 1);
+
+                return candidate > this.currentMonthStart();
+            },
+
             nextYear() {
+                if (this.isNextYearDisabled()) {
+                    return;
+                }
+
                 this.year++;
             },
 
@@ -125,6 +171,10 @@
             },
 
             selectMonth(monthIndex) {
+                if (this.isMonthDisabled(monthIndex)) {
+                    return;
+                }
+
                 this.month = monthIndex;
                 this.updateValue();
                 this.isOpen = false;
@@ -231,11 +281,20 @@
             font-family: inherit;
             transition: background-color .15s, color .15s, border-color .15s;
 
-            &:hover,
+            &:hover:not(:disabled):not(.disabled),
             &.selected {
                 background-color: #599CFF;
                 color: #FFFFFF;
                 border-color: transparent;
+            }
+
+            &:disabled,
+            &.disabled {
+                cursor: not-allowed;
+                opacity: 0.4;
+                background: none;
+                color: inherit;
+                border-color: #C4D0E0;
             }
         }
 

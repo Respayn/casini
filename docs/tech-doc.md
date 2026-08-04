@@ -220,11 +220,14 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 Колонки `direct-budget` / `direct-spendings` на странице `/channels`.
 
+Период отчёта: `ChannelReportQueryData.dateFrom` / `dateTo` (месяц–месяц), UI — два `x-form.month-picker` с `disable-future`. По умолчанию оба = текущий месяц. Будущие месяцы запрещены (UI + `clampPeriodToPresent()`).
+
 | Что | Как |
 |-----|-----|
 | Источник credentials | `integration_project.settings` проекта: `oauth_token` + `client_login` (код интеграции `yandex_direct`) |
 | Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` = `{value, updated_at}` (TTL 7 дней); в ячейке `ЧЧ:мм, дд.мм.гггг / сумма ₽` (дата — `text-secondary-text`); клик / bulk |
-| Расход | сумма дней из `yandex_direct_daily_spendings` за месяц `queryData.dateTo` (колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
+| План | только если `dateFrom` и `dateTo` в одном месяце; иначе в ячейке `-` |
+| Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
 | Обновление расхода | клик / bulk `refresh_spendings` — досъём дней периода тем же коллектором в БД |
 | Сервис UI | `ChannelDirectMetricsService`; строки — `ChannelReportService::enrichWithDirectMetrics()` |
 

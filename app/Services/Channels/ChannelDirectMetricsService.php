@@ -70,11 +70,15 @@ class ChannelDirectMetricsService
     }
 
     /**
-     * Сумма дневных расходов из БД за месяц (источник правды после ночного съёма).
+     * Сумма дневных расходов из БД за период (источник правды после ночного съёма).
      */
-    public function getStoredSpendings(int $projectId, Carbon $month, bool $includeVat): ?float
-    {
-        [$from, $to] = $this->resolveMonthPeriod($month);
+    public function getStoredSpendings(
+        int $projectId,
+        Carbon $periodFrom,
+        Carbon $periodTo,
+        bool $includeVat
+    ): ?float {
+        [$from, $to] = $this->resolvePeriod($periodFrom, $periodTo);
 
         $column = $includeVat ? 'cost_with_vat' : 'cost_without_vat';
 
@@ -144,14 +148,15 @@ class ChannelDirectMetricsService
     }
 
     /**
-     * Расход за месяц: читаем из БД; в API идём только если данных нет или $force.
+     * Расход за период: читаем из БД; в API идём только если данных нет или $force.
      * Один период = 2 запроса к Директу (с НДС / без), не по дню.
      *
      * @return array{ok: bool, value: ?float, error: ?string, fromCache?: bool}
      */
     public function refreshSpendings(
         int $projectId,
-        Carbon $month,
+        Carbon $periodFrom,
+        Carbon $periodTo,
         bool $includeVat,
         bool $force = false
     ): array {
@@ -163,10 +168,10 @@ class ChannelDirectMetricsService
             ];
         }
 
-        [$from, $to] = $this->resolveMonthPeriod($month);
+        [$from, $to] = $this->resolvePeriod($periodFrom, $periodTo);
         $expectedDays = $from->diffInDays($to) + 1;
         $storedDays = $this->countStoredDays($projectId, $from, $to);
-        $value = $this->getStoredSpendings($projectId, $month, $includeVat);
+        $value = $this->getStoredSpendings($projectId, $periodFrom, $periodTo, $includeVat);
 
         if (! $force && $storedDays >= $expectedDays) {
             return [
@@ -187,7 +192,7 @@ class ChannelDirectMetricsService
         }
 
         $result = $this->dailySpendCollector->collectRange($projectId, $from, $to);
-        $value = $this->getStoredSpendings($projectId, $month, $includeVat);
+        $value = $this->getStoredSpendings($projectId, $periodFrom, $periodTo, $includeVat);
 
         if (! $result->ok) {
             return [
@@ -288,8 +293,12 @@ class ChannelDirectMetricsService
      * @param  array<int, int|string>  $projectIds
      * @return array{updated: int, failed: int, skipped: int, error?: string}
      */
-    public function refreshSpendingsForProjects(array $projectIds, Carbon $month, bool $includeVat): array
-    {
+    public function refreshSpendingsForProjects(
+        array $projectIds,
+        Carbon $periodFrom,
+        Carbon $periodTo,
+        bool $includeVat
+    ): array {
         $stats = ['updated' => 0, 'failed' => 0, 'skipped' => 0];
 
         $throttle = $this->apiThrottle->consume();
@@ -303,7 +312,12 @@ class ChannelDirectMetricsService
         }
 
         foreach ($this->limitProjectIds($projectIds) as $projectId) {
-            $result = $this->refreshSpendingsForcedWithoutThrottle((int) $projectId, $month, $includeVat);
+            $result = $this->refreshSpendingsForcedWithoutThrottle(
+                (int) $projectId,
+                $periodFrom,
+                $periodTo,
+                $includeVat
+            );
 
             if ($result['ok']) {
                 $stats['updated']++;
@@ -322,7 +336,8 @@ class ChannelDirectMetricsService
      */
     private function refreshSpendingsForcedWithoutThrottle(
         int $projectId,
-        Carbon $month,
+        Carbon $periodFrom,
+        Carbon $periodTo,
         bool $includeVat
     ): array {
         if ($this->resolveCredentialsForProject($projectId) === null) {
@@ -333,9 +348,9 @@ class ChannelDirectMetricsService
             ];
         }
 
-        [$from, $to] = $this->resolveMonthPeriod($month);
+        [$from, $to] = $this->resolvePeriod($periodFrom, $periodTo);
         $result = $this->dailySpendCollector->collectRange($projectId, $from, $to);
-        $value = $this->getStoredSpendings($projectId, $month, $includeVat);
+        $value = $this->getStoredSpendings($projectId, $periodFrom, $periodTo, $includeVat);
 
         if (! $result->ok) {
             return [
@@ -369,11 +384,12 @@ class ChannelDirectMetricsService
     public function spendingsCellParams(
         int $projectId,
         Collection|array $integrations,
-        Carbon $month,
+        Carbon $periodFrom,
+        Carbon $periodTo,
         bool $includeVat
     ): array {
         return [
-            'value' => $this->getStoredSpendings($projectId, $month, $includeVat),
+            'value' => $this->getStoredSpendings($projectId, $periodFrom, $periodTo, $includeVat),
             'projectId' => $projectId,
             'canRefresh' => $this->hasDirectCredentials($integrations),
         ];
@@ -434,10 +450,14 @@ class ChannelDirectMetricsService
     /**
      * @return array{0: Carbon, 1: Carbon}
      */
-    public function resolveMonthPeriod(Carbon $month): array
+    public function resolvePeriod(Carbon $periodFrom, Carbon $periodTo): array
     {
-        $from = $month->copy()->startOfMonth()->startOfDay();
-        $to = $month->copy()->endOfMonth()->startOfDay();
+        $from = $periodFrom->copy()->startOfMonth()->startOfDay();
+        $to = $periodTo->copy()->endOfMonth()->startOfDay();
+
+        if ($from->greaterThan($to)) {
+            [$from, $to] = [$to->copy()->startOfMonth()->startOfDay(), $from->copy()->endOfMonth()->startOfDay()];
+        }
 
         $today = Carbon::today();
         if ($to->greaterThan($today)) {
@@ -449,6 +469,14 @@ class ChannelDirectMetricsService
         }
 
         return [$from, $to];
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public function resolveMonthPeriod(Carbon $month): array
+    {
+        return $this->resolvePeriod($month, $month);
     }
 
     private function putBudgetCache(int $projectId, float $value): void

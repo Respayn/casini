@@ -55,7 +55,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             ->value('settings');
 
         if ($savedSettings) {
-            return ChannelReportQueryData::from($savedSettings);
+            return ChannelReportQueryData::hydrateFromSavedSettings($savedSettings);
         }
 
         return ChannelReportQueryData::create($this->rateRepository->getRatesWithEnabledSpendingsTimeFetching());
@@ -89,7 +89,9 @@ class ChannelReportService implements ChannelReportServiceInterface
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
-        $plans = $this->projectPlanService->getMonthlyPlansForChannels($query->dateTo->year, $query->dateTo->month);
+        $plans = $query->isSingleMonthPeriod()
+            ? $this->projectPlanService->getMonthlyPlansForChannels($query->dateFrom->year, $query->dateFrom->month)
+            : [];
 
         if (!$query->showInactive) {
             $projects = $projects->filter(fn($project) => $project->is_active);
@@ -135,6 +137,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $spendingsParams = $this->directMetricsService->spendingsCellParams(
                     (int) $row->id,
                     $projectIntegrations,
+                    $query->dateFrom,
                     $query->dateTo,
                     $query->includeVat
                 );
