@@ -325,7 +325,7 @@ class extends Component
 
         $this->setActionMessage(
             sprintf(
-                'Обновлено: %d, ошибок: %d, без Директа: %d',
+                'Обновлено: %d, ошибок: %d, пропущено: %d',
                 $stats['updated'],
                 $stats['failed'],
                 $stats['skipped'],

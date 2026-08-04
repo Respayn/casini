@@ -30,9 +30,43 @@ class ChannelDirectMetricsService
 
     public function getCachedBudget(int $projectId): ?float
     {
-        $value = Cache::get($this->budgetCacheKey($projectId));
+        return $this->getCachedBudgetPayload($projectId)['value'] ?? null;
+    }
 
-        return is_numeric($value) ? (float) $value : null;
+    /**
+     * @return array{value: ?float, updatedAt: ?Carbon}
+     */
+    public function getCachedBudgetPayload(int $projectId): array
+    {
+        $cached = Cache::get($this->budgetCacheKey($projectId));
+
+        if (is_numeric($cached)) {
+            return [
+                'value' => (float) $cached,
+                'updatedAt' => null,
+            ];
+        }
+
+        if (! is_array($cached) || ! is_numeric($cached['value'] ?? null)) {
+            return [
+                'value' => null,
+                'updatedAt' => null,
+            ];
+        }
+
+        $updatedAt = null;
+        if (filled($cached['updated_at'] ?? null)) {
+            try {
+                $updatedAt = Carbon::parse((string) $cached['updated_at']);
+            } catch (\Throwable) {
+                $updatedAt = null;
+            }
+        }
+
+        return [
+            'value' => (float) $cached['value'],
+            'updatedAt' => $updatedAt,
+        ];
     }
 
     /**
@@ -92,7 +126,7 @@ class ChannelDirectMetricsService
         try {
             $service = $this->makeDirectService($credentials['token'], $credentials['client_login']);
             $value = round($service->getAccountBalance(), 2);
-            Cache::put($this->budgetCacheKey($projectId), $value, self::CACHE_TTL_SECONDS);
+            $this->putBudgetCache($projectId, $value);
 
             return ['ok' => true, 'value' => $value, 'error' => null, 'fromCache' => false];
         } catch (\Throwable $e) {
@@ -233,7 +267,7 @@ class ChannelDirectMetricsService
         try {
             $service = $this->makeDirectService($credentials['token'], $credentials['client_login']);
             $value = round($service->getAccountBalance(), 2);
-            Cache::put($this->budgetCacheKey($projectId), $value, self::CACHE_TTL_SECONDS);
+            $this->putBudgetCache($projectId, $value);
 
             return ['ok' => true, 'value' => $value, 'error' => null];
         } catch (\Throwable $e) {
@@ -315,12 +349,15 @@ class ChannelDirectMetricsService
     }
 
     /**
-     * @return array{value: ?float, projectId: int, canRefresh: bool}
+     * @return array{value: ?float, updatedAt: ?Carbon, projectId: int, canRefresh: bool}
      */
     public function budgetCellParams(int $projectId, Collection|array $integrations): array
     {
+        $payload = $this->getCachedBudgetPayload($projectId);
+
         return [
-            'value' => $this->getCachedBudget($projectId),
+            'value' => $payload['value'],
+            'updatedAt' => $payload['updatedAt'],
             'projectId' => $projectId,
             'canRefresh' => $this->hasDirectCredentials($integrations),
         ];
@@ -412,6 +449,14 @@ class ChannelDirectMetricsService
         }
 
         return [$from, $to];
+    }
+
+    private function putBudgetCache(int $projectId, float $value): void
+    {
+        Cache::put($this->budgetCacheKey($projectId), [
+            'value' => $value,
+            'updated_at' => Carbon::now()->toIso8601String(),
+        ], self::CACHE_TTL_SECONDS);
     }
 
     private function budgetCacheKey(int $projectId): string

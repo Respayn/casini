@@ -44,14 +44,29 @@ class ChannelDirectMetricsServiceTest extends TestCase
 
     public function test_budget_cell_params_read_cache_and_credentials_flag(): void
     {
-        Cache::put('channels.direct.budget.15', 1234.5, 60);
+        Cache::put('channels.direct.budget.15', [
+            'value' => 1234.5,
+            'updated_at' => '2026-08-04T14:30:00+05:00',
+        ], 60);
 
         $integrations = collect([$this->makeDirectIntegration()]);
         $params = $this->makeService()->budgetCellParams(15, $integrations);
 
         $this->assertSame(1234.5, $params['value']);
+        $this->assertNotNull($params['updatedAt']);
+        $this->assertTrue($params['updatedAt']->equalTo(Carbon::parse('2026-08-04T14:30:00+05:00')));
         $this->assertSame(15, $params['projectId']);
         $this->assertTrue($params['canRefresh']);
+    }
+
+    public function test_budget_cell_params_support_legacy_numeric_cache(): void
+    {
+        Cache::put('channels.direct.budget.15', 1234.5, 60);
+
+        $params = $this->makeService()->budgetCellParams(15, collect([$this->makeDirectIntegration()]));
+
+        $this->assertSame(1234.5, $params['value']);
+        $this->assertNull($params['updatedAt']);
     }
 
     public function test_get_stored_spendings_sums_days_from_database(): void
@@ -134,12 +149,18 @@ class ChannelDirectMetricsServiceTest extends TestCase
 
         $this->assertTrue($result['ok']);
         $this->assertSame(1500.46, $result['value']);
-        $this->assertSame(1500.46, Cache::get('channels.direct.budget.7'));
+        $cached = Cache::get('channels.direct.budget.7');
+        $this->assertIsArray($cached);
+        $this->assertSame(1500.46, $cached['value']);
+        $this->assertNotEmpty($cached['updated_at']);
     }
 
     public function test_refresh_budget_returns_cache_without_api_on_second_click(): void
     {
-        Cache::put('channels.direct.budget.7', 100.0, 60);
+        Cache::put('channels.direct.budget.7', [
+            'value' => 100.0,
+            'updated_at' => '2026-08-04T10:00:00+00:00',
+        ], 60);
         $repository = Mockery::mock(IntegrationRepository::class);
         $repository->shouldReceive('getActiveIntegrationsMappedByProjects')
             ->once()
