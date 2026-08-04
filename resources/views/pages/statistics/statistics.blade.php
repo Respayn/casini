@@ -1,7 +1,17 @@
 <div>
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
-        <h1 class="mb-7">Статистика</h1>
+        <div class="mb-7 flex items-center gap-2">
+            <h1>Статистика</h1>
+            <x-overlay.modal-trigger name="report-settings-modal" wire:click="saveSettingsSnapshot">
+                <x-button.button
+                    icon="icons.gear"
+                    variant="outlined"
+                    rounded
+                    title="Настроить отчет"
+                />
+            </x-overlay.modal-trigger>
+        </div>
         <div>
             <x-button.button href="{{ route('system-settings.clients-and-projects') }}" icon="icons.plus"
                 label="Добавить клиента" />
@@ -28,14 +38,9 @@
             <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
         </div>
 
-        <div class="flex-end ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal">
-                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link"
-                    wire:click="saveSettingsSnapshot" />
-            </x-overlay.modal-trigger>
-            <x-overlay.modal-trigger name="report-settings-modal">
-                <x-button.button icon="icons.edit" label="Настроить отчет" variant="link"
-                    wire:click="saveSettingsSnapshot" />
+        <div class="ml-auto">
+            <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
+                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link" />
             </x-overlay.modal-trigger>
         </div>
     </div>
