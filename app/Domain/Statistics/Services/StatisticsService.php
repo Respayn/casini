@@ -9,6 +9,7 @@ use App\Data\TableReportRowData;
 use App\Domain\Statistics\Enums\StatisticsReportDetailLevel;
 use App\Enums\ChannelReportGrouping;
 use App\Helpers\DateTimeHelper;
+use App\Models\YandexDirectDailySpending;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
@@ -69,21 +70,22 @@ class StatisticsService
             : [];
 
         $gridMonth = $query->detailGridMonth();
+        $spendingsByProject = $this->loadDirectDailySpendings($projects, $gridMonth, $query->includeVat);
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans, $spendingsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans, $spendingsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans, $spendingsByProject);
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
+        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans, $spendingsByProject);
     }
 
     private function createFlatReport(
@@ -93,7 +95,8 @@ class StatisticsService
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
         Carbon $dateTo,
-        array $plans
+        array $plans,
+        array $spendingsByProject
     ): TableReportData {
         $report = new TableReportData();
 
@@ -145,7 +148,13 @@ class StatisticsService
                     'bonuses' => 0
                 ],
                 $this->createIntegrationData($projectIntegrations),
-                $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                $this->createFactData(
+                    $project->project_type,
+                    $project->kpi,
+                    $detailLevel,
+                    $dateTo,
+                    $spendingsByProject[$project->id] ?? [],
+                )
             ));
             $rows->push($row);
         }
@@ -178,7 +187,8 @@ class StatisticsService
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
         Carbon $dateTo,
-        array $plans
+        array $plans,
+        array $spendingsByProject
     ): TableReportData {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
@@ -234,7 +244,13 @@ class StatisticsService
                     'bonuses' => 0
                 ],
                 $this->createIntegrationData($projectIntegrations),
-                $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                $this->createFactData(
+                    $project->project_type,
+                    $project->kpi,
+                    $detailLevel,
+                    $dateTo,
+                    $spendingsByProject[$project->id] ?? [],
+                )
             ));
 
             if ($project->project_type === ProjectType::SEO_PROMOTION) {
@@ -314,7 +330,8 @@ class StatisticsService
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
         Carbon $dateTo,
-        array $plans
+        array $plans,
+        array $spendingsByProject
     ): TableReportData {
         $report = new TableReportData();
 
@@ -369,7 +386,13 @@ class StatisticsService
                         'bonuses' => 0
                     ],
                     $this->createIntegrationData($projectIntegrations),
-                    $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                    $this->createFactData(
+                    $project->project_type,
+                    $project->kpi,
+                    $detailLevel,
+                    $dateTo,
+                    $spendingsByProject[$project->id] ?? [],
+                )
                 ));
 
                 $rows->push($row);
@@ -424,7 +447,8 @@ class StatisticsService
         Collection $integrations,
         StatisticsReportDetailLevel $detailLevel,
         Carbon $dateTo,
-        array $plans
+        array $plans,
+        array $spendingsByProject
     ): TableReportData {
         $report = new TableReportData();
 
@@ -490,7 +514,13 @@ class StatisticsService
                         'bonuses' => 0
                     ],
                     $this->createIntegrationData($projectIntegrations),
-                    $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                    $this->createFactData(
+                    $project->project_type,
+                    $project->kpi,
+                    $detailLevel,
+                    $dateTo,
+                    $spendingsByProject[$project->id] ?? [],
+                )
                 ));
 
                 $rows->push($row);
@@ -567,7 +597,13 @@ class StatisticsService
                     'bonuses' => 0
                 ],
                 $this->createIntegrationData($projectIntegrations),
-                $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                $this->createFactData(
+                    $project->project_type,
+                    $project->kpi,
+                    $detailLevel,
+                    $dateTo,
+                    $spendingsByProject[$project->id] ?? [],
+                )
             ));
 
             $rows->push($row);
@@ -712,419 +748,164 @@ class StatisticsService
         };
     }
 
-    // TODO: использовать Value Objects для представления значений
-    private function createFactData(ProjectType $projectType, Kpi $kpi, Collection $factValues, StatisticsReportDetailLevel $detailLevel, Carbon $dateTo)
-    {
+    /**
+     * @param  array<string, float>  $spendByDay  ключ Y-m-d => расход
+     * @return array<string, list<array{plan: array{value: mixed, format: mixed}, fact: array{value: mixed, format: mixed}}>>
+     */
+    private function createFactData(
+        ProjectType $projectType,
+        Kpi $kpi,
+        StatisticsReportDetailLevel $detailLevel,
+        Carbon $gridMonth,
+        array $spendByDay
+    ): array {
+        $parameters = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
+        $budgetIndex = $this->resolveAdvertisingBudgetParameterIndex($projectType, $kpi);
+
+        $buckets = $this->buildFactBuckets($detailLevel, $gridMonth);
         $result = [];
 
-        if ($detailLevel === StatisticsReportDetailLevel::BY_DAY) {
-            $daysCount = $dateTo->daysInMonth();
+        foreach ($buckets as $key => [$from, $to]) {
+            $budgetFact = $budgetIndex === null
+                ? null
+                : $this->sumDirectSpendForRange($spendByDay, $from, $to);
 
-            for ($i = 1; $i <= $daysCount; $i++) {
-                $key = 'day_' . $i;
+            $slots = [];
+            foreach (array_values($parameters) as $index => $parameter) {
+                $format = ($budgetIndex !== null && $index === $budgetIndex) ? 'currency' : null;
+                $factValue = ($budgetIndex !== null && $index === $budgetIndex) ? $budgetFact : null;
 
-                if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::TRAFFIC) {
-                    $result[$key] = [
-                        // CPC
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 59,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Рекламный бюджет
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 8300,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Визитов
-                        [
-                            'plan' => [
-                                'value' => 161,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 140,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-
-                if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::LEADS) {
-                    $result[$key] = [
-                        // CPL
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 9554,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Рекламный бюджет
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 19109,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Лидов
-                        [
-                            'plan' => [
-                                'value' => 6,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 2,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-
-                if ($projectType === ProjectType::SEO_PROMOTION && $kpi === Kpi::TRAFFIC) {
-                    $result[$key] = [
-                        // Объём визитов
-                        [
-                            'plan' => [
-                                'value' => 495,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 310,
-                                'format' => null
-                            ]
-                        ],
-                        // Конверсии
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 5,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-
-                if ($projectType === ProjectType::SEO_PROMOTION && $kpi === Kpi::POSITIONS) {
-                    $result[$key] = [
-                        // % позиций в топ 10
-                        [
-                            'plan' => [
-                                'value' => 50,
-                                'format' => 'percent'
-                            ],
-                            'fact' => [
-                                'value' => 50,
-                                'format' => 'percent'
-                            ]
-                        ],
-                        // Конверсии
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 9,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-            }
-        }
-
-        if ($detailLevel === StatisticsReportDetailLevel::BY_WEEK) {
-            $intervals = DateTimeHelper::getMonthWeekIntervals($dateTo);
-
-            foreach ($intervals as $i => $interval) {
-                $key = 'week_' . $i;
-                if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::TRAFFIC) {
-                    $result[$key] = [
-                        // CPC
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 59,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Рекламный бюджет
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 8300,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Визитов
-                        [
-                            'plan' => [
-                                'value' => 161,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 140,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-
-                if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::LEADS) {
-                    $result[$key] = [
-                        // CPL
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 9554,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Рекламный бюджет
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 19109,
-                                'format' => 'currency'
-                            ]
-                        ],
-                        // Лидов
-                        [
-                            'plan' => [
-                                'value' => 6,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 2,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-
-                if ($projectType === ProjectType::SEO_PROMOTION && $kpi === Kpi::TRAFFIC) {
-                    $result[$key] = [
-                        // Объём визитов
-                        [
-                            'plan' => [
-                                'value' => 495,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 310,
-                                'format' => null
-                            ]
-                        ],
-                        // Конверсии
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 5,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-
-                if ($projectType === ProjectType::SEO_PROMOTION && $kpi === Kpi::POSITIONS) {
-                    $result[$key] = [
-                        // % позиций в топ 10
-                        [
-                            'plan' => [
-                                'value' => 50,
-                                'format' => 'percent'
-                            ],
-                            'fact' => [
-                                'value' => 50,
-                                'format' => 'percent'
-                            ]
-                        ],
-                        // Конверсии
-                        [
-                            'plan' => [
-                                'value' => null,
-                                'format' => null
-                            ],
-                            'fact' => [
-                                'value' => 9,
-                                'format' => null
-                            ]
-                        ]
-                    ];
-                }
-            }
-        }
-
-        if ($detailLevel === StatisticsReportDetailLevel::BY_MONTH) {
-            if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::TRAFFIC) {
-                $result['month'] = [
-                    // CPC
-                    [
-                        'plan' => [
-                            'value' => null,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 59,
-                            'format' => 'currency'
-                        ]
+                $slots[] = [
+                    'plan' => [
+                        'value' => null,
+                        'format' => null,
                     ],
-                    // Рекламный бюджет
-                    [
-                        'plan' => [
-                            'value' => null,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 8300,
-                            'format' => 'currency'
-                        ]
+                    'fact' => [
+                        'value' => $factValue,
+                        'format' => $format,
                     ],
-                    // Визитов
-                    [
-                        'plan' => [
-                            'value' => 161,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 140,
-                            'format' => null
-                        ]
-                    ]
                 ];
             }
 
-            if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::LEADS) {
-                $result['month'] = [
-                    // CPL
-                    [
-                        'plan' => [
-                            'value' => null,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 9554,
-                            'format' => 'currency'
-                        ]
-                    ],
-                    // Рекламный бюджет
-                    [
-                        'plan' => [
-                            'value' => null,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 19109,
-                            'format' => 'currency'
-                        ]
-                    ],
-                    // Лидов
-                    [
-                        'plan' => [
-                            'value' => 6,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 2,
-                            'format' => null
-                        ]
-                    ]
-                ];
-            }
-
-            if ($projectType === ProjectType::SEO_PROMOTION && $kpi === Kpi::TRAFFIC) {
-                $result['month'] = [
-                    // Объём визитов
-                    [
-                        'plan' => [
-                            'value' => 495,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 310,
-                            'format' => null
-                        ]
-                    ],
-                    // Конверсии
-                    [
-                        'plan' => [
-                            'value' => null,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 5,
-                            'format' => null
-                        ]
-                    ]
-                ];
-            }
-
-            if ($projectType === ProjectType::SEO_PROMOTION && $kpi === Kpi::POSITIONS) {
-                $result['month'] = [
-                    // % позиций в топ 10
-                    [
-                        'plan' => [
-                            'value' => 50,
-                            'format' => 'percent'
-                        ],
-                        'fact' => [
-                            'value' => 50,
-                            'format' => 'percent'
-                        ]
-                    ],
-                    // Конверсии
-                    [
-                        'plan' => [
-                            'value' => null,
-                            'format' => null
-                        ],
-                        'fact' => [
-                            'value' => 9,
-                            'format' => null
-                        ]
-                    ]
-                ];
-            }
+            $result[$key] = $slots;
         }
 
         return $result;
+    }
+
+    /**
+     * @return array<string, array{0: Carbon, 1: Carbon}>
+     */
+    private function buildFactBuckets(StatisticsReportDetailLevel $detailLevel, Carbon $gridMonth): array
+    {
+        if ($detailLevel === StatisticsReportDetailLevel::BY_DAY) {
+            $buckets = [];
+            $daysCount = $gridMonth->daysInMonth();
+            for ($day = 1; $day <= $daysCount; $day++) {
+                $date = $gridMonth->copy()->day($day)->startOfDay();
+                $buckets['day_'.$day] = [$date->copy(), $date->copy()];
+            }
+
+            return $buckets;
+        }
+
+        if ($detailLevel === StatisticsReportDetailLevel::BY_WEEK) {
+            $buckets = [];
+            foreach (DateTimeHelper::getMonthWeekIntervals($gridMonth) as $index => $interval) {
+                $buckets['week_'.$index] = [
+                    $interval['start']->copy()->startOfDay(),
+                    $interval['end']->copy()->startOfDay(),
+                ];
+            }
+
+            return $buckets;
+        }
+
+        $from = $gridMonth->copy()->startOfMonth()->startOfDay();
+        $to = $gridMonth->copy()->endOfMonth()->startOfDay();
+
+        return [
+            'month' => [$from, $to],
+        ];
+    }
+
+    private function resolveAdvertisingBudgetParameterIndex(ProjectType $projectType, Kpi $kpi): ?int
+    {
+        if ($projectType !== ProjectType::CONTEXT_AD) {
+            return null;
+        }
+
+        if (! in_array($kpi, [Kpi::TRAFFIC, Kpi::LEADS], true)) {
+            return null;
+        }
+
+        // CONTEXT_AD: cpc/cpl (0), budget (1), visits/leads (2)
+        return 1;
+    }
+
+    /**
+     * @param  array<string, float>  $spendByDay
+     */
+    private function sumDirectSpendForRange(array $spendByDay, Carbon $from, Carbon $to): ?float
+    {
+        if ($spendByDay === []) {
+            return null;
+        }
+
+        $total = 0.0;
+        $hasData = false;
+
+        for ($day = $from->copy()->startOfDay(); $day->lte($to); $day->addDay()) {
+            $key = $day->toDateString();
+            if (! array_key_exists($key, $spendByDay)) {
+                continue;
+            }
+
+            $hasData = true;
+            $total += (float) $spendByDay[$key];
+        }
+
+        return $hasData ? round($total, 2) : null;
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $projects
+     * @return array<int, array<string, float>>
+     */
+    private function loadDirectDailySpendings(Collection $projects, Carbon $gridMonth, bool $includeVat): array
+    {
+        $projectIds = $projects->pluck('id')->filter()->values()->all();
+        if ($projectIds === []) {
+            return [];
+        }
+
+        $from = $gridMonth->copy()->startOfMonth()->startOfDay();
+        $to = $gridMonth->copy()->endOfMonth()->startOfDay();
+        $today = Carbon::today();
+        if ($to->greaterThan($today)) {
+            $to = $today->copy();
+        }
+
+        if ($from->greaterThan($to)) {
+            return [];
+        }
+
+        $column = $includeVat ? 'cost_with_vat' : 'cost_without_vat';
+
+        $rows = YandexDirectDailySpending::query()
+            ->whereIn('project_id', $projectIds)
+            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+            ->get(['project_id', 'date', $column]);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $dateKey = $row->date instanceof Carbon
+                ? $row->date->toDateString()
+                : Carbon::parse((string) $row->date)->toDateString();
+            $map[(int) $row->project_id][$dateKey] = (float) $row->{$column};
+        }
+
+        return $map;
     }
 
     /**
