@@ -27,13 +27,13 @@ class StatisticsReportQueryData <<DTO с параметрами отчета>> {
     + Collection<TableReportColumnData> $columns
     + Carbon $dateFrom
     + Carbon $dateTo
-    + bool $highlightUnfilfilledProjects
-    + bool $accumulateData
-    + StaticticsReportPeriod $period
+    + StatisticsReportDetailLevel $detailLevel
     + StatisticsReportGrouping $grouping
     + bool $showInactive
     + bool $includeVat
-    + ?ProjectType $projectType
+    + clampPeriodToPresent(): void
+    + isSingleMonthPeriod(): bool
+    + detailGridMonth(): Carbon
 }
 
 class StatisticsReportService <<Сервис с логикой отчета>> {
@@ -58,9 +58,7 @@ StatisticsReport --> StatisticsReportService
 StatisticsReportService --> StatisticsReportQueryData
 StatisticsReportService --> TableReportData
 
-StatisticsReportQueryData --> StaticticsReportPeriod
 StatisticsReportQueryData --> StatisticsReportGrouping
-StatisticsReportQueryData --> ProjectType
 StatisticsReportQueryData --> TableReportColumnData
 
 @enduml

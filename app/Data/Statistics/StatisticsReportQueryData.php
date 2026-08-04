@@ -19,6 +19,7 @@ class StatisticsReportQueryData extends Data implements Wireable
 
     /**
      * Выбранная группировка
+     *
      * @var ChannelReportGrouping
      */
     public ChannelReportGrouping $grouping = ChannelReportGrouping::NONE;
@@ -26,10 +27,11 @@ class StatisticsReportQueryData extends Data implements Wireable
     public StatisticsReportDetailLevel $detailLevel = StatisticsReportDetailLevel::BY_DAY;
 
     /**
-     * Summary of columns
      * @var Collection<int, TableReportColumnData>
      */
     public Collection $columns;
+
+    public Carbon $dateFrom;
 
     public Carbon $dateTo;
 
@@ -39,18 +41,20 @@ class StatisticsReportQueryData extends Data implements Wireable
 
     public function __construct() {}
 
-    /**
-     * Summary of create
-     * @return StatisticsReportQueryData
-     */
     public static function create(
         StatisticsReportDetailLevel $detailLevel = StatisticsReportDetailLevel::BY_WEEK,
-        Carbon $dateTo = new Carbon()
+        ?Carbon $dateFrom = null,
+        ?Carbon $dateTo = null,
     ): StatisticsReportQueryData {
         $instance = new self();
 
-        $instance->dateTo = $dateTo;
+        $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+        $instance->dateFrom = ($dateFrom ?? $currentMonth)->copy()->startOfMonth()->startOfDay();
+        $instance->dateTo = ($dateTo ?? $currentMonth)->copy()->startOfMonth()->startOfDay();
         $instance->detailLevel = $detailLevel;
+        $instance->clampPeriodToPresent();
+
+        $gridMonth = $instance->detailGridMonth();
 
         $colOrder = 0;
 
@@ -68,24 +72,24 @@ class StatisticsReportQueryData extends Data implements Wireable
         ]);
 
         if ($detailLevel === StatisticsReportDetailLevel::BY_DAY) {
-            $daysCount = $dateTo->daysInMonth();
-            $monthNum = $dateTo->month;
+            $daysCount = $gridMonth->daysInMonth();
+            $monthNum = $gridMonth->month;
             for ($i = 1; $i <= $daysCount; $i++) {
-                $label = Str::padLeft($i, 2, '0') . '.' . Str::padLeft($monthNum, 2, '0') . ' план/факт';
+                $label = Str::padLeft($i, 2, '0').'.'.Str::padLeft($monthNum, 2, '0').' план/факт';
                 $instance->columns->add(new TableReportColumnData("day_{$i}", $label, $colOrder++, component: 'fact', isSortable: false));
             }
         }
 
         if ($detailLevel === StatisticsReportDetailLevel::BY_WEEK) {
-            $weekIntervals = DateTimeHelper::getMonthWeekIntervals($dateTo);
+            $weekIntervals = DateTimeHelper::getMonthWeekIntervals($gridMonth);
             foreach ($weekIntervals as $i => $weekInterval) {
-                $label = $weekInterval['start']->format('d.m') . ' - ' . $weekInterval['end']->format('d.m')  . ' план/факт';
+                $label = $weekInterval['start']->format('d.m').' - '.$weekInterval['end']->format('d.m').' план/факт';
                 $instance->columns->add(new TableReportColumnData("week_{$i}", $label, $colOrder++, component: 'fact', isSortable: false));
             }
         }
 
         if ($detailLevel === StatisticsReportDetailLevel::BY_MONTH) {
-            $label = DateTimeHelper::getMonthName($dateTo->month);
+            $label = DateTimeHelper::getMonthName($gridMonth->month);
             $instance->columns->add(new TableReportColumnData('month', $label, $colOrder++, component: 'fact', isSortable: false));
         }
 
@@ -94,5 +98,46 @@ class StatisticsReportQueryData extends Data implements Wireable
         $instance->columns->add(new TableReportColumnData('bonuses', 'Бонусы и гарантии', $colOrder++));
 
         return $instance;
+    }
+
+    /**
+     * Месяц для колонок детализации: один месяц периода либо dateTo при интервале.
+     */
+    public function detailGridMonth(): Carbon
+    {
+        if ($this->isSingleMonthPeriod()) {
+            return $this->dateFrom->copy()->startOfMonth()->startOfDay();
+        }
+
+        return $this->dateTo->copy()->startOfMonth()->startOfDay();
+    }
+
+    public function isSingleMonthPeriod(): bool
+    {
+        return $this->dateFrom->year === $this->dateTo->year
+            && $this->dateFrom->month === $this->dateTo->month;
+    }
+
+    /**
+     * Нормализация: начало месяца, не позже текущего месяца, dateFrom <= dateTo.
+     */
+    public function clampPeriodToPresent(): void
+    {
+        $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+
+        $this->dateFrom = $this->dateFrom->copy()->startOfMonth()->startOfDay();
+        $this->dateTo = $this->dateTo->copy()->startOfMonth()->startOfDay();
+
+        if ($this->dateFrom->greaterThan($currentMonth)) {
+            $this->dateFrom = $currentMonth->copy();
+        }
+
+        if ($this->dateTo->greaterThan($currentMonth)) {
+            $this->dateTo = $currentMonth->copy();
+        }
+
+        if ($this->dateFrom->greaterThan($this->dateTo)) {
+            $this->dateTo = $this->dateFrom->copy();
+        }
     }
 }

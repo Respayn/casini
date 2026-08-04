@@ -32,6 +32,7 @@ class extends Component
     public function mount()
     {
         $this->queryData = StatisticsReportQueryData::create();
+        $this->queryData->clampPeriodToPresent();
     }
 
     /**
@@ -54,14 +55,14 @@ class extends Component
         }
     }
 
-    public function updated($property)
+    public function updatedQueryDataDateFrom(): void
     {
-        if ($property === 'queryData.dateTo') {
-            $this->queryData = StatisticsReportQueryData::create(
-                $this->queryData->detailLevel,
-                $this->queryData->dateTo
-            );
-        }
+        $this->rebuildQueryDataForPeriod();
+    }
+
+    public function updatedQueryDataDateTo(): void
+    {
+        $this->rebuildQueryDataForPeriod();
     }
 
     /**
@@ -70,10 +71,7 @@ class extends Component
     public function applySettingsSnapshot()
     {
         if ($this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
-            $this->queryData = StatisticsReportQueryData::create(
-                $this->queryData->detailLevel,
-                $this->queryData->dateTo
-            );
+            $this->rebuildQueryDataForPeriod();
         }
 
         $this->originalQueryData = null;
@@ -83,7 +81,7 @@ class extends Component
     public function sortColumn($item, $position)
     {
         $column = $this->queryData->columns->first(
-            fn($v) => $v->field === $item,
+            fn ($v) => $v->field === $item,
         );
         $oldPosition = $column->order;
 
@@ -113,7 +111,7 @@ class extends Component
         });
 
         $this->queryData->columns = $this->queryData->columns->sortBy(
-            fn(TableReportColumnData $col) => $col->order,
+            fn (TableReportColumnData $col) => $col->order,
         );
     }
 
@@ -131,7 +129,7 @@ class extends Component
     #[Computed]
     public function sortableColumns()
     {
-        return $this->queryData->columns->filter(function(TableReportColumnData $col, $key) {
+        return $this->queryData->columns->filter(function (TableReportColumnData $col, $key) {
             return $col->isSortable;
         });
     }
@@ -140,5 +138,23 @@ class extends Component
     public function reportData(): TableReportData
     {
         return $this->statisticsService->getReportData($this->queryData);
+    }
+
+    private function rebuildQueryDataForPeriod(): void
+    {
+        $this->queryData->clampPeriodToPresent();
+
+        $previous = $this->queryData;
+        $rebuilt = StatisticsReportQueryData::create(
+            $previous->detailLevel,
+            $previous->dateFrom,
+            $previous->dateTo,
+        );
+        $rebuilt->grouping = $previous->grouping;
+        $rebuilt->showInactive = $previous->showInactive;
+        $rebuilt->includeVat = $previous->includeVat;
+
+        $this->queryData = $rebuilt;
+        unset($this->reportData);
     }
 };

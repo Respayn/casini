@@ -64,22 +64,26 @@ class StatisticsService
             $projects = $projects->filter(fn($project) => $project->is_active);
         }
 
-        $plans = $this->projectPlanService->getMonthlyPlansForStatistics($query->dateTo->year, $query->dateTo->month);
+        $plans = $query->isSingleMonthPeriod()
+            ? $this->projectPlanService->getMonthlyPlansForStatistics($query->dateFrom->year, $query->dateFrom->month)
+            : [];
+
+        $gridMonth = $query->detailGridMonth();
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
         }
 
         if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $query->dateTo, $plans);
+        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $plans);
     }
 
     private function createFlatReport(
@@ -112,7 +116,7 @@ class StatisticsService
 
             $projectIntegrations = $integrations->get($project->id, new Collection());
 
-            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+            $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
 
             $row->data = new Collection(array_merge(
                 [
@@ -201,7 +205,7 @@ class StatisticsService
 
             $projectIntegrations = $integrations->get($project->id, new Collection());
 
-            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+            $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
 
             $row->data = new Collection(array_merge(
                 [
@@ -336,7 +340,7 @@ class StatisticsService
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
-                $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+                $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
 
                 $row->data = new Collection(array_merge(
                     [
@@ -457,7 +461,7 @@ class StatisticsService
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
-                $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+                $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
 
                 $row->data = new Collection(array_merge(
                     [
@@ -534,7 +538,7 @@ class StatisticsService
 
             $projectIntegrations = $integrations->get($project->id, []);
 
-            $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
+            $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
 
             $row->data = new Collection(array_merge(
                 [
@@ -1121,5 +1125,25 @@ class StatisticsService
         }
 
         return $result;
+    }
+
+    /**
+     * Ячейка «План»: массив слотов {value, format}. При отсутствии плана — плейсхолдеры для «-».
+     *
+     * @param  array<int|string, mixed>  $plans
+     * @return list<array{value: mixed, format: mixed}>
+     */
+    private function resolvePlanCell(array $plans, int $projectId, ProjectType $projectType, Kpi $kpi): array
+    {
+        if (isset($plans[$projectId]) && is_array($plans[$projectId])) {
+            return $plans[$projectId];
+        }
+
+        $schema = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
+
+        return array_map(
+            static fn () => ['value' => null, 'format' => null],
+            $schema
+        );
     }
 }
