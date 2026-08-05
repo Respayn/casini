@@ -71,14 +71,25 @@
                 <x-data.table>
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
-                            <x-data.table-column class="whitespace-nowrap">
+                            <x-data.table-column class="whitespace-nowrap" :stacked="$column->component === 'fact'">
                                 @if ($column->component === 'fact')
-                                    <div class="flex w-full min-w-[7.5rem] flex-col gap-0.5">
-                                        <span class="text-center">{{ $column->label }}</span>
-                                        <div class="grid grid-cols-2 text-center text-xs font-normal">
-                                            <span class="text-secondary-text">План</span>
-                                            <span class="font-normal">Факт</span>
-                                        </div>
+                                    <div class="w-full">
+                                        <div class="text-center leading-tight">{{ $column->label }}</div>
+                                        <table
+                                            class="w-full border-collapse font-normal"
+                                            style="table-layout: fixed; font-size: 12px; line-height: 1.2; margin-top: 2px"
+                                        >
+                                            <tr>
+                                                <td
+                                                    class="px-2.5 text-center"
+                                                    style="width: 50%; color: #94a8c1"
+                                                >План</td>
+                                                <td
+                                                    class="px-2.5 text-center font-normal"
+                                                    style="width: 50%"
+                                                >Факт</td>
+                                            </tr>
+                                        </table>
                                     </div>
                                 @else
                                     <span>{{ $column->label }}</span>
