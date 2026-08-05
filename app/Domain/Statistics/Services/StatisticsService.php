@@ -17,6 +17,7 @@ use App\Repositories\UserRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Src\Planning\Application\ProjectPlanService;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
@@ -41,6 +42,28 @@ class StatisticsService
         $this->userRepository = $userRepository;
         $this->integrationRepository = $integrationRepository;
         $this->projectPlanService = $projectPlanService;
+    }
+
+    public function getUserSettings(int $userId): StatisticsReportQueryData
+    {
+        $savedSettings = DB::table('statistics_report_user_settings')
+            ->where('user_id', $userId)
+            ->value('settings');
+
+        if ($savedSettings) {
+            return StatisticsReportQueryData::hydrateFromSavedSettings($savedSettings);
+        }
+
+        return StatisticsReportQueryData::create();
+    }
+
+    public function saveUserSettings(int $userId, StatisticsReportQueryData $settings): void
+    {
+        DB::table('statistics_report_user_settings')
+            ->updateOrInsert(
+                ['user_id' => $userId],
+                ['settings' => $settings->toJson()]
+            );
     }
 
     public function getReportData(StatisticsReportQueryData $query): TableReportData

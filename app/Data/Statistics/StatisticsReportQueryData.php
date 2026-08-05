@@ -114,6 +114,73 @@ class StatisticsReportQueryData extends Data implements Wireable
     }
 
     /**
+     * Восстановить настройки пользователя из БД.
+     * Динамические колонки день/неделя/месяц пересобираются под актуальный период;
+     * видимость и порядок совпадающих колонок сохраняются.
+     */
+    public static function hydrateFromSavedSettings(array|string $settings): self
+    {
+        $payload = is_string($settings) ? json_decode($settings, true) : $settings;
+        if (! is_array($payload)) {
+            $payload = [];
+        }
+
+        if (! array_key_exists('dateFrom', $payload) && array_key_exists('dateTo', $payload)) {
+            $payload['dateFrom'] = $payload['dateTo'];
+        }
+
+        if (! array_key_exists('dateFrom', $payload) && ! array_key_exists('dateTo', $payload)) {
+            $current = Carbon::now()->startOfMonth()->toIso8601String();
+            $payload['dateFrom'] = $current;
+            $payload['dateTo'] = $current;
+        }
+
+        $saved = self::from($payload);
+        $saved->clampPeriodToPresent();
+
+        $rebuilt = self::create(
+            $saved->detailLevel,
+            $saved->dateFrom,
+            $saved->dateTo,
+        );
+        $rebuilt->grouping = $saved->grouping;
+        $rebuilt->showInactive = $saved->showInactive;
+        $rebuilt->includeVat = $saved->includeVat;
+        $rebuilt->accumulateData = $saved->accumulateData;
+        $rebuilt->applySavedColumnPreferences($saved->columns);
+
+        return $rebuilt;
+    }
+
+    /**
+     * Перенести isVisible/order с сохранённых колонок на актуальный набор.
+     *
+     * @param  Collection<int, TableReportColumnData>  $savedColumns
+     */
+    public function applySavedColumnPreferences(Collection $savedColumns): void
+    {
+        if ($savedColumns->isEmpty()) {
+            return;
+        }
+
+        $prefs = $savedColumns->keyBy(fn (TableReportColumnData $column) => $column->field);
+
+        foreach ($this->columns as $column) {
+            $saved = $prefs->get($column->field);
+            if ($saved === null) {
+                continue;
+            }
+
+            $column->isVisible = $saved->isVisible;
+            $column->order = $saved->order;
+        }
+
+        $this->columns = $this->columns
+            ->sortBy(fn (TableReportColumnData $column) => $column->order)
+            ->values();
+    }
+
+    /**
      * Месяцы периода для детализации «по месяцам»: dateFrom…dateTo включительно.
      *
      * @return list<Carbon>

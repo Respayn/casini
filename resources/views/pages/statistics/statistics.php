@@ -6,6 +6,7 @@ use App\Data\Statistics\StatisticsReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
 use App\Domain\Statistics\Services\StatisticsService;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
@@ -31,7 +32,9 @@ class extends Component
 
     public function mount()
     {
-        $this->queryData = StatisticsReportQueryData::create();
+        $this->queryData = $this->statisticsService->getUserSettings(
+            Auth::user()->id,
+        );
         $this->queryData->clampPeriodToPresent();
     }
 
@@ -70,7 +73,8 @@ class extends Component
      */
     public function applySettingsSnapshot()
     {
-        if ($this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
+        if ($this->originalQueryData !== null
+            && $this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
             $this->rebuildQueryDataForPeriod();
         }
 
@@ -137,6 +141,12 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
+        // Как в Каналах: сохраняем настройки пользователя при построении отчёта
+        $this->statisticsService->saveUserSettings(
+            Auth::user()->id,
+            $this->queryData,
+        );
+
         return $this->statisticsService->getReportData($this->queryData);
     }
 
@@ -154,6 +164,7 @@ class extends Component
         $rebuilt->showInactive = $previous->showInactive;
         $rebuilt->includeVat = $previous->includeVat;
         $rebuilt->accumulateData = $previous->accumulateData;
+        $rebuilt->applySavedColumnPreferences($previous->columns);
 
         $this->queryData = $rebuilt;
         unset($this->reportData);

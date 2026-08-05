@@ -107,4 +107,47 @@ class StatisticsReportQueryDataTest extends TestCase
         );
         $this->assertSame(ChannelReportGrouping::NONE, $data->grouping);
     }
+
+    public function test_hydrate_from_saved_settings_restores_prefs_and_rebuilds_fact_columns(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-04'));
+
+        $saved = StatisticsReportQueryData::create(
+            StatisticsReportDetailLevel::BY_MONTH,
+            Carbon::parse('2026-07-01'),
+            Carbon::parse('2026-08-01'),
+        );
+        $saved->grouping = ChannelReportGrouping::CLIENTS;
+        $saved->includeVat = true;
+        $saved->showInactive = true;
+        $saved->accumulateData = 'N';
+
+        $kpi = $saved->columns->first(fn ($column) => $column->field === 'kpi');
+        $kpi->isVisible = false;
+        $kpi->order = 0;
+
+        $hydrated = StatisticsReportQueryData::hydrateFromSavedSettings($saved->toJson());
+
+        $this->assertSame(StatisticsReportDetailLevel::BY_MONTH, $hydrated->detailLevel);
+        $this->assertSame(ChannelReportGrouping::CLIENTS, $hydrated->grouping);
+        $this->assertTrue($hydrated->includeVat);
+        $this->assertTrue($hydrated->showInactive);
+        $this->assertSame('N', $hydrated->accumulateData);
+        $this->assertSame('2026-07-01', $hydrated->dateFrom->toDateString());
+        $this->assertSame('2026-08-01', $hydrated->dateTo->toDateString());
+        $this->assertTrue(
+            $hydrated->columns->contains(fn ($column) => $column->field === 'project-type')
+        );
+
+        $hydratedKpi = $hydrated->columns->first(fn ($column) => $column->field === 'kpi');
+        $this->assertFalse($hydratedKpi->isVisible);
+        $this->assertSame(0, $hydratedKpi->order);
+
+        $factFields = $hydrated->columns
+            ->filter(fn ($column) => $column->component === 'fact')
+            ->pluck('field')
+            ->values()
+            ->all();
+        $this->assertSame(['month_0', 'month_1'], $factFields);
+    }
 }
