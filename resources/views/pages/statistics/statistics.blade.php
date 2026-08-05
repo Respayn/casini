@@ -71,25 +71,39 @@
                 <x-data.table>
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
-                            <x-data.table-column class="whitespace-nowrap" :stacked="$column->component === 'fact'">
+                            <x-data.table-column
+                                @class([
+                                    'whitespace-nowrap border',
+                                    '!p-0' => $column->component === 'fact',
+                                ])
+                                style="border-color: var(--color-table-cell)"
+                                :stacked="$column->component === 'fact'"
+                            >
                                 @if ($column->component === 'fact')
-                                    <div class="w-full">
-                                        <div class="text-center leading-tight">{{ $column->label }}</div>
-                                        <table
-                                            class="w-full border-collapse font-normal"
-                                            style="table-layout: fixed; font-size: 12px; line-height: 1.2; margin-top: 2px"
-                                        >
-                                            <tr>
-                                                <td
-                                                    class="px-2.5 text-center"
-                                                    style="width: 50%; color: #94a8c1"
-                                                >План</td>
-                                                <td
-                                                    class="px-2.5 text-center font-normal"
-                                                    style="width: 50%"
-                                                >Факт</td>
-                                            </tr>
-                                        </table>
+                                    <div class="relative w-full">
+                                        <div class="px-2.5 pt-1.5 text-center leading-tight">{{ $column->label }}</div>
+                                        <div class="relative">
+                                            <div
+                                                aria-hidden="true"
+                                                class="pointer-events-none absolute"
+                                                style="top: 0; bottom: 0; left: 50%; width: 1px; margin-left: -0.5px; background-color: var(--color-table-cell);"
+                                            ></div>
+                                            <table
+                                                class="w-full border-collapse font-normal"
+                                                style="table-layout: fixed; font-size: 12px; line-height: 1.2; margin-top: 2px"
+                                            >
+                                                <tr>
+                                                    <td
+                                                        class="px-2.5 pb-1.5 text-center"
+                                                        style="width: 50%; color: #94a8c1"
+                                                    >План</td>
+                                                    <td
+                                                        class="px-2.5 pb-1.5 text-center font-normal"
+                                                        style="width: 50%"
+                                                    >Факт</td>
+                                                </tr>
+                                            </table>
+                                        </div>
                                     </div>
                                 @else
                                     <span>{{ $column->label }}</span>
