@@ -112,6 +112,22 @@ Seeder копирует read/edit/full с `system settings` на три новы
 - Создание и сохранение клиента/проекта — `ensureUserCanEdit` (edit|full self|all).
 - Открытие существующего проекта — `ClientProjectAccessPolicy` (all или self с привязкой).
 
+## Сайдбар (виджет портфеля)
+
+Левая панель: поиск, «Все клиенты», «Сортировать по», дерево сотрудник → клиент → клиенто-проект.
+
+| Часть | Роль |
+|-------|------|
+| UI | `resources/views/livewire/sidebar.blade.php`, Livewire `App\Livewire\Sidebar` |
+| Данные | `App\Services\SidebarService` |
+| Опции сортировки | роли с `use_in_project_filter` (`RoleRepository::getRolesForFilter`) |
+
+Логика портфеля по выбранной роли:
+- `use_in_managers_list` → подпись «По менеджерам»; клиенты с `manager_id = user.id` и их **активные** проекты;
+- иначе → «По роли {display_name}»; проекты с `specialist_id = user.id`, сгруппированные по клиенту.
+
+Права просматривающего: `clients and projects all` — все пользователи роли; только `self` — только свой узел; без прав — пусто. Клик по проекту пока только выделяет строку (`selectedProjectId`), без фильтрации продуктов.
+
 ## Тестирование
 
 - **Unit-тесты** для доменной логики в `tests/Unit/Domain/`

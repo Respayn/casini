@@ -29,9 +29,15 @@
         wire:model.live="sortBy"
     />
 
+    @if ($sortOptions === [])
+        <p class="text-secondary-text mt-4 text-sm">
+            Включите «Собрать портфель клиенто-проектов» у ролей в настройках
+        </p>
+    @endif
+
     {{-- Список сотрудников --}}
     <div
-        class="pretty-scroll mb-4 mr-[-25px] flex-1 overflow-y-auto"
+        class="pretty-scroll mt-5 mb-4 mr-[-25px] flex-1 overflow-y-auto"
         style="scrollbar-gutter: stable"
     >
         <ul

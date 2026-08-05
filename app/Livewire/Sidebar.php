@@ -10,10 +10,14 @@ use Str;
 class Sidebar extends Component
 {
     /** @var array<int, EmployeeData> */
-    public array $employees;
+    public array $employees = [];
+
     public array $sortOptions = [];
-    public ?string $sortBy = 'manager';
+
+    public ?string $sortBy = null;
+
     public string $searchQuery = '';
+
     public ?int $selectedProjectId = null;
 
     private SidebarService $sidebarService;
@@ -25,12 +29,14 @@ class Sidebar extends Component
 
     public function mount()
     {
-        $this->getEmployees();
         $this->sortOptions = $this->sidebarService->getRoleOptions();
+        $this->sortBy = $this->sortOptions[0]['value'] ?? null;
+        $this->getEmployees();
     }
 
     public function updatedSortBy()
     {
+        $this->selectedProjectId = null;
         $this->getEmployees();
     }
 
@@ -48,6 +54,10 @@ class Sidebar extends Component
     {
         $this->employees = $this->sidebarService->getEmployees($this->sortBy, $this->searchQuery);
 
+        if ($this->searchQuery === '') {
+            return;
+        }
+
         foreach ($this->employees as &$employee) {
             foreach ($employee->clients as &$client) {
                 foreach ($client->projects as $project) {
@@ -60,7 +70,11 @@ class Sidebar extends Component
                     $employee->open = true;
                 }
             }
+            if (Str::contains(Str::lower($employee->name), Str::lower($this->searchQuery))) {
+                $employee->open = true;
+            }
         }
+        unset($employee, $client);
     }
 
     public function render()
