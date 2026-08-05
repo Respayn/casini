@@ -128,6 +128,10 @@ class ChannelReportQueryData extends Data implements Wireable
 
         $rebuilt = self::create($rates);
         $rebuilt->grouping = $saved->grouping;
+        if (in_array($rebuilt->grouping, [ChannelReportGrouping::ROLE, ChannelReportGrouping::TOOLS], true)) {
+            // Группировки «по ролям» и «по инструментам» убрали из UI.
+            $rebuilt->grouping = ChannelReportGrouping::NONE;
+        }
         $rebuilt->dateFrom = $saved->dateFrom;
         $rebuilt->dateTo = $saved->dateTo;
         $rebuilt->showInactive = $saved->showInactive;

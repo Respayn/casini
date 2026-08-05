@@ -129,6 +129,21 @@ class ChannelReportQueryDataTest extends TestCase
         );
     }
 
+    public function test_hydrate_resets_removed_grouping_options_to_none(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-04'));
+
+        $payload = ChannelReportQueryData::create()->toArray();
+        $payload['grouping'] = 'role';
+
+        $byRole = ChannelReportQueryData::hydrateFromSavedSettings($payload);
+        $this->assertSame(\App\Enums\ChannelReportGrouping::NONE, $byRole->grouping);
+
+        $payload['grouping'] = 'tools';
+        $byTools = ChannelReportQueryData::hydrateFromSavedSettings($payload);
+        $this->assertSame(\App\Enums\ChannelReportGrouping::NONE, $byTools->grouping);
+    }
+
     public function test_clamp_period_blocks_future_and_swaps_inverted_range(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-04'));
