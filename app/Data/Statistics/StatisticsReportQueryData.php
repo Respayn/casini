@@ -80,7 +80,7 @@ class StatisticsReportQueryData extends Data implements Wireable
             $daysCount = $gridMonth->daysInMonth();
             $monthNum = $gridMonth->month;
             for ($i = 1; $i <= $daysCount; $i++) {
-                $label = Str::padLeft($i, 2, '0').'.'.Str::padLeft($monthNum, 2, '0').' план/факт';
+                $label = Str::padLeft($i, 2, '0').'.'.Str::padLeft($monthNum, 2, '0');
                 $instance->columns->add(new TableReportColumnData("day_{$i}", $label, $colOrder++, component: 'fact', isSortable: false));
             }
         }
@@ -88,7 +88,7 @@ class StatisticsReportQueryData extends Data implements Wireable
         if ($detailLevel === StatisticsReportDetailLevel::BY_WEEK) {
             $weekIntervals = DateTimeHelper::getMonthWeekIntervals($gridMonth);
             foreach ($weekIntervals as $i => $weekInterval) {
-                $label = $weekInterval['start']->format('d.m').' - '.$weekInterval['end']->format('d.m').' план/факт';
+                $label = $weekInterval['start']->format('d.m').' - '.$weekInterval['end']->format('d.m');
                 $instance->columns->add(new TableReportColumnData("week_{$i}", $label, $colOrder++, component: 'fact', isSortable: false));
             }
         }

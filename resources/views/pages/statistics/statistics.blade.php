@@ -72,11 +72,21 @@
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column class="whitespace-nowrap">
-                                <span>{{ $column->label }}</span>
-                                @if ($column->tooltip !== null)
-                                    <x-overlay.tooltip>
-                                        {{ $column->tooltip }}
-                                    </x-overlay.tooltip>
+                                @if ($column->component === 'fact')
+                                    <div class="flex w-full min-w-[7.5rem] flex-col gap-0.5">
+                                        <span class="text-center">{{ $column->label }}</span>
+                                        <div class="grid grid-cols-2 text-center text-xs font-normal">
+                                            <span class="text-secondary-text">План</span>
+                                            <span class="font-normal">Факт</span>
+                                        </div>
+                                    </div>
+                                @else
+                                    <span>{{ $column->label }}</span>
+                                    @if ($column->tooltip !== null)
+                                        <x-overlay.tooltip>
+                                            {{ $column->tooltip }}
+                                        </x-overlay.tooltip>
+                                    @endif
                                 @endif
                             </x-data.table-column>
                         @endforeach
