@@ -152,8 +152,8 @@ class StatisticsService
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
                     'summary' => [],
-                    'perdiction' => [],
-                    'bonuses' => 0
+                    'prediction' => [],
+                    'bonuses' => null
                 ],
                 $this->createIntegrationData($projectIntegrations),
                 $this->createFactData(
@@ -252,8 +252,8 @@ class StatisticsService
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
                     'summary' => [],
-                    'perdiction' => [],
-                    'bonuses' => 0
+                    'prediction' => [],
+                    'bonuses' => null
                 ],
                 $this->createIntegrationData($projectIntegrations),
                 $this->createFactData(
@@ -398,8 +398,8 @@ class StatisticsService
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
                         'summary' => [],
-                        'perdiction' => [],
-                        'bonuses' => 0
+                        'prediction' => [],
+                        'bonuses' => null
                     ],
                     $this->createIntegrationData($projectIntegrations),
                     $this->createFactData(
@@ -530,8 +530,8 @@ class StatisticsService
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
                         'summary' => [],
-                        'perdiction' => [],
-                        'bonuses' => 0
+                        'prediction' => [],
+                        'bonuses' => null
                     ],
                     $this->createIntegrationData($projectIntegrations),
                     $this->createFactData(
@@ -615,8 +615,8 @@ class StatisticsService
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
                     'summary' => [],
-                    'perdiction' => [],
-                    'bonuses' => 0
+                    'prediction' => [],
+                    'bonuses' => null
                 ],
                 $this->createIntegrationData($projectIntegrations),
                 $this->createFactData(
@@ -672,34 +672,6 @@ class StatisticsService
     // TODO: скорее всего сюда нужно будет передавать ID проекта или данные, которые будут получены заранее
     // Пока просто описана структура
     private function createPlanData(ProjectType $projectType, Kpi $kpi): array
-    {
-        return match ($projectType) {
-            ProjectType::CONTEXT_AD => match ($kpi) {
-                Kpi::TRAFFIC => [
-                    ['value' => 45, 'format' => 'currency'],
-                    ['value' => 90000, 'format' => 'currency'],
-                    ['value' => 1670, 'format' => null]
-                ],
-                Kpi::LEADS => [
-                    ['value' => 3392, 'format' => 'currency'],
-                    ['value' => 190000, 'format' => 'currency'],
-                    ['value' => 56, 'format' => null]
-                ],
-            },
-            ProjectType::SEO_PROMOTION => match ($kpi) {
-                Kpi::TRAFFIC => [
-                    ['value' => 5130, 'format' => null],
-                    ['value' => null, 'format' => null]
-                ],
-                Kpi::POSITIONS => [
-                    ['value' => 50, 'format' => 'percent'],
-                    ['value' => null, 'format' => null]
-                ]
-            }
-        };
-    }
-
-    private function createSummaryData(ProjectType $projectType, Kpi $kpi): array
     {
         return match ($projectType) {
             ProjectType::CONTEXT_AD => match ($kpi) {
