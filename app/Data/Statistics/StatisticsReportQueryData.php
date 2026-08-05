@@ -112,8 +112,18 @@ class StatisticsReportQueryData extends Data implements Wireable
         }
 
         $instance->columns->add(new TableReportColumnData('summary', 'Итог', $colOrder++));
-        $instance->columns->add(new TableReportColumnData('prediction', 'Прогноз', $colOrder++));
-        $instance->columns->add(new TableReportColumnData('bonuses', 'Бонусы и гарантии', $colOrder++));
+        $instance->columns->add(new TableReportColumnData(
+            'prediction',
+            'Прогноз',
+            $colOrder++,
+            tooltip: 'Прогноз выполнения KPI на конец месяца, считается только по KPI трафик и лиды',
+        ));
+        $instance->columns->add(new TableReportColumnData(
+            'bonuses',
+            'Бонусы и гарантии',
+            $colOrder++,
+            tooltip: 'бонусы и/или гарантия рассчитываются на основе заданных условий в настройках клиенто-проекта.',
+        ));
 
         return $instance;
     }
