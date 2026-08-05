@@ -49,6 +49,61 @@ body:has(.modal.open) {
     overflow: hidden
 }
 
+/* Сайдбар: стартовое состояние из html.sidebar-collapsed (до Alpine), без мигания при навигации */
+.sidebar-panel {
+    transform: translate3d(0, 0, 0);
+}
+
+html.sidebar-collapsed .sidebar-panel {
+    /* Оставляем ~18px полоски панели, чтобы был виден не только тогл */
+    transform: translate3d(calc(-100% + 18px), 0, 0);
+}
+
+.app-main {
+    padding-left: 375px;
+}
+
+html.sidebar-collapsed .app-main {
+    /* полоска 18px + небольшой зазор */
+    padding-left: 38px;
+}
+
+.sidebar-toggle {
+    left: 355px;
+    transform: translateX(-50%);
+}
+
+html.sidebar-collapsed .sidebar-toggle {
+    left: 18px;
+    transform: translateX(-50%);
+}
+
+html.sidebar-animating .sidebar-panel,
+html.sidebar-animating .app-main,
+html.sidebar-animating .sidebar-toggle,
+html.sidebar-animating .sidebar-toggle-icon {
+    transition-duration: 300ms;
+    transition-timing-function: ease-in-out;
+}
+
+html.sidebar-animating .sidebar-panel,
+html.sidebar-animating .sidebar-toggle,
+html.sidebar-animating .sidebar-toggle-icon {
+    transition-property: transform, left;
+}
+
+html.sidebar-animating .app-main {
+    transition-property: padding-left;
+}
+
+.sidebar-toggle-icon {
+    display: block;
+}
+
+html.sidebar-collapsed .sidebar-toggle-icon {
+    transform: rotate(180deg);
+}
+
 .modal .p-6 {
     max-width: 800px;
 }

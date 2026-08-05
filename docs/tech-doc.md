@@ -128,6 +128,8 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 Права просматривающего: `clients and projects all` — все пользователи роли; только `self` — только свой узел; без прав — пусто. Клик по проекту пока только выделяет строку (`selectedProjectId`), без фильтрации продуктов.
 
+Сворачивание: кнопка-«пилюля» на правом краю панели; состояние в `Alpine.store('sidebar')` + `localStorage` (`casini.sidebarOpen`). Класс `html.sidebar-collapsed` выставляется до отрисовки (`sidebar-boot`) и восстанавливается после `livewire:navigated`. В свёрнутом виде остаётся полоска ~18px панели; анимация (`sidebar-animating`) только при клике по кнопке.
+
 ## Тестирование
 
 - **Unit-тесты** для доменной логики в `tests/Unit/Domain/`
