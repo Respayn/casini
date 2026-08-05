@@ -164,6 +164,7 @@ class extends Component
         $rebuilt->showInactive = $previous->showInactive;
         $rebuilt->includeVat = $previous->includeVat;
         $rebuilt->accumulateData = $previous->accumulateData;
+        $rebuilt->highlightUnmetKpi = $previous->highlightUnmetKpi;
         $rebuilt->applySavedColumnPreferences($previous->columns);
 
         $this->queryData = $rebuilt;

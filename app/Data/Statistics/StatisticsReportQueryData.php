@@ -44,6 +44,11 @@ class StatisticsReportQueryData extends Data implements Wireable
      */
     public string $accumulateData = 'Y';
 
+    /**
+     * Выделять клиенто-проекты с невыполненными KPI (UI настроек отчёта).
+     */
+    public string $highlightUnmetKpi = 'Y';
+
     public function __construct() {}
 
     public static function create(
@@ -144,9 +149,14 @@ class StatisticsReportQueryData extends Data implements Wireable
             $saved->dateTo,
         );
         $rebuilt->grouping = $saved->grouping;
+        if ($rebuilt->grouping === ChannelReportGrouping::TOOLS) {
+            // В Статистике группировку «по инструментам» убрали из UI.
+            $rebuilt->grouping = ChannelReportGrouping::NONE;
+        }
         $rebuilt->showInactive = $saved->showInactive;
         $rebuilt->includeVat = $saved->includeVat;
         $rebuilt->accumulateData = $saved->accumulateData;
+        $rebuilt->highlightUnmetKpi = $saved->highlightUnmetKpi ?: 'Y';
         $rebuilt->applySavedColumnPreferences($saved->columns);
 
         return $rebuilt;

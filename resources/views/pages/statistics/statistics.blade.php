@@ -201,10 +201,13 @@
                     <x-form.form-field>
                         <x-form.form-label>Выделять клиенто-проекты с невыполненными KPI</x-form.form-label>
                         <div>
-                            <x-form.select :options="[
-        ['label' => 'Да', 'value' => 'Y'],
-        ['label' => 'Нет', 'value' => 'N']
-    ]"></x-form.select>
+                            <x-form.select
+                                wire:model="queryData.highlightUnmetKpi"
+                                :options="[
+                                    ['label' => 'Да', 'value' => 'Y'],
+                                    ['label' => 'Нет', 'value' => 'N'],
+                                ]"
+                            />
                         </div>
                     </x-form.form-field>
 
@@ -238,8 +241,7 @@
                             <x-form.select :options="[
         ['label' => 'Без группировки', 'value' => 'none'],
         ['label' => 'По клиентам', 'value' => 'clients'],
-        ['label' => 'По отделам', 'value' => 'project_type'],
-        ['label' => 'По инструментам', 'value' => 'tools'],
+        ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
     ]" wire:model="queryData.grouping"></x-form.select>
                         </div>
                     </x-form.form-field>

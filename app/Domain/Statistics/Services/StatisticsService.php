@@ -216,9 +216,9 @@ class StatisticsService
     ): TableReportData {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
-        $seoGroup->groupLabel = 'SEO';
+        $seoGroup->groupLabel = ProjectType::SEO_PROMOTION->label();
         $contextGroup = new TableReportGroupData();
-        $contextGroup->groupLabel = 'Контекст';
+        $contextGroup->groupLabel = ProjectType::CONTEXT_AD->label();
 
         $seoRows = new Collection();
         $contextRows = new Collection();
