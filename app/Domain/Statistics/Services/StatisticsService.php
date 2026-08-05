@@ -115,11 +115,6 @@ class StatisticsService
         foreach ($projects as $project) {
             $row = new TableReportRowData();
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
-
             $client = $clients->firstWhere('id', $project->client_id);
 
             $manager = $users->firstWhere('id', $client->manager_id);
@@ -145,9 +140,7 @@ class StatisticsService
                     'client-project-id' => [
                         'id' => $project->id
                     ],
-                    'department' => [
-                        'name' => $department
-                    ],
+                    'project-type' => $project->project_type->label(),
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
@@ -180,11 +173,7 @@ class StatisticsService
                 'count' => $projects->count()
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-            'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
         return $report;
@@ -215,10 +204,6 @@ class StatisticsService
             $row = new TableReportRowData();
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
 
             $client = $clients->firstWhere('id', $project->client_id);
 
@@ -245,9 +230,7 @@ class StatisticsService
                     'client-project-id' => [
                         'id' => $project->id
                     ],
-                    'department' => [
-                        'name' => $department
-                    ],
+                    'project-type' => $project->project_type->label(),
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
@@ -295,11 +278,7 @@ class StatisticsService
                 'count' => $seoProjects->count()
             ],
             'service' => $seoIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-            'department' => [
-                ProjectType::CONTEXT_AD->value => $seoProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $seoProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
         $contextGroup->summary = new Collection([
@@ -310,11 +289,7 @@ class StatisticsService
                 'count' => $contextProjects->count()
             ],
             'service' => $contextIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-            'department' => [
-                ProjectType::CONTEXT_AD->value => $contextProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $contextProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
@@ -327,11 +302,7 @@ class StatisticsService
                 'count' => $projects->count()
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-            'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
         return $report;
@@ -361,10 +332,6 @@ class StatisticsService
                 $row = new TableReportRowData();
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
 
                 $client = $clients->firstWhere('id', $project->client_id);
 
@@ -391,9 +358,7 @@ class StatisticsService
                         'client-project-id' => [
                             'id' => $project->id
                         ],
-                        'department' => [
-                            'name' => $department
-                        ],
+                        'project-type' => $project->project_type->label(),
                         'kpi' => $project->kpi->label(),
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
@@ -430,11 +395,7 @@ class StatisticsService
                     'count' => $clientProjects->count()
                 ],
                 'service' => $clientIntegrations->flatten()
-                    ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-                'department' => [
-                    ProjectType::CONTEXT_AD->value => $clientProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                    ProjectType::SEO_PROMOTION->value => $clientProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-                ]
+                    ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
             ]);
 
             $report->groups->push($group);
@@ -448,11 +409,7 @@ class StatisticsService
                 'count' => $projects->count()
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-            'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
         return $report;
@@ -493,10 +450,6 @@ class StatisticsService
                 $row = new TableReportRowData();
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
 
                 $client = $clients->firstWhere('id', $project->client_id);
 
@@ -523,9 +476,7 @@ class StatisticsService
                         'client-project-id' => [
                             'id' => $project->id
                         ],
-                        'department' => [
-                            'name' => $department
-                        ],
+                        'project-type' => $project->project_type->label(),
                         'kpi' => $project->kpi->label(),
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
@@ -557,11 +508,7 @@ class StatisticsService
                 'client-project' => [
                     'count' => $projectsByIntegration->count()
                 ],
-                'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()],
-                'department' => [
-                    ProjectType::CONTEXT_AD->value => $projectsByIntegration->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                    ProjectType::SEO_PROMOTION->value => $projectsByIntegration->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-                ]
+                'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()]
             ]);
 
             $report->groups->push($group);
@@ -578,10 +525,6 @@ class StatisticsService
             $row = new TableReportRowData();
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
 
             $client = $clients->firstWhere('id', $project->client_id);
 
@@ -608,9 +551,7 @@ class StatisticsService
                     'client-project-id' => [
                         'id' => $project->id
                     ],
-                    'department' => [
-                        'name' => $department
-                    ],
+                    'project-type' => $project->project_type->label(),
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
@@ -642,11 +583,7 @@ class StatisticsService
             'client-project' => [
                 'count' => $projectsWithoutIntegration->count()
             ],
-            'service' => [],
-            'department' => [
-                ProjectType::CONTEXT_AD->value => $projectsWithoutIntegration->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projectsWithoutIntegration->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+            'service' => []
         ]);
 
         $report->groups->push($group);
@@ -659,11 +596,7 @@ class StatisticsService
                 'count' => $projects->count()
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-            'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
         ]);
 
         return $report;
