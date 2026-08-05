@@ -94,8 +94,16 @@ class StatisticsReportQueryData extends Data implements Wireable
         }
 
         if ($detailLevel === StatisticsReportDetailLevel::BY_MONTH) {
-            $label = DateTimeHelper::getMonthName($gridMonth->month);
-            $instance->columns->add(new TableReportColumnData('month', $label, $colOrder++, component: 'fact', isSortable: false));
+            foreach ($instance->detailMonths() as $index => $month) {
+                $label = DateTimeHelper::getMonthName($month->month).' '.$month->format('Y');
+                $instance->columns->add(new TableReportColumnData(
+                    "month_{$index}",
+                    $label,
+                    $colOrder++,
+                    component: 'fact',
+                    isSortable: false,
+                ));
+            }
         }
 
         $instance->columns->add(new TableReportColumnData('summary', 'Итог', $colOrder++));
@@ -106,7 +114,34 @@ class StatisticsReportQueryData extends Data implements Wireable
     }
 
     /**
-     * Месяц для колонок детализации: один месяц периода либо dateTo при интервале.
+     * Месяцы периода для детализации «по месяцам»: dateFrom…dateTo включительно.
+     *
+     * @return list<Carbon>
+     */
+    public function detailMonths(): array
+    {
+        // Обход через year/month, без Carbon::addMonth()/lte — на Wireable-инстансах
+        // Livewire addMonth+lte давали только первый месяц при корректных dateFrom/dateTo.
+        $months = [];
+        $year = (int) $this->dateFrom->format('Y');
+        $month = (int) $this->dateFrom->format('n');
+        $endYear = (int) $this->dateTo->format('Y');
+        $endMonth = (int) $this->dateTo->format('n');
+
+        while ($year < $endYear || ($year === $endYear && $month <= $endMonth)) {
+            $months[] = Carbon::create($year, $month, 1)->startOfDay();
+            $month++;
+            if ($month > 12) {
+                $month = 1;
+                $year++;
+            }
+        }
+
+        return $months;
+    }
+
+    /**
+     * Месяц для колонок детализации день/неделя: один месяц периода либо dateTo при интервале.
      */
     public function detailGridMonth(): Carbon
     {
