@@ -104,7 +104,10 @@
                             <x-form.checkbox wire:model.live="selectAll" />
                         </x-data.table-column>
                         @foreach ($this->visibleColumns as $column)
-                            <x-data.table-column class="whitespace-nowrap">
+                            <x-data.table-column
+                                class="whitespace-nowrap border"
+                                style="border-color: var(--color-table-cell)"
+                            >
                                 <span>{{ $column->label }}</span>
                                 @if ($column->tooltip !== null)
                                     <x-overlay.tooltip>

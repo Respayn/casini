@@ -10,7 +10,7 @@
                 <x-button.button :variant="$grouping->value === 'clients' ? 'primary' : null"
                     wire:click="setGrouping('clients')" label="По клиентам" />
                 <x-button.button :variant="$grouping->value === 'project_type' ? 'primary' : null"
-                    wire:click="setGrouping('project_type')" label="По отделам" />
+                    wire:click="setGrouping('project_type')" label="По типу клиенто-проекта" />
                 <x-button.button :variant="$grouping->value === 'tools' ? 'primary' : null"
                     wire:click="setGrouping('tools')" label="По инструментам" />
             </div>

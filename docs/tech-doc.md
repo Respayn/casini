@@ -220,6 +220,8 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 Колонки `direct-budget` / `direct-spendings` на странице `/channels`.
 
+Колонка «Тип клиенто-проекта» (`project-type`) вместо «Отдел»: значение из `ProjectType::label()` настроек клиенто-проекта. Группировка `project_type` в UI подписана «По типу клиенто-проекта».
+
 Период отчёта: `ChannelReportQueryData.dateFrom` / `dateTo` (месяц–месяц), UI — два `x-form.month-picker` с `disable-future`. По умолчанию оба = текущий месяц. Будущие месяцы запрещены (UI + `clampPeriodToPresent()`).
 
 | Что | Как |

@@ -56,7 +56,7 @@ class ChannelReportQueryData extends Data implements Wireable
         $colOrder = 0;
 
         $instance->columns = new Collection([
-            new TableReportColumnData('department', 'Отдел', $colOrder++),
+            new TableReportColumnData('project-type', 'Тип клиенто-проекта', $colOrder++),
             new TableReportColumnData('tool', 'Инструмент', $colOrder++),
             new TableReportColumnData('client', 'Клиент', $colOrder++),
             new TableReportColumnData('client-project', 'Клиенто-проект', $colOrder++),
@@ -93,14 +93,21 @@ class ChannelReportQueryData extends Data implements Wireable
 
     /**
      * Загрузка сохранённых настроек с поддержкой legacy без dateFrom.
+     * Динамические колонки position_* пересобираются под актуальный справочник ставок;
+     * видимость и порядок совпадающих колонок сохраняются.
      *
      * Важно: имя НЕ должно начинаться с from* — Spatie Laravel Data
      * считает такие методы «магическими» конструкторами и уходит в рекурсию.
      *
      * @param  array<string, mixed>|string  $settings
+     * @param  array<int, object>|Collection<int, object>  $rates
      */
-    public static function hydrateFromSavedSettings(array|string $settings): self
+    public static function hydrateFromSavedSettings(array|string $settings, array|Collection $rates = []): self
     {
+        if (is_array($rates)) {
+            $rates = new Collection($rates);
+        }
+
         $payload = is_string($settings) ? json_decode($settings, true) : $settings;
         if (! is_array($payload)) {
             $payload = [];
@@ -116,20 +123,83 @@ class ChannelReportQueryData extends Data implements Wireable
             $payload['dateTo'] = $current;
         }
 
-        $instance = self::from($payload);
-        $instance->syncCanonicalColumnTooltips();
-        $instance->clampPeriodToPresent();
+        $saved = self::from($payload);
+        $saved->clampPeriodToPresent();
 
-        return $instance;
+        $rebuilt = self::create($rates);
+        $rebuilt->grouping = $saved->grouping;
+        $rebuilt->dateFrom = $saved->dateFrom;
+        $rebuilt->dateTo = $saved->dateTo;
+        $rebuilt->showInactive = $saved->showInactive;
+        $rebuilt->includeVat = $saved->includeVat;
+        $rebuilt->applySavedColumnPreferences($saved->columns);
+        $rebuilt->syncCanonicalColumnTooltips($rates);
+
+        return $rebuilt;
+    }
+
+    /**
+     * Перенести isVisible/order с сохранённых колонок на актуальный набор.
+     *
+     * @param  Collection<int, TableReportColumnData>  $savedColumns
+     */
+    public function applySavedColumnPreferences(Collection $savedColumns): void
+    {
+        if ($savedColumns->isEmpty()) {
+            return;
+        }
+
+        $prefs = $savedColumns->keyBy(fn (TableReportColumnData $column) => $column->field);
+
+        $samePositionSchema = self::positionColumnFields($savedColumns)
+            === self::positionColumnFields($this->columns);
+
+        foreach ($this->columns as $column) {
+            $saved = $prefs->get($column->field);
+            if ($saved === null) {
+                continue;
+            }
+
+            $column->isVisible = $saved->isVisible;
+
+            if ($samePositionSchema) {
+                $column->order = $saved->order;
+            }
+        }
+
+        if ($samePositionSchema) {
+            $this->columns = $this->columns
+                ->sortBy(fn (TableReportColumnData $column) => $column->order)
+                ->values();
+        }
+    }
+
+    /**
+     * @param  Collection<int, TableReportColumnData>  $columns
+     * @return list<string>
+     */
+    private static function positionColumnFields(Collection $columns): array
+    {
+        return $columns
+            ->filter(fn (TableReportColumnData $column) => str_starts_with($column->field, 'position_'))
+            ->pluck('field')
+            ->values()
+            ->all();
     }
 
     /**
      * Подтянуть актуальные tooltip из create(), чтобы правки в коде доходили
      * до пользователей с уже сохранёнными настройками колонок.
+     *
+     * @param  array<int, object>|Collection<int, object>  $rates
      */
-    public function syncCanonicalColumnTooltips(): void
+    public function syncCanonicalColumnTooltips(array|Collection $rates = []): void
     {
-        $defaults = self::create()->columns->keyBy(fn (TableReportColumnData $column) => $column->field);
+        if (is_array($rates)) {
+            $rates = new Collection($rates);
+        }
+
+        $defaults = self::create($rates)->columns->keyBy(fn (TableReportColumnData $column) => $column->field);
 
         foreach ($this->columns as $column) {
             $default = $defaults->get($column->field);
