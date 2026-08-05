@@ -16,7 +16,8 @@
     };
 
     $rows = [];
-    $maxSizer = '-';
+    // Минимум как подпись «План»/«Факт» в шапке — иначе пустые дни сжимаются до ширины «-».
+    $maxSizer = 'План';
 
     foreach ($params as $parameter) {
         $planText = $formatValue($parameter['plan']);

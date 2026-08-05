@@ -150,4 +150,30 @@ class StatisticsReportQueryDataTest extends TestCase
             ->all();
         $this->assertSame(['month_0', 'month_1'], $factFields);
     }
+
+    public function test_apply_saved_prefs_keeps_trailing_columns_after_days_when_fact_schema_changes(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-04'));
+
+        $saved = StatisticsReportQueryData::create(StatisticsReportDetailLevel::BY_WEEK);
+        $rebuilt = StatisticsReportQueryData::create(StatisticsReportDetailLevel::BY_DAY);
+        $rebuilt->applySavedColumnPreferences($saved->columns);
+
+        $visibleFields = $rebuilt->columns
+            ->filter(fn ($column) => $column->isVisible)
+            ->pluck('field')
+            ->values()
+            ->all();
+
+        $summaryIdx = array_search('summary', $visibleFields, true);
+        $lastDayIdx = array_search('day_31', $visibleFields, true);
+
+        $this->assertNotFalse($summaryIdx);
+        $this->assertNotFalse($lastDayIdx);
+        $this->assertGreaterThan($lastDayIdx, $summaryIdx);
+        $this->assertSame(
+            ['summary', 'prediction', 'bonuses'],
+            array_slice($visibleFields, -3)
+        );
+    }
 }

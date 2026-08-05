@@ -76,7 +76,7 @@
                                     'whitespace-nowrap border',
                                     '!p-0' => $column->component === 'fact',
                                 ])
-                                style="border-color: var(--color-table-cell)"
+                                style="{{ $column->component === 'fact' ? 'border-color: var(--color-table-cell); min-width: 7.5rem' : 'border-color: var(--color-table-cell)' }}"
                                 :stacked="$column->component === 'fact'"
                             >
                                 @if ($column->component === 'fact')

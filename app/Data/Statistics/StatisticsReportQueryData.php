@@ -165,6 +165,18 @@ class StatisticsReportQueryData extends Data implements Wireable
 
         $prefs = $savedColumns->keyBy(fn (TableReportColumnData $column) => $column->field);
 
+        $savedFactFields = $savedColumns
+            ->filter(fn (TableReportColumnData $column) => $column->component === 'fact')
+            ->pluck('field')
+            ->values()
+            ->all();
+        $currentFactFields = $this->columns
+            ->filter(fn (TableReportColumnData $column) => $column->component === 'fact')
+            ->pluck('field')
+            ->values()
+            ->all();
+        $sameFactSchema = $savedFactFields === $currentFactFields;
+
         foreach ($this->columns as $column) {
             $saved = $prefs->get($column->field);
             if ($saved === null) {
@@ -172,12 +184,16 @@ class StatisticsReportQueryData extends Data implements Wireable
             }
 
             $column->isVisible = $saved->isVisible;
-            $column->order = $saved->order;
+            if ($sameFactSchema) {
+                $column->order = $saved->order;
+            }
         }
 
-        $this->columns = $this->columns
-            ->sortBy(fn (TableReportColumnData $column) => $column->order)
-            ->values();
+        if ($sameFactSchema) {
+            $this->columns = $this->columns
+                ->sortBy(fn (TableReportColumnData $column) => $column->order)
+                ->values();
+        }
     }
 
     /**
