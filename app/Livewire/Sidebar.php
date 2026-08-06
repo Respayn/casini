@@ -4,6 +4,8 @@ namespace App\Livewire;
 
 use App\Data\Sidebar\EmployeeData;
 use App\Services\SidebarService;
+use App\Support\SidebarProjectContext;
+use Livewire\Attributes\On;
 use Livewire\Component;
 use Str;
 
@@ -22,21 +24,24 @@ class Sidebar extends Component
 
     private SidebarService $sidebarService;
 
-    public function boot(SidebarService $sidebarService)
+    private SidebarProjectContext $projectContext;
+
+    public function boot(SidebarService $sidebarService, SidebarProjectContext $projectContext)
     {
         $this->sidebarService = $sidebarService;
+        $this->projectContext = $projectContext;
     }
 
     public function mount()
     {
         $this->sortOptions = $this->sidebarService->getRoleOptions();
         $this->sortBy = $this->sortOptions[0]['value'] ?? null;
+        $this->selectedProjectId = $this->projectContext->get();
         $this->getEmployees();
     }
 
     public function updatedSortBy()
     {
-        $this->selectedProjectId = null;
         $this->getEmployees();
     }
 
@@ -45,7 +50,31 @@ class Sidebar extends Component
         $this->getEmployees();
     }
 
-    public function resetSelectedProject()
+    public function selectProject(int $projectId): void
+    {
+        if ($this->selectedProjectId === $projectId) {
+            $this->resetSelectedProject();
+
+            return;
+        }
+
+        if (! $this->projectContext->set($projectId)) {
+            return;
+        }
+
+        $this->selectedProjectId = $projectId;
+        $this->dispatch('sidebar-project-selected', projectId: $projectId);
+    }
+
+    public function resetSelectedProject(): void
+    {
+        $this->projectContext->clear();
+        $this->selectedProjectId = null;
+        $this->dispatch('sidebar-project-cleared');
+    }
+
+    #[On('sidebar-project-cleared')]
+    public function syncClearedSelection(): void
     {
         $this->selectedProjectId = null;
     }

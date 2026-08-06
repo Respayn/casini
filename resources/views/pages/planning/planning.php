@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Concerns\WithSidebarProjectFilter;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Illuminate\Support\Carbon;
@@ -12,6 +13,8 @@ new
     #[Title('Casini - Планирование')]
     class extends Component
     {
+        use WithSidebarProjectFilter;
+
         public int $year;
         public array $tableData = [];
         public bool $hasChanges = false;
@@ -24,15 +27,26 @@ new
             $this->projectPlanService = $projectPlanService;
         }
 
-        public function mount(): void
+        public function mount(\App\Support\SidebarProjectContext $context): void
         {
+            $this->sidebarProjectId = $context->get();
             $this->year = Carbon::now()->year;
             $this->loadTableData();
         }
 
         public function loadTableData()
         {
-            $this->tableData = $this->projectPlanService->getPlansForYear($this->year);
+            $this->tableData = $this->projectPlanService->getPlansForYear(
+                $this->year,
+                $this->sidebarProjectId,
+            );
+        }
+
+        protected function afterSidebarProjectFilterChanged(): void
+        {
+            $this->modifiedProjectIds = [];
+            $this->hasChanges = false;
+            $this->loadTableData();
         }
 
         public function updatedYear()

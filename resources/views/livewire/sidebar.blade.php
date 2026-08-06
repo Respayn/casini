@@ -126,7 +126,7 @@
                                             @foreach ($client->projects as $project)
                                                 <div
                                                     class="treeitem border-flat-border relative mt-1 flex min-h-[42px] cursor-pointer items-center gap-1 rounded-[5px] border p-[10px] first:mt-2"
-                                                    x-on:click="$wire.set('selectedProjectId', {{ $project->id }}).live"
+                                                    wire:click="selectProject({{ $project->id }})"
                                                     x-bind:class="{
                                                         'bg-selected-project-card *:text-white': $wire.selectedProjectId ==
                                                             {{ $project->id }}

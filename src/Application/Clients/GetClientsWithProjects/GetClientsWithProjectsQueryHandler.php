@@ -20,6 +20,35 @@ class GetClientsWithProjectsQueryHandler
         $clients = $this->clientRepository->getClientsWithProjects();
         $user = User::query()->findOrFail($query->viewerUserId);
 
-        return $this->visibilityFilter->filterForUser($clients, $user);
+        $clients = $this->visibilityFilter->filterForUser($clients, $user);
+
+        if ($query->projectId === null) {
+            return $clients;
+        }
+
+        $projectId = $query->projectId;
+        $filtered = [];
+
+        foreach ($clients as $client) {
+            $projects = array_values(array_filter(
+                $client->projects,
+                fn (ClientProjectDto $project) => $project->id === $projectId
+            ));
+
+            if ($projects === []) {
+                continue;
+            }
+
+            $filtered[] = new ClientDto(
+                $client->id,
+                $client->name,
+                $client->inn,
+                $client->initialBalance,
+                $client->managerId,
+                $projects
+            );
+        }
+
+        return $filtered;
     }
 }

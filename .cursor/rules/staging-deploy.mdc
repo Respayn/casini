@@ -1,0 +1,28 @@
+---
+description: Деплой на staging только через staging-deploy-files.sh (с pre-check), без голого scp/rsync
+alwaysApply: true
+---
+
+# Staging deploy
+
+## Обязательно
+
+- Выкладка файлов на staging (**test.casini.ru** / `root@193.107.239.233`, `/var/www/casini`) — **только** через:
+
+```bash
+STAGING_HOST=root@193.107.239.233 bash scripts/staging-deploy-files.sh [--skip-smoke] path/to/file …
+```
+
+- Скрипт сам делает: **pre-deploy-check → upload → smoke**.
+- Pre-check блокирует затирание чужого кода (hot-zones + shrink). Не обходить без явной просьбы пользователя (`--force`).
+
+## Запрещено
+
+- Голый `scp` / `rsync` файлов приложения на staging (в обход pre-check).
+- `git pull` / `git checkout` всего дерева на staging «поверх» грязной рабочей копии без согласования.
+- При зависании скрипта — **не** переходить на ручной `scp`. Разобрать причину (SSH, pre-check) или спросить пользователя.
+
+## Новые файлы / инциденты
+
+- После merge новой feature-ветки на staging — добавить маркеры в `scripts/staging-hot-zones.conf`.
+- Скрипты деплоя лежат в `scripts/staging-*.sh`; их тоже можно выкладывать через `staging-deploy-files.sh`.

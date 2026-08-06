@@ -34,11 +34,19 @@ class ProjectPlanService
     /**
      * Получение планов на год для всех проектов
      * @param int $year
+     * @param int|null $projectId
      * @return array[]
      */
-    public function getPlansForYear(int $year): array
+    public function getPlansForYear(int $year, ?int $projectId = null): array
     {
         $domainPlans = $this->repository->getAllPlansForYear($year);
+
+        if ($projectId !== null) {
+            $domainPlans = array_values(array_filter(
+                $domainPlans,
+                fn(ProjectPlan $plan) => $plan->getProject()->getId() === $projectId
+            ));
+        }
 
         foreach ($domainPlans as $plan) {
             $projectType = $plan->getProject()->getType();

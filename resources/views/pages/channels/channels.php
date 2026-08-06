@@ -6,7 +6,10 @@ use App\Contracts\ChannelReportServiceInterface;
 use App\Data\Channels\ChannelReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
+use App\Enums\ChannelBulkAction;
 use App\Enums\ChannelReportGrouping;
+use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\Channels\ChannelDirectMetricsService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -18,6 +21,8 @@ new
 #[Title("Каналы")]
 class extends Component
 {
+    use WithSidebarProjectFilter;
+
     public ChannelReportQueryData $queryData;
 
     /**
@@ -32,16 +37,24 @@ class extends Component
 
     /**
      * Выбранное действие для массовых операций
-     * TODO: перевести на Backed Enum
      * @var string
      */
     public string $bulkAction = "";
 
+    public ?string $actionMessage = null;
+
+    public string $actionMessageType = 'success';
+
     private ChannelReportServiceInterface $channelReportService;
 
-    public function boot(ChannelReportServiceInterface $channelReportService)
-    {
+    private ChannelDirectMetricsService $directMetricsService;
+
+    public function boot(
+        ChannelReportServiceInterface $channelReportService,
+        ChannelDirectMetricsService $directMetricsService
+    ) {
         $this->channelReportService = $channelReportService;
+        $this->directMetricsService = $directMetricsService;
     }
 
     public function mount()
@@ -49,6 +62,27 @@ class extends Component
         $this->queryData = $this->channelReportService->getUserSettings(
             Auth::user()->id,
         );
+        $this->queryData->clampPeriodToPresent();
+    }
+
+    protected function afterSidebarProjectFilterChanged(): void
+    {
+        $this->selectedProjects = [];
+        $this->selectedGroups = [];
+        $this->selectAll = false;
+        unset($this->reportData);
+    }
+
+    public function updatedQueryDataDateFrom(): void
+    {
+        $this->queryData->clampPeriodToPresent();
+        unset($this->reportData);
+    }
+
+    public function updatedQueryDataDateTo(): void
+    {
+        $this->queryData->clampPeriodToPresent();
+        unset($this->reportData);
     }
 
     public function updatedSelectAll($value)
@@ -161,6 +195,8 @@ class extends Component
     public function applySettingsSnapshot()
     {
         $this->originalQueryData = null;
+        $this->persistUserSettings();
+        unset($this->reportData);
     }
 
     #[Renderless]
@@ -215,13 +251,9 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
-        // TODO: продумать более подходящее место для сохранения настроек
-        $this->channelReportService->saveUserSettings(
-            Auth::user()->id,
-            $this->queryData,
-        );
+        $this->persistUserSettings();
 
-        return $this->channelReportService->getReportData($this->queryData);
+        return $this->channelReportService->getReportData($this->queryData, $this->sidebarProjectId);
     }
 
     #[On('group-settings-applied')]
@@ -231,14 +263,68 @@ class extends Component
         $this->selectedProjects = [];
         $this->selectedGroups = [];
         $this->selectAll = false;
+        $this->persistUserSettings();
+        unset($this->reportData);
     }
 
-    public function makeBulkAction()
+    private function persistUserSettings(): void
     {
-        if ($this->bulkAction === "") {
-            // select action
-        } else {
-            // success
+        $this->channelReportService->saveUserSettings(
+            Auth::user()->id,
+            $this->queryData,
+        );
+    }
+
+    public function makeBulkAction(): void
+    {
+        $action = ChannelBulkAction::tryFrom($this->bulkAction);
+
+        if ($action === null) {
+            $this->setActionMessage('Выберите массовое действие', 'error');
+
+            return;
         }
+
+        if ($this->selectedProjects === []) {
+            $this->setActionMessage('Выберите клиенто-проекты', 'error');
+
+            return;
+        }
+
+        $stats = match ($action) {
+            ChannelBulkAction::RefreshBudgetRemains => $this->directMetricsService->refreshBudgets(
+                $this->selectedProjects,
+            ),
+            ChannelBulkAction::RefreshSpendings => $this->directMetricsService->refreshSpendingsForProjects(
+                $this->selectedProjects,
+                $this->queryData->dateFrom,
+                $this->queryData->dateTo,
+                $this->queryData->includeVat,
+            ),
+        };
+
+        unset($this->reportData);
+
+        if (! empty($stats['error'])) {
+            $this->setActionMessage($stats['error'], 'error');
+
+            return;
+        }
+
+        $this->setActionMessage(
+            sprintf(
+                'Обновлено: %d, ошибок: %d, пропущено: %d',
+                $stats['updated'],
+                $stats['failed'],
+                $stats['skipped'],
+            ),
+            $stats['failed'] > 0 ? 'error' : 'success',
+        );
+    }
+
+    private function setActionMessage(string $message, string $type): void
+    {
+        $this->actionMessage = $message;
+        $this->actionMessageType = $type;
     }
 };
