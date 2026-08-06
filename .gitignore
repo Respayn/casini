@@ -24,3 +24,15 @@ yarn-error.log
 /.zed
 /.cursor/*.log
 /.cursor/rules/casini-project-workflow.mdc
+/.cursor/rules/staging-deploy.mdc
+/.cursor/rules/integration-data-sync.mdc
+
+# Локальные скрипты точечного деплоя на staging (не в remote)
+/scripts/staging-deploy-files.sh
+/scripts/staging-hot-zones.conf
+/scripts/staging-pre-deploy-check.sh
+
+# Локальные тесты фильтра сайдбара (пока не в remote)
+/tests/Feature/Livewire/SidebarProjectFilterTest.php
+/tests/Unit/Support/SidebarProjectContextTest.php
+/tests/Unit/Application/Clients/GetClientsWithProjectsSidebarFilterTest.php
