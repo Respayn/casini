@@ -102,7 +102,27 @@ class SidebarService
             );
         }
 
+        if (count($employees) === 1) {
+            $this->expandEntireTree($employees);
+        }
+
         return $employees;
+    }
+
+    /**
+     * Если в сайдбаре один сотрудник — сразу показываем всех клиентов и проекты.
+     *
+     * @param  array<int, EmployeeData>  $employees
+     */
+    private function expandEntireTree(array $employees): void
+    {
+        foreach ($employees as $employee) {
+            $employee->open = true;
+
+            foreach ($employee->clients as $client) {
+                $client->open = true;
+            }
+        }
     }
 
     /**

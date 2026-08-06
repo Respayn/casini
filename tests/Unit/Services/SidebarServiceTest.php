@@ -92,6 +92,42 @@ class SidebarServiceTest extends TestCase
         $this->assertArrayHasKey($active->id, $projects);
         $this->assertCount(1, $projects);
         $this->assertSame($viewer->id, auth()->id());
+
+        // Один сотрудник в списке — дерево сразу раскрыто
+        $this->assertTrue($employees[$manager->id]->open);
+        $this->assertTrue($employees[$manager->id]->clients[$client->id]->open);
+    }
+
+    public function test_multiple_managers_stay_collapsed_by_default(): void
+    {
+        $this->actingAsUserWithPermission('read clients and projects all');
+
+        $managerRole = Role::findByName('manager');
+        $managerRole->use_in_project_filter = true;
+        $managerRole->use_in_managers_list = true;
+        $managerRole->save();
+
+        $first = User::factory()->create(['is_active' => true, 'first_name' => 'Аня', 'last_name' => 'А']);
+        $second = User::factory()->create(['is_active' => true, 'first_name' => 'Борис', 'last_name' => 'Б']);
+        $first->assignRole($managerRole);
+        $second->assignRole($managerRole);
+
+        foreach ([$first, $second] as $manager) {
+            $client = Client::factory()->create(['manager_id' => $manager->id]);
+            Project::factory()->create([
+                'client_id' => $client->id,
+                'specialist_id' => User::factory()->create(['is_active' => true])->id,
+                'is_active' => true,
+                'project_type' => ProjectType::SEO_PROMOTION,
+                'kpi' => Kpi::TRAFFIC,
+            ]);
+        }
+
+        $employees = $this->service->getEmployees((string) $managerRole->id, null);
+
+        $this->assertCount(2, $employees);
+        $this->assertFalse($employees[$first->id]->open);
+        $this->assertFalse($employees[$second->id]->open);
     }
 
     public function test_specialist_sees_only_own_projects_grouped_by_client(): void
@@ -131,6 +167,9 @@ class SidebarServiceTest extends TestCase
         $employees = $this->service->getEmployees((string) $seoRole->id, null);
 
         $this->assertArrayHasKey($specialist->id, $employees);
+        $this->assertCount(1, $employees);
+        $this->assertTrue($employees[$specialist->id]->open);
+        $this->assertTrue($employees[$specialist->id]->clients[$client->id]->open);
         $this->assertCount(1, $employees[$specialist->id]->clients);
         $this->assertArrayHasKey($mine->id, $employees[$specialist->id]->clients[$client->id]->projects);
         $this->assertCount(1, $employees[$specialist->id]->clients[$client->id]->projects);
