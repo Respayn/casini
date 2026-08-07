@@ -135,7 +135,9 @@ php artisan migrate
 
 Docker: `docker-compose -f docker/docker-compose.yml up -d` (порты 8080, 8081, 5173).
 
-**Авторизация по умолчанию** (локально и staging): логин `admin`, пароль `123123`.
+**Авторизация:**
+- локально (seeder): логин `admin`, пароль `123123`;
+- staging / smoke (`test.casini.ru`): логин `admin`, пароль `admin1234` (`SMOKE_ADMIN_PASSWORD` в `scripts/staging-smoke.sh`).
 
 ## Известные расхождения docs ↔ код
 
@@ -365,7 +367,7 @@ ssh root@HOST 'cd /var/www/casini && bash scripts/staging-smoke.sh'
   2. при `integrations=0` — `bash scripts/staging-reseed-reference.sh`
   3. `bash scripts/staging-smoke.sh` (login + Livewire cache + integrations + dictionaries ≠ 500 + route users.edit + alias middleware)
   4. сквозной UI: login → клиенто-проект → «Добавить интеграцию» → список **не пустой**
-  5. вход `admin` / `123123`
+  5. вход `admin` / `admin1234` (staging)
 - Перед деплоем и после merge проверять, что в коде не откатились критичные фиксы:
   - `resources/js/echo.js` — условная инициализация Echo (не падать без `VITE_REVERB_APP_KEY`);
   - `resources/views/pages/auth/login/login.blade.php` — `wire:submit.prevent="login"`.

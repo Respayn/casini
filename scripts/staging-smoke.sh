@@ -8,6 +8,8 @@ APP_DIR="${APP_DIR:-/var/www/casini}"
 LOGIN_URL="${LOGIN_URL:-https://test.casini.ru/login}"
 BASE_URL="${BASE_URL:-https://test.casini.ru}"
 WEB_USER="${WEB_USER:-www-data}"
+SMOKE_ADMIN_LOGIN="${SMOKE_ADMIN_LOGIN:-admin}"
+SMOKE_ADMIN_PASSWORD="${SMOKE_ADMIN_PASSWORD:-admin1234}"
 
 if [[ "${LOGIN_URL}" == http://127.0.0.1/* ]] || [[ "${LOGIN_URL}" == http://localhost/* ]]; then
   echo "WARN: локальный URL может отдавать 404 за Nginx; по умолчанию используйте https://test.casini.ru/login"
@@ -16,20 +18,34 @@ fi
 echo "==> HTTP login page: ${LOGIN_URL}"
 html="$(curl -fsS --max-time 20 "${LOGIN_URL}")"
 
-if ! printf '%s' "${html}" | grep -q 'wire:submit.prevent="login"'; then
-  echo "FAIL: на странице входа нет wire:submit.prevent=\"login\""
+# Старая форма: wire:submit.prevent="login"; актуальная на staging — Alpine + $wire.login() + captcha.
+if printf '%s' "${html}" | grep -q 'wire:submit.prevent="login"'; then
+  echo "OK: login form Livewire binding present"
+elif printf '%s' "${html}" | grep -Fq '$wire.login()' && printf '%s' "${html}" | grep -q 'pages::auth.login'; then
+  echo "OK: login form Livewire + captcha submit present"
+else
+  echo "FAIL: на странице входа нет ни wire:submit.prevent=\"login\", ни \$wire.login()"
   exit 1
 fi
-echo "OK: login form Livewire binding present"
 
-echo "==> DB admin user exists"
+echo "==> DB admin user + password"
 cd "${APP_DIR}"
 php artisan tinker --execute="echo App\Models\User::where('login','admin')->exists() ? 'OK' : 'FAIL';" | tee /tmp/casini-smoke-admin.txt
 
 if ! grep -q 'OK' /tmp/casini-smoke-admin.txt; then
-  echo "FAIL: пользователь admin отсутствует в БД"
+  echo "FAIL: пользователь ${SMOKE_ADMIN_LOGIN} отсутствует в БД"
   exit 1
 fi
+echo "OK: user ${SMOKE_ADMIN_LOGIN} exists"
+
+# Проверка хеша пароля (как на странице входа: login + Hash::check).
+php artisan tinker --execute="\$u=App\Models\User::where('login','${SMOKE_ADMIN_LOGIN}')->first(); echo (\$u && Illuminate\Support\Facades\Hash::check('${SMOKE_ADMIN_PASSWORD}', \$u->password)) ? 'OK' : 'FAIL';" | tee /tmp/casini-smoke-auth.txt
+
+if ! grep -q 'OK' /tmp/casini-smoke-auth.txt; then
+  echo "FAIL: пароль smoke для ${SMOKE_ADMIN_LOGIN} не подходит (ожидается SMOKE_ADMIN_PASSWORD)"
+  exit 1
+fi
+echo "OK: ${SMOKE_ADMIN_LOGIN} password accepted"
 
 echo "==> Livewire compiler cache writable by ${WEB_USER}"
 LIVEWIRE_CLASSES="${APP_DIR}/storage/framework/views/livewire/classes"

@@ -260,7 +260,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Тип клиенто-проекта | `projects.project_type` → `ProjectType::label()` |
 | Факт «Рекламный бюджет» (CONTEXT_AD) | сумма дней из `yandex_direct_daily_spendings` за бакет (день/неделя/месяц сетки); колонка с/без НДС по `includeVat`; нет строк в БД → `-` |
 | Факт «Лиды» (CONTEXT_AD + KPI LEADS) | сумма дней из `callibri_daily_lead_counts` в слот параметра index **2**; нет строк → `-`; нулевой день пишется как `0` |
-| Обновление данных | иконка в шапке отчёта (`WithReportDataRefresh` + `refreshAllData`) → все видимые клиенто-проекты отчёта; Каналы: collectors + остаток бюджета Директа; Статистика: только collectors; один `IntegrationApiThrottle::consume()`; тултип «Последнее обновление данных: чч:мм, дд.мм.гг» (`IntegrationManualRefreshTimestamp`) |
+| Обновление данных | иконка в шапке отчёта (`WithReportDataRefresh` + `refreshAllData`) → все видимые клиенто-проекты отчёта; Каналы: collectors + остаток бюджета Директа; Статистика: только collectors; один `IntegrationApiThrottle::consume()`; тултип «Последнее обновление данных: чч:мм, дд.мм.гг» — max(ручной клик пользователя по продукту, `integration_sync_runs.finished_at` ночного съёма); если ни того ни другого — «ещё не обновлялось» (`IntegrationManualRefreshTimestamp`) |
 | Остальные факты (CPC, визиты, SEO…) | пока `-` (без тестовых заглушек) |
 | Итог / Прогноз / Бонусы и гарантии | пока `-` (без тестовых заглушек) |
 | Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |

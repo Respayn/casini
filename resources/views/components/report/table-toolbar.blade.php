@@ -7,16 +7,36 @@
     $refreshTooltip = $lastRefreshLabel
         ? 'Последнее обновление данных: '.$lastRefreshLabel
         : 'Последнее обновление данных: ещё не обновлялось';
+
+    $tooltipStyle = 'position: absolute; right: 0; bottom: calc(100% + 0.5rem); z-index: 9999; width: max-content; max-width: min(20rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);';
 @endphp
 
 <div {{ $attributes->class(['ml-auto flex flex-wrap items-center']) }}>
-    <x-overlay.modal-trigger :name="$columnModal" wire:click="saveSettingsSnapshot">
-        <x-button.button
-            icon="icons.columns"
-            variant="link"
-            title="Настроить столбцы"
-        />
-    </x-overlay.modal-trigger>
+    <div
+        class="relative inline-flex"
+        x-data="{ open: false }"
+        @mouseenter="open = true"
+        @mouseleave="open = false"
+    >
+        <x-overlay.modal-trigger :name="$columnModal" wire:click="saveSettingsSnapshot">
+            <x-button.button
+                icon="icons.columns"
+                variant="link"
+                aria-label="Настроить колонки"
+            />
+        </x-overlay.modal-trigger>
+
+        {{-- Inline styles: avoid Alpine :style (it overwrote position) and group-hover utilities missing from staging build. --}}
+        <div
+            x-show="open"
+            x-cloak
+            role="tooltip"
+            class="pointer-events-none"
+            style="{{ $tooltipStyle }}"
+        >
+            Настроить колонки
+        </div>
+    </div>
 
     <div
         class="relative inline-flex"
@@ -44,13 +64,12 @@
             />
         </button>
 
-        {{-- Inline styles: avoid Alpine :style (it overwrote position) and group-hover utilities missing from staging build. --}}
         <div
             x-show="open"
             x-cloak
             role="tooltip"
             class="pointer-events-none"
-            style="position: absolute; right: 0; bottom: calc(100% + 0.5rem); z-index: 9999; width: max-content; max-width: min(20rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);"
+            style="{{ $tooltipStyle }}"
         >
             {{ $refreshTooltip }}
         </div>
