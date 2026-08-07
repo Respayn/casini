@@ -21,7 +21,15 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex flex-wrap items-center gap-y-3">
+    @php
+        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, refreshAllData, applySettingsSnapshot';
+    @endphp
+
+    <div
+        class="flex flex-wrap items-center gap-y-3"
+        wire:loading.class="pointer-events-none opacity-60"
+        wire:target="{{ $reportLoadingTargets }}"
+    >
         <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="queryData.showInactive" />
@@ -50,17 +58,18 @@
         </x-feedback.notice>
     @endif
 
-    @if ($this->reportData->groups->isEmpty())
-        <div class="mt-20 flex flex-col items-center gap-4">
-            <span class="text-caption-text">Нет клиенто-проектов для отображения статистики</span>
-            <div>
-                <x-button.button icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
+    <x-report.table-loading :targets="$reportLoadingTargets">
+        @if ($this->reportData->groups->isEmpty())
+            <div class="mt-20 flex flex-col items-center gap-4">
+                <span class="text-caption-text">Нет клиенто-проектов для отображения статистики</span>
+                <div>
+                    <x-button.button icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
+                </div>
             </div>
-        </div>
-    @else
-        <div class="mt-3" x-data="{ expandedGroups: {} }">
-            <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
-                <x-data.table>
+        @else
+            <div x-data="{ expandedGroups: {} }">
+                <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
+                    <x-data.table>
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column
@@ -171,7 +180,8 @@
                 </x-data.table>
             </x-panel.scroll-panel>
         </div>
-    @endif
+        @endif
+    </x-report.table-loading>
 
     <x-overlay.modal name="column-settings-modal" title="Настроить столбцы">
         <x-slot:body>
