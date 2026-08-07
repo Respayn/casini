@@ -257,6 +257,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | План | только если `isSingleMonthPeriod()`; иначе в ячейке `-` |
 | Тип клиенто-проекта | `projects.project_type` → `ProjectType::label()` |
 | Факт «Рекламный бюджет» (CONTEXT_AD) | сумма дней из `yandex_direct_daily_spendings` за бакет (день/неделя/месяц сетки); колонка с/без НДС по `includeVat`; нет строк в БД → `-` |
+| Массовые действия | как в Каналах: чекбоксы строк/групп + `ChannelBulkAction` → `ChannelDirectMetricsService` (`refresh_spendings` / `refresh_budget_remains`); throttle пользователя |
 | Остальные факты (CPC, визиты, лиды, SEO…) | пока `-` (без тестовых заглушек) |
 | Итог / Прогноз / Бонусы и гарантии | пока `-` (без тестовых заглушек) |
 | Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |
@@ -275,4 +276,49 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 Кандидаты: `projects.is_active` + enabled `yandex_direct` с token и client_login.
 
-Staging: cron `schedule:run` + Supervisor `queue:work`.
+Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание регистрируется в `bootstrap/app.php` → `withSchedule()` (`integrations:dispatch-due-syncs` каждую минуту). Без `withSchedule` cron отрабатывает, но задач нет (`schedule:list` пустой). Без `queue:work` run/items могут создаться, но collector не выполнится.
+
+### Диагностика пропусков дней в Статистике / Каналах
+
+Статистика и Каналы читают только `yandex_direct_daily_spendings`. Ячейка `-` = нет строки за день (нулевой расход пишется как `0.00`).
+
+```sql
+SELECT date, cost_without_vat, cost_with_vat
+FROM yandex_direct_daily_spendings
+WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+ORDER BY date;
+
+SELECT id, local_date, target_date, status, started_at, finished_at
+FROM integration_sync_runs
+WHERE target_date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+ORDER BY target_date;
+
+SELECT i.id, r.target_date, i.status, i.attempts, i.last_error
+FROM integration_sync_items i
+JOIN integration_sync_runs r ON r.id = i.run_id
+WHERE i.project_id = ? AND i.collector = 'yandex_direct_daily_spend'
+ORDER BY r.target_date;
+```
+
+| Симптом | Причина |
+|---------|---------|
+| Нет runs | не сработал schedule (`withSchedule` / cron / окно 00:01) |
+| Runs есть, items `pending` | нет `queue:work` |
+| Items `failed` | API / токен / login |
+| Данных нет, runs пустые, но старые дни в БД есть | раньше грузили вручную из Каналов; ночной пайплайн не работал |
+
+### Backfill (догон пропущенных дней)
+
+`integrations:dispatch-due-syncs --force` создаёт **не больше одного run на local_date** — для диапазона дней не подходит.
+
+Варианты:
+
+1. Каналы → выбрать проекты → «Обновить расходы» за нужный период (throttle пользователя).
+2. Ops-команда (без throttle, тот же collector):
+
+```bash
+sudo -u www-data php artisan integrations:backfill-direct-spend \
+  --project=1 --from=2026-08-04 --to=2026-08-06
+```
+
+После backfill обновить страницу Статистики / Каналов.

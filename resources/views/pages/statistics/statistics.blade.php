@@ -46,16 +46,28 @@
     </div>
 
     @if (!empty($selectedProjects))
-        <div class="flex gap-2">
+        <div class="mt-3 flex gap-2">
             <div class="w-xs">
-                <x-form.select wire:model="bulkAction" :options="[
-                ['label' => 'Обновить расходы', 'value' => 'refresh_spendings'],
-                ['label' => 'Обновить остаток бюджета', 'value' => 'refresh_budget_remains'],
-            ]"
-                    placeholder="Массовые действия" />
+                <x-form.select
+                    wire:model="bulkAction"
+                    :options="collect(\App\Enums\ChannelBulkAction::cases())->map(fn ($action) => [
+                        'label' => $action->label(),
+                        'value' => $action->value,
+                    ])->all()"
+                    placeholder="Массовые действия"
+                />
             </div>
             <x-button.button wire:click="makeBulkAction" label="Выполнить" />
         </div>
+    @endif
+
+    @if ($actionMessage)
+        <x-feedback.notice
+            class="mt-3 mb-0"
+            :variant="$actionMessageType === 'error' ? 'error' : 'info'"
+        >
+            {{ $actionMessage }}
+        </x-feedback.notice>
     @endif
 
     @if ($this->reportData->groups->isEmpty())
@@ -70,6 +82,9 @@
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                 <x-data.table>
                     <x-data.table-columns>
+                        <x-data.table-column class="border" style="border-color: var(--color-table-cell)">
+                            <x-form.checkbox wire:model.live="selectAll" />
+                        </x-data.table-column>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column
                                 @class([
@@ -123,7 +138,7 @@
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.name">
                                     <x-data.table-cell colspan="100">
                                         <div class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']; console.log(expandedGroups)">
+                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']">
                                             <span class="font-bold">{{ $group->groupLabel }}</span>
                                             <x-icons.accordion-arrow class="transition-transform duration-200"
                                                 x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }" />
@@ -131,6 +146,9 @@
                                     </x-data.table-cell>
                                 </x-data.table-row>
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
+                                    <x-data.table-cell class="bg-table-summary-bg">
+                                        <x-form.checkbox value="{{ $groupIndex }}" wire:model.live="selectedGroups" />
+                                    </x-data.table-cell>
                                     @foreach ($this->visibleColumns as $column)
                                         <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
                                             :params="$group->summary->get($column->field)" />
@@ -141,6 +159,12 @@
                             @foreach ($group->rows as $row)
                                 @if ($queryData->grouping->value === 'none')
                                     <x-data.table-row wire:key="row.{{ $row->id }}">
+                                        <x-data.table-cell>
+                                            <x-form.checkbox
+                                                value="{{ $row->id }}"
+                                                wire:model.live="selectedProjects"
+                                            />
+                                        </x-data.table-cell>
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
                                                 :params="$row->data->get($column->field)" />
@@ -148,6 +172,12 @@
                                     </x-data.table-row>
                                 @else
                                     <x-data.table-row x-show="expandedGroups['group-{{ $groupIndex }}']" wire:key="row.{{ $row->id }}">
+                                        <x-data.table-cell>
+                                            <x-form.checkbox
+                                                value="{{ $row->id }}"
+                                                wire:model.live="selectedProjects"
+                                            />
+                                        </x-data.table-cell>
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
                                                 :params="$row->data->get($column->field)" />
@@ -158,6 +188,7 @@
                         @endforeach
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
+                            <x-data.table-cell class="bg-table-summary-bg"></x-data.table-cell>
                             @foreach ($this->visibleColumns as $column)
                                 <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
                                     :params="$this->reportData->summary->get($column->field)" />

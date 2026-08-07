@@ -137,6 +137,7 @@ class StatisticsService
 
         foreach ($projects as $project) {
             $row = new TableReportRowData();
+            $row->id = $project->id;
 
             $client = $clients->firstWhere('id', $project->client_id);
 
