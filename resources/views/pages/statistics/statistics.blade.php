@@ -13,7 +13,7 @@
             </x-overlay.modal-trigger>
         </div>
         <div>
-            <x-button.button href="{{ route('system-settings.clients-and-projects') }}" icon="icons.plus"
+            <x-button.button href="{{ route('system-settings.clients-and-projects', ['createClient' => 1]) }}" icon="icons.plus"
                 label="Добавить клиента" />
             <x-button.button href="{{ route('system-settings.clients-and-projects.projects.manage') }}"
                 icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />

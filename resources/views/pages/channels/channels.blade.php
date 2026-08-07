@@ -16,7 +16,7 @@
         </div>
         <div>
             <x-button.button
-                href="{{ route('system-settings.clients-and-projects') }}"
+                href="{{ route('system-settings.clients-and-projects', ['createClient' => 1]) }}"
                 icon="icons.plus"
                 label="Добавить клиента"
             />
