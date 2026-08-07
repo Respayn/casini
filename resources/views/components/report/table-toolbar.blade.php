@@ -9,7 +9,7 @@
         : 'Последнее обновление данных: ещё не обновлялось';
 @endphp
 
-<div {{ $attributes->class(['ml-auto flex flex-wrap items-center gap-2']) }}>
+<div {{ $attributes->class(['ml-auto flex flex-wrap items-center']) }}>
     <x-overlay.modal-trigger :name="$columnModal" wire:click="saveSettingsSnapshot">
         <x-button.button
             icon="icons.columns"
