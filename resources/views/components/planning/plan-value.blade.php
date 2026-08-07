@@ -122,21 +122,29 @@ new class extends Component {
                         cancel() {
                             this.isEditing = false;
                         },
-                    }" x-on:click="startEdit()" class="flex items-center justify-end grow px-2.5"
-                x-bind:class="{'cursor-pointer hover:bg-gray-50': canEdit && !parameter.is_calculated}">
-                <template x-if="isEditing">
-                    <div>
-                        <x-form.input-text x-ref="input" x-model="localValue" x-on:keydown.enter="commit()"
-                            x-on:blur="commit()" x-on:keydown.escape="cancel()" type="number"
-                            class="w-full h-full px-1 py-0 bg-white border-none focus:ring-0" />
-                    </div>
-                </template>
-
-                <template x-if="!isEditing">
-                    <div>
-                        <span x-text="formatValue(calculateValue(parameter), parameter.format)"></span>
-                    </div>
-                </template>
+                    }"
+                x-on:click="startEdit()"
+                class="relative flex grow items-center justify-end px-2.5"
+                style="min-height: 2.25rem"
+                x-bind:class="{'cursor-pointer hover:bg-gray-50': canEdit && !parameter.is_calculated}"
+            >
+                <span
+                    x-show="!isEditing"
+                    x-text="formatValue(calculateValue(parameter), parameter.format)"
+                ></span>
+                <input
+                    x-show="isEditing"
+                    x-ref="input"
+                    type="text"
+                    inputmode="decimal"
+                    x-model="localValue"
+                    x-on:click.stop
+                    x-on:keydown.enter="commit()"
+                    x-on:blur="commit()"
+                    x-on:keydown.escape="cancel()"
+                    class="absolute inset-0 w-full border-0 bg-white px-2.5 text-right outline-none"
+                    style="min-height: 0; height: 100%; box-sizing: border-box;"
+                />
             </div>
         </template>
     </div>
