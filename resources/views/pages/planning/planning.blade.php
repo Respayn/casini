@@ -1,4 +1,65 @@
-<div>
+<div
+    x-data="{
+        pendingUrl: null,
+        navigateHandler: null,
+        beforeUnloadHandler: null,
+
+        init() {
+            this.navigateHandler = (event) => {
+                if (! $wire.hasChanges) {
+                    return;
+                }
+
+                // Уход на другую страницу / продукт — спрашиваем про сохранение.
+                event.preventDefault();
+                this.pendingUrl = event.detail.url.href;
+                this.$dispatch('modal-show', { name: 'planning-leave-guard' });
+            };
+
+            this.beforeUnloadHandler = (event) => {
+                if (! $wire.hasChanges) {
+                    return;
+                }
+
+                event.preventDefault();
+                event.returnValue = '';
+            };
+
+            document.addEventListener('livewire:navigate', this.navigateHandler);
+            window.addEventListener('beforeunload', this.beforeUnloadHandler);
+        },
+
+        destroy() {
+            if (this.navigateHandler) {
+                document.removeEventListener('livewire:navigate', this.navigateHandler);
+            }
+            if (this.beforeUnloadHandler) {
+                window.removeEventListener('beforeunload', this.beforeUnloadHandler);
+            }
+        },
+
+        async saveAndLeave() {
+            const url = this.pendingUrl;
+            this.pendingUrl = null;
+            await $wire.saveAndContinue(url);
+        },
+
+        async discardAndLeave() {
+            const url = this.pendingUrl;
+            this.pendingUrl = null;
+            await $wire.discardAndContinue(url);
+        },
+
+        onLeaveGuardHidden() {
+            this.pendingUrl = null;
+            $wire.cancelLeaveGuard();
+        },
+    }"
+    x-on:modal-hide.window="
+        if ($event.detail.name !== 'planning-leave-guard') return;
+        onLeaveGuardHidden();
+    "
+>
     <x-layout.sidebar-filter-hint />
 
     {{-- Шапка компонента --}}
@@ -176,13 +237,13 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="1"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.1" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.1" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="2"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.2" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.2" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="3"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.3" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.3" />
 
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]])>
@@ -197,13 +258,13 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="4"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.4" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.4" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="5"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.5" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.5" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="6"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.6" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.6" />
 
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]])>
@@ -218,13 +279,13 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="7"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.7" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.7" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="8"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.8" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.8" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="9"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.9" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.9" />
 
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]])>
@@ -239,13 +300,13 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="10"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.10" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.10" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="11"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.11" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.11" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="12"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $rowIndex }}.12" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.12" />
 
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]])>
@@ -265,4 +326,25 @@
             @endif
         </div>
     </div>
+
+    <x-overlay.modal name="planning-leave-guard" title="Выйти без сохранения?">
+        <x-slot:body>
+            <div class="flex flex-col gap-3">
+                <x-button.button
+                    icon="icons.save"
+                    label="Сохранить изменения"
+                    variant="primary"
+                    x-on:click="saveAndLeave()"
+                    wire:loading.attr="disabled"
+                    wire:target="saveAndContinue"
+                />
+                <x-button.button
+                    label="Отменить изменения"
+                    x-on:click="discardAndLeave()"
+                    wire:loading.attr="disabled"
+                    wire:target="discardAndContinue"
+                />
+            </div>
+        </x-slot>
+    </x-overlay.modal>
 </div>

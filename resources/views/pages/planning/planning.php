@@ -16,9 +16,25 @@ new
         use WithSidebarProjectFilter;
 
         public int $year;
+
+        /** Год, за который сейчас загружена таблица (для отката при несохранённых правках). */
+        public int $loadedYear;
+
         public array $tableData = [];
+
         public bool $hasChanges = false;
+
         public array $modifiedProjectIds = [];
+
+        /** Счётчик для принудительного remount дочерних plan-value после discard. */
+        public int $dataEpoch = 0;
+
+        /** navigate | year | null */
+        public ?string $leaveGuardIntent = null;
+
+        public ?string $pendingNavigateUrl = null;
+
+        public ?int $pendingYear = null;
 
         private ProjectPlanService $projectPlanService;
 
@@ -31,6 +47,7 @@ new
         {
             $this->sidebarProjectId = $context->get();
             $this->year = Carbon::now()->year;
+            $this->loadedYear = $this->year;
             $this->loadTableData();
         }
 
@@ -44,16 +61,27 @@ new
 
         protected function afterSidebarProjectFilterChanged(): void
         {
-            $this->modifiedProjectIds = [];
-            $this->hasChanges = false;
+            if ($this->hasChanges) {
+                // Фильтр сайдбара уже сменился — сбрасываем черновик, иначе данные «чужого» фильтра смешаются.
+                $this->resetDraftState();
+            }
+
             $this->loadTableData();
         }
 
-        public function updatedYear()
+        public function updatedYear(int $value): void
         {
-            $this->modifiedProjectIds = [];
-            $this->hasChanges = false;
-            $this->loadTableData();
+            if ($this->hasChanges && $value !== $this->loadedYear) {
+                $this->pendingYear = $value;
+                $this->year = $this->loadedYear;
+                $this->leaveGuardIntent = 'year';
+                $this->pendingNavigateUrl = null;
+                $this->dispatch('modal-show', name: 'planning-leave-guard');
+
+                return;
+            }
+
+            $this->applyYearChange();
         }
 
         #[On('project-plan-updated')]
@@ -99,7 +127,7 @@ new
                 return isset($this->modifiedProjectIds[$plan['project_id']]);
             });
 
-            if (!empty($plansToSave)) {
+            if (! empty($plansToSave)) {
                 $this->projectPlanService->savePlansForYear($this->year, $plansToSave);
             }
 
@@ -107,12 +135,86 @@ new
             $this->hasChanges = false;
         }
 
+        public function discardChanges(): void
+        {
+            $this->resetDraftState();
+            $this->loadTableData();
+        }
+
+        /**
+         * Сохранить черновик и продолжить отложенный уход / смену года.
+         */
+        public function saveAndContinue(?string $url = null): void
+        {
+            $this->save();
+            $this->finishLeaveGuard($url);
+        }
+
+        /**
+         * Отбросить черновик и продолжить отложенный уход / смену года.
+         */
+        public function discardAndContinue(?string $url = null): void
+        {
+            $this->discardChanges();
+            $this->finishLeaveGuard($url);
+        }
+
+        public function cancelLeaveGuard(): void
+        {
+            if ($this->leaveGuardIntent === null && $this->pendingYear === null) {
+                return;
+            }
+
+            $this->leaveGuardIntent = null;
+            $this->pendingYear = null;
+            $this->pendingNavigateUrl = null;
+            $this->year = $this->loadedYear;
+        }
+
+        private function finishLeaveGuard(?string $url = null): void
+        {
+            $intent = $this->leaveGuardIntent;
+            $pendingYear = $this->pendingYear;
+            $navigateUrl = $url ?? $this->pendingNavigateUrl;
+
+            $this->leaveGuardIntent = null;
+            $this->pendingYear = null;
+            $this->pendingNavigateUrl = null;
+
+            $this->dispatch('modal-hide', name: 'planning-leave-guard');
+
+            if ($intent === 'year' && $pendingYear !== null) {
+                $this->year = $pendingYear;
+                $this->applyYearChange();
+
+                return;
+            }
+
+            if (filled($navigateUrl)) {
+                $this->js('Livewire.navigate('.json_encode($navigateUrl).')');
+            }
+        }
+
+        private function applyYearChange(): void
+        {
+            $this->resetDraftState();
+            $this->loadedYear = $this->year;
+            $this->loadTableData();
+        }
+
+        private function resetDraftState(): void
+        {
+            $this->modifiedProjectIds = [];
+            $this->hasChanges = false;
+            $this->dataEpoch++;
+        }
+
         #[Computed]
         public function canEditPlanValues(): bool
         {
             return Auth::user()->hasAnyPermission([
                 'edit planning',
-                'full planning'
+                'full planning',
             ]);
         }
 
@@ -122,7 +224,7 @@ new
             return Auth::user()->hasAnyPermission([
                 'read planning approval',
                 'edit planning approval',
-                'full planning approval'
+                'full planning approval',
             ]);
         }
 
@@ -131,7 +233,7 @@ new
         {
             return Auth::user()->hasAnyPermission([
                 'edit planning approval',
-                'full planning approval'
+                'full planning approval',
             ]);
         }
     };
