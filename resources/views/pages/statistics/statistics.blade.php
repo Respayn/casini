@@ -109,6 +109,7 @@
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
+                        @php $clientProjectStripe = 0; @endphp
                         @foreach ($this->reportData->groups as $groupIndex => $group)
                             {{-- Итого по группе --}}
                             @unless (empty($group->summary))
@@ -131,15 +132,26 @@
                             @endunless
                             {{-- Строки группы --}}
                             @foreach ($group->rows as $row)
+                                @php
+                                    $rowBgColor = $clientProjectStripe % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                    $clientProjectStripe++;
+                                @endphp
                                 @if ($queryData->grouping->value === 'none')
-                                    <x-data.table-row wire:key="row.{{ $row->id }}">
+                                    <x-data.table-row
+                                        wire:key="row.{{ $row->id }}"
+                                        :bg-color="$rowBgColor"
+                                    >
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
                                                 :params="$row->data->get($column->field)" />
                                         @endforeach
                                     </x-data.table-row>
                                 @else
-                                    <x-data.table-row x-show="expandedGroups['group-{{ $groupIndex }}']" wire:key="row.{{ $row->id }}">
+                                    <x-data.table-row
+                                        x-show="expandedGroups['group-{{ $groupIndex }}']"
+                                        wire:key="row.{{ $row->id }}"
+                                        :bg-color="$rowBgColor"
+                                    >
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
                                                 :params="$row->data->get($column->field)" />
