@@ -21,6 +21,8 @@
     <div
         class="relative inline-flex"
         x-data="{ open: false }"
+        @mouseenter="open = true"
+        @mouseleave="open = false"
     >
         <button
             type="button"
@@ -28,9 +30,6 @@
             wire:click="refreshAllData"
             wire:loading.attr="disabled"
             wire:target="refreshAllData"
-            x-ref="refreshTrigger"
-            @mouseenter="open = true"
-            @mouseleave="open = false"
             aria-label="Обновить данные"
         >
             <x-icons.refresh-data
@@ -45,22 +44,15 @@
             />
         </button>
 
-        <template x-teleport="body">
-            <div
-                class="w-72 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                style="z-index: 1000"
-                x-show="open"
-                x-transition:enter="transition ease-out duration-200"
-                x-transition:enter-start="opacity-0"
-                x-transition:enter-end="opacity-100"
-                x-transition:leave="transition ease-in duration-150"
-                x-transition:leave-start="opacity-100"
-                x-transition:leave-end="opacity-0"
-                x-cloak
-                x-anchor.top="$refs.refreshTrigger"
-            >
-                {{ $refreshTooltip }}
-            </div>
-        </template>
+        {{-- Inline styles: avoid Alpine :style (it overwrote position) and group-hover utilities missing from staging build. --}}
+        <div
+            x-show="open"
+            x-cloak
+            role="tooltip"
+            class="pointer-events-none"
+            style="position: absolute; right: 0; bottom: calc(100% + 0.5rem); z-index: 9999; width: max-content; max-width: min(20rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);"
+        >
+            {{ $refreshTooltip }}
+        </div>
     </div>
 </div>
