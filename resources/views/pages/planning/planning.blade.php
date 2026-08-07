@@ -1,4 +1,6 @@
 <div>
+    <x-layout.sidebar-filter-hint />
+
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <h1 class="mb-7">Планирование</h1>
@@ -9,21 +11,39 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="w-48">
+    <div
+        class="w-48"
+        wire:loading.class="pointer-events-none opacity-60"
+        wire:target="year"
+    >
         <x-form.year-picker wire:model.live="year" />
     </div>
 
-    @if (empty($tableData))
-        <div class="mt-20 flex flex-col items-center gap-4">
-            <span class="text-caption-text">Нет клиенто-проектов для планирования</span>
-            <div>
-                <x-button.button icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
-            </div>
+    {{-- Контент остаётся на месте; скелетон — оверлей, без прыжка высоты --}}
+    <div class="relative mt-3" style="min-height: 240px">
+        <div
+            wire:loading
+            wire:target="year"
+            class="absolute inset-0 z-10 overflow-hidden"
+            style="background-color: rgba(255, 255, 255, 0.75)"
+        >
+            <x-planning.table-skeleton class="h-full" style="min-height: 100%" />
         </div>
-    @else
-        <div class="mt-3">
-            <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
-                <x-data.table>
+
+        <div
+            wire:loading.class="pointer-events-none opacity-40"
+            wire:target="year"
+        >
+            @if (empty($tableData))
+                <div class="mt-20 flex flex-col items-center gap-4">
+                    <span class="text-caption-text">Нет клиенто-проектов для планирования</span>
+                    <div>
+                        <x-button.button icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
+                    </div>
+                </div>
+            @else
+                <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
+                    <x-data.table>
                     <x-data.table-columns>
                         <x-data.table-column class="whitespace-nowrap">
                             Клиент
@@ -113,8 +133,11 @@
 
                     <x-data.table-rows>
                         @foreach ($tableData as $projectPlan)
-                                        @php $rowIndex = $loop->index; @endphp
-                                        <x-data.table-row>
+                                        @php
+                                            $rowIndex = $loop->index;
+                                            $rowBgColor = $rowIndex % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                        @endphp
+                                        <x-data.table-row :bg-color="$rowBgColor">
                                             <x-data.table-cell>
                                                 <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
                                                     wire:navigate>
@@ -164,8 +187,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.1"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.1"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif
@@ -183,8 +208,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.2"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.2"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif
@@ -202,8 +229,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.3"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.3"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif
@@ -221,8 +250,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.4"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.4"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif
@@ -231,6 +262,7 @@
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.scroll-panel>
+            @endif
         </div>
-    @endif
+    </div>
 </div>
