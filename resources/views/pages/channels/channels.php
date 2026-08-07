@@ -189,6 +189,8 @@ class extends Component
     public function applySettingsSnapshot()
     {
         $this->originalQueryData = null;
+        $this->persistUserSettings();
+        unset($this->reportData);
     }
 
     #[Renderless]
@@ -243,11 +245,7 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
-        // TODO: продумать более подходящее место для сохранения настроек
-        $this->channelReportService->saveUserSettings(
-            Auth::user()->id,
-            $this->queryData,
-        );
+        $this->persistUserSettings();
 
         return $this->channelReportService->getReportData($this->queryData);
     }
@@ -259,7 +257,16 @@ class extends Component
         $this->selectedProjects = [];
         $this->selectedGroups = [];
         $this->selectAll = false;
+        $this->persistUserSettings();
         unset($this->reportData);
+    }
+
+    private function persistUserSettings(): void
+    {
+        $this->channelReportService->saveUserSettings(
+            Auth::user()->id,
+            $this->queryData,
+        );
     }
 
     public function makeBulkAction(): void

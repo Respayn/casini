@@ -50,15 +50,17 @@ class ChannelReportService implements ChannelReportServiceInterface
     public function getUserSettings(int $userId): ChannelReportQueryData
     {
         // TODO: move fetch logic to repository
+        $rates = $this->rateRepository->getRatesWithEnabledSpendingsTimeFetching();
+
         $savedSettings = DB::table('channel_report_user_settings')
             ->where('user_id', $userId)
             ->value('settings');
 
         if ($savedSettings) {
-            return ChannelReportQueryData::hydrateFromSavedSettings($savedSettings);
+            return ChannelReportQueryData::hydrateFromSavedSettings($savedSettings, $rates);
         }
 
-        return ChannelReportQueryData::create($this->rateRepository->getRatesWithEnabledSpendingsTimeFetching());
+        return ChannelReportQueryData::create($rates);
     }
 
     public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void
@@ -179,10 +181,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row = new TableReportRowData();
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
+            $projectTypeLabel = $project->project_type->label();
 
             $status = match ($project->is_active) {
                 true => 'active',
@@ -201,7 +200,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                 $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
@@ -269,9 +268,9 @@ class ChannelReportService implements ChannelReportServiceInterface
     {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
-        $seoGroup->groupLabel = 'SEO';
+        $seoGroup->groupLabel = ProjectType::SEO_PROMOTION->label();
         $contextGroup = new TableReportGroupData();
-        $contextGroup->groupLabel = 'Контекст';
+        $contextGroup->groupLabel = ProjectType::CONTEXT_AD->label();
 
         $seoRows = new Collection();
         $contextRows = new Collection();
@@ -280,10 +279,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row = new TableReportRowData();
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
+            $projectTypeLabel = $project->project_type->label();
 
             $status = match ($project->is_active) {
                 true => 'active',
@@ -302,7 +298,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                 $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
@@ -393,10 +389,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row = new TableReportRowData();
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
+                $projectTypeLabel = $project->project_type->label();
 
                 $status = match ($project->is_active) {
                     true => 'active',
@@ -415,7 +408,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                     $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
@@ -491,10 +484,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row = new TableReportRowData();
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
+                $projectTypeLabel = $project->project_type->label();
 
                 $status = match ($project->is_active) {
                     true => 'active',
@@ -513,7 +503,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                     $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
@@ -555,10 +545,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row = new TableReportRowData();
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
+            $projectTypeLabel = $project->project_type->label();
 
             $status = match ($project->is_active) {
                 true => 'active',
@@ -577,7 +564,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                 $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                 $this->createSpendingsData(null, null, null, []),
@@ -648,10 +635,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row = new TableReportRowData();
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
+                $projectTypeLabel = $project->project_type->label();
 
                 $status = match ($project->is_active) {
                     true => 'active',
@@ -670,7 +654,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                     $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
                     $this->createSpendingsData(null, null, null, []),
@@ -725,10 +709,10 @@ class ChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
-    public function createClientData(string $department, string $clientName, string $projectName, int $projectId, string $status): array
+    public function createClientData(string $projectTypeLabel, string $clientName, string $projectName, int $projectId, string $status): array
     {
         return [
-            'department' => ['name' => $department],
+            'project-type' => ['name' => $projectTypeLabel],
             'client' => ['name' => $clientName],
             'client-project' => [
                 'name' => $projectName,
