@@ -13,6 +13,7 @@ use App\Models\IntegrationSyncRun;
 use App\Models\Project;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Tests\TestCase;
 
@@ -26,18 +27,7 @@ class ProcessIntegrationSyncItemTest extends TestCase
 
         $project = Project::factory()->create(['is_active' => true]);
 
-        $failing = new class implements IntegrationSyncCollector
-        {
-            public function key(): string
-            {
-                return 'failing';
-            }
-
-            public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
-            {
-                return IntegrationSyncResult::failure('API down', requeue: true);
-            }
-        };
+        $failing = $this->makeFailingCollector();
 
         $this->app->instance(
             IntegrationSyncDispatcher::class,
@@ -85,18 +75,7 @@ class ProcessIntegrationSyncItemTest extends TestCase
     {
         $project = Project::factory()->create(['is_active' => true]);
 
-        $failing = new class implements IntegrationSyncCollector
-        {
-            public function key(): string
-            {
-                return 'failing';
-            }
-
-            public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
-            {
-                return IntegrationSyncResult::failure('API down', requeue: true);
-            }
-        };
+        $failing = $this->makeFailingCollector();
 
         $this->app->instance(
             IntegrationSyncDispatcher::class,
@@ -128,5 +107,36 @@ class ProcessIntegrationSyncItemTest extends TestCase
 
         $run->refresh();
         $this->assertSame(IntegrationSyncRunStatus::Failed, $run->status);
+    }
+
+    private function makeFailingCollector(): IntegrationSyncCollector
+    {
+        return new class implements IntegrationSyncCollector
+        {
+            public function key(): string
+            {
+                return 'failing';
+            }
+
+            public function integrationCode(): string
+            {
+                return 'failing';
+            }
+
+            public function supportsProject(int $projectId): bool
+            {
+                return true;
+            }
+
+            public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
+            {
+                return IntegrationSyncResult::failure('API down', requeue: true);
+            }
+
+            public function collectRange(int $projectId, Carbon $from, Carbon $to): IntegrationSyncResult
+            {
+                return IntegrationSyncResult::failure('API down', requeue: true);
+            }
+        };
     }
 }

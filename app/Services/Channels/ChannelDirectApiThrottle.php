@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * Антиспам запросов к API Яндекс.Директ из Каналов (клик / bulk).
+ * Антиспам ручных запросов к внешним API интеграций (bulk refresh).
+ * Эталон контракта: IntegrationApiThrottle (alias).
  *
  * Правила:
  * - не чаще 1 раза в 5 минут;
@@ -42,7 +43,7 @@ class ChannelDirectApiThrottle
 
             return [
                 'ok' => false,
-                'error' => "Лимит запросов к Яндекс.Директу исчерпан. Повторите через {$minutes} мин.",
+                'error' => "Лимит запросов к внешним API интеграций исчерпан. Повторите через {$minutes} мин.",
             ];
         }
 
@@ -56,16 +57,14 @@ class ChannelDirectApiThrottle
             if ($elapsed < self::COOLDOWN_SECONDS) {
                 $wait = self::COOLDOWN_SECONDS - $elapsed;
                 $minutes = max(1, (int) ceil($wait / 60));
-                // Не больше длины кулдауна (защита от знака diffInSeconds)
                 $minutes = min($minutes, (int) ceil(self::COOLDOWN_SECONDS / 60));
 
                 return [
                     'ok' => false,
-                    'error' => "Запрос к Директу можно повторить не чаще раза в 5 минут. Подождите ещё {$minutes} мин.",
+                    'error' => "Запрос к API интеграций можно повторить не чаще раза в 5 минут. Подождите ещё {$minutes} мин.",
                 ];
             }
 
-            // Долгий перерыв — начинаем серию заново
             if ($elapsed >= self::BLOCK_SECONDS) {
                 $state['attempts'] = 0;
             }
@@ -98,9 +97,9 @@ class ChannelDirectApiThrottle
         return max(1, (int) ceil($wait / 60));
     }
 
-    private function cacheKey(int $userId): string
+    protected function cacheKey(int $userId): string
     {
-        return "channels.direct.api_throttle.user.{$userId}";
+        return "integrations.api_throttle.user.{$userId}";
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Data\TableReportRowData;
 use App\Domain\Statistics\Enums\StatisticsReportDetailLevel;
 use App\Enums\ChannelReportGrouping;
 use App\Helpers\DateTimeHelper;
+use App\Models\CallibriDailyLeadCount;
 use App\Models\YandexDirectDailySpending;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
@@ -100,21 +101,22 @@ class StatisticsService
             ? $query->dateTo->copy()->endOfMonth()->startOfDay()
             : $gridMonth->copy()->endOfMonth()->startOfDay();
         $spendingsByProject = $this->loadDirectDailySpendings($projects, $spendFrom, $spendTo, $query->includeVat);
+        $leadsByProject = $this->loadCallibriLeadCounts($projects, $spendFrom, $spendTo);
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject);
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject);
+        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
     }
 
     private function createFlatReport(
@@ -127,7 +129,8 @@ class StatisticsService
         Carbon $periodFrom,
         Carbon $periodTo,
         array $plans,
-        array $spendingsByProject
+        array $spendingsByProject,
+        array $leadsByProject
     ): TableReportData {
         $report = new TableReportData();
 
@@ -181,6 +184,7 @@ class StatisticsService
                     $periodFrom,
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
+                    $leadsByProject[$project->id] ?? [],
                 )
             ));
             $rows->push($row);
@@ -213,7 +217,8 @@ class StatisticsService
         Carbon $periodFrom,
         Carbon $periodTo,
         array $plans,
-        array $spendingsByProject
+        array $spendingsByProject,
+        array $leadsByProject
     ): TableReportData {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
@@ -271,6 +276,7 @@ class StatisticsService
                     $periodFrom,
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
+                    $leadsByProject[$project->id] ?? [],
                 )
             ));
 
@@ -342,7 +348,8 @@ class StatisticsService
         Carbon $periodFrom,
         Carbon $periodTo,
         array $plans,
-        array $spendingsByProject
+        array $spendingsByProject,
+        array $leadsByProject
     ): TableReportData {
         $report = new TableReportData();
 
@@ -399,6 +406,7 @@ class StatisticsService
                     $periodFrom,
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
+                    $leadsByProject[$project->id] ?? [],
                 )
                 ));
 
@@ -449,7 +457,8 @@ class StatisticsService
         Carbon $periodFrom,
         Carbon $periodTo,
         array $plans,
-        array $spendingsByProject
+        array $spendingsByProject,
+        array $leadsByProject
     ): TableReportData {
         $report = new TableReportData();
 
@@ -517,6 +526,7 @@ class StatisticsService
                     $periodFrom,
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
+                    $leadsByProject[$project->id] ?? [],
                 )
                 ));
 
@@ -592,6 +602,7 @@ class StatisticsService
                     $periodFrom,
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
+                    $leadsByProject[$project->id] ?? [],
                 )
             ));
 
@@ -705,6 +716,7 @@ class StatisticsService
 
     /**
      * @param  array<string, float>  $spendByDay  ключ Y-m-d => расход
+     * @param  array<string, int>  $leadsByDay  ключ Y-m-d => число лидов
      * @return array<string, list<array{plan: array{value: mixed, format: mixed}, fact: array{value: mixed, format: mixed}}>>
      */
     private function createFactData(
@@ -714,10 +726,12 @@ class StatisticsService
         Carbon $gridMonth,
         Carbon $periodFrom,
         Carbon $periodTo,
-        array $spendByDay
+        array $spendByDay,
+        array $leadsByDay = [],
     ): array {
         $parameters = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
         $budgetIndex = $this->resolveAdvertisingBudgetParameterIndex($projectType, $kpi);
+        $leadsIndex = $this->resolveLeadsParameterIndex($projectType, $kpi);
 
         $buckets = $this->buildFactBuckets($detailLevel, $gridMonth, $periodFrom, $periodTo);
         $result = [];
@@ -726,11 +740,22 @@ class StatisticsService
             $budgetFact = $budgetIndex === null
                 ? null
                 : $this->sumDirectSpendForRange($spendByDay, $from, $to);
+            $leadsFact = $leadsIndex === null
+                ? null
+                : $this->sumLeadCountsForRange($leadsByDay, $from, $to);
 
             $slots = [];
             foreach (array_values($parameters) as $index => $parameter) {
-                $format = ($budgetIndex !== null && $index === $budgetIndex) ? 'currency' : null;
-                $factValue = ($budgetIndex !== null && $index === $budgetIndex) ? $budgetFact : null;
+                $factValue = null;
+                $format = null;
+
+                if ($budgetIndex !== null && $index === $budgetIndex) {
+                    $factValue = $budgetFact;
+                    $format = 'currency';
+                } elseif ($leadsIndex !== null && $index === $leadsIndex) {
+                    $factValue = $leadsFact;
+                    $format = null;
+                }
 
                 $slots[] = [
                     'plan' => [
@@ -820,6 +845,45 @@ class StatisticsService
         return 1;
     }
 
+    private function resolveLeadsParameterIndex(ProjectType $projectType, Kpi $kpi): ?int
+    {
+        if ($projectType !== ProjectType::CONTEXT_AD) {
+            return null;
+        }
+
+        if ($kpi !== Kpi::LEADS) {
+            return null;
+        }
+
+        // CONTEXT_AD + LEADS: cpl (0), budget (1), leads (2)
+        return 2;
+    }
+
+    /**
+     * @param  array<string, int>  $leadsByDay
+     */
+    private function sumLeadCountsForRange(array $leadsByDay, Carbon $from, Carbon $to): ?int
+    {
+        if ($leadsByDay === []) {
+            return null;
+        }
+
+        $total = 0;
+        $hasData = false;
+
+        for ($day = $from->copy()->startOfDay(); $day->lte($to); $day->addDay()) {
+            $key = $day->toDateString();
+            if (! array_key_exists($key, $leadsByDay)) {
+                continue;
+            }
+
+            $hasData = true;
+            $total += (int) $leadsByDay[$key];
+        }
+
+        return $hasData ? $total : null;
+    }
+
     /**
      * @param  array<string, float>  $spendByDay
      */
@@ -884,6 +948,47 @@ class StatisticsService
                 ? $row->date->toDateString()
                 : Carbon::parse((string) $row->date)->toDateString();
             $map[(int) $row->project_id][$dateKey] = (float) $row->{$column};
+        }
+
+        return $map;
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $projects
+     * @return array<int, array<string, int>>
+     */
+    private function loadCallibriLeadCounts(
+        Collection $projects,
+        Carbon $from,
+        Carbon $to,
+    ): array {
+        $projectIds = $projects->pluck('id')->filter()->values()->all();
+        if ($projectIds === []) {
+            return [];
+        }
+
+        $from = $from->copy()->startOfDay();
+        $to = $to->copy()->startOfDay();
+        $today = Carbon::today();
+        if ($to->greaterThan($today)) {
+            $to = $today->copy();
+        }
+
+        if ($from->greaterThan($to)) {
+            return [];
+        }
+
+        $rows = CallibriDailyLeadCount::query()
+            ->whereIn('project_id', $projectIds)
+            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+            ->get(['project_id', 'date', 'leads_count']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $dateKey = $row->date instanceof Carbon
+                ? $row->date->toDateString()
+                : Carbon::parse((string) $row->date)->toDateString();
+            $map[(int) $row->project_id][$dateKey] = (int) $row->leads_count;
         }
 
         return $map;

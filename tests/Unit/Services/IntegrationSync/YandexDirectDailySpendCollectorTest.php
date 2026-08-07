@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\YandexDirectDailySpending;
 use App\Repositories\IntegrationRepository;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
+use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Services\YandexDirectService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
@@ -56,7 +57,9 @@ class YandexDirectDailySpendCollectorTest extends TestCase
 
         $this->app->instance(YandexDirectService::class, $direct);
 
-        $collector = new YandexDirectDailySpendCollector($repository);
+        $collector = new YandexDirectDailySpendCollector(
+            new IntegrationProjectCredentials($repository),
+        );
         $result = $collector->collectRange(
             $project->id,
             Carbon::parse('2026-08-01'),
@@ -94,7 +97,9 @@ class YandexDirectDailySpendCollectorTest extends TestCase
         $direct->shouldReceive('getDailyProjectExpenses')->twice()->andReturn(['2026-08-02' => 10.0], ['2026-08-02' => 8.0]);
         $this->app->instance(YandexDirectService::class, $direct);
 
-        $collector = new YandexDirectDailySpendCollector($repository);
+        $collector = new YandexDirectDailySpendCollector(
+            new IntegrationProjectCredentials($repository),
+        );
         $result = $collector->collect(new IntegrationSyncCollectContext($project->id, Carbon::parse('2026-08-02')));
 
         $this->assertTrue($result->ok);

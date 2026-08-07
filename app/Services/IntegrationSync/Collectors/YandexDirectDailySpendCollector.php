@@ -5,8 +5,9 @@ namespace App\Services\IntegrationSync\Collectors;
 use App\Contracts\IntegrationSyncCollector;
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
+use App\Models\Project;
 use App\Models\YandexDirectDailySpending;
-use App\Repositories\IntegrationRepository;
+use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Services\YandexDirectService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
@@ -15,13 +16,29 @@ class YandexDirectDailySpendCollector implements IntegrationSyncCollector
 {
     public const KEY = 'yandex_direct_daily_spend';
 
+    public const INTEGRATION_CODE = 'yandex_direct';
+
     public function __construct(
-        private readonly IntegrationRepository $integrationRepository,
+        private readonly IntegrationProjectCredentials $credentials,
     ) {}
 
     public function key(): string
     {
         return self::KEY;
+    }
+
+    public function integrationCode(): string
+    {
+        return self::INTEGRATION_CODE;
+    }
+
+    public function supportsProject(int $projectId): bool
+    {
+        if (! Project::query()->whereKey($projectId)->where('is_active', true)->exists()) {
+            return false;
+        }
+
+        return $this->credentials->yandexDirect($projectId) !== null;
     }
 
     public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
@@ -39,7 +56,7 @@ class YandexDirectDailySpendCollector implements IntegrationSyncCollector
      */
     public function collectRange(int $projectId, Carbon $from, Carbon $to): IntegrationSyncResult
     {
-        $credentials = $this->resolveCredentials($projectId);
+        $credentials = $this->credentials->yandexDirect($projectId);
 
         if ($credentials === null) {
             return IntegrationSyncResult::failure(
@@ -95,39 +112,6 @@ class YandexDirectDailySpendCollector implements IntegrationSyncCollector
                 requeue: true,
             );
         }
-    }
-
-    /**
-     * @return array{token: string, client_login: string}|null
-     */
-    private function resolveCredentials(int $projectId): ?array
-    {
-        $mapped = $this->integrationRepository->getActiveIntegrationsMappedByProjects([$projectId]);
-        $list = $mapped->get($projectId, collect());
-
-        $direct = $list->first(
-            fn ($item) => ($item->integration->code ?? null) === 'yandex_direct'
-        );
-
-        if ($direct === null) {
-            return null;
-        }
-
-        $token = $direct->settings['oauth_token']
-            ?? $direct->settings['encryptedOauthToken']
-            ?? null;
-        $login = $direct->settings['client_login']
-            ?? $direct->settings['clientLogin']
-            ?? null;
-
-        if (! filled($token) || ! filled($login)) {
-            return null;
-        }
-
-        return [
-            'token' => (string) $token,
-            'client_login' => (string) $login,
-        ];
     }
 
     /**

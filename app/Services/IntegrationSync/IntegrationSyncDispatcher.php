@@ -7,11 +7,10 @@ use App\Enums\IntegrationSyncItemStatus;
 use App\Enums\IntegrationSyncRunStatus;
 use App\Jobs\ProcessIntegrationSyncItem;
 use App\Models\Agency;
-use App\Models\Integration;
-use App\Models\IntegrationProject;
 use App\Models\IntegrationSyncItem;
 use App\Models\IntegrationSyncRun;
 use App\Models\Project;
+use App\Services\IntegrationSync\Collectors\CallibriDailyLeadsCollector;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -71,11 +70,16 @@ class IntegrationSyncDispatcher
                 'started_at' => now(),
             ]);
 
-            $projectIds = $this->candidateProjectIds();
+            $projectIds = $this->activeProjectIds();
             $position = 0;
+            $itemsCreated = 0;
 
-            foreach ($projectIds as $projectId) {
-                foreach ($this->collectors as $collector) {
+            foreach ($this->collectors as $collector) {
+                foreach ($projectIds as $projectId) {
+                    if (! $collector->supportsProject((int) $projectId)) {
+                        continue;
+                    }
+
                     $item = IntegrationSyncItem::query()->create([
                         'run_id' => $run->id,
                         'project_id' => $projectId,
@@ -86,10 +90,11 @@ class IntegrationSyncDispatcher
                     ]);
 
                     ProcessIntegrationSyncItem::dispatch($item->id);
+                    $itemsCreated++;
                 }
             }
 
-            if ($projectIds->isEmpty()) {
+            if ($itemsCreated === 0) {
                 $run->update([
                     'status' => IntegrationSyncRunStatus::Completed,
                     'finished_at' => now(),
@@ -102,6 +107,7 @@ class IntegrationSyncDispatcher
                 'target_date' => $targetDate,
                 'timezone' => $timezone,
                 'projects' => $projectIds->count(),
+                'items' => $itemsCreated,
             ]);
 
             return $run;
@@ -126,38 +132,33 @@ class IntegrationSyncDispatcher
     }
 
     /**
-     * Активные проекты с включённым Яндекс.Директом и credentials.
+     * Активные клиенто-проекты (фильтр интеграции — на collector.supportsProject).
+     *
+     * @return Collection<int, int>
+     */
+    public function activeProjectIds(): Collection
+    {
+        return Project::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->pluck('id');
+    }
+
+    /**
+     * @deprecated use activeProjectIds + collector.supportsProject
      *
      * @return Collection<int, int>
      */
     public function candidateProjectIds(): Collection
     {
-        $directIntegrationId = Integration::query()
-            ->where('code', 'yandex_direct')
-            ->value('id');
+        $direct = $this->collector(YandexDirectDailySpendCollector::KEY);
 
-        if ($directIntegrationId === null) {
+        if ($direct === null) {
             return collect();
         }
 
-        return IntegrationProject::query()
-            ->where('integration_id', $directIntegrationId)
-            ->where('is_enabled', true)
-            ->whereIn('project_id', Project::query()->where('is_active', true)->select('id'))
-            ->get(['project_id', 'settings'])
-            ->filter(function (IntegrationProject $row) {
-                $settings = $row->settings;
-                if (! is_array($settings)) {
-                    return false;
-                }
-
-                $token = $settings['oauth_token'] ?? $settings['encryptedOauthToken'] ?? null;
-                $login = $settings['client_login'] ?? $settings['clientLogin'] ?? null;
-
-                return filled($token) && filled($login);
-            })
-            ->pluck('project_id')
-            ->unique()
+        return $this->activeProjectIds()
+            ->filter(fn (int $projectId) => $direct->supportsProject($projectId))
             ->values();
     }
 
@@ -175,10 +176,19 @@ class IntegrationSyncDispatcher
     /**
      * @return array<int, IntegrationSyncCollector>
      */
+    public function collectors(): array
+    {
+        return $this->collectors;
+    }
+
+    /**
+     * @return array<int, IntegrationSyncCollector>
+     */
     public static function defaultCollectors(): array
     {
         return [
             app(YandexDirectDailySpendCollector::class),
+            app(CallibriDailyLeadsCollector::class),
         ];
     }
 }

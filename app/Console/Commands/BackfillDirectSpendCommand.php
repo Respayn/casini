@@ -6,6 +6,9 @@ use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 
+/**
+ * @deprecated Используйте integrations:backfill --collector=yandex_direct_daily_spend
+ */
 class BackfillDirectSpendCommand extends Command
 {
     protected $signature = 'integrations:backfill-direct-spend
@@ -13,7 +16,7 @@ class BackfillDirectSpendCommand extends Command
                             {--from= : Дата начала Y-m-d (обязательно)}
                             {--to= : Дата конца Y-m-d (обязательно)}';
 
-    protected $description = 'Догрузить дневной расход Яндекс.Директа за период (без ночного run и без throttle UI)';
+    protected $description = 'Догрузить дневной расход Яндекс.Директа за период (alias для integrations:backfill)';
 
     public function handle(YandexDirectDailySpendCollector $collector): int
     {

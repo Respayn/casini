@@ -8,6 +8,7 @@ use App\Data\TableReportData;
 use App\Domain\Statistics\Services\StatisticsService;
 use App\Enums\ChannelBulkAction;
 use App\Services\Channels\ChannelDirectMetricsService;
+use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
@@ -41,12 +42,16 @@ class extends Component
 
     private ChannelDirectMetricsService $directMetricsService;
 
+    private IntegrationMetricsRefreshService $metricsRefreshService;
+
     public function boot(
         StatisticsService $statisticsService,
         ChannelDirectMetricsService $directMetricsService,
+        IntegrationMetricsRefreshService $metricsRefreshService,
     ) {
         $this->statisticsService = $statisticsService;
         $this->directMetricsService = $directMetricsService;
+        $this->metricsRefreshService = $metricsRefreshService;
     }
 
     public function mount()
@@ -178,7 +183,7 @@ class extends Component
             ChannelBulkAction::RefreshBudgetRemains => $this->directMetricsService->refreshBudgets(
                 $this->selectedProjects,
             ),
-            ChannelBulkAction::RefreshSpendings => $this->directMetricsService->refreshSpendingsForProjects(
+            ChannelBulkAction::RefreshData => $this->metricsRefreshService->refreshDataForProjects(
                 $this->selectedProjects,
                 $this->queryData->dateFrom,
                 $this->queryData->dateTo,

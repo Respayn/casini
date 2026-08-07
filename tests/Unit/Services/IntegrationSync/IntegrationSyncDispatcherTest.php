@@ -11,8 +11,6 @@ use App\Jobs\ProcessIntegrationSyncItem;
 use App\Models\Agency;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
-use App\Models\IntegrationSyncItem;
-use App\Models\IntegrationSyncRun;
 use App\Models\Project;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -44,22 +42,8 @@ class IntegrationSyncDispatcherTest extends TestCase
             $agency->update(['time_zone' => 'Asia/Yekaterinburg']);
         }
 
-        $stub = new class implements IntegrationSyncCollector
-        {
-            public function key(): string
-            {
-                return 'stub';
-            }
+        $dispatcher = new IntegrationSyncDispatcher([$this->makeStubCollector('stub', true)]);
 
-            public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
-            {
-                return IntegrationSyncResult::success();
-            }
-        };
-
-        $dispatcher = new IntegrationSyncDispatcher([$stub]);
-
-        // 2026-08-03 00:01 Asia/Yekaterinburg = 2026-08-02 19:01 UTC
         $nowUtc = Carbon::parse('2026-08-02 19:01:00', 'UTC');
 
         $run1 = $dispatcher->dispatchIfDue($nowUtc);
@@ -98,42 +82,26 @@ class IntegrationSyncDispatcherTest extends TestCase
             ],
         ]);
 
-        $dispatcher = new IntegrationSyncDispatcher([]);
+        $dispatcher = new IntegrationSyncDispatcher([
+            app(\App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector::class),
+        ]);
         $ids = $dispatcher->candidateProjectIds();
 
         $this->assertTrue($ids->contains($active->id));
         $this->assertFalse($ids->contains($inactive->id));
     }
 
-    public function test_start_run_dispatches_jobs_for_candidates(): void
+    public function test_start_run_dispatches_jobs_only_for_supported_projects(): void
     {
         Bus::fake();
 
-        $integration = Integration::query()->where('code', 'yandex_direct')->firstOrFail();
-        $project = Project::factory()->create(['is_active' => true]);
+        $projectSupported = Project::factory()->create(['is_active' => true]);
+        $projectUnsupported = Project::factory()->create(['is_active' => true]);
 
-        IntegrationProject::query()->create([
-            'project_id' => $project->id,
-            'integration_id' => $integration->id,
-            'is_enabled' => true,
-            'settings' => [
-                'oauth_token' => 'token',
-                'client_login' => 'client',
-            ],
-        ]);
-
-        $stub = new class implements IntegrationSyncCollector
-        {
-            public function key(): string
-            {
-                return 'yandex_direct_daily_spend';
-            }
-
-            public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
-            {
-                return IntegrationSyncResult::success();
-            }
-        };
+        $stub = $this->makeStubCollector(
+            'yandex_direct_daily_spend',
+            fn (int $projectId) => $projectId === $projectSupported->id,
+        );
 
         $dispatcher = new IntegrationSyncDispatcher([$stub]);
         $run = $dispatcher->startRun('2026-08-03', 'Asia/Yekaterinburg', '2026-08-02');
@@ -141,11 +109,56 @@ class IntegrationSyncDispatcherTest extends TestCase
         $this->assertSame(IntegrationSyncRunStatus::Running, $run->status);
         $this->assertDatabaseHas('integration_sync_items', [
             'run_id' => $run->id,
-            'project_id' => $project->id,
+            'project_id' => $projectSupported->id,
             'collector' => 'yandex_direct_daily_spend',
             'status' => IntegrationSyncItemStatus::Pending->value,
         ]);
+        $this->assertDatabaseMissing('integration_sync_items', [
+            'run_id' => $run->id,
+            'project_id' => $projectUnsupported->id,
+        ]);
 
         Bus::assertDispatched(ProcessIntegrationSyncItem::class);
+    }
+
+    /**
+     * @param  bool|callable(int): bool  $supports
+     */
+    private function makeStubCollector(string $key, bool|callable $supports): IntegrationSyncCollector
+    {
+        return new class($key, $supports) implements IntegrationSyncCollector
+        {
+            public function __construct(
+                private readonly string $collectorKey,
+                private readonly mixed $supports,
+            ) {}
+
+            public function key(): string
+            {
+                return $this->collectorKey;
+            }
+
+            public function integrationCode(): string
+            {
+                return 'stub';
+            }
+
+            public function supportsProject(int $projectId): bool
+            {
+                return is_callable($this->supports)
+                    ? (bool) ($this->supports)($projectId)
+                    : (bool) $this->supports;
+            }
+
+            public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
+            {
+                return IntegrationSyncResult::success();
+            }
+
+            public function collectRange(int $projectId, Carbon $from, Carbon $to): IntegrationSyncResult
+            {
+                return IntegrationSyncResult::success();
+            }
+        };
     }
 }

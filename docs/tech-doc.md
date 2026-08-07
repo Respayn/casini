@@ -235,7 +235,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 ### Лимит ручных запросов к API Директа (и образец для Статистики)
 
-Класс: `App\Services\Channels\ChannelDirectApiThrottle`. Правила зафиксированы в `.cursor/rules/casini-project-workflow.mdc` (раздел «Ручные запросы к внешнему API»).
+Класс: `App\Services\IntegrationSync\IntegrationApiThrottle` (alias `ChannelDirectApiThrottle`). Правила зафиксированы в `.cursor/rules/casini-project-workflow.mdc` (раздел «Ручные запросы к внешнему API»).
 
 | Параметр | Значение |
 |----------|----------|
@@ -257,8 +257,9 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | План | только если `isSingleMonthPeriod()`; иначе в ячейке `-` |
 | Тип клиенто-проекта | `projects.project_type` → `ProjectType::label()` |
 | Факт «Рекламный бюджет» (CONTEXT_AD) | сумма дней из `yandex_direct_daily_spendings` за бакет (день/неделя/месяц сетки); колонка с/без НДС по `includeVat`; нет строк в БД → `-` |
-| Массовые действия | как в Каналах: чекбоксы строк/групп + `ChannelBulkAction` → `ChannelDirectMetricsService` (`refresh_spendings` / `refresh_budget_remains`); throttle пользователя |
-| Остальные факты (CPC, визиты, лиды, SEO…) | пока `-` (без тестовых заглушек) |
+| Факт «Лиды» (CONTEXT_AD + KPI LEADS) | сумма дней из `callibri_daily_lead_counts` в слот параметра index **2**; нет строк → `-`; нулевой день пишется как `0` |
+| Массовые действия | чекбоксы + `ChannelBulkAction`: «Обновить данные» (`refresh_data`) → `IntegrationMetricsRefreshService` (все collectors проекта); «Обновить остаток бюджета» → Direct; throttle `IntegrationApiThrottle` |
+| Остальные факты (CPC, визиты, SEO…) | пока `-` (без тестовых заглушек) |
 | Итог / Прогноз / Бонусы и гарантии | пока `-` (без тестовых заглушек) |
 | Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |
 
@@ -272,53 +273,57 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `php artisan integrations:dispatch-due-syncs` | Schedule `everyMinute()`: если 00:01 и нет run за текущую local-дату → создать run + items за **вчера** |
 | `integration_sync_runs` / `integration_sync_items` | run и очередь проектов; при ошибке API item → в хвост, max 3 attempts |
 | `ProcessIntegrationSyncItem` | Job: один item → collector → upsert |
-| `yandex_direct_daily_spendings` | `project_id`, `date`, `cost_with_vat`, `cost_without_vat`, unique `(project_id, date)` |
+| `IntegrationSyncCollector` | контракт: `key`, `integrationCode`, `supportsProject`, `collect` / `collectRange` |
+| Кандидаты | активные проекты × collectors, где `supportsProject()` = true (per-collector) |
 
-Кандидаты: `projects.is_active` + enabled `yandex_direct` с token и client_login.
+### Collectors (фаза 1)
 
-Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание регистрируется в `bootstrap/app.php` → `withSchedule()` (`integrations:dispatch-due-syncs` каждую минуту). Без `withSchedule` cron отрабатывает, но задач нет (`schedule:list` пустой). Без `queue:work` run/items могут создаться, но collector не выполнится.
+| Ключ | Интеграция | Таблица | UI |
+|------|------------|---------|-----|
+| `yandex_direct_daily_spend` | `yandex_direct` | `yandex_direct_daily_spendings` | Каналы: расход; Статистика: «Рекламный бюджет» |
+| `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
 
-### Диагностика пропусков дней в Статистике / Каналах
+Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата с нулём за день без данных. Search API / Метрика / 1С / Sheets — отдельные задачи.
 
-Статистика и Каналы читают только `yandex_direct_daily_spendings`. Ячейка `-` = нет строки за день (нулевой расход пишется как `0.00`).
+Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание в `bootstrap/app.php` → `withSchedule()`.
+
+### Диагностика пропусков
+
+Ячейка `-` = нет строки в дневной таблице за день (нуль пишется как `0` / `0.00`).
 
 ```sql
+-- Direct
 SELECT date, cost_without_vat, cost_with_vat
 FROM yandex_direct_daily_spendings
 WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
 ORDER BY date;
 
-SELECT id, local_date, target_date, status, started_at, finished_at
-FROM integration_sync_runs
-WHERE target_date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
-ORDER BY target_date;
+-- Callibri
+SELECT date, leads_count
+FROM callibri_daily_lead_counts
+WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+ORDER BY date;
 
-SELECT i.id, r.target_date, i.status, i.attempts, i.last_error
+SELECT i.id, r.target_date, i.collector, i.status, i.attempts, i.last_error
 FROM integration_sync_items i
 JOIN integration_sync_runs r ON r.id = i.run_id
-WHERE i.project_id = ? AND i.collector = 'yandex_direct_daily_spend'
-ORDER BY r.target_date;
+WHERE i.project_id = ?
+ORDER BY r.target_date, i.collector;
 ```
 
-| Симптом | Причина |
-|---------|---------|
-| Нет runs | не сработал schedule (`withSchedule` / cron / окно 00:01) |
-| Runs есть, items `pending` | нет `queue:work` |
-| Items `failed` | API / токен / login |
-| Данных нет, runs пустые, но старые дни в БД есть | раньше грузили вручную из Каналов; ночной пайплайн не работал |
+### Backfill и bulk refresh
 
-### Backfill (догон пропущенных дней)
+`integrations:dispatch-due-syncs --force` — не больше одного run на local_date (не для диапазона).
 
-`integrations:dispatch-due-syncs --force` создаёт **не больше одного run на local_date** — для диапазона дней не подходит.
-
-Варианты:
-
-1. Каналы → выбрать проекты → «Обновить расходы» за нужный период (throttle пользователя).
-2. Ops-команда (без throttle, тот же collector):
+1. Каналы / Статистика → «Обновить данные» (`IntegrationMetricsRefreshService`, один `IntegrationApiThrottle::consume()`).
+2. Ops:
 
 ```bash
-sudo -u www-data php artisan integrations:backfill-direct-spend \
+sudo -u www-data php artisan integrations:backfill \
   --project=1 --from=2026-08-04 --to=2026-08-06
+# или один collector:
+sudo -u www-data php artisan integrations:backfill \
+  --project=1 --from=2026-08-04 --to=2026-08-06 --collector=callibri_daily_leads
 ```
 
-После backfill обновить страницу Статистики / Каналов.
+Alias: `integrations:backfill-direct-spend` (только Direct).

@@ -4,13 +4,13 @@ namespace App\Enums;
 
 enum ChannelBulkAction: string
 {
-    case RefreshSpendings = 'refresh_spendings';
+    case RefreshData = 'refresh_data';
     case RefreshBudgetRemains = 'refresh_budget_remains';
 
     public function label(): string
     {
         return match ($this) {
-            self::RefreshSpendings => 'Обновить расходы',
+            self::RefreshData => 'Обновить данные',
             self::RefreshBudgetRemains => 'Обновить остаток бюджета',
         };
     }
