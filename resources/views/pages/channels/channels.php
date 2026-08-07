@@ -6,10 +6,9 @@ use App\Contracts\ChannelReportServiceInterface;
 use App\Data\Channels\ChannelReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
-use App\Enums\ChannelBulkAction;
 use App\Enums\ChannelReportGrouping;
-use App\Services\Channels\ChannelDirectMetricsService;
-use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
+use App\Livewire\Concerns\WithReportDataRefresh;
+use App\Livewire\Concerns\WithSidebarProjectFilter;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -21,6 +20,9 @@ new
 #[Title("Каналы")]
 class extends Component
 {
+    use WithReportDataRefresh;
+    use WithSidebarProjectFilter;
+
     public ChannelReportQueryData $queryData;
 
     /**
@@ -28,35 +30,15 @@ class extends Component
      */
     public ?ChannelReportQueryData $originalQueryData = null;
 
-    public array $selectedProjects = [];
-    public array $selectedGroups = [];
-
-    public bool $selectAll = false;
-
-    /**
-     * Выбранное действие для массовых операций
-     * @var string
-     */
-    public string $bulkAction = "";
-
     public ?string $actionMessage = null;
 
     public string $actionMessageType = 'success';
 
     private ChannelReportServiceInterface $channelReportService;
 
-    private ChannelDirectMetricsService $directMetricsService;
-
-    private IntegrationMetricsRefreshService $metricsRefreshService;
-
-    public function boot(
-        ChannelReportServiceInterface $channelReportService,
-        ChannelDirectMetricsService $directMetricsService,
-        IntegrationMetricsRefreshService $metricsRefreshService,
-    ) {
+    public function boot(ChannelReportServiceInterface $channelReportService)
+    {
         $this->channelReportService = $channelReportService;
-        $this->directMetricsService = $directMetricsService;
-        $this->metricsRefreshService = $metricsRefreshService;
     }
 
     public function mount()
@@ -65,6 +47,11 @@ class extends Component
             Auth::user()->id,
         );
         $this->queryData->clampPeriodToPresent();
+    }
+
+    protected function afterSidebarProjectFilterChanged(): void
+    {
+        unset($this->reportData);
     }
 
     public function updatedQueryDataDateFrom(): void
@@ -77,90 +64,6 @@ class extends Component
     {
         $this->queryData->clampPeriodToPresent();
         unset($this->reportData);
-    }
-
-    public function updatedSelectAll($value)
-    {
-        if ($value) {
-            $this->selectedProjects = $this->reportData->groups
-                ->flatMap(function ($group) {
-                    return $group->rows->pluck("id");
-                })
-                ->toArray();
-
-            $this->selectedGroups = $this->reportData->groups
-                ->keys()
-                ->toArray();
-        } else {
-            $this->selectedProjects = [];
-            $this->selectedGroups = [];
-        }
-    }
-
-    public function updatedSelectedGroups($value, $key)
-    {
-        if ($key !== null) {
-            $group = $this->reportData->groups->get($key);
-
-            if ($group) {
-                $projectIds = $group->rows->pluck("id")->toArray();
-
-                if (in_array($key, $this->selectedGroups)) {
-                    $this->selectedProjects = array_unique(
-                        array_merge($this->selectedProjects, $projectIds),
-                    );
-                } else {
-                    $this->selectedProjects = array_diff(
-                        $this->selectedProjects,
-                        $projectIds,
-                    );
-                }
-            }
-        }
-
-        $this->checkSelectAll();
-    }
-
-    public function updatedSelectedProjects($value, $key)
-    {
-        if ($key !== null) {
-            $this->updateGroupCheckboxes();
-            $this->checkSelectAll();
-        }
-    }
-
-    private function updateGroupCheckboxes()
-    {
-        $newSelectedGroups = [];
-
-        foreach ($this->reportData->groups as $groupIndex => $group) {
-            $projectIds = $group->rows->pluck("id")->toArray();
-
-            if (
-                !empty($projectIds) &&
-                count(array_intersect($projectIds, $this->selectedProjects)) ===
-                count($projectIds)
-            ) {
-                $newSelectedGroups[] = $groupIndex;
-            }
-        }
-
-        $this->selectedGroups = $newSelectedGroups;
-    }
-
-    private function checkSelectAll()
-    {
-        $allProjectIds = $this->reportData->groups
-            ->flatMap(function ($group) {
-                return $group->rows->pluck("id");
-            })
-            ->toArray();
-
-        // Если все проекты выбраны, то selectAll = true
-        $this->selectAll =
-            !empty($allProjectIds) &&
-            count($this->selectedProjects) === count($allProjectIds) &&
-            empty(array_diff($allProjectIds, $this->selectedProjects));
     }
 
     /**
@@ -247,16 +150,13 @@ class extends Component
     {
         $this->persistUserSettings();
 
-        return $this->channelReportService->getReportData($this->queryData);
+        return $this->channelReportService->getReportData($this->queryData, $this->sidebarProjectId);
     }
 
     #[On('group-settings-applied')]
     public function applyGrouping($grouping)
     {
         $this->queryData->grouping = ChannelReportGrouping::from($grouping);
-        $this->selectedProjects = [];
-        $this->selectedGroups = [];
-        $this->selectAll = false;
         $this->persistUserSettings();
         unset($this->reportData);
     }
@@ -269,54 +169,17 @@ class extends Component
         );
     }
 
-    public function makeBulkAction(): void
+    protected function reportRefreshProductKey(): string
     {
-        $action = ChannelBulkAction::tryFrom($this->bulkAction);
-
-        if ($action === null) {
-            $this->setActionMessage('Выберите массовое действие', 'error');
-
-            return;
-        }
-
-        if ($this->selectedProjects === []) {
-            $this->setActionMessage('Выберите клиенто-проекты', 'error');
-
-            return;
-        }
-
-        $stats = match ($action) {
-            ChannelBulkAction::RefreshBudgetRemains => $this->directMetricsService->refreshBudgets(
-                $this->selectedProjects,
-            ),
-            ChannelBulkAction::RefreshData => $this->metricsRefreshService->refreshDataForProjects(
-                $this->selectedProjects,
-                $this->queryData->dateFrom,
-                $this->queryData->dateTo,
-                $this->queryData->includeVat,
-            ),
-        };
-
-        unset($this->reportData);
-
-        if (! empty($stats['error'])) {
-            $this->setActionMessage($stats['error'], 'error');
-
-            return;
-        }
-
-        $this->setActionMessage(
-            sprintf(
-                'Обновлено: %d, ошибок: %d, пропущено: %d',
-                $stats['updated'],
-                $stats['failed'],
-                $stats['skipped'],
-            ),
-            $stats['failed'] > 0 ? 'error' : 'success',
-        );
+        return 'channels';
     }
 
-    private function setActionMessage(string $message, string $type): void
+    protected function shouldRefreshDirectBudget(): bool
+    {
+        return true;
+    }
+
+    protected function setActionMessage(string $message, string $type): void
     {
         $this->actionMessage = $message;
         $this->actionMessageType = $type;

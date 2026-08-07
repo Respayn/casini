@@ -227,10 +227,10 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Что | Как |
 |-----|-----|
 | Источник credentials | `integration_project.settings` проекта: `oauth_token` + `client_login` (код интеграции `yandex_direct`) |
-| Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` = `{value, updated_at}` (TTL 7 дней); в ячейке `ЧЧ:мм, дд.мм.гг / сумма ₽` (время по `agencies.time_zone`, дата — `text-secondary-text`); обновление только bulk |
+| Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` = `{value, updated_at}` (TTL 7 дней); в ячейке `ЧЧ:мм, дд.мм.гг / сумма ₽` (время по `agencies.time_zone`, дата — `text-secondary-text`); обновление — иконка в шапке |
 | План | только если `dateFrom` и `dateTo` в одном месяце; иначе в ячейке `-` |
-| Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + bulk refresh через `YandexDirectDailySpendCollector` |
-| Обновление | только массовые действия `refresh_budget_remains` / `refresh_spendings` (клик по ячейке отключён) |
+| Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
+| Обновление | иконка в шапке (`refreshAllData`): collectors + остаток бюджета Директа по всем видимым проектам; клик по ячейке отключён |
 | Сервис UI | `ChannelDirectMetricsService`; строки — `ChannelReportService::enrichWithDirectMetrics()` |
 
 Пока расхода нет в БД, в ячейке `-`.
@@ -244,9 +244,9 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Интервал | ≥ 5 минут между запросами |
 | Серия | ≤ 3 запроса подряд |
 | После серии | блок 60 минут |
-| Ключ кэша | `channels.direct.api_throttle.user.{userId}` |
+| Ключ кэша | `integrations.api_throttle.user.{userId}` |
 
-Массовое действие = один `consume()`.
+Клик по иконке обновления = один `consume()`.
 
 ## Статистика: период отчёта
 
@@ -260,7 +260,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Тип клиенто-проекта | `projects.project_type` → `ProjectType::label()` |
 | Факт «Рекламный бюджет» (CONTEXT_AD) | сумма дней из `yandex_direct_daily_spendings` за бакет (день/неделя/месяц сетки); колонка с/без НДС по `includeVat`; нет строк в БД → `-` |
 | Факт «Лиды» (CONTEXT_AD + KPI LEADS) | сумма дней из `callibri_daily_lead_counts` в слот параметра index **2**; нет строк → `-`; нулевой день пишется как `0` |
-| Массовые действия | чекбоксы + `ChannelBulkAction`: «Обновить данные» (`refresh_data`) → `IntegrationMetricsRefreshService` (все collectors проекта); «Обновить остаток бюджета» → Direct; throttle `IntegrationApiThrottle` |
+| Обновление данных | иконка в шапке отчёта (`WithReportDataRefresh` + `refreshAllData`) → все видимые клиенто-проекты отчёта; Каналы: collectors + остаток бюджета Директа; Статистика: только collectors; один `IntegrationApiThrottle::consume()`; тултип «Последнее обновление данных: чч:мм, дд.мм.гг» (`IntegrationManualRefreshTimestamp`) |
 | Остальные факты (CPC, визиты, SEO…) | пока `-` (без тестовых заглушек) |
 | Итог / Прогноз / Бонусы и гарантии | пока `-` (без тестовых заглушек) |
 | Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |
@@ -317,7 +317,7 @@ ORDER BY r.target_date, i.collector;
 
 `integrations:dispatch-due-syncs --force` — не больше одного run на local_date (не для диапазона).
 
-1. Каналы / Статистика → «Обновить данные» (`IntegrationMetricsRefreshService`, один `IntegrationApiThrottle::consume()`).
+1. Каналы / Статистика → иконка обновления данных (`IntegrationMetricsRefreshService::refreshReportData`, один `IntegrationApiThrottle::consume()`; в Каналах дополнительно бюджет Директа без второго consume).
 2. Ops:
 
 ```bash

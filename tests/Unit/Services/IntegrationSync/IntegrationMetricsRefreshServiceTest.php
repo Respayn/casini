@@ -5,6 +5,7 @@ namespace Tests\Unit\Services\IntegrationSync;
 use App\Contracts\IntegrationSyncCollector;
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
+use App\Services\Channels\ChannelDirectMetricsService;
 use App\Services\IntegrationSync\IntegrationApiThrottle;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
@@ -40,7 +41,11 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $unsupported = $this->makeCollector('other', false, $calls);
 
         $dispatcher = new IntegrationSyncDispatcher([$direct, $callibri, $unsupported]);
-        $service = new IntegrationMetricsRefreshService($dispatcher, new IntegrationApiThrottle());
+        $service = new IntegrationMetricsRefreshService(
+            $dispatcher,
+            new IntegrationApiThrottle(),
+            Mockery::mock(ChannelDirectMetricsService::class),
+        );
 
         $stats = $service->refreshDataForProjects(
             [10],
@@ -59,7 +64,11 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $calls = [];
         $collector = $this->makeCollector('stub', false, $calls);
         $dispatcher = new IntegrationSyncDispatcher([$collector]);
-        $service = new IntegrationMetricsRefreshService($dispatcher, new IntegrationApiThrottle());
+        $service = new IntegrationMetricsRefreshService(
+            $dispatcher,
+            new IntegrationApiThrottle(),
+            Mockery::mock(ChannelDirectMetricsService::class),
+        );
 
         $stats = $service->refreshDataForProjects(
             [5],
@@ -70,6 +79,46 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $this->assertSame(0, $stats['updated']);
         $this->assertSame(1, $stats['skipped']);
         $this->assertSame([], $calls);
+    }
+
+    public function test_refresh_report_data_refreshes_budget_once_without_extra_throttle(): void
+    {
+        $calls = [];
+        $collector = $this->makeCollector('yandex_direct_daily_spend', true, $calls);
+
+        $direct = Mockery::mock(ChannelDirectMetricsService::class);
+        $direct->shouldReceive('refreshBudgetsForcedWithoutThrottle')
+            ->once()
+            ->with([10, 20])
+            ->andReturn(['updated' => 2, 'failed' => 0, 'skipped' => 0]);
+
+        $dispatcher = new IntegrationSyncDispatcher([$collector]);
+        $service = new IntegrationMetricsRefreshService(
+            $dispatcher,
+            new IntegrationApiThrottle(),
+            $direct,
+        );
+
+        $stats = $service->refreshReportData(
+            [10, 20],
+            Carbon::parse('2026-08-01'),
+            Carbon::parse('2026-08-01'),
+            withDirectBudget: true,
+        );
+
+        $this->assertSame(2, $stats['updated']);
+        $this->assertSame(0, $stats['failed']);
+        $this->assertArrayNotHasKey('error', $stats);
+        $this->assertSame(['yandex_direct_daily_spend', 'yandex_direct_daily_spend'], $calls);
+
+        // Второй вызов должен упереться в throttle (один consume на первый refresh)
+        $blocked = $service->refreshReportData(
+            [10],
+            Carbon::parse('2026-08-01'),
+            Carbon::parse('2026-08-01'),
+            withDirectBudget: true,
+        );
+        $this->assertArrayHasKey('error', $blocked);
     }
 
     /**

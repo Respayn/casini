@@ -47,7 +47,7 @@ Presentation → Application → Domain
 - Целевой пайплайн: OAuth/настройки → **ночной съём** (Jobs + cron по `agencies.time_zone`) → БД → отчёты / Каналы / Статистика (`ReportDataProvider` в `src/Infrastructure/Reports/`)
 - Единые правила съёма — в `docs/tech-doc.md` (ночной съём интеграций): полночь 00:01 агентства, вчерашний день, активные проекты × `collector.supportsProject()`, при ошибке API — в конец очереди, UI читает из БД
 - Collectors (фаза 1): Яндекс.Директ → расход; Callibri → «Лиды» в Статистике. Search API / Метрика / 1С / Sheets — отдельные задачи на том же каркасе
-- Bulk «**Обновить данные**» (Каналы/Статистика) обновляет все collectors проекта через `IntegrationMetricsRefreshService` (throttle `IntegrationApiThrottle`)
+- Ручное обновление в Каналах/Статистике — иконка в шапке (`refreshAllData` → `IntegrationMetricsRefreshService::refreshReportData`, throttle `IntegrationApiThrottle`); в Каналах дополнительно остаток бюджета Директа
 - Приоритет: данные для **переменных отчётов** (ТЗ п.8.11); расширенные фильтры UI — во вторую очередь
 - Megaplan, Google Sheets — отложены, пока не запрошены
 - Legacy API-клиенты в `app/Clients/` и `app/Services/` — допустимо расширять точечно; новые абстракции — в `src/`

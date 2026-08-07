@@ -85,8 +85,8 @@ class ChannelReportQueryData extends Data implements Wireable
 
         // сумма по должностям и программингу, копирайтеру и ссылкам
         $instance->columns->add(new TableReportColumnData('summary-spendings', 'Расходы итого (₽)', $colOrder++));
-        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток на сейчас. Обновление — массовое действие «Обновить остаток бюджета» (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
-        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за выбранный период из базы Касини. Обновление — массовое действие «Обновить данные» (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
+        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток на сейчас. Обновление — иконка обновления данных в шапке отчёта (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
+        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за выбранный период из базы Касини. Обновление — иконка обновления данных в шапке отчёта (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
 
         return $instance;
     }

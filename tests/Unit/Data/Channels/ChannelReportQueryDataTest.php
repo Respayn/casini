@@ -63,7 +63,7 @@ class ChannelReportQueryDataTest extends TestCase
         $budget = $data->columns->first(fn ($column) => $column->field === 'direct-budget');
 
         $this->assertNotNull($budget);
-        $this->assertStringContainsString('массовое действие', (string) $budget->tooltip);
+        $this->assertStringContainsString('иконка обновления данных', (string) $budget->tooltip);
         $this->assertStringNotContainsString('кликните', (string) $budget->tooltip);
     }
 

@@ -3,6 +3,7 @@
 namespace App\Services\IntegrationSync;
 
 use App\Contracts\IntegrationSyncCollector;
+use App\Services\Channels\ChannelDirectMetricsService;
 use Illuminate\Support\Carbon;
 
 class IntegrationMetricsRefreshService
@@ -12,6 +13,7 @@ class IntegrationMetricsRefreshService
     public function __construct(
         private readonly IntegrationSyncDispatcher $dispatcher,
         private readonly IntegrationApiThrottle $apiThrottle,
+        private readonly ChannelDirectMetricsService $directMetricsService,
     ) {}
 
     /**
@@ -26,8 +28,47 @@ class IntegrationMetricsRefreshService
         Carbon $periodTo,
         bool $includeVat = false,
     ): array {
+        return $this->refreshProjects(
+            $this->limitProjectIds($projectIds),
+            $periodFrom,
+            $periodTo,
+            withDirectBudget: false,
+        );
+    }
+
+    /**
+     * Обновление всех проектов текущего отчёта: collectors (+ бюджет Директа в Каналах).
+     * Один consume throttle на клик; лимит 50 проектов не применяется.
+     *
+     * @param  list<int|string>  $projectIds
+     * @return array{updated: int, failed: int, skipped: int, error?: string}
+     */
+    public function refreshReportData(
+        array $projectIds,
+        Carbon $periodFrom,
+        Carbon $periodTo,
+        bool $includeVat = false,
+        bool $withDirectBudget = false,
+    ): array {
+        return $this->refreshProjects(
+            $this->normalizeProjectIds($projectIds),
+            $periodFrom,
+            $periodTo,
+            $withDirectBudget,
+        );
+    }
+
+    /**
+     * @param  list<int>  $ids
+     * @return array{updated: int, failed: int, skipped: int, error?: string}
+     */
+    private function refreshProjects(
+        array $ids,
+        Carbon $periodFrom,
+        Carbon $periodTo,
+        bool $withDirectBudget,
+    ): array {
         $stats = ['updated' => 0, 'failed' => 0, 'skipped' => 0];
-        $ids = $this->limitProjectIds($projectIds);
 
         $throttle = $this->apiThrottle->consume();
         if (! $throttle['ok']) {
@@ -43,7 +84,6 @@ class IntegrationMetricsRefreshService
         $collectors = $this->dispatcher->collectors();
 
         foreach ($ids as $projectId) {
-            $projectId = (int) $projectId;
             $applicable = array_values(array_filter(
                 $collectors,
                 fn (IntegrationSyncCollector $collector) => $collector->supportsProject($projectId),
@@ -74,6 +114,10 @@ class IntegrationMetricsRefreshService
             }
         }
 
+        if ($withDirectBudget && $ids !== []) {
+            $this->directMetricsService->refreshBudgetsForcedWithoutThrottle($ids);
+        }
+
         return $stats;
     }
 
@@ -83,6 +127,15 @@ class IntegrationMetricsRefreshService
      */
     private function limitProjectIds(array $projectIds): array
     {
+        return array_slice($this->normalizeProjectIds($projectIds), 0, self::BULK_MAX_PROJECTS);
+    }
+
+    /**
+     * @param  list<int|string>  $projectIds
+     * @return list<int>
+     */
+    private function normalizeProjectIds(array $projectIds): array
+    {
         $unique = [];
         foreach ($projectIds as $id) {
             $intId = (int) $id;
@@ -91,7 +144,7 @@ class IntegrationMetricsRefreshService
             }
         }
 
-        return array_slice(array_values($unique), 0, self::BULK_MAX_PROJECTS);
+        return array_values($unique);
     }
 
     /**

@@ -21,13 +21,13 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex items-center">
-        <div class="mr-3.5">
+    <div class="flex flex-wrap items-center gap-y-3">
+        <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="queryData.showInactive" />
         </div>
 
-        <div class="mr-[26px]">
+        <div class="mr-[26px] flex items-center gap-2">
             <label>НДС</label>
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
@@ -38,28 +38,8 @@
             <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
         </div>
 
-        <div class="ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link" />
-            </x-overlay.modal-trigger>
-        </div>
+        <x-report.table-toolbar :last-refresh-label="$lastDataRefreshLabel" />
     </div>
-
-    @if (!empty($selectedProjects))
-        <div class="mt-3 flex gap-2">
-            <div class="w-xs">
-                <x-form.select
-                    wire:model="bulkAction"
-                    :options="collect(\App\Enums\ChannelBulkAction::cases())->map(fn ($action) => [
-                        'label' => $action->label(),
-                        'value' => $action->value,
-                    ])->all()"
-                    placeholder="Массовые действия"
-                />
-            </div>
-            <x-button.button wire:click="makeBulkAction" label="Выполнить" />
-        </div>
-    @endif
 
     @if ($actionMessage)
         <x-feedback.notice
@@ -82,9 +62,6 @@
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                 <x-data.table>
                     <x-data.table-columns>
-                        <x-data.table-column class="border" style="border-color: var(--color-table-cell)">
-                            <x-form.checkbox wire:model.live="selectAll" />
-                        </x-data.table-column>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column
                                 @class([
@@ -146,9 +123,6 @@
                                     </x-data.table-cell>
                                 </x-data.table-row>
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
-                                    <x-data.table-cell class="bg-table-summary-bg">
-                                        <x-form.checkbox value="{{ $groupIndex }}" wire:model.live="selectedGroups" />
-                                    </x-data.table-cell>
                                     @foreach ($this->visibleColumns as $column)
                                         <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
                                             :params="$group->summary->get($column->field)" />
@@ -159,12 +133,6 @@
                             @foreach ($group->rows as $row)
                                 @if ($queryData->grouping->value === 'none')
                                     <x-data.table-row wire:key="row.{{ $row->id }}">
-                                        <x-data.table-cell>
-                                            <x-form.checkbox
-                                                value="{{ $row->id }}"
-                                                wire:model.live="selectedProjects"
-                                            />
-                                        </x-data.table-cell>
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
                                                 :params="$row->data->get($column->field)" />
@@ -172,12 +140,6 @@
                                     </x-data.table-row>
                                 @else
                                     <x-data.table-row x-show="expandedGroups['group-{{ $groupIndex }}']" wire:key="row.{{ $row->id }}">
-                                        <x-data.table-cell>
-                                            <x-form.checkbox
-                                                value="{{ $row->id }}"
-                                                wire:model.live="selectedProjects"
-                                            />
-                                        </x-data.table-cell>
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
                                                 :params="$row->data->get($column->field)" />
@@ -188,7 +150,6 @@
                         @endforeach
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
-                            <x-data.table-cell class="bg-table-summary-bg"></x-data.table-cell>
                             @foreach ($this->visibleColumns as $column)
                                 <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
                                     :params="$this->reportData->summary->get($column->field)" />

@@ -256,6 +256,37 @@ class ChannelDirectMetricsService
     }
 
     /**
+     * Принудительный съём бюджетов без consume throttle (после одного consume у оркестратора).
+     *
+     * @param  array<int, int|string>  $projectIds
+     * @return array{updated: int, failed: int, skipped: int}
+     */
+    public function refreshBudgetsForcedWithoutThrottle(array $projectIds): array
+    {
+        $stats = ['updated' => 0, 'failed' => 0, 'skipped' => 0];
+
+        $ids = array_values(array_unique(array_map('intval', $projectIds)));
+
+        foreach ($ids as $projectId) {
+            if ($projectId <= 0) {
+                continue;
+            }
+
+            $result = $this->refreshBudgetForcedWithoutThrottle($projectId);
+
+            if ($result['ok']) {
+                $stats['updated']++;
+            } elseif ($result['error'] === 'Нет настроенной интеграции Яндекс.Директ') {
+                $stats['skipped']++;
+            } else {
+                $stats['failed']++;
+            }
+        }
+
+        return $stats;
+    }
+
+    /**
      * Принудительный съём бюджета без повторного consume throttle (для bulk после одного consume).
      *
      * @return array{ok: bool, value: ?float, error: ?string}
