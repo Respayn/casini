@@ -128,6 +128,7 @@ new class extends Component {
             <div x-data="{
                         isEditing: false,
                         localValue: null,
+                        tipOpen: false,
 
                         startEdit() {
                             if (!canEdit || parameter.is_calculated || this.isEditing) return;
@@ -153,10 +154,16 @@ new class extends Component {
                             this.isEditing = false;
                         },
                     }"
+                x-ref="valueCell"
                 x-on:click="startEdit()"
+                x-on:mouseenter="if (parameter.is_calculated) tipOpen = true"
+                x-on:mouseleave="tipOpen = false"
                 class="relative flex grow items-center justify-end px-2.5"
                 style="min-height: 2.25rem"
-                x-bind:class="{'cursor-pointer hover:bg-gray-50': canEdit && !parameter.is_calculated}"
+                x-bind:class="{
+                    'cursor-pointer hover:bg-gray-50': canEdit && !parameter.is_calculated,
+                    'cursor-not-allowed': parameter.is_calculated,
+                }"
             >
                 <span
                     x-show="!isEditing"
@@ -175,6 +182,17 @@ new class extends Component {
                     class="absolute inset-0 w-full border-0 bg-white px-2.5 text-right outline-none"
                     style="min-height: 0; height: 100%; box-sizing: border-box;"
                 />
+                <template x-teleport="body">
+                    <div
+                        class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                        style="z-index: 1000"
+                        x-show="parameter.is_calculated && tipOpen"
+                        x-cloak
+                        x-anchor.top="$refs.valueCell"
+                    >
+                        Рассчитывается автоматически
+                    </div>
+                </template>
             </div>
         </template>
     </div>

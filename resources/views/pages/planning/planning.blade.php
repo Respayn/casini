@@ -228,8 +228,35 @@
                                                 <div class="grid auto-rows-fr h-full divide-y divide-table-cell">
                                                     @foreach ($projectPlan['parameters'] as $param)
                                                         <div
-                                                            class="flex grow items-center whitespace-nowrap justify-between ps-2.5 pe-0.5 py-2 gap-5">
-                                                            <span @class(['font-bold' => !empty($param['highlight'])])>{{ $param['name'] }}</span>
+                                                            @class([
+                                                                'flex grow items-center whitespace-nowrap justify-between ps-2.5 pe-0.5 py-2 gap-5',
+                                                                'cursor-not-allowed' => ! empty($param['is_calculated']),
+                                                            ])
+                                                            @if (! empty($param['is_calculated']))
+                                                                x-data="{ open: false }"
+                                                            @endif
+                                                        >
+                                                            <span
+                                                                @class(['font-bold' => ! empty($param['highlight']), 'w-full' => ! empty($param['is_calculated'])])
+                                                                @if (! empty($param['is_calculated']))
+                                                                    x-ref="autoCalcTrigger"
+                                                                    @mouseenter="open = true"
+                                                                    @mouseleave="open = false"
+                                                                @endif
+                                                            >{{ $param['name'] }}</span>
+                                                            @if (! empty($param['is_calculated']))
+                                                                <template x-teleport="body">
+                                                                    <div
+                                                                        class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                                                        style="z-index: 1000"
+                                                                        x-show="open"
+                                                                        x-cloak
+                                                                        x-anchor.top="$refs.autoCalcTrigger"
+                                                                    >
+                                                                        Рассчитывается автоматически
+                                                                    </div>
+                                                                </template>
+                                                            @endif
                                                         </div>
                                                     @endforeach
                                                 </div>
