@@ -32,6 +32,25 @@ new class extends Component {
             $castedValue = round($castedValue);
         }
 
+        $currentValue = $this->parameters[$index]['plans'][$this->month] ?? null;
+        if ($currentValue === '') {
+            $currentValue = null;
+        }
+        if ($currentValue !== null) {
+            $currentValue = (float) $currentValue;
+            if (in_array($this->parameters[$index]['format'] ?? null, ['integer', 'percent'], true)) {
+                $currentValue = round($currentValue);
+            }
+        }
+
+        if ($currentValue === null && $castedValue === null) {
+            return;
+        }
+
+        if ($currentValue !== null && $castedValue !== null && abs($currentValue - $castedValue) < 0.0000001) {
+            return;
+        }
+
         $updatedParameters = $this->parameters;
         $updatedParameters[$index]['plans'][$this->month] = $castedValue;
 
@@ -139,11 +158,42 @@ new class extends Component {
 
                         commit() {
                             this.isEditing = false;
+
                             let value = this.localValue;
-                            if (value !== null && value !== '' && (parameter.format === 'integer' || parameter.format === 'percent')) {
+                            if (value === '' || value === undefined) {
+                                value = null;
+                            } else if (value !== null) {
                                 const num = parseFloat(value);
-                                value = Number.isNaN(num) ? value : Math.round(num);
+                                if (Number.isNaN(num)) {
+                                    value = null;
+                                } else if (parameter.format === 'integer' || parameter.format === 'percent') {
+                                    value = Math.round(num);
+                                } else {
+                                    value = num;
+                                }
                             }
+
+                            let prev = parameters[index].plans[month];
+                            if (prev === '' || prev === undefined) {
+                                prev = null;
+                            } else if (prev !== null) {
+                                const prevNum = parseFloat(prev);
+                                if (Number.isNaN(prevNum)) {
+                                    prev = null;
+                                } else if (parameter.format === 'integer' || parameter.format === 'percent') {
+                                    prev = Math.round(prevNum);
+                                } else {
+                                    prev = prevNum;
+                                }
+                            }
+
+                            if (prev === null && value === null) {
+                                return;
+                            }
+                            if (prev !== null && value !== null && prev === value) {
+                                return;
+                            }
+
                             parameters[index].plans[month] = value;
                             this.localValue = value;
 
