@@ -204,6 +204,7 @@ class ProjectPlanService
                 'is_calculated' => $paramEnum->isCalculated(),
                 'formula' => $paramEnum->getFormula(),
                 'dependencies' => $paramEnum->getDependencies(),
+                'highlight' => $paramEnum->isPrimary(),
                 'plans' => $paramPlans
             ];
         }

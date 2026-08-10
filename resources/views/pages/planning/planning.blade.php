@@ -229,7 +229,7 @@
                                                     @foreach ($projectPlan['parameters'] as $param)
                                                         <div
                                                             class="flex grow items-center whitespace-nowrap justify-between ps-2.5 pe-0.5 py-2 gap-5">
-                                                            <span>{{ $param['name'] }}</span>
+                                                            <span @class(['font-bold' => !empty($param['highlight'])])>{{ $param['name'] }}</span>
                                                         </div>
                                                     @endforeach
                                                 </div>
