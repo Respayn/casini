@@ -279,6 +279,7 @@
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.1.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][1]['date'] ?? null"
+                                                            :approved-by-name="$tableData[$rowIndex]['approvals'][1]['approved_by_name'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -301,6 +302,7 @@
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.2.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][2]['date'] ?? null"
+                                                            :approved-by-name="$tableData[$rowIndex]['approvals'][2]['approved_by_name'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -323,6 +325,7 @@
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.3.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][3]['date'] ?? null"
+                                                            :approved-by-name="$tableData[$rowIndex]['approvals'][3]['approved_by_name'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -345,6 +348,7 @@
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.4.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][4]['date'] ?? null"
+                                                            :approved-by-name="$tableData[$rowIndex]['approvals'][4]['approved_by_name'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>

@@ -102,13 +102,15 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             }
 
             foreach ($plan->getQuarterApprovals() as $quarterNumber => $approval) {
+                $approved = (bool) ($approval['approved'] ?? false);
                 $approvalsData[] = [
                     'project_id' => $projectId,
                     'period' => 'quarter',
                     'year' => $year,
                     'period_number' => $quarterNumber,
-                    'approved' => (bool) ($approval['approved'] ?? false),
-                    'approved_at' => ($approval['approved'] ?? false) ? ($approval['approved_at'] ?? null) : null,
+                    'approved' => $approved,
+                    'approved_at' => $approved ? ($approval['approved_at'] ?? null) : null,
+                    'approved_by' => $approved ? ($approval['approved_by'] ?? null) : null,
                     'updated_at' => now(),
                     'created_at' => now(),
                 ];
@@ -130,7 +132,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 ProjectPlanApproval::upsert(
                     $approvalsData,
                     ['project_id', 'period', 'year', 'period_number'],
-                    ['approved', 'approved_at', 'updated_at']
+                    ['approved', 'approved_at', 'approved_by', 'updated_at']
                 );
             }
         });
@@ -268,12 +270,19 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             if ($approval->period === 'quarter') {
                 $quarter = new Quarter($approval->period_number);
                 $approvedAt = null;
+                $approvedBy = null;
                 if ($approval->approved) {
                     $approvedAt = $approval->approved_at
                         ? \Illuminate\Support\Carbon::parse($approval->approved_at)->toDateString()
                         : ($approval->updated_at?->toDateString());
+                    $approvedBy = $approval->approved_by ? (int) $approval->approved_by : null;
                 }
-                $plan->setQuarterApproval($quarter, (bool) $approval->approved, $approvedAt);
+                $plan->setQuarterApproval(
+                    $quarter,
+                    (bool) $approval->approved,
+                    $approvedAt,
+                    $approvedBy,
+                );
             }
         }
 
@@ -316,6 +325,9 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             $approvedAt = is_array($approval)
                 ? ($approved ? ($approval['approved_at'] ?? null) : null)
                 : null;
+            $approvedBy = is_array($approval)
+                ? ($approved ? ($approval['approved_by'] ?? null) : null)
+                : null;
 
             $data[] = [
                 'project_id' => $projectId,
@@ -324,6 +336,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 'period_number' => $quarterNumber,
                 'approved' => $approved,
                 'approved_at' => $approvedAt,
+                'approved_by' => $approvedBy,
                 'updated_at' => now(),
                 'created_at' => now(),
             ];
@@ -333,7 +346,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             ProjectPlanApproval::upsert(
                 $data,
                 ['project_id', 'period', 'year', 'period_number'],
-                ['approved', 'approved_at', 'updated_at']
+                ['approved', 'approved_at', 'approved_by', 'updated_at']
             );
         }
     }

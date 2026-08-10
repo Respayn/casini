@@ -14,6 +14,7 @@ class ProjectPlanApproval extends Model
         'period_number',
         'approved',
         'approved_at',
+        'approved_by',
     ];
 
     protected $casts = [

@@ -120,13 +120,20 @@ new
 
                 if ($approved) {
                     $today = Carbon::now();
+                    $user = Auth::user();
                     $this->tableData[$rowIndex]['approvals'][$quarter]['approved'] = true;
                     $this->tableData[$rowIndex]['approvals'][$quarter]['approved_at'] = $today->toDateString();
                     $this->tableData[$rowIndex]['approvals'][$quarter]['date'] = $today->format('d.m.y');
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved_by'] = $user?->id;
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved_by_name'] = $user
+                        ? trim($user->first_name.' '.$user->last_name)
+                        : null;
                 } else {
                     $this->tableData[$rowIndex]['approvals'][$quarter]['approved'] = false;
                     $this->tableData[$rowIndex]['approvals'][$quarter]['approved_at'] = null;
                     $this->tableData[$rowIndex]['approvals'][$quarter]['date'] = null;
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved_by'] = null;
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved_by_name'] = null;
                 }
             }
 

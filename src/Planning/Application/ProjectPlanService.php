@@ -2,7 +2,9 @@
 
 namespace Src\Planning\Application;
 
+use App\Models\User;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Auth;
 use Src\Planning\Application\Repositories\ProjectPlanRepositoryInterface;
 use Src\Planning\Application\Repositories\ProjectRepositoryInterface;
 use Src\Planning\Application\Services\KpiParametersSchemaService;
@@ -18,6 +20,9 @@ class ProjectPlanService
     private ProjectRepositoryInterface $projectRepository;
     private PlanCalculator $planCalculator;
     private KpiParametersSchemaService $schemaService;
+
+    /** @var array<int, string|null> */
+    private array $approverNameCache = [];
 
     public function __construct(
         ProjectPlanRepositoryInterface $repository,
@@ -107,12 +112,19 @@ class ProjectPlanService
                 $approvedAt = is_array($approvalData)
                     ? ($approved ? ($approvalData['approved_at'] ?? null) : null)
                     : null;
+                $approvedBy = is_array($approvalData)
+                    ? ($approved ? ($approvalData['approved_by'] ?? null) : null)
+                    : null;
 
                 if ($approved && $approvedAt === null) {
                     $approvedAt = now()->toDateString();
                 }
 
-                $plan->setQuarterApproval($quarter, $approved, $approvedAt);
+                if ($approved && $approvedBy === null) {
+                    $approvedBy = Auth::id();
+                }
+
+                $plan->setQuarterApproval($quarter, $approved, $approvedAt, $approvedBy ? (int) $approvedBy : null);
             }
 
             $plansToSave[] = $plan;
@@ -248,10 +260,14 @@ class ProjectPlanService
             $quarter = new Quarter($q);
             $approved = $plan->isQuarterApproved($quarter);
             $approvedAt = $plan->getQuarterApprovedAt($quarter);
+            $approvedBy = $plan->getQuarterApprovedBy($quarter);
+            $approvedByName = $approved ? $this->resolveApproverName($approvedBy) : null;
 
             $approvals[$q] = [
                 'approved' => $approved,
                 'approved_at' => $approvedAt,
+                'approved_by' => $approvedBy,
+                'approved_by_name' => $approvedByName,
                 'date' => ($approved && $approvedAt)
                     ? \Illuminate\Support\Carbon::parse($approvedAt)->format('d.m.y')
                     : null,
@@ -279,5 +295,21 @@ class ProjectPlanService
         $format = $paramData['format'] ?? null;
 
         return in_array($format, ['integer', 'percent'], true);
+    }
+
+    private function resolveApproverName(?int $userId): ?string
+    {
+        if ($userId === null) {
+            return null;
+        }
+
+        if (! array_key_exists($userId, $this->approverNameCache)) {
+            $user = User::query()->find($userId);
+            $this->approverNameCache[$userId] = $user
+                ? trim($user->first_name.' '.$user->last_name)
+                : null;
+        }
+
+        return $this->approverNameCache[$userId] ?: null;
     }
 }
