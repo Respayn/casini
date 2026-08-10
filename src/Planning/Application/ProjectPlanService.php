@@ -82,12 +82,21 @@ class ProjectPlanService
                 if (!$paramData['is_calculated']) {
                     foreach ($paramData['plans'] as $month => $value) {
                         if ($value !== '') {
-                            $valueToSave = $value !== null ? (float)$value : null;
+                            $valueToSave = $value !== null ? (float) $value : null;
+                            if ($valueToSave !== null && $this->shouldRoundParameter($paramData)) {
+                                $valueToSave = round($valueToSave);
+                            }
                             $plan->setMonthlyValue($paramData['key'], $month, $valueToSave);
                         }
                     }
                 }
             }
+
+            $this->planCalculator->recalculate(
+                $plan,
+                $plan->getProject()->getType(),
+                $plan->getProject()->getKpi()
+            );
 
             for ($quarterNum = 1; $quarterNum <= 4; $quarterNum++) {
                 $quarter = new Quarter($quarterNum);
@@ -154,10 +163,24 @@ class ProjectPlanService
         $projectPlan = new ProjectPlan($project, $year);
 
         foreach ($rowData['parameters'] as $paramData) {
-            foreach ($paramData['plans'] as $month => $value) {
-                $projectPlan->setMonthlyValue($paramData['key'], $month, $value);
+            if (!empty($paramData['is_calculated'])) {
+                continue;
+            }
+
+            foreach ($paramData['plans'] as $planMonth => $value) {
+                $valueToSet = $value !== null && $value !== '' ? (float) $value : null;
+                if ($valueToSet !== null && $this->shouldRoundParameter($paramData)) {
+                    $valueToSet = round($valueToSet);
+                }
+                $projectPlan->setMonthlyValue($paramData['key'], $planMonth, $valueToSet);
             }
         }
+
+        $this->planCalculator->recalculate(
+            $projectPlan,
+            $project->getType(),
+            $project->getKpi()
+        );
 
         $calculatedValues = $projectPlan->getAllMonthlyValues();
 
@@ -226,5 +249,15 @@ class ProjectPlanService
             'parameters' => $parameters,
             'approvals' => $approvals
         ];
+    }
+
+    /**
+     * @param  array{format?: string|null, key?: string}  $paramData
+     */
+    private function shouldRoundParameter(array $paramData): bool
+    {
+        $format = $paramData['format'] ?? null;
+
+        return in_array($format, ['integer', 'percent'], true);
     }
 }

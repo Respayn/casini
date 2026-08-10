@@ -70,4 +70,12 @@ class KpiParameter
     {
         return $this->isPrimary;
     }
+
+    /**
+     * Лиды, визиты, % позиций и т.п. — только целые числа.
+     */
+    public function shouldRoundToInteger(): bool
+    {
+        return in_array($this->format, ['integer', 'percent'], true);
+    }
 }

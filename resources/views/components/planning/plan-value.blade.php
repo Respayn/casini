@@ -28,6 +28,10 @@ new class extends Component {
 
         $castedValue = ($value === '' || $value === null) ? null : (float) $value;
 
+        if ($castedValue !== null && in_array($this->parameters[$index]['format'] ?? null, ['integer', 'percent'], true)) {
+            $castedValue = round($castedValue);
+        }
+
         $updatedParameters = $this->parameters;
         $updatedParameters[$index]['plans'][$this->month] = $castedValue;
 
@@ -54,7 +58,14 @@ new class extends Component {
 
         calculateValue(parameter) {
             if (!parameter.is_calculated) {
-                return parameter.plans?.[this.month] ?? null;
+                const raw = parameter.plans?.[this.month] ?? null;
+                if (raw === null || raw === '') return null;
+                const num = parseFloat(raw);
+                if (isNaN(num)) return null;
+                if (parameter.format === 'integer' || parameter.format === 'percent') {
+                    return Math.round(num);
+                }
+                return num;
             }
 
             try {
@@ -63,7 +74,16 @@ new class extends Component {
                 const argv = args.map(argKey => this.findParamValue(argKey));
                 
                 const func = new Function(...args, 'return ' + formula);
-                const result = func(...argv);
+                let result = func(...argv);
+
+                if (result === null || result === undefined || Number.isNaN(result)) {
+                    parameter.plans[this.month] = null;
+                    return null;
+                }
+
+                if (parameter.format === 'integer' || parameter.format === 'percent') {
+                    result = Math.round(result);
+                }
                 
                 parameter.plans[this.month] = result; 
                 
@@ -83,14 +103,18 @@ new class extends Component {
                     return new Intl.NumberFormat('ru-RU', { 
                         style: 'currency',
                         currency: 'RUB',
-                        maximumFractionDigits: 0,
                         maximumFractionDigits: 2
                     }).format(num);
                 case 'percent':
                     return new Intl.NumberFormat('ru-RU', {
                         minimumFractionDigits: 0,
-                        maximumFractionDigits: 2
-                    }).format(num) + '%';
+                        maximumFractionDigits: 0
+                    }).format(Math.round(num)) + '%';
+                case 'integer':
+                    return new Intl.NumberFormat('ru-RU', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(Math.round(num));
                 default:
                     return new Intl.NumberFormat('ru-RU', {
                         minimumFractionDigits: 0,
@@ -114,9 +138,15 @@ new class extends Component {
 
                         commit() {
                             this.isEditing = false;
-                            parameters[index].plans[month] = this.localValue;
+                            let value = this.localValue;
+                            if (value !== null && value !== '' && (parameter.format === 'integer' || parameter.format === 'percent')) {
+                                const num = parseFloat(value);
+                                value = Number.isNaN(num) ? value : Math.round(num);
+                            }
+                            parameters[index].plans[month] = value;
+                            this.localValue = value;
 
-                            $wire.save(index, this.localValue);
+                            $wire.save(index, value);
                         },
 
                         cancel() {

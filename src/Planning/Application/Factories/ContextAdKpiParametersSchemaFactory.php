@@ -26,7 +26,7 @@ class ContextAdKpiParametersSchemaFactory extends AbstractKpiParametersSchemaFac
                     'Объем визитов',
                     'cpc > 0 ? budget / cpc : null',
                     ['budget', 'cpc'],
-                    null,
+                    'integer',
                     true
                 );
         } elseif ($this->kpi === Kpi::LEADS) {
@@ -38,7 +38,7 @@ class ContextAdKpiParametersSchemaFactory extends AbstractKpiParametersSchemaFac
                     'Лиды',
                     'cpl > 0 ? budget / cpl : null',
                     ['budget', 'cpl'],
-                    null,
+                    'integer',
                     true
                 );
         }
