@@ -49,10 +49,10 @@ class ProjectPlan
         return $values;
     }
 
-    public function setQuarterApproval(Quarter $quarter, bool $approved): void
+    public function setQuarterApproval(Quarter $quarter, bool $approved, ?string $approvedAt = null): void
     {
         $quarterNum = $quarter->getNumber();
-        $this->quarterApprovals[$quarterNum] = new QuarterApproval($quarter, $approved);
+        $this->quarterApprovals[$quarterNum] = new QuarterApproval($quarter, $approved, $approvedAt);
     }
 
     public function isQuarterApproved(Quarter $quarter): bool
@@ -62,11 +62,28 @@ class ProjectPlan
             && $this->quarterApprovals[$quarterNum]->isApproved();
     }
 
+    public function getQuarterApprovedAt(Quarter $quarter): ?string
+    {
+        $quarterNum = $quarter->getNumber();
+
+        if (! isset($this->quarterApprovals[$quarterNum])) {
+            return null;
+        }
+
+        return $this->quarterApprovals[$quarterNum]->getApprovedAt();
+    }
+
+    /**
+     * @return array<int, array{approved: bool, approved_at: ?string}>
+     */
     public function getQuarterApprovals(): array
     {
         $approvals = [];
         foreach ($this->quarterApprovals as $quarterNum => $approval) {
-            $approvals[$quarterNum] = $approval->isApproved();
+            $approvals[$quarterNum] = [
+                'approved' => $approval->isApproved(),
+                'approved_at' => $approval->getApprovedAt(),
+            ];
         }
 
         return $approvals;

@@ -101,13 +101,16 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 }
             }
 
-            foreach ($plan->getQuarterApprovals() as $quarterNumber => $approved) {
+            foreach ($plan->getQuarterApprovals() as $quarterNumber => $approval) {
                 $approvalsData[] = [
                     'project_id' => $projectId,
                     'period' => 'quarter',
                     'year' => $year,
                     'period_number' => $quarterNumber,
-                    'approved' => $approved
+                    'approved' => (bool) ($approval['approved'] ?? false),
+                    'approved_at' => ($approval['approved'] ?? false) ? ($approval['approved_at'] ?? null) : null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
                 ];
             }
         }
@@ -127,7 +130,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 ProjectPlanApproval::upsert(
                     $approvalsData,
                     ['project_id', 'period', 'year', 'period_number'],
-                    ['approved']
+                    ['approved', 'approved_at', 'updated_at']
                 );
             }
         });
@@ -264,7 +267,13 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
         foreach ($eloquentProject->planApprovals as $approval) {
             if ($approval->period === 'quarter') {
                 $quarter = new Quarter($approval->period_number);
-                $plan->setQuarterApproval($quarter, $approval->approved);
+                $approvedAt = null;
+                if ($approval->approved) {
+                    $approvedAt = $approval->approved_at
+                        ? \Illuminate\Support\Carbon::parse($approval->approved_at)->toDateString()
+                        : ($approval->updated_at?->toDateString());
+                }
+                $plan->setQuarterApproval($quarter, (bool) $approval->approved, $approvedAt);
             }
         }
 
@@ -300,13 +309,23 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
     private function saveQuarterApprovals(int $projectId, int $year, array $quarterApprovals): void
     {
         $data = [];
-        foreach ($quarterApprovals as $quarterNumber => $approved) {
+        foreach ($quarterApprovals as $quarterNumber => $approval) {
+            $approved = is_array($approval)
+                ? (bool) ($approval['approved'] ?? false)
+                : (bool) $approval;
+            $approvedAt = is_array($approval)
+                ? ($approved ? ($approval['approved_at'] ?? null) : null)
+                : null;
+
             $data[] = [
                 'project_id' => $projectId,
                 'period' => 'quarter',
                 'year' => $year,
                 'period_number' => $quarterNumber,
-                'approved' => $approved
+                'approved' => $approved,
+                'approved_at' => $approvedAt,
+                'updated_at' => now(),
+                'created_at' => now(),
             ];
         }
 
@@ -314,7 +333,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             ProjectPlanApproval::upsert(
                 $data,
                 ['project_id', 'period', 'year', 'period_number'],
-                ['approved']
+                ['approved', 'approved_at', 'updated_at']
             );
         }
     }

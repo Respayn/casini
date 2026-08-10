@@ -112,6 +112,24 @@ new
         public function updatedTableData($value, $key)
         {
             $parts = explode('.', $key);
+
+            if (preg_match('/^(\d+)\.approvals\.(\d+)\.approved$/', $key, $matches)) {
+                $rowIndex = (int) $matches[1];
+                $quarter = (int) $matches[2];
+                $approved = (bool) $value;
+
+                if ($approved) {
+                    $today = Carbon::now();
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved'] = true;
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved_at'] = $today->toDateString();
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['date'] = $today->format('d.m.y');
+                } else {
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved'] = false;
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['approved_at'] = null;
+                    $this->tableData[$rowIndex]['approvals'][$quarter]['date'] = null;
+                }
+            }
+
             if (isset($parts[0]) && isset($this->tableData[$parts[0]])) {
                 $rowIndex = (int) $parts[0];
                 $projectId = $this->tableData[$rowIndex]['project_id'];

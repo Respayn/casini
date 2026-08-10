@@ -273,11 +273,12 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.3" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]])>
+                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]['approved'] ?? false])>
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
-                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.1"
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.1.approved"
                                                             :can-edit="$this->canEditApprovals"
+                                                            :date="$tableData[$rowIndex]['approvals'][1]['date'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -294,11 +295,12 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.6" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]])>
+                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]['approved'] ?? false])>
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
-                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.2"
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.2.approved"
                                                             :can-edit="$this->canEditApprovals"
+                                                            :date="$tableData[$rowIndex]['approvals'][2]['date'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -315,11 +317,12 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.9" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]])>
+                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]['approved'] ?? false])>
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
-                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.3"
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.3.approved"
                                                             :can-edit="$this->canEditApprovals"
+                                                            :date="$tableData[$rowIndex]['approvals'][3]['date'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -336,11 +339,12 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.12" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]])>
+                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]['approved'] ?? false])>
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
-                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.4"
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.4.approved"
                                                             :can-edit="$this->canEditApprovals"
+                                                            :date="$tableData[$rowIndex]['approvals'][4]['date'] ?? null"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>

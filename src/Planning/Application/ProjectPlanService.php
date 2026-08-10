@@ -100,8 +100,19 @@ class ProjectPlanService
 
             for ($quarterNum = 1; $quarterNum <= 4; $quarterNum++) {
                 $quarter = new Quarter($quarterNum);
-                $approved = $planData['approvals'][$quarterNum] ?? false;
-                $plan->setQuarterApproval($quarter, $approved);
+                $approvalData = $planData['approvals'][$quarterNum] ?? false;
+                $approved = is_array($approvalData)
+                    ? (bool) ($approvalData['approved'] ?? false)
+                    : (bool) $approvalData;
+                $approvedAt = is_array($approvalData)
+                    ? ($approved ? ($approvalData['approved_at'] ?? null) : null)
+                    : null;
+
+                if ($approved && $approvedAt === null) {
+                    $approvedAt = now()->toDateString();
+                }
+
+                $plan->setQuarterApproval($quarter, $approved, $approvedAt);
             }
 
             $plansToSave[] = $plan;
@@ -235,7 +246,16 @@ class ProjectPlanService
         $approvals = [];
         for ($q = 1; $q <= 4; $q++) {
             $quarter = new Quarter($q);
-            $approvals[$q] = $plan->isQuarterApproved($quarter);
+            $approved = $plan->isQuarterApproved($quarter);
+            $approvedAt = $plan->getQuarterApprovedAt($quarter);
+
+            $approvals[$q] = [
+                'approved' => $approved,
+                'approved_at' => $approvedAt,
+                'date' => ($approved && $approvedAt)
+                    ? \Illuminate\Support\Carbon::parse($approvedAt)->format('d.m.y')
+                    : null,
+            ];
         }
 
         return [

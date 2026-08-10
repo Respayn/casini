@@ -1,34 +1,41 @@
 @props([
     'canEdit' => false,
+    'date' => null,
 ])
 
-@if ($canEdit)
-    <x-form.checkbox {{ $attributes }} />
-@else
-    <div
-        class="relative inline-block"
-        x-data="{ open: false }"
-    >
-        <span
-            x-ref="approvalDeniedTrigger"
-            @mouseenter="open = true"
-            @mouseleave="open = false"
+<div class="flex flex-col items-center justify-center gap-0.5">
+    @if ($canEdit)
+        <x-form.checkbox {{ $attributes }} />
+    @else
+        <div
+            class="relative inline-block"
+            x-data="{ open: false }"
         >
-            <x-form.checkbox
-                disabled
-                {{ $attributes }}
-            />
-        </span>
-        <template x-teleport="body">
-            <div
-                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                style="z-index: 1000"
-                x-show="open"
-                x-cloak
-                x-anchor.bottom="$refs.approvalDeniedTrigger"
+            <span
+                x-ref="approvalDeniedTrigger"
+                @mouseenter="open = true"
+                @mouseleave="open = false"
             >
-                {{ __('permissions.denied') }}
-            </div>
-        </template>
-    </div>
-@endif
+                <x-form.checkbox
+                    disabled
+                    {{ $attributes }}
+                />
+            </span>
+            <template x-teleport="body">
+                <div
+                    class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                    style="z-index: 1000"
+                    x-show="open"
+                    x-cloak
+                    x-anchor.bottom="$refs.approvalDeniedTrigger"
+                >
+                    {{ __('permissions.denied') }}
+                </div>
+            </template>
+        </div>
+    @endif
+
+    @if (filled($date))
+        <span class="text-xs leading-none" style="color: #BFD9FF">{{ $date }}</span>
+    @endif
+</div>
