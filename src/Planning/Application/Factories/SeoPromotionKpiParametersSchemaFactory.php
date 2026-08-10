@@ -18,11 +18,13 @@ class SeoPromotionKpiParametersSchemaFactory extends AbstractKpiParametersSchema
     protected function configureParameters(KpiParametersSchemaBuilder $builder)
     {
         if ($this->kpi === Kpi::TRAFFIC) {
-            $builder->addSimpleParameter('visits', 'Объем визитов', 'integer', true);
+            $builder
+                ->addSimpleParameter('visits', 'Объем визитов', 'integer', true)
+                ->addSimpleParameter('conversions', 'Конверсии', 'integer', false);
         } elseif ($this->kpi === Kpi::POSITIONS) {
             $builder
                 ->addSimpleParameter('top_percent', '% позиций в ТОП 10', 'percent', true)
-                ->addSimpleParameter('conversions', 'Конверсии', null, false);
+                ->addSimpleParameter('conversions', 'Конверсии', 'integer', false);
         }
     }
 }

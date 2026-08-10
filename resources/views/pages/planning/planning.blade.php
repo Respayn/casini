@@ -124,7 +124,7 @@
                         <x-data.table-column class="whitespace-nowrap">
                             KPI
                         </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
+                        <x-data.table-column class="whitespace-nowrap min-w-[180px]">
                             Параметр
                         </x-data.table-column>
                         <x-data.table-column class="whitespace-nowrap min-w-[116px]">
@@ -229,7 +229,7 @@
                                                     @foreach ($projectPlan['parameters'] as $param)
                                                         <div
                                                             @class([
-                                                                'flex grow items-center whitespace-nowrap justify-between ps-2.5 pe-0.5 py-2 gap-5',
+                                                                'flex grow items-center whitespace-nowrap justify-between px-2.5 py-2 gap-5',
                                                                 'cursor-not-allowed' => ! empty($param['is_calculated']),
                                                             ])
                                                             @if (! empty($param['is_calculated']))
