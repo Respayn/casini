@@ -119,7 +119,7 @@
                             ID
                         </x-data.table-column>
                         <x-data.table-column class="whitespace-nowrap">
-                            Отдел
+                            Тип клиенто-проекта
                         </x-data.table-column>
                         <x-data.table-column class="whitespace-nowrap">
                             KPI

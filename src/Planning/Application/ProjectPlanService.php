@@ -220,7 +220,7 @@ class ProjectPlanService
             'project_id' => $projectId,
             'project_name' => $project->getName(),
             'project_created_at' => $project->getCreatedAt()->format('d.m.Y'),
-            'department' => $projectType->shortLabel(),
+            'department' => $projectType->label(),
             'kpi' => $kpi->label(),
             'parameters' => $parameters,
             'approvals' => $approvals
