@@ -7,11 +7,13 @@ use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Services\AgencySettingsService;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
 new
 #[Layout('layouts::system-settings')]
+#[Title('Настройка агентства')]
 class extends Component
 {
     use WithFileUploads;
