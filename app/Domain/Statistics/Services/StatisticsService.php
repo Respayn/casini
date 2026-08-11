@@ -754,6 +754,8 @@ class StatisticsService
             $leadsFact = $leadsIndex === null
                 ? null
                 : $this->sumLeadCountsForRange($leadsByDay, $from, $to);
+            // Факт визитов (Метрика) пока не подключён — CPC будет «-», пока нет источника.
+            $visitsFact = null;
 
             $bucketDays = $from->diffInDays($to) + 1;
 
@@ -761,18 +763,24 @@ class StatisticsService
             foreach (array_values($parameters) as $index => $parameter) {
                 $factValue = null;
                 $format = null;
+                $code = $parameterCodes[$index] ?? null;
 
-                if ($budgetIndex !== null && $index === $budgetIndex) {
+                if ($code === 'budget' && $budgetIndex !== null) {
                     $factValue = $budgetFact;
                     $format = 'currency';
-                } elseif ($leadsIndex !== null && $index === $leadsIndex) {
+                } elseif ($code === 'leads' && $leadsIndex !== null) {
                     $factValue = $leadsFact;
                     $format = null;
+                } elseif ($code === 'cpl') {
+                    $factValue = $this->divideFact($budgetFact, $leadsFact);
+                    $format = 'currency';
+                } elseif ($code === 'cpc') {
+                    $factValue = $this->divideFact($budgetFact, $visitsFact);
+                    $format = 'currency';
                 }
 
                 $planSlot = $planCell[$index] ?? ['value' => null, 'format' => null];
                 $planValue = $planSlot['value'];
-                $code = $parameterCodes[$index] ?? null;
                 $isDivisible = $code !== null && in_array($code, $divisibleCodes, true);
 
                 if ($planValue !== null && $isDivisible && $daysInMonth > 0) {
@@ -803,6 +811,23 @@ class StatisticsService
         }
 
         return $result;
+    }
+
+    /**
+     * Деление фактов (CPL = бюджет/лиды, CPC = бюджет/визиты). Дробное значение допускается.
+     */
+    private function divideFact(int|float|null $numerator, int|float|null $denominator): ?float
+    {
+        if ($numerator === null || $denominator === null) {
+            return null;
+        }
+
+        $denominator = (float) $denominator;
+        if ($denominator <= 0.0) {
+            return null;
+        }
+
+        return round((float) $numerator / $denominator, 2);
     }
 
     /**
