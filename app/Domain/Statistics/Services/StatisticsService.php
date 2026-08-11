@@ -185,6 +185,7 @@ class StatisticsService
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
+                    $plan,
                 )
             ));
             $rows->push($row);
@@ -277,6 +278,7 @@ class StatisticsService
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
+                    $plan,
                 )
             ));
 
@@ -407,6 +409,7 @@ class StatisticsService
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
+                    $plan,
                 )
                 ));
 
@@ -527,6 +530,7 @@ class StatisticsService
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
+                    $plan,
                 )
                 ));
 
@@ -603,6 +607,7 @@ class StatisticsService
                     $periodTo,
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
+                    $plan,
                 )
             ));
 
@@ -717,6 +722,7 @@ class StatisticsService
     /**
      * @param  array<string, float>  $spendByDay  ключ Y-m-d => расход
      * @param  array<string, int>  $leadsByDay  ключ Y-m-d => число лидов
+     * @param  list<array{value: mixed, format: mixed}>  $planCell  месячный план из resolvePlanCell
      * @return array<string, list<array{plan: array{value: mixed, format: mixed}, fact: array{value: mixed, format: mixed}}>>
      */
     private function createFactData(
@@ -728,12 +734,17 @@ class StatisticsService
         Carbon $periodTo,
         array $spendByDay,
         array $leadsByDay = [],
+        array $planCell = [],
     ): array {
         $parameters = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
         $budgetIndex = $this->resolveAdvertisingBudgetParameterIndex($projectType, $kpi);
         $leadsIndex = $this->resolveLeadsParameterIndex($projectType, $kpi);
 
+        $parameterCodes = $this->projectPlanService->getParameterCodes($projectType, $kpi);
+        $divisibleCodes = ['budget', 'visits', 'leads', 'conversions'];
+
         $buckets = $this->buildFactBuckets($detailLevel, $gridMonth, $periodFrom, $periodTo);
+        $daysInMonth = $gridMonth->daysInMonth();
         $result = [];
 
         foreach ($buckets as $key => [$from, $to]) {
@@ -743,6 +754,8 @@ class StatisticsService
             $leadsFact = $leadsIndex === null
                 ? null
                 : $this->sumLeadCountsForRange($leadsByDay, $from, $to);
+
+            $bucketDays = $from->diffInDays($to) + 1;
 
             $slots = [];
             foreach (array_values($parameters) as $index => $parameter) {
@@ -757,10 +770,27 @@ class StatisticsService
                     $format = null;
                 }
 
+                $planSlot = $planCell[$index] ?? ['value' => null, 'format' => null];
+                $planValue = $planSlot['value'];
+                $code = $parameterCodes[$index] ?? null;
+                $isDivisible = $code !== null && in_array($code, $divisibleCodes, true);
+
+                if ($planValue !== null && $isDivisible && $daysInMonth > 0) {
+                    if ($detailLevel === StatisticsReportDetailLevel::BY_MONTH) {
+                        $proportionalPlan = (int) round((float) $planValue);
+                    } else {
+                        $proportionalPlan = (int) round((float) $planValue * $bucketDays / $daysInMonth);
+                    }
+                } elseif ($planValue !== null && ! $isDivisible) {
+                    $proportionalPlan = (int) round((float) $planValue);
+                } else {
+                    $proportionalPlan = null;
+                }
+
                 $slots[] = [
                     'plan' => [
-                        'value' => null,
-                        'format' => null,
+                        'value' => $proportionalPlan,
+                        'format' => $planSlot['format'],
                     ],
                     'fact' => [
                         'value' => $factValue,

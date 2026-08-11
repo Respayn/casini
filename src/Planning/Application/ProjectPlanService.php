@@ -112,6 +112,17 @@ class ProjectPlanService
     }
 
     /**
+     * @return list<string>
+     */
+    public function getParameterCodes(ProjectType $projectType, Kpi $kpi): array
+    {
+        return array_map(
+            fn ($p) => $p->getId(),
+            $this->schemaService->createSchema($projectType, $kpi)->getParameters()
+        );
+    }
+
+    /**
      * Получение планов на месяц для всех проектов для страницы "Каналы"
      * @param int $year
      * @param int $month
