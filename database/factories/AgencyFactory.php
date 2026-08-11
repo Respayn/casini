@@ -17,6 +17,7 @@ class AgencyFactory extends Factory
         return [
             'name' => $this->faker->company(),
             'time_zone' => $this->faker->timezone(),
+            'direct_budget_refresh_time' => '09:00:00',
             'url' => $this->faker->url(),
             'email' => $this->faker->safeEmail(),
             'phone' => $this->faker->phoneNumber(),

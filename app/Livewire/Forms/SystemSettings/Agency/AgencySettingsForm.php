@@ -16,6 +16,9 @@ class AgencySettingsForm extends Form
     #[Validate('required|string|max:255', message: 'Выберите часовой пояс')]
     public string $timeZone = '';
 
+    #[Validate('required|date_format:H:i', message: 'Укажите время в формате ЧЧ:ММ')]
+    public string $directBudgetRefreshTime = '09:00';
+
     #[Validate('nullable|url|max:255', message: 'Введите корректный URL-адрес')]
     public ?string $url = null;
 
@@ -40,6 +43,7 @@ class AgencySettingsForm extends Form
         return [
             'name' => 'required|string|max:255',
             'timeZone' => 'required|string|max:255',
+            'directBudgetRefreshTime' => 'required|date_format:H:i',
             'url' => 'nullable|url|max:255',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:255',
@@ -56,6 +60,7 @@ class AgencySettingsForm extends Form
         $this->id = $agency->id ?? null;
         $this->name = $agency->name ?? '';
         $this->timeZone = $agency->timeZone ?? '';
+        $this->directBudgetRefreshTime = $agency->directBudgetRefreshTime ?? '09:00';
         $this->url = $agency->url ?? null;
         $this->email = $agency->email ?? null;
         $this->phone = $agency->phone ?? null;

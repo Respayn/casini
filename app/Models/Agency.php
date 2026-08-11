@@ -11,6 +11,7 @@ use Illuminate\Support\Collection;
  * @property $id
  * @property $name
  * @property $time_zone
+ * @property string $direct_budget_refresh_time
  * @property $url
  * @property $email
  * @property $phone
@@ -29,6 +30,7 @@ class Agency extends Model
     protected $fillable = [
         'name',
         'time_zone',
+        'direct_budget_refresh_time',
         'url',
         'email',
         'phone',

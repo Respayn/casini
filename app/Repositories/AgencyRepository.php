@@ -74,6 +74,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
             $update = [
                 'name' => $data['name'],
                 'time_zone' => $data['timeZone'],
+                'direct_budget_refresh_time' => ($data['directBudgetRefreshTime'] ?? '09:00') . ':00',
                 'url' => $data['url'] ?? null,
                 'email' => $data['email'] ?? null,
                 'phone' => $data['phone'] ?? null,
@@ -108,6 +109,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
             'name' => $agency->name,
             'users' => $users,
             'timeZone' => $agency->time_zone,
+            'directBudgetRefreshTime' => substr($agency->direct_budget_refresh_time ?? '09:00:00', 0, 5),
             'url' => $agency->url,
             'email' => $agency->email,
             'phone' => $agency->phone,
@@ -131,6 +133,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         $agency = Agency::create([
             'name'      => $data['name'],
             'time_zone' => $data['timeZone'],
+            'direct_budget_refresh_time' => ($data['directBudgetRefreshTime'] ?? '09:00') . ':00',
             'url'       => $data['url'] ?? null,
             'email'     => $data['email'] ?? null,
             'phone'     => $data['phone'] ?? null,

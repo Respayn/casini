@@ -232,6 +232,8 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
 | Обновление | иконка в шапке (`refreshAllData`): collectors + остаток бюджета Директа по всем видимым проектам; клик по ячейке отключён |
 | Сервис UI | `ChannelDirectMetricsService`; строки — `ChannelReportService::enrichWithDirectMetrics()` |
+| Автообновление | `channels:dispatch-due-budget-refresh` (schedule `everyMinute`): если по `agencies.time_zone` наступило `agencies.direct_budget_refresh_time` (default 09:00) и за текущий local-date ещё не запускали — `refreshBudgetsForcedWithoutThrottle` по всем активным проектам с интеграцией `yandex_direct`. Без user-throttle. Guard — cache key `channels.direct.budget.scheduled.{localDate}` (TTL 25 ч) |
+| Настройка времени | «Настройка агентства» → «Основные настройки» → поле «Время обновления "Остаток бюджета в Директе"» (`agencies.direct_budget_refresh_time`, тип `time`, default `09:00:00`). Интерпретируется в `agencies.time_zone` |
 
 Пока расхода нет в БД, в ячейке `-`.
 

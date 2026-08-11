@@ -14,10 +14,11 @@ class AgencyData extends Data
         #[DataCollectionOf(AgencyUserData::class)]
         public DataCollection $users,
         public string $timeZone,
-        public ?string $url,
-        public ?string $email,
-        public ?string $phone,
-        public ?string $address,
-        public ?string $logoSrc,
+        public string $directBudgetRefreshTime = '09:00',
+        public ?string $url = null,
+        public ?string $email = null,
+        public ?string $phone = null,
+        public ?string $address = null,
+        public ?string $logoSrc = null,
     ) {}
 }

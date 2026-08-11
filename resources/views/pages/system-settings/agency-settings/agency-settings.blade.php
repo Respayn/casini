@@ -54,6 +54,21 @@
                 </div>
             </x-form.form-field>
 
+            <x-form.form-field>
+                <x-form.form-label
+                    required
+                    tooltip="Время считается по выбранному часовому поясу агентства. Обновление выполняется автоматически 1 раз в сутки"
+                >
+                    Время обновления «Остаток бюджета в Директе»
+                </x-form.form-label>
+                <div>
+                    <x-form.input-text
+                        type="time"
+                        wire:model="form.directBudgetRefreshTime"
+                    />
+                </div>
+            </x-form.form-field>
+
             <h2 class="mb-1 mt-6 font-semibold">Реквизиты в отчетах</h2>
 
             <x-form.form-field>
@@ -154,7 +169,7 @@
                 <x-button.button
                     type="submit"
                     variant="primary"
-                    :disabled="!$form->name || !$form->timeZone"
+                    :disabled="!$form->name || !$form->timeZone || !$form->directBudgetRefreshTime"
                 >
                     <x-slot:label>Сохранить</x-slot:label>
                 </x-button.button>
