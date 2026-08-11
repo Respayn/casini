@@ -12,6 +12,7 @@ use App\Models\IntegrationSyncRun;
 use App\Models\Project;
 use App\Services\IntegrationSync\Collectors\CallibriDailyLeadsCollector;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
+use App\Services\IntegrationSync\Collectors\YandexSearchApiDailyPositionsCollector;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -189,6 +190,7 @@ class IntegrationSyncDispatcher
         return [
             app(YandexDirectDailySpendCollector::class),
             app(CallibriDailyLeadsCollector::class),
+            app(YandexSearchApiDailyPositionsCollector::class),
         ];
     }
 }

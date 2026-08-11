@@ -11,6 +11,7 @@ use App\Enums\ChannelReportGrouping;
 use App\Helpers\DateTimeHelper;
 use App\Models\CallibriDailyLeadCount;
 use App\Models\YandexDirectDailySpending;
+use App\Models\YandexSearchApiDailyTopPercent;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
@@ -102,21 +103,22 @@ class StatisticsService
             : $gridMonth->copy()->endOfMonth()->startOfDay();
         $spendingsByProject = $this->loadDirectDailySpendings($projects, $spendFrom, $spendTo, $query->includeVat);
         $leadsByProject = $this->loadCallibriLeadCounts($projects, $spendFrom, $spendTo);
+        $topPercentsByProject = $this->loadSearchApiDailyTopPercents($projects, $spendFrom, $spendTo);
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject);
+        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
     }
 
     private function createFlatReport(
@@ -130,7 +132,8 @@ class StatisticsService
         Carbon $periodTo,
         array $plans,
         array $spendingsByProject,
-        array $leadsByProject
+        array $leadsByProject,
+        array $topPercentsByProject = []
     ): TableReportData {
         $report = new TableReportData();
 
@@ -186,6 +189,7 @@ class StatisticsService
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
                     $plan,
+                    $topPercentsByProject[$project->id] ?? [],
                 )
             ));
             $rows->push($row);
@@ -219,7 +223,8 @@ class StatisticsService
         Carbon $periodTo,
         array $plans,
         array $spendingsByProject,
-        array $leadsByProject
+        array $leadsByProject,
+        array $topPercentsByProject = []
     ): TableReportData {
         $report = new TableReportData();
         $seoGroup = new TableReportGroupData();
@@ -279,6 +284,7 @@ class StatisticsService
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
                     $plan,
+                    $topPercentsByProject[$project->id] ?? [],
                 )
             ));
 
@@ -351,7 +357,8 @@ class StatisticsService
         Carbon $periodTo,
         array $plans,
         array $spendingsByProject,
-        array $leadsByProject
+        array $leadsByProject,
+        array $topPercentsByProject = []
     ): TableReportData {
         $report = new TableReportData();
 
@@ -410,6 +417,7 @@ class StatisticsService
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
                     $plan,
+                    $topPercentsByProject[$project->id] ?? [],
                 )
                 ));
 
@@ -461,7 +469,8 @@ class StatisticsService
         Carbon $periodTo,
         array $plans,
         array $spendingsByProject,
-        array $leadsByProject
+        array $leadsByProject,
+        array $topPercentsByProject = []
     ): TableReportData {
         $report = new TableReportData();
 
@@ -531,6 +540,7 @@ class StatisticsService
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
                     $plan,
+                    $topPercentsByProject[$project->id] ?? [],
                 )
                 ));
 
@@ -608,6 +618,7 @@ class StatisticsService
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
                     $plan,
+                    $topPercentsByProject[$project->id] ?? [],
                 )
             ));
 
@@ -723,6 +734,7 @@ class StatisticsService
      * @param  array<string, float>  $spendByDay  ключ Y-m-d => расход
      * @param  array<string, int>  $leadsByDay  ключ Y-m-d => число лидов
      * @param  list<array{value: mixed, format: mixed}>  $planCell  месячный план из resolvePlanCell
+     * @param  array<string, float>  $topPercentsByDay  ключ Y-m-d => % в ТОП-10
      * @return array<string, list<array{plan: array{value: mixed, format: mixed}, fact: array{value: mixed, format: mixed}}>>
      */
     private function createFactData(
@@ -735,6 +747,7 @@ class StatisticsService
         array $spendByDay,
         array $leadsByDay = [],
         array $planCell = [],
+        array $topPercentsByDay = [],
     ): array {
         $parameters = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
         $budgetIndex = $this->resolveAdvertisingBudgetParameterIndex($projectType, $kpi);
@@ -756,6 +769,7 @@ class StatisticsService
                 : $this->sumLeadCountsForRange($leadsByDay, $from, $to);
             // Факт визитов (Метрика) пока не подключён — CPC будет «-», пока нет источника.
             $visitsFact = null;
+            $topPercentFact = $this->averageTopPercentForRange($topPercentsByDay, $from, $to);
 
             $bucketDays = $from->diffInDays($to) + 1;
 
@@ -777,6 +791,9 @@ class StatisticsService
                 } elseif ($code === 'cpc') {
                     $factValue = $this->divideFact($budgetFact, $visitsFact);
                     $format = 'currency';
+                } elseif ($code === 'top_percent') {
+                    $factValue = $topPercentFact;
+                    $format = 'percent';
                 }
 
                 $planSlot = $planCell[$index] ?? ['value' => null, 'format' => null];
@@ -1047,6 +1064,74 @@ class StatisticsService
         }
 
         return $map;
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $projects
+     * @return array<int, array<string, float>>
+     */
+    private function loadSearchApiDailyTopPercents(
+        Collection $projects,
+        Carbon $from,
+        Carbon $to,
+    ): array {
+        $projectIds = $projects->pluck('id')->filter()->values()->all();
+        if ($projectIds === []) {
+            return [];
+        }
+
+        $from = $from->copy()->startOfDay();
+        $to = $to->copy()->startOfDay();
+        $today = Carbon::today();
+        if ($to->greaterThan($today)) {
+            $to = $today->copy();
+        }
+
+        if ($from->greaterThan($to)) {
+            return [];
+        }
+
+        $rows = YandexSearchApiDailyTopPercent::query()
+            ->whereIn('project_id', $projectIds)
+            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
+            ->get(['project_id', 'date', 'top_10_percent']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $dateKey = $row->date instanceof Carbon
+                ? $row->date->toDateString()
+                : Carbon::parse((string) $row->date)->toDateString();
+            $map[(int) $row->project_id][$dateKey] = (float) $row->top_10_percent;
+        }
+
+        return $map;
+    }
+
+    /**
+     * Среднее % в ТОП-10 по дням бакета, у которых есть снимок.
+     *
+     * @param  array<string, float>  $topPercentsByDay
+     */
+    private function averageTopPercentForRange(array $topPercentsByDay, Carbon $from, Carbon $to): ?float
+    {
+        if ($topPercentsByDay === []) {
+            return null;
+        }
+
+        $values = [];
+        for ($day = $from->copy()->startOfDay(); $day->lte($to); $day->addDay()) {
+            $key = $day->toDateString();
+            if (! array_key_exists($key, $topPercentsByDay)) {
+                continue;
+            }
+            $values[] = (float) $topPercentsByDay[$key];
+        }
+
+        if ($values === []) {
+            return null;
+        }
+
+        return round(array_sum($values) / count($values), 1);
     }
 
     /**

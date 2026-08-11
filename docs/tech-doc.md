@@ -264,8 +264,9 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Факт «Лиды» (CONTEXT_AD + KPI LEADS) | сумма дней из `callibri_daily_lead_counts` в слот параметра index **2**; нет строк → `-`; нулевой день пишется как `0` |
 | Факт CPL (CONTEXT_AD + LEADS) | `рекламный бюджет / лиды` за бакет; дробное до 2 знаков; нет бюджета/лидов или лиды = 0 → `-` |
 | Факт CPC (CONTEXT_AD + TRAFFIC) | `рекламный бюджет / объём визитов` за бакет; дробное до 2 знаков; визиты пока без источника → `-` |
+| Факт «% позиций в ТОП» (SEO + POSITIONS) | среднее дневных `%` из `yandex_search_api_daily_top_percents` за бакет; нет снимка → `-` |
 | Обновление данных | иконка в шапке отчёта (`WithReportDataRefresh` + `refreshAllData`) → все видимые клиенто-проекты отчёта; Каналы: collectors + остаток бюджета Директа; Статистика: только collectors; один `IntegrationApiThrottle::consume()`; тултип «Последнее обновление данных: чч:мм, дд.мм.гг» — max(ручной клик пользователя по продукту, `integration_sync_runs.finished_at` ночного съёма); если ни того ни другого — «ещё не обновлялось» (`IntegrationManualRefreshTimestamp`) |
-| Остальные факты (визиты, SEO…) | пока `-` (без тестовых заглушек) |
+| Остальные факты (визиты, конверсии SEO…) | пока `-` (без тестовых заглушек) |
 | Итог / Прогноз / Бонусы и гарантии | пока `-` (без тестовых заглушек) |
 | Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |
 
@@ -288,8 +289,11 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 |------|------------|---------|-----|
 | `yandex_direct_daily_spend` | `yandex_direct` | `yandex_direct_daily_spendings` | Каналы: расход; Статистика: «Рекламный бюджет» |
 | `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
+| `yandex_search_api_daily_positions` | `yandex_search_api` | `serp_positions` + `yandex_search_api_daily_top_percents` | Статистика: «% позиций в ТОП» (SEO + POSITIONS) |
 
-Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата с нулём за день без данных. Search API / Метрика / 1С / Sheets — отдельные задачи.
+**Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни — пересчёт агрегата из уже сохранённых `serp_positions`. Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`.
+
+Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Метрика / 1С / Sheets — отдельные задачи.
 
 Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание в `bootstrap/app.php` → `withSchedule()`.
 

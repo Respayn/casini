@@ -12,7 +12,7 @@ class BackfillIntegrationDataCommand extends Command
                             {--project= : ID клиенто-проекта (обязательно)}
                             {--from= : Дата начала Y-m-d (обязательно)}
                             {--to= : Дата конца Y-m-d (обязательно)}
-                            {--collector= : Ключ коллектора (yandex_direct_daily_spend|callibri_daily_leads); без опции — все подходящие}';
+                            {--collector= : Ключ коллектора (yandex_direct_daily_spend|callibri_daily_leads|yandex_search_api_daily_positions); без опции — все подходящие}';
 
     protected $description = 'Догрузить данные интеграций за период (без ночного run и без throttle UI)';
 

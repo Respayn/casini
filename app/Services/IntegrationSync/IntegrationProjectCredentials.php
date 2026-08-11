@@ -2,6 +2,7 @@
 
 namespace App\Services\IntegrationSync;
 
+use App\Helpers\PhraseDuplicateHelper;
 use App\Repositories\IntegrationRepository;
 use Illuminate\Support\Collection;
 
@@ -74,28 +75,24 @@ class IntegrationProjectCredentials
     }
 
     /**
-     * @return array{email: string, token: string, site_id: int}|null
+     * @return array{regions: array<int, array{code: mixed, phrases: string[]}>}|null
      */
-    public function callibri(int $projectId): ?array
+    public function yandexSearchApi(int $projectId): ?array
     {
-        $settings = $this->settingsFor($projectId, 'callibri');
+        $settings = $this->settingsFor($projectId, 'yandex_search_api');
 
         if ($settings === null) {
             return null;
         }
 
-        $email = $settings['email'] ?? null;
-        $token = $settings['token'] ?? null;
-        $siteId = $settings['site_id'] ?? null;
+        $regions = $settings['regions'] ?? [];
 
-        if (! filled($email) || ! filled($token) || ! filled($siteId)) {
+        if (! is_array($regions) || ! PhraseDuplicateHelper::isValidForSave($regions)) {
             return null;
         }
 
         return [
-            'email' => (string) $email,
-            'token' => (string) $token,
-            'site_id' => (int) $siteId,
+            'regions' => $regions,
         ];
     }
 }
