@@ -132,59 +132,83 @@
             <x-form.form-field>
                 <x-form.form-label tooltip="Можно загружать только jpg, jpeg, png, gif. До 1 Мб">Логотип
                     агентства</x-form.form-label>
-                <div class="flex max-w-[305px] flex-col items-start gap-2">
+                <div class="flex w-full flex-col items-stretch gap-1">
                     @if ($form->logo)
-                        {{-- Превью до сохранения --}}
-                        <img
-                            class="border-secondary-text w-full rounded border object-contain"
-                            src="{{ $form->logo->temporaryUrl() }}"
-                            alt="Превью логотипа"
-                        />
+                        {{-- Превью до сохранения: клик по логотипу — выбрать другой --}}
+                        <div
+                            class="relative w-full cursor-pointer"
+                            x-data
+                            @click="$refs.logoInput.click()"
+                        >
+                            <img
+                                class="border-secondary-text min-h-[200px] w-full rounded border object-contain"
+                                src="{{ $form->logo->temporaryUrl() }}"
+                                alt="Превью логотипа"
+                            />
+                            <input
+                                x-ref="logoInput"
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.gif"
+                                class="sr-only"
+                                wire:model="form.logo"
+                                @click.stop
+                            />
+                        </div>
                         <x-button.button
-                            class="text-secondary-text w-full !px-3 !py-1 text-sm"
                             type="button"
                             wire:click="deleteLogo"
-                            variant="link"
+                            icon="icons.delete"
+                            class="w-full"
+                            label="Удалить логотип"
+                        />
+                    @elseif ($form->logoSrc)
+                        {{-- Уже сохранённый логотип: клик — выбрать другой --}}
+                        <div
+                            class="relative w-full cursor-pointer"
+                            x-data
+                            @click="$refs.logoInput.click()"
                         >
-                            <x-slot:label>Удалить</x-slot:label>
-                        </x-button.button>
-                    @elseif($form->logoSrc)
-                        {{-- Уже сохранённый логотип --}}
-                        <div>
                             <img
-                                class="border-secondary-text w-full rounded border object-contain"
+                                class="border-secondary-text min-h-[200px] w-full rounded border object-contain"
                                 src="{{ Storage::url($form->logoSrc) }}"
                                 alt="Логотип агентства"
                             />
-                            <x-button.button
-                                class="text-secondary-text w-full !px-3 !py-1 text-sm"
-                                type="button"
-                                wire:click="deleteLogo"
-                                variant="link"
-                            >
-                                <x-slot:label>Удалить</x-slot:label>
-                            </x-button.button>
+                            <input
+                                x-ref="logoInput"
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.gif"
+                                class="sr-only"
+                                wire:model="form.logo"
+                                @click.stop
+                            />
                         </div>
-                    @endif
-
-                    {{-- Поле для загрузки всегда отображается если нет превью --}}
-                    @if (!$form->logo && !$form->logoSrc)
-                        <label
-                            class="border-secondary-text flex min-h-[305px] w-full cursor-pointer flex-col items-center justify-center rounded border object-contain transition hover:bg-gray-50"
+                        <x-button.button
+                            type="button"
+                            wire:click="deleteLogo"
+                            icon="icons.delete"
+                            class="w-full"
+                            label="Удалить логотип"
+                        />
+                    @else
+                        <div
+                            class="border-secondary-text relative flex min-h-[305px] w-full cursor-pointer flex-col items-center justify-center rounded border object-contain transition hover:bg-gray-50"
+                            x-data
+                            @click="$refs.logoInput.click()"
                         >
                             <x-icons.camera class="text-secondary-text mb-2 h-10 w-10" />
-                            <x-form.input-file
-                                class="hidden"
-                                accept=".jpg,.jpeg,.png"
+                            <input
+                                x-ref="logoInput"
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.gif"
+                                class="sr-only"
                                 wire:model="form.logo"
+                                @click.stop
                             />
                             <span class="text-secondary-text mt-2 block w-full text-center text-sm">
-                                Загрузить фото
+                                Загрузить логотип
                             </span>
-                        </label>
+                        </div>
                     @endif
-
-                    <span class="text-secondary-text text-xs">Только jpg, jpeg, png. До 1 Мб.</span>
                 </div>
             </x-form.form-field>
             </div>
