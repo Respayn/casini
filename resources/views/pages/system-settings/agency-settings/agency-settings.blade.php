@@ -146,12 +146,12 @@
                     @if ($form->logo)
                         {{-- Превью до сохранения: клик по логотипу — выбрать другой --}}
                         <div
-                            class="relative w-full cursor-pointer"
+                            class="border-secondary-text relative flex min-h-[200px] w-full cursor-pointer items-center justify-center rounded border p-4"
                             x-data
                             @click="$refs.logoInput.click()"
                         >
                             <img
-                                class="border-secondary-text min-h-[200px] w-full rounded border object-contain"
+                                class="max-h-[160px] max-w-full object-contain"
                                 src="{{ $form->logo->temporaryUrl() }}"
                                 alt="Превью логотипа"
                             />
@@ -174,12 +174,12 @@
                     @elseif ($form->logoSrc)
                         {{-- Уже сохранённый логотип: клик — выбрать другой --}}
                         <div
-                            class="relative w-full cursor-pointer"
+                            class="border-secondary-text relative flex min-h-[200px] w-full cursor-pointer items-center justify-center rounded border p-4"
                             x-data
                             @click="$refs.logoInput.click()"
                         >
                             <img
-                                class="border-secondary-text min-h-[200px] w-full rounded border object-contain"
+                                class="max-h-[160px] max-w-full object-contain"
                                 src="{{ Storage::url($form->logoSrc) }}"
                                 alt="Логотип агентства"
                             />
