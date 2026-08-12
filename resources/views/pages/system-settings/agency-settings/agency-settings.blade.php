@@ -52,11 +52,21 @@
                     администратор</x-form.form-label>
                 <div class="flex flex-wrap gap-2">
                     @foreach ($form->admins as $admin)
-                        <span
-                            class="border-primary text-primary cursor-pointer rounded border bg-blue-50 px-2 py-1 transition hover:bg-blue-100"
-                        >
-                            {{ $admin['name'] }}
-                        </span>
+                        @if (! empty($admin['id']))
+                            <a
+                                href="{{ route('system-settings.users.edit', ['user' => $admin['id']]) }}"
+                                wire:navigate
+                                class="border-primary text-primary cursor-pointer rounded border bg-blue-50 px-2 py-1 transition hover:bg-blue-100"
+                            >
+                                {{ $admin['name'] }}
+                            </a>
+                        @else
+                            <span
+                                class="border-primary text-primary rounded border bg-blue-50 px-2 py-1"
+                            >
+                                {{ $admin['name'] }}
+                            </span>
+                        @endif
                     @endforeach
                 </div>
             </x-form.form-field>
