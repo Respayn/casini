@@ -74,9 +74,9 @@
             <x-form.form-field>
                 <x-form.form-label tooltip="Адрес сайта будет отображаться в отчетах">URL-адрес сайта
                     агентства</x-form.form-label>
-                <x-form.input-text
+                <x-form.input-url
                     wire:model="form.url"
-                    placeholder="https://siteactiv.ru"
+                    placeholder="siteactiv.ru"
                 />
             </x-form.form-field>
 
