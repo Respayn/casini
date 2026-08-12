@@ -91,6 +91,16 @@ Controller -> QueryHandler -> Repository -> Data Source
 
 Другие обязательные справочники: `products`, `product_notifications`, `rates`, `tooltips`, `search_engines`, агентство (`AgencySettingsTableSeeder`).
 
+### ID агентства
+
+| Правило | Значение |
+|---|---|
+| При создании | `AgencyIdGenerator` выдаёт случайное **4-значное** число `1000–9999` (`AgencyRepository::createAgency`) |
+| Уникальность | повтор при коллизии (до 50 попыток) |
+| БД | `agencies.id` без `AUTO_INCREMENT`; `Agency::$incrementing = false` |
+| Существующие | не перегенерируются (legacy `id=1` для «СайтАктив» в сидерах) |
+| UI | поле «ID агентства» и переключатель `№{id}` читают `agencies.id` |
+
 Сидер `IntegrationSeeder` / `ProductSeeder` / `TooltipSeeder` / `ProductNotificationSeeder` — идемпотентны (`updateOrInsert` по `code`). Восстановление: `scripts/staging-reseed-reference.sh`. Smoke проверяет `integrations.count > 0`.
 
 ## Livewire compiler cache и права storage

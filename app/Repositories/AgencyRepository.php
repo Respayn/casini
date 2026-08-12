@@ -7,6 +7,7 @@ use App\Data\AgencyData;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Models\Agency;
 use App\Repositories\Interfaces\AgencyRepositoryInterface;
+use App\Services\Agency\AgencyIdGenerator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -129,15 +130,18 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
             $data = $data->toArray();
         }
 
-        // 2. Создаём агентство
+        // 2. Создаём агентство со случайным 4-значным id
+        $agencyId = app(AgencyIdGenerator::class)->generate();
+
         $agency = Agency::create([
-            'name'      => $data['name'],
+            'id' => $agencyId,
+            'name' => $data['name'],
             'time_zone' => $data['timeZone'],
-            'direct_budget_refresh_time' => ($data['directBudgetRefreshTime'] ?? '09:00') . ':00',
-            'url'       => $data['url'] ?? null,
-            'email'     => $data['email'] ?? null,
-            'phone'     => $data['phone'] ?? null,
-            'address'   => $data['address'] ?? null,
+            'direct_budget_refresh_time' => ($data['directBudgetRefreshTime'] ?? '09:00').':00',
+            'url' => $data['url'] ?? null,
+            'email' => $data['email'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'address' => $data['address'] ?? null,
         ]);
 
         // 3. Получаем текущего пользователя

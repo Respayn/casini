@@ -27,7 +27,15 @@ class Agency extends Model
 
     protected $table = 'agencies';
 
+    /**
+     * ID задаётся приложением (случайный 4-значный при создании), не AUTO_INCREMENT.
+     */
+    public $incrementing = false;
+
+    protected $keyType = 'int';
+
     protected $fillable = [
+        'id',
         'name',
         'time_zone',
         'direct_budget_refresh_time',

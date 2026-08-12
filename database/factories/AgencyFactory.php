@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Agency;
+use App\Services\Agency\AgencyIdGenerator;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -24,5 +25,14 @@ class AgencyFactory extends Factory
             'address' => $this->faker->address(),
             'logo_src' => null,
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterMaking(function (Agency $agency) {
+            if ($agency->id === null) {
+                $agency->id = app(AgencyIdGenerator::class)->generate();
+            }
+        });
     }
 }
