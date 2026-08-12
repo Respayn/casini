@@ -1,12 +1,35 @@
-<div>
+<div
+    x-data="{
+        hasPendingChanges: @js($startWithPendingChanges),
+        successMessage: @js($startWithSuccessMessage) ? 'Изменения сохранены' : null,
+        markDirty() {
+            this.hasPendingChanges = true;
+            this.successMessage = null;
+        }
+    }"
+    x-on:input.capture="markDirty()"
+    x-on:change.capture="markDirty()"
+    x-on:agency-settings-mark-dirty.window="markDirty()"
+>
     <x-menu.back-button />
 
-    <x-form.form
-        :is-normalized="true"
-        wire:submit.prevent="save"
+    <div
+        x-show="successMessage"
+        x-cloak
+        class="border-primary text-primary-text mt-4 mb-4 max-w-[950px] break-words rounded-lg border bg-blue-50 p-4 text-sm"
+        x-text="successMessage"
+    ></div>
+
+    <x-panel.scroll-panel
+        class="mb-3 mt-4"
+        style="max-height: calc(100vh - 300px);"
     >
-        <div class="mt-4 flex max-w-[950px] flex-col gap-4">
-            <h1 class="text-xl font-semibold">Настройка агентства</h1>
+        <x-form.form
+            :is-normalized="true"
+            wire:submit.prevent="save"
+        >
+            <div class="flex max-w-[950px] flex-col gap-4">
+                <h1 class="text-xl font-semibold">Настройка агентства</h1>
 
             <h2 class="mb-1 mt-2 font-semibold">Основные настройки</h2>
 
@@ -164,23 +187,28 @@
                     <span class="text-secondary-text text-xs">Только jpg, jpeg, png. До 1 Мб.</span>
                 </div>
             </x-form.form-field>
-
-            <div class="mt-4 flex justify-between gap-4">
-                <x-button.button
-                    type="submit"
-                    variant="primary"
-                    :disabled="!$form->name || !$form->timeZone || !$form->directBudgetRefreshTime"
-                >
-                    <x-slot:label>Сохранить</x-slot:label>
-                </x-button.button>
-                <x-button.button
-                    type="button"
-                    variant="secondary"
-                    wire:click="$refresh"
-                >
-                    <x-slot:label>Отменить</x-slot:label>
-                </x-button.button>
             </div>
+        </x-form.form>
+    </x-panel.scroll-panel>
+
+    <template x-if="hasPendingChanges">
+        <div class="flex max-w-[950px] justify-between gap-4">
+            <x-button.button
+                type="button"
+                variant="primary"
+                wire:click="save"
+                wire:loading.attr="disabled"
+                wire:target="save"
+                :disabled="! $this->canSubmitAgencySettings"
+            >
+                <x-slot:label>Сохранить</x-slot:label>
+            </x-button.button>
+            <x-button.button
+                type="button"
+                x-on:click="$wire.cancelChanges()"
+            >
+                <x-slot:label>Отменить</x-slot:label>
+            </x-button.button>
         </div>
-    </x-form.form>
+    </template>
 </div>
