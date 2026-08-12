@@ -116,7 +116,7 @@ class extends Component
     #[Computed]
     public function canSubmitClientProject(): bool
     {
-        if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
+        if (! $this->canEditClientsAndProjects) {
             return false;
         }
 
@@ -144,7 +144,7 @@ class extends Component
     #[Computed]
     public function canRebuildStatistics(): bool
     {
-        return ClientsAndProjectsPermissions::userCanEdit(Auth::user())
+        return $this->canEditClientsAndProjects
             && $this->statisticsRebuildFrom !== null
             && $this->statisticsRebuildTo !== null;
     }
@@ -189,7 +189,7 @@ class extends Component
 
     private function markPendingChanges(): void
     {
-        if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
+        if (! $this->canEditClientsAndProjects) {
             return;
         }
 
@@ -360,7 +360,7 @@ class extends Component
         $agencyId = Auth::user()?->agencies()->first()?->id;
 
         return $agencyId
-            ? $this->userService->getByAgency((int) $agencyId)
+            ? $this->userService->getByAgency((int) $agencyId, with: ['roles'])
             : collect();
     }
 
