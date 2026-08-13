@@ -72,16 +72,18 @@
                 @if ($canSeeAgency)
                     @if ($isAgencyExist)
                         <x-button.button
-                            class="hover:!bg-primary hover:!text-white"
+                            class="h-auto min-h-10 rounded-lg px-3.5 py-2 text-left leading-5 hover:!bg-primary hover:!text-white"
                             :href="route('system-settings.agency')"
                             label="Настройки агентства"
+                            size="none"
                             :variant="request()->routeIs('system-settings.agency*') ? 'primary' : 'outlined'"
                         />
                     @else
                         <x-button.button
-                            class="hover:bg-primary hover:text-white"
+                            class="h-auto min-h-10 rounded-lg px-3.5 py-2 text-left leading-5 hover:bg-primary hover:text-white"
                             variant="outlined"
                             label="Настройки агентства"
+                            size="none"
                             x-data
                             x-on:click="Livewire.dispatch('createIfNotSelected')"
                         />

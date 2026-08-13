@@ -7,6 +7,7 @@
 @php
     $currentRoute = Route::currentRouteName();
     $deniedMessage = __('permissions.denied');
+    $navItemClass = 'h-auto min-h-10 rounded-lg px-3.5 py-2 text-left leading-5';
 @endphp
 
 <div class="flex gap-2.5" {{ $attributes }}>
@@ -28,7 +29,9 @@
                 :href="$routeHref"
                 :variant="$isActive ? 'primary' : 'outlined'"
                 label="{{ $item['label'] }}"
+                size="none"
                 @class([
+                    $navItemClass,
                     'hover:bg-primary hover:text-white' => !$isActive,
                     'hover:!bg-primary hover:!text-white' => $isActive,
                 ])
@@ -47,7 +50,8 @@
                         variant="outlined"
                         label="{{ $item['label'] }}"
                         disabled
-                        class="opacity-50 cursor-not-allowed"
+                        size="none"
+                        @class([$navItemClass, 'cursor-not-allowed opacity-50'])
                     />
                 </span>
                 <template x-teleport="body">
