@@ -586,11 +586,10 @@
                 @else
                     @foreach ($parameterCalculationRows as $row)
                         <x-form.form-field wire:key="parameter-scheme-{{ $row['code'] }}-{{ md5($row['scheme']) }}">
-                            <x-form.form-label>{{ $row['label'] }}</x-form.form-label>
+                            <x-form.form-label tooltip="Данные из интеграций поступают с учетом заданных настроек">
+                                {{ $row['label'] }}
+                            </x-form.form-label>
                             <div class="w-full max-w-[489px]">
-                                <span class="text-[14px]">
-                                    Данные из интеграций поступают с учетом заданных настроек
-                                </span>
                                 <textarea
                                     class="border-input-border text-primary-text disabled:bg-secondary min-h-[72px] w-full resize-none rounded-[5px] border px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap"
                                     rows="3"
