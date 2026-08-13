@@ -10,7 +10,7 @@ use Illuminate\Support\Collection;
 
 class StubChannelReportService implements ChannelReportServiceInterface
 {
-    public function getReportData(ChannelReportQueryData $query): TableReportData
+    public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
     {
         return $this->flatReport();
     }

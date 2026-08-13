@@ -73,7 +73,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             );
     }
 
-    public function getReportData(ChannelReportQueryData $query): TableReportData
+    public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
     {
         $user = Auth::user();
 
@@ -95,7 +95,11 @@ class ChannelReportService implements ChannelReportServiceInterface
             ? $this->projectPlanService->getMonthlyPlansForChannels($query->dateFrom->year, $query->dateFrom->month)
             : [];
 
-        if (!$query->showInactive) {
+        if ($projectId !== null) {
+            $projects = $projects->filter(fn($project) => $project->id === $projectId);
+            $clientIds = $projects->pluck('client_id');
+            $clients = $clients->filter(fn($client) => $clientIds->contains($client->id));
+        } elseif (! $query->showInactive) {
             $projects = $projects->filter(fn($project) => $project->is_active);
         }
 
