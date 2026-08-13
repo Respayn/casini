@@ -726,6 +726,8 @@ class StatisticsService
         // ? Возможно стоит использовать enum?
         return match ($code) {
             'yandex_direct' => 'yandex-direct',
+            'callibri' => 'callibri',
+            'yandex_search_api' => 'yandex-search-api',
             default => 'default'
         };
     }
