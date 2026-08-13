@@ -72,7 +72,7 @@
 >
     <livewire:sidebar />
 
-    <div class="app-main flex min-w-0 flex-1 flex-col gap-[25px]">
+    <div class="app-main flex min-w-0 flex-1 flex-col gap-[25px] pe-[20px]">
         <livewire:header />
 
         <x-menu.navbar
@@ -108,7 +108,7 @@
             </x-slot:after>
         </x-menu.navbar>
 
-        <div class="rounded-l-2xl bg-white p-5">
+        <div class="min-w-0 overflow-x-auto rounded-l-2xl bg-white p-5">
             {{ $slot }}
         </div>
     </div>

@@ -23,12 +23,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
     <x-form.checkbox-styles />
+    <x-layout.sidebar-boot />
 </head>
 
-<body class="bg-body text-primary-text flex gap-5 font-sans">
+<body
+    class="bg-body text-primary-text font-sans"
+    x-data
+>
     <livewire:sidebar />
 
-    <div class="flex w-full flex-col gap-[25px] pl-[375px] h-screen">
+    <div class="app-main flex h-screen min-w-0 flex-col gap-[25px] pe-[20px]">
         <livewire:header />
 
         <x-menu.navbar :items="collect([
@@ -43,12 +47,12 @@
             return $item;
         })->values()->all()" />
 
-        <div class="rounded-tl-2xl bg-white p-5 flex-1">
+        <div class="min-w-0 flex-1 overflow-x-auto rounded-tl-2xl bg-white p-5">
             {{ $slot }}
         </div>
     </div>
 
-    @livewireScriptConfig 
+    @livewireScriptConfig
 </body>
 
 </html>
