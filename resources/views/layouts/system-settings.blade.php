@@ -41,6 +41,10 @@
     ]));
 @endphp
 
+@php
+    $settingsNavItemStyle = 'max-width: 11rem; white-space: normal; min-height: 3.625rem; box-sizing: border-box;';
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 
@@ -59,20 +63,31 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
     <x-form.checkbox-styles />
+    <x-layout.sidebar-boot />
 </head>
 
-<body class="bg-body text-primary-text flex gap-5 font-sans">
+<body
+    class="bg-body text-primary-text font-sans"
+    x-data
+>
     <livewire:sidebar />
-    <div class="flex w-full flex-col gap-[25px] pl-[375px]">
+
+    <div class="app-main flex min-w-0 flex-1 flex-col gap-[25px]">
         <livewire:header />
 
-        <x-menu.navbar :items="$navbarItems">
+        <x-menu.navbar
+            :items="$navbarItems"
+            align="stretch"
+            item-class="box-border !justify-start rounded-lg px-3.5 py-2 text-left leading-5"
+            :item-style="$settingsNavItemStyle"
+        >
             {{-- Настройки агенства (с открытием модалки) --}}
             <x-slot:after>
                 @if ($canSeeAgency)
                     @if ($isAgencyExist)
                         <x-button.button
-                            class="h-auto min-h-10 rounded-lg px-3.5 py-2 text-left leading-5 hover:!bg-primary hover:!text-white"
+                            class="box-border !justify-start rounded-lg px-3.5 py-2 text-left leading-5 hover:!bg-primary hover:!text-white"
+                            style="{{ $settingsNavItemStyle }}"
                             :href="route('system-settings.agency')"
                             label="Настройки агентства"
                             size="none"
@@ -80,7 +95,8 @@
                         />
                     @else
                         <x-button.button
-                            class="h-auto min-h-10 rounded-lg px-3.5 py-2 text-left leading-5 hover:bg-primary hover:text-white"
+                            class="box-border !justify-start rounded-lg px-3.5 py-2 text-left leading-5 hover:bg-primary hover:text-white"
+                            style="{{ $settingsNavItemStyle }}"
                             variant="outlined"
                             label="Настройки агентства"
                             size="none"

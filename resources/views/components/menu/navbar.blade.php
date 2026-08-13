@@ -2,15 +2,22 @@
     'previous' => null,
     'after' => null,
     'items' => [],
+    'itemClass' => 'h-auto min-h-10 rounded-lg px-3.5 py-2 text-left leading-5',
+    'itemStyle' => null,
+    'align' => 'center',
 ])
 
 @php
     $currentRoute = Route::currentRouteName();
     $deniedMessage = __('permissions.denied');
-    $navItemClass = 'h-auto min-h-10 rounded-lg px-3.5 py-2 text-left leading-5';
+    $alignClass = match ($align) {
+        'stretch' => 'items-stretch',
+        'start' => 'items-start',
+        default => 'items-center',
+    };
 @endphp
 
-<div class="flex gap-2.5" {{ $attributes }}>
+<div class="flex gap-2.5 {{ $alignClass }}" {{ $attributes }}>
     {{ $previous }}
 
     @foreach ($items as $item)
@@ -20,8 +27,13 @@
             $routeName = $isArrayRoute ? $routeValue[0] : $routeValue;
             $routeParams = $isArrayRoute ? array_slice($routeValue, 1) : [];
             $canAccess = $item['canAccess'] ?? true;
-            $isActive = $canAccess && $currentRoute === $routeName;
-            $routeHref = $isActive ? '' : ($isArrayRoute ? route($routeName, ...$routeParams) : route($routeName));
+            $isActive = $canAccess && (
+                $currentRoute === $routeName
+                || str_starts_with((string) $currentRoute, $routeName . '.')
+            );
+            $routeHref = $isArrayRoute
+                ? route($routeName, ...$routeParams)
+                : route($routeName);
         @endphp
 
         @if ($canAccess)
@@ -30,9 +42,10 @@
                 :variant="$isActive ? 'primary' : 'outlined'"
                 label="{{ $item['label'] }}"
                 size="none"
+                style="{{ $itemStyle }}"
                 @class([
-                    $navItemClass,
-                    'hover:bg-primary hover:text-white' => !$isActive,
+                    $itemClass,
+                    'hover:bg-primary hover:text-white' => ! $isActive,
                     'hover:!bg-primary hover:!text-white' => $isActive,
                 ])
             />
@@ -51,7 +64,8 @@
                         label="{{ $item['label'] }}"
                         disabled
                         size="none"
-                        @class([$navItemClass, 'cursor-not-allowed opacity-50'])
+                        style="{{ $itemStyle }}"
+                        @class([$itemClass, 'cursor-not-allowed opacity-50'])
                     />
                 </span>
                 <template x-teleport="body">
