@@ -106,7 +106,7 @@ class ProjectPlanService
         return array_map(function ($parameter) {
             return [
                 'name' => $parameter->getLabel(),
-                'highlight' => false
+                'highlight' => $parameter->isPrimary(),
             ];
         }, $parametersSchema->getParameters());
     }
