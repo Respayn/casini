@@ -4,10 +4,10 @@
             use App\Support\SystemSettingsSectionPermissions;
 
             $settingsRoute = SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName();
+            $isOnSystemSettings = request()->is('system-settings', 'system-settings/*');
             $canOpenReports = auth()->user()?->can('read reports')
                 || auth()->user()?->can('full reports');
-            $showBackToReports = $canOpenReports
-                && request()->is('system-settings', 'system-settings/*');
+            $showBackToReports = $canOpenReports && $isOnSystemSettings;
         @endphp
         <div class="flex items-center gap-4">
             <livewire:system-settings.agency.agency-switcher-component />
@@ -29,8 +29,16 @@
         </div>
         <div class="flex items-center">
             @if ($settingsRoute)
-                <x-button.button href="{{ route($settingsRoute) }}" icon="icons.gear" variant="outlined"
-                    rounded />
+                <x-button.button
+                    href="{{ route($settingsRoute) }}"
+                    icon="icons.gear"
+                    :variant="$isOnSystemSettings ? 'primary' : 'outlined'"
+                    rounded
+                    @class([
+                        'hover:bg-primary hover:text-white' => ! $isOnSystemSettings,
+                        'hover:!bg-primary hover:!text-white' => $isOnSystemSettings,
+                    ])
+                />
             @endif
             <x-notifications.bell-button />
 
