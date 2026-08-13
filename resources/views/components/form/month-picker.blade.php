@@ -1,13 +1,28 @@
 @props([
     'borderColor' => '#C4D0E0',
     'placeholder' => 'Выберите месяц',
+    'min' => null,
+    'max' => null,
 ])
+
+@php
+    $max ??= now()->toDateString();
+@endphp
 
 {{-- TODO: объединить этот компонент с компонентом date-picker. Сделать по аналогии с компонентом из библиотеки PrimeVue
 --}}
+<div class="monthpicker-wrap">
+    <span
+        class="monthpicker-bounds"
+        hidden
+        data-min="{{ $min }}"
+        data-max="{{ $max }}"
+    ></span>
 <div
     class="monthpicker"
-    x-data="monthpicker({ placeholder: @js($placeholder) })"
+    data-min="{{ $min }}"
+    data-max="{{ $max }}"
+    x-data="monthpicker({ placeholder: @js($placeholder), min: @js($min), max: @js($max) })"
     x-modelable="value"
     {{ $attributes }}
 >
@@ -29,13 +44,23 @@
         x-on:click.outside="close">
         {{-- Year navigation --}}
         <nav class="monthpicker-year-nav">
-            <button type="button" class="monthpicker-btn monthpicker-btn--square" x-on:click="prevYear">
+            <button
+                type="button"
+                class="monthpicker-btn monthpicker-btn--square"
+                x-bind:disabled="! canGoPrevYear()"
+                x-on:click="prevYear"
+            >
                 <x-icons.accordion-arrow class="rotate-90" />
             </button>
 
             <div class="monthpicker-year-nav__label" x-text="year"></div>
 
-            <button type="button" class="monthpicker-btn monthpicker-btn--square" x-on:click="nextYear">
+            <button
+                type="button"
+                class="monthpicker-btn monthpicker-btn--square"
+                x-bind:disabled="! canGoNextYear()"
+                x-on:click="nextYear"
+            >
                 <x-icons.accordion-arrow class="rotate-270" />
             </button>
         </nav>
@@ -43,11 +68,18 @@
         {{-- Month grid --}}
         <div class="monthpicker-grid">
             <template x-for="(monthData, index) in monthMap">
-                <button type="button" class="monthpicker-btn monthpicker-btn--month" x-bind:class="{ 'selected': monthSelected(index) }"
-                    x-text="monthData.short" x-on:click="selectMonth(index)"></button>
+                <button
+                    type="button"
+                    class="monthpicker-btn monthpicker-btn--month"
+                    x-bind:disabled="isMonthDisabled(index)"
+                    x-bind:class="{ 'selected': monthSelected(index) }"
+                    x-text="monthData.short"
+                    x-on:click="selectMonth(index)"
+                ></button>
             </template>
         </div>
     </div>
+</div>
 </div>
 
 @once
@@ -55,6 +87,8 @@
     <script>
         Alpine.data('monthpicker', (config = {}) => ({
             placeholder: config.placeholder || 'Выберите месяц',
+            min: config.min || null,
+            max: config.max || null,
             value: null,
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
@@ -119,7 +153,95 @@
                 });
             },
 
+            parseYearMonth(raw) {
+                if (!raw) {
+                    return null;
+                }
+
+                const parts = String(raw).slice(0, 10).split('-');
+                if (parts.length < 2) {
+                    return null;
+                }
+
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                if (Number.isNaN(year) || Number.isNaN(month)) {
+                    return null;
+                }
+
+                return { year, month };
+            },
+
+            parseBound(attribute) {
+                const bounds = this.$root?.parentElement?.querySelector('.monthpicker-bounds');
+                const sources = [bounds, this.$root, this.$el];
+
+                for (const el of sources) {
+                    const parsed = this.parseYearMonth(el?.getAttribute?.(attribute));
+                    if (parsed) {
+                        return parsed;
+                    }
+                }
+
+                const fallback = attribute === 'data-min' ? this.min : this.max;
+
+                return this.parseYearMonth(fallback);
+            },
+
+            get minBound() {
+                return this.parseBound('data-min');
+            },
+
+            get maxBound() {
+                return this.parseBound('data-max');
+            },
+
+            isMonthDisabled(monthIndex) {
+                const min = this.minBound;
+                const max = this.maxBound;
+                const monthIndexNumber = Number(monthIndex);
+
+                if (min && (this.year < min.year || (this.year === min.year && monthIndexNumber < min.month))) {
+                    return true;
+                }
+
+                if (max && (this.year > max.year || (this.year === max.year && monthIndexNumber > max.month))) {
+                    return true;
+                }
+
+                return false;
+            },
+
+            canGoPrevYear() {
+                const min = this.minBound;
+
+                return !min || this.year > min.year;
+            },
+
+            canGoNextYear() {
+                const max = this.maxBound;
+
+                return !max || this.year < max.year;
+            },
+
+            clampYearToBounds() {
+                const min = this.minBound;
+                const max = this.maxBound;
+
+                if (max && this.year > max.year) {
+                    this.year = max.year;
+                }
+
+                if (min && this.year < min.year) {
+                    this.year = min.year;
+                }
+            },
+
             toggle() {
+                if (!this.isOpen) {
+                    this.clampYearToBounds();
+                }
+
                 this.isOpen = !this.isOpen;
             },
 
@@ -161,6 +283,7 @@
                     const now = new Date();
                     this.year = now.getFullYear();
                     this.month = now.getMonth();
+                    this.clampYearToBounds();
 
                     return;
                 }
@@ -168,17 +291,30 @@
                 const date = new Date(this.value);
                 this.year = date.getFullYear();
                 this.month = date.getMonth();
+                this.clampYearToBounds();
             },
 
             nextYear() {
+                if (! this.canGoNextYear()) {
+                    return;
+                }
+
                 this.year++;
             },
 
             prevYear() {
+                if (! this.canGoPrevYear()) {
+                    return;
+                }
+
                 this.year--;
             },
 
             selectMonth(monthIndex) {
+                if (this.isMonthDisabled(monthIndex)) {
+                    return;
+                }
+
                 this.month = monthIndex;
                 this.updateValue();
                 this.isOpen = false;
@@ -215,6 +351,11 @@
     @endscript
 
     <style>
+        .monthpicker-wrap {
+            min-width: 0;
+            max-width: 100%;
+        }
+
         .monthpicker {
             color: #486388;
             position: relative;
@@ -312,6 +453,17 @@
                 background-color: #599CFF;
                 color: #FFFFFF;
                 border-color: transparent;
+            }
+
+            &:disabled {
+                opacity: .35;
+                cursor: not-allowed;
+            }
+
+            &:disabled:hover {
+                background: none;
+                color: inherit;
+                border-color: #C4D0E0;
             }
         }
 

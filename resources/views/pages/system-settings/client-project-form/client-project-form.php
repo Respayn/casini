@@ -16,6 +16,7 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Exceptions\CallibriApiException;
 use App\Helpers\PhraseDuplicateHelper;
 use App\Services\CallibriService;
+use App\Services\ClientProject\MonthPeriodNormalizer;
 use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
@@ -155,37 +156,44 @@ class extends Component
     {
         return $this->canEditClientsAndProjects
             && $this->statisticsRebuildFrom !== null
-            && $this->statisticsRebuildTo !== null;
+            && $this->statisticsRebuildTo !== null
+            && $this->statisticsRebuildFrom->lte($this->statisticsRebuildTo);
+    }
+
+    public function statisticsRebuildFromMax(): string
+    {
+        return MonthPeriodNormalizer::fromMax($this->statisticsRebuildTo);
+    }
+
+    public function statisticsRebuildToMin(): ?string
+    {
+        return MonthPeriodNormalizer::toMin($this->statisticsRebuildFrom);
     }
 
     public function updatedStatisticsRebuildFrom(mixed $value): void
     {
-        if ($this->statisticsRebuildFrom === null || $this->isEpochStatisticsMonth($this->statisticsRebuildFrom)) {
-            $this->statisticsRebuildFrom = null;
-
-            return;
-        }
-
-        $this->statisticsRebuildFrom = $this->statisticsRebuildFrom->startOfMonth();
+        $this->statisticsRebuildFrom = MonthPeriodNormalizer::clampMonth(
+            $this->statisticsRebuildFrom,
+            false
+        );
+        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = MonthPeriodNormalizer::alignRange(
+            $this->statisticsRebuildFrom,
+            $this->statisticsRebuildTo,
+            'from'
+        );
     }
 
     public function updatedStatisticsRebuildTo(mixed $value): void
     {
-        if ($this->statisticsRebuildTo === null || $this->isEpochStatisticsMonth($this->statisticsRebuildTo)) {
-            $this->statisticsRebuildTo = null;
-
-            return;
-        }
-
-        $this->statisticsRebuildTo = $this->statisticsRebuildTo->endOfMonth()->startOfDay();
-    }
-
-    private function isEpochStatisticsMonth(?Carbon $date): bool
-    {
-        return $date !== null
-            && $date->year === 1970
-            && $date->month === 1
-            && $date->day === 1;
+        $this->statisticsRebuildTo = MonthPeriodNormalizer::clampMonth(
+            $this->statisticsRebuildTo,
+            true
+        );
+        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = MonthPeriodNormalizer::alignRange(
+            $this->statisticsRebuildFrom,
+            $this->statisticsRebuildTo,
+            'to'
+        );
     }
 
     public function updatedClientProjectFormIsActive(mixed $value): void

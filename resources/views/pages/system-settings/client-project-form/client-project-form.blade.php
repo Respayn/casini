@@ -568,7 +568,12 @@
                 class="mt-4 flex flex-col gap-4"
                 wire:key="parameter-schemes-{{ $clientProjectForm->projectType }}-{{ $clientProjectForm->kpi }}-{{ md5(json_encode($parameterCalculationRows)) }}"
             >
-                <h1>Настройка параметров</h1>
+                <div class="flex items-center gap-3">
+                    <h1>Настройка параметров</h1>
+                    <x-overlay.tooltip>
+                        Блок носит информационный характер - для понимания логики расчета параметров в отчетах. Изменить логику расчета параметров вы можете включив или выключив интеграции. После внесения изменений - пересоберите статистику в клиенто-проекте
+                    </x-overlay.tooltip>
+                </div>
 
                 <x-form.form-field>
                     <x-form.form-label class="font-bold">Фактические параметры</x-form.form-label>
@@ -612,11 +617,18 @@
                     <div class="flex flex-col gap-2">
                         <div class="flex w-full min-w-0 flex-row items-center gap-2">
                             <div class="min-w-0 flex-1">
-                                <x-form.month-picker wire:model.live="statisticsRebuildFrom" />
+                                <x-form.month-picker
+                                    wire:model.live="statisticsRebuildFrom"
+                                    :max="$this->statisticsRebuildFromMax()"
+                                />
                             </div>
                             <span class="shrink-0">-</span>
                             <div class="min-w-0 flex-1">
-                                <x-form.month-picker wire:model.live="statisticsRebuildTo" />
+                                <x-form.month-picker
+                                    wire:model.live="statisticsRebuildTo"
+                                    :min="$this->statisticsRebuildToMin()"
+                                    :max="now()->toDateString()"
+                                />
                             </div>
                         </div>
                         <x-permissions.field-guard :enabled="$canEdit">
