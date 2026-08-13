@@ -77,7 +77,17 @@ class IntegrationSyncDispatcher
 
             foreach ($this->collectors as $collector) {
                 foreach ($projectIds as $projectId) {
-                    if (! $collector->supportsProject((int) $projectId)) {
+                    try {
+                        if (! $collector->supportsProject((int) $projectId)) {
+                            continue;
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('Integration sync: supportsProject failed', [
+                            'collector' => $collector->key(),
+                            'project_id' => $projectId,
+                            'message' => $e->getMessage(),
+                        ]);
+
                         continue;
                     }
 
@@ -128,8 +138,10 @@ class IntegrationSyncDispatcher
 
     public function isDispatchWindow(Carbon $nowLocal): bool
     {
-        return (int) $nowLocal->format('G') === self::DISPATCH_LOCAL_HOUR
-            && (int) $nowLocal->format('i') === self::DISPATCH_LOCAL_MINUTE;
+        $minutesFromMidnight = ((int) $nowLocal->format('G')) * 60 + (int) $nowLocal->format('i');
+        $windowStart = self::DISPATCH_LOCAL_HOUR * 60 + self::DISPATCH_LOCAL_MINUTE;
+
+        return $minutesFromMidnight >= $windowStart;
     }
 
     /**

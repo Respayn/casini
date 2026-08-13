@@ -3,8 +3,12 @@
 namespace App\Services\IntegrationSync;
 
 use App\Contracts\IntegrationSyncCollector;
+use App\Data\IntegrationSync\IntegrationSyncResult;
+use App\Events\Notifications\IntegrationSyncFailed;
 use App\Services\Channels\ChannelDirectMetricsService;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class IntegrationMetricsRefreshService
 {
@@ -84,10 +88,7 @@ class IntegrationMetricsRefreshService
         $collectors = $this->dispatcher->collectors();
 
         foreach ($ids as $projectId) {
-            $applicable = array_values(array_filter(
-                $collectors,
-                fn (IntegrationSyncCollector $collector) => $collector->supportsProject($projectId),
-            ));
+            $applicable = $this->collectorsForProject($collectors, $projectId);
 
             if ($applicable === []) {
                 $stats['skipped']++;
@@ -99,12 +100,32 @@ class IntegrationMetricsRefreshService
             $hadFailure = false;
 
             foreach ($applicable as $collector) {
-                $result = $collector->collectRange($projectId, $from, $to);
+                try {
+                    $result = $collector->collectRange($projectId, $from, $to);
+                } catch (Throwable $e) {
+                    Log::warning('Integration refresh: collectRange threw', [
+                        'project_id' => $projectId,
+                        'collector' => $collector->key(),
+                        'message' => $e->getMessage(),
+                    ]);
 
-                if (! $result->ok) {
-                    $allOk = false;
-                    $hadFailure = true;
+                    $result = IntegrationSyncResult::failure(
+                        filled($e->getMessage()) ? $e->getMessage() : 'Ошибка съёма данных',
+                        requeue: false,
+                    );
                 }
+
+                if ($result->ok) {
+                    continue;
+                }
+
+                $allOk = false;
+                $hadFailure = true;
+                event(new IntegrationSyncFailed(
+                    projectId: $projectId,
+                    error: filled($result->error) ? $result->error : 'Ошибка съёма данных',
+                    collector: $collector->key(),
+                ));
             }
 
             if ($allOk) {
@@ -119,6 +140,31 @@ class IntegrationMetricsRefreshService
         }
 
         return $stats;
+    }
+
+    /**
+     * @param  array<int, IntegrationSyncCollector>  $collectors
+     * @return list<IntegrationSyncCollector>
+     */
+    private function collectorsForProject(array $collectors, int $projectId): array
+    {
+        $applicable = [];
+
+        foreach ($collectors as $collector) {
+            try {
+                if ($collector->supportsProject($projectId)) {
+                    $applicable[] = $collector;
+                }
+            } catch (Throwable $e) {
+                Log::warning('Integration refresh: supportsProject failed', [
+                    'collector' => $collector->key(),
+                    'project_id' => $projectId,
+                    'message' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return $applicable;
     }
 
     /**

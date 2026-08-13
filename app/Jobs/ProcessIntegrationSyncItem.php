@@ -3,8 +3,10 @@
 namespace App\Jobs;
 
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
+use App\Data\IntegrationSync\IntegrationSyncResult;
 use App\Enums\IntegrationSyncItemStatus;
 use App\Enums\IntegrationSyncRunStatus;
+use App\Events\Notifications\IntegrationSyncFailed;
 use App\Models\IntegrationSyncItem;
 use App\Models\IntegrationSyncRun;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
@@ -15,6 +17,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ProcessIntegrationSyncItem implements ShouldQueue
 {
@@ -53,10 +56,7 @@ class ProcessIntegrationSyncItem implements ShouldQueue
         $collector = $dispatcher->collector($item->collector);
 
         if ($collector === null) {
-            $item->update([
-                'status' => IntegrationSyncItemStatus::Failed,
-                'last_error' => 'Unknown collector: '.$item->collector,
-            ]);
+            $this->markFailedAndNotify($item, 'Unknown collector: '.$item->collector);
             $this->maybeFinishRun($item->run_id);
 
             return;
@@ -68,10 +68,24 @@ class ProcessIntegrationSyncItem implements ShouldQueue
             'attempts' => $item->attempts + 1,
         ]);
 
-        $result = $collector->collect(new IntegrationSyncCollectContext(
-            projectId: (int) $item->project_id,
-            targetDate: $run->target_date->copy(),
-        ));
+        try {
+            $result = $collector->collect(new IntegrationSyncCollectContext(
+                projectId: (int) $item->project_id,
+                targetDate: $run->target_date->copy(),
+            ));
+        } catch (Throwable $e) {
+            Log::warning('Integration sync: collect threw', [
+                'item_id' => $item->id,
+                'project_id' => $item->project_id,
+                'collector' => $item->collector,
+                'message' => $e->getMessage(),
+            ]);
+
+            $result = IntegrationSyncResult::failure(
+                filled($e->getMessage()) ? $e->getMessage() : 'Ошибка съёма данных',
+                requeue: false,
+            );
+        }
 
         if ($result->ok) {
             $item->update([
@@ -93,11 +107,47 @@ class ProcessIntegrationSyncItem implements ShouldQueue
             return;
         }
 
+        $this->markFailedAndNotify($item, $result->error);
+        $this->maybeFinishRun($item->run_id);
+    }
+
+    public function failed(?Throwable $e): void
+    {
+        $item = IntegrationSyncItem::query()->find($this->itemId);
+
+        if ($item === null) {
+            return;
+        }
+
+        if ($item->status === IntegrationSyncItemStatus::Done
+            || $item->status === IntegrationSyncItemStatus::Failed
+        ) {
+            $this->maybeFinishRun($item->run_id);
+
+            return;
+        }
+
+        $this->markFailedAndNotify(
+            $item,
+            filled($e?->getMessage()) ? $e->getMessage() : 'Ошибка съёма данных',
+        );
+        $this->maybeFinishRun($item->run_id);
+    }
+
+    private function markFailedAndNotify(IntegrationSyncItem $item, ?string $error): void
+    {
+        $message = filled($error) ? $error : 'Ошибка съёма данных';
+
         $item->update([
             'status' => IntegrationSyncItemStatus::Failed,
-            'last_error' => $result->error,
+            'last_error' => $message,
         ]);
-        $this->maybeFinishRun($item->run_id);
+
+        event(new IntegrationSyncFailed(
+            projectId: (int) $item->project_id,
+            error: $message,
+            collector: (string) $item->collector,
+        ));
     }
 
     private function requeueToEnd(IntegrationSyncItem $item, ?string $error): void

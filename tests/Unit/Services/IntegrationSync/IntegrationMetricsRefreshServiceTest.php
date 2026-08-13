@@ -5,6 +5,7 @@ namespace Tests\Unit\Services\IntegrationSync;
 use App\Contracts\IntegrationSyncCollector;
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
+use App\Events\Notifications\IntegrationSyncFailed;
 use App\Services\Channels\ChannelDirectMetricsService;
 use App\Services\IntegrationSync\IntegrationApiThrottle;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
@@ -12,7 +13,9 @@ use App\Services\IntegrationSync\IntegrationSyncDispatcher;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Mockery;
+use RuntimeException;
 use Tests\TestCase;
 
 class IntegrationMetricsRefreshServiceTest extends TestCase
@@ -121,17 +124,55 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $this->assertArrayHasKey('error', $blocked);
     }
 
+    public function test_continues_after_collector_failure_and_notifies(): void
+    {
+        Event::fake([IntegrationSyncFailed::class]);
+        $calls = [];
+
+        $failing = $this->makeCollector('callibri_daily_leads', true, $calls, fail: true);
+        $ok = $this->makeCollector('yandex_search_api_daily_positions', true, $calls);
+        $brokenSupports = $this->makeCollector('broken', true, $calls, throwOnSupports: true);
+
+        $dispatcher = new IntegrationSyncDispatcher([$failing, $brokenSupports, $ok]);
+        $service = new IntegrationMetricsRefreshService(
+            $dispatcher,
+            new IntegrationApiThrottle(),
+            Mockery::mock(ChannelDirectMetricsService::class),
+        );
+
+        $stats = $service->refreshDataForProjects(
+            [10],
+            Carbon::parse('2026-08-01'),
+            Carbon::parse('2026-08-01'),
+        );
+
+        $this->assertSame(0, $stats['updated']);
+        $this->assertSame(1, $stats['failed']);
+        $this->assertSame(['callibri_daily_leads', 'yandex_search_api_daily_positions'], $calls);
+        Event::assertDispatched(IntegrationSyncFailed::class, function (IntegrationSyncFailed $event) {
+            return $event->projectId === 10
+                && $event->collector === 'callibri_daily_leads';
+        });
+    }
+
     /**
      * @param  list<string>  $calls
      */
-    private function makeCollector(string $key, bool $supports, array &$calls): IntegrationSyncCollector
-    {
-        return new class($key, $supports, $calls) implements IntegrationSyncCollector
+    private function makeCollector(
+        string $key,
+        bool $supports,
+        array &$calls,
+        bool $fail = false,
+        bool $throwOnSupports = false,
+    ): IntegrationSyncCollector {
+        return new class($key, $supports, $calls, $fail, $throwOnSupports) implements IntegrationSyncCollector
         {
             public function __construct(
                 private readonly string $collectorKey,
                 private readonly bool $supports,
                 private array &$calls,
+                private readonly bool $fail = false,
+                private readonly bool $throwOnSupports = false,
             ) {}
 
             public function key(): string
@@ -146,6 +187,10 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
 
             public function supportsProject(int $projectId): bool
             {
+                if ($this->throwOnSupports) {
+                    throw new RuntimeException('missing credentials helper');
+                }
+
                 return $this->supports;
             }
 
@@ -157,6 +202,10 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
             public function collectRange(int $projectId, Carbon $from, Carbon $to): IntegrationSyncResult
             {
                 $this->calls[] = $this->collectorKey;
+
+                if ($this->fail) {
+                    return IntegrationSyncResult::failure('API down', requeue: false);
+                }
 
                 return IntegrationSyncResult::success();
             }

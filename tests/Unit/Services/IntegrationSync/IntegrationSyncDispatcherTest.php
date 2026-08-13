@@ -22,13 +22,14 @@ class IntegrationSyncDispatcherTest extends TestCase
 {
     use DatabaseTransactions;
 
-    public function test_is_dispatch_window_only_at_00_01_local(): void
+    public function test_is_dispatch_window_from_00_01_local(): void
     {
         $dispatcher = new IntegrationSyncDispatcher([]);
 
+        $this->assertFalse($dispatcher->isDispatchWindow(Carbon::parse('2026-08-03 00:00:00', 'Asia/Yekaterinburg')));
         $this->assertTrue($dispatcher->isDispatchWindow(Carbon::parse('2026-08-03 00:01:00', 'Asia/Yekaterinburg')));
-        $this->assertFalse($dispatcher->isDispatchWindow(Carbon::parse('2026-08-03 00:02:00', 'Asia/Yekaterinburg')));
-        $this->assertFalse($dispatcher->isDispatchWindow(Carbon::parse('2026-08-03 12:01:00', 'Asia/Yekaterinburg')));
+        $this->assertTrue($dispatcher->isDispatchWindow(Carbon::parse('2026-08-03 00:02:00', 'Asia/Yekaterinburg')));
+        $this->assertTrue($dispatcher->isDispatchWindow(Carbon::parse('2026-08-03 12:01:00', 'Asia/Yekaterinburg')));
     }
 
     public function test_dispatch_if_due_starts_run_once_for_local_date(): void
@@ -54,6 +55,55 @@ class IntegrationSyncDispatcherTest extends TestCase
         $this->assertSame('2026-08-03', $run1->local_date->toDateString());
         $this->assertSame('2026-08-02', $run1->target_date->toDateString());
         $this->assertSame('Asia/Yekaterinburg', $run1->timezone);
+    }
+
+    public function test_dispatch_if_due_catches_up_after_00_01_if_run_missing(): void
+    {
+        Bus::fake();
+
+        $agency = Agency::query()->orderBy('id')->first();
+        if ($agency === null) {
+            Agency::factory()->create(['time_zone' => 'Asia/Yekaterinburg']);
+        } else {
+            $agency->update(['time_zone' => 'Asia/Yekaterinburg']);
+        }
+
+        $dispatcher = new IntegrationSyncDispatcher([$this->makeStubCollector('stub', true)]);
+
+        $afterWindow = Carbon::parse('2026-08-02 19:15:00', 'UTC');
+
+        $run = $dispatcher->dispatchIfDue($afterWindow);
+
+        $this->assertNotNull($run);
+        $this->assertSame('2026-08-03', $run->local_date->toDateString());
+        $this->assertSame('2026-08-02', $run->target_date->toDateString());
+        $this->assertNull($dispatcher->dispatchIfDue($afterWindow));
+    }
+
+    public function test_start_run_skips_collector_when_supports_project_throws(): void
+    {
+        Bus::fake();
+
+        $project = Project::factory()->create(['is_active' => true]);
+
+        $broken = $this->makeStubCollector('broken', function () {
+            throw new \RuntimeException('missing callibri()');
+        });
+        $searchApi = $this->makeStubCollector('yandex_search_api_daily_positions', true);
+
+        $dispatcher = new IntegrationSyncDispatcher([$broken, $searchApi]);
+        $run = $dispatcher->startRun('2026-08-13', 'Asia/Yekaterinburg', '2026-08-12');
+
+        $this->assertDatabaseMissing('integration_sync_items', [
+            'run_id' => $run->id,
+            'collector' => 'broken',
+        ]);
+        $this->assertDatabaseHas('integration_sync_items', [
+            'run_id' => $run->id,
+            'project_id' => $project->id,
+            'collector' => 'yandex_search_api_daily_positions',
+            'status' => IntegrationSyncItemStatus::Pending->value,
+        ]);
     }
 
     public function test_candidate_project_ids_skips_inactive_projects(): void

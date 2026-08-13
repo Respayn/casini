@@ -75,6 +75,32 @@ class IntegrationProjectCredentials
     }
 
     /**
+     * @return array{email: string, token: string, site_id: int}|null
+     */
+    public function callibri(int $projectId): ?array
+    {
+        $settings = $this->settingsFor($projectId, 'callibri');
+
+        if ($settings === null) {
+            return null;
+        }
+
+        $email = $settings['email'] ?? null;
+        $token = $settings['token'] ?? null;
+        $siteId = $settings['site_id'] ?? $settings['siteId'] ?? null;
+
+        if (! filled($email) || ! filled($token) || ! filled($siteId) || ! is_numeric($siteId)) {
+            return null;
+        }
+
+        return [
+            'email' => (string) $email,
+            'token' => (string) $token,
+            'site_id' => (int) $siteId,
+        ];
+    }
+
+    /**
      * @return array{regions: array<int, array{code: mixed, phrases: string[]}>}|null
      */
     public function yandexSearchApi(int $projectId): ?array

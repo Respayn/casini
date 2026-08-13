@@ -287,11 +287,12 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Компонент | Назначение |
 |-----------|------------|
 | `agencies.time_zone` | «Основной часовой пояс агентства»; окно старта **00:01** локально |
-| `php artisan integrations:dispatch-due-syncs` | Schedule `everyMinute()`: если 00:01 и нет run за текущую local-дату → создать run + items за **вчера** |
+| `php artisan integrations:dispatch-due-syncs` | Schedule `everyMinute()`: с **00:01** локально, если ещё нет run за текущую local-дату → создать run + items за **вчера** (догон, если минута 00:01 была пропущена) |
 | `integration_sync_runs` / `integration_sync_items` | run и очередь проектов; при ошибке API item → в хвост, max 3 attempts |
-| `ProcessIntegrationSyncItem` | Job: один item → collector → upsert |
+| `ProcessIntegrationSyncItem` | Job: один item → collector → upsert; исключение в `collect` не валит соседние items |
 | `IntegrationSyncCollector` | контракт: `key`, `integrationCode`, `supportsProject`, `collect` / `collectRange` |
 | Кандидаты | активные проекты × collectors, где `supportsProject()` = true (per-collector) |
+| Ошибка одного сервиса | item `failed` (после max 3 attempts или без requeue); очередь идёт дальше; **только** запись в продукт «Уведомления» (`integrations.sync.failed`, без email): `{ошибка}, чч:мм, дд.мм.гг, [[proj]]` людям с доступом к клиенто-проекту (время агентства); непрочитано, пока не открыта страница «Уведомления» |
 
 ### Collectors (фаза 1)
 

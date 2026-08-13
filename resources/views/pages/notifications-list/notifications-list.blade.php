@@ -14,6 +14,8 @@
                 @forelse($notifications as $n)
                     @php
                         $isRead = (bool) $n->read_at;
+                        $inlineMeta = (bool) data_get($n->payload ?? [], 'inline_meta')
+                            || $n->type === 'integrations.sync.failed';
                         $projectName = data_get($n->payload ?? [], 'project');
                         // URL проекта без домена по реальному роуту
                         $projectUrl = $n->project_id
@@ -31,6 +33,7 @@
                             {!! $html !!}
                         </div>
 
+                        @unless($inlineMeta)
                         <div class="mt-1 text-[14px] italic flex items-center gap-2">
                             <span class="{{ $dateClass }}">{{ $n->created_at->format('d.m.Y, H:i') }}</span>
                             @if($projectName)
@@ -45,6 +48,7 @@
                                 @endif
                             @endif
                         </div>
+                        @endunless
                     </div>
                 @empty
                     <div class="py-10 text-center text-slate-500">Пока нет уведомлений</div>

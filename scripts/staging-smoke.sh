@@ -16,12 +16,16 @@ if [[ "${LOGIN_URL}" == http://127.0.0.1/* ]] || [[ "${LOGIN_URL}" == http://loc
 fi
 
 echo "==> HTTP login page: ${LOGIN_URL}"
-html="$(curl -fsS --max-time 20 "${LOGIN_URL}")"
+# В файл, не в bash-переменную: Debugbar/Livewire могут отдать NUL-байты,
+# из‑за них $(curl) обрезает HTML и smoke ложно падает на проверке формы.
+login_html="$(mktemp)"
+trap 'rm -f "${login_html}"' EXIT
+curl -fsS --max-time 20 "${LOGIN_URL}" -o "${login_html}"
 
 # Старая форма: wire:submit.prevent="login"; актуальная на staging — Alpine + $wire.login() + captcha.
-if printf '%s' "${html}" | grep -q 'wire:submit.prevent="login"'; then
+if grep -q 'wire:submit.prevent="login"' "${login_html}"; then
   echo "OK: login form Livewire binding present"
-elif printf '%s' "${html}" | grep -Fq '$wire.login()' && printf '%s' "${html}" | grep -q 'pages::auth.login'; then
+elif grep -Fq '$wire.login()' "${login_html}" && grep -q 'pages::auth.login' "${login_html}"; then
   echo "OK: login form Livewire + captcha submit present"
 else
   echo "FAIL: на странице входа нет ни wire:submit.prevent=\"login\", ни \$wire.login()"
