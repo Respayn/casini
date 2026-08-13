@@ -564,7 +564,10 @@
                 </div>
             </div>
 
-            <div class="mt-4 flex flex-col gap-4">
+            <div
+                class="mt-4 flex flex-col gap-4"
+                wire:key="parameter-schemes-{{ $clientProjectForm->projectType }}-{{ $clientProjectForm->kpi }}-{{ md5(json_encode($parameterCalculationRows)) }}"
+            >
                 <h1>Настройка параметров</h1>
 
                 <x-form.form-field>
@@ -576,138 +579,28 @@
                     <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
                         Выберите KPI и Тип клиенто-проекта
                     </span>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::TRAFFIC->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
-                    <x-form.form-field>
-                        <x-form.form-label>CPС</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы / Яндекс Директ, клики'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Рекламный бюджет</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Визитов</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, клики'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::LEADS->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
-                    <x-form.form-field>
-                        <x-form.form-label>CPL</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы / (Calibri, ЕЖЛ + Яндекс Метрика, достижение целей из отчета UTM-метки)'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Рекламный бюджет</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Лиды</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, достижение целей из отчета UTM-метки, ЕЖЛ'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::POSITIONS->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::SEO_PROMOTION->value)
-                    <x-form.form-field>
-                        <x-form.form-label>% позиций в топ 10</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Yandex Search API'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Конверсии</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, достижение целей из отчета Поисковые системы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::TRAFFIC->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::SEO_PROMOTION->value)
-                    <x-form.form-field>
-                        <x-form.form-label>Объем визитов</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, переходы из отчета Поисковые системы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Конверсии</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, достижение целей из отчета Поисковые системы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
+                @elseif ($parameterCalculationRows === [])
+                    <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
+                        Для выбранных KPI и типа нет схемы параметров
+                    </span>
+                @else
+                    @foreach ($parameterCalculationRows as $row)
+                        <x-form.form-field wire:key="parameter-scheme-{{ $row['code'] }}-{{ md5($row['scheme']) }}">
+                            <x-form.form-label>{{ $row['label'] }}</x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                                <span class="text-[14px]">
+                                    Данные из интеграций поступают с учетом заданных настроек
+                                </span>
+                                <textarea
+                                    class="border-input-border text-primary-text disabled:bg-secondary min-h-[72px] w-full resize-none rounded-[5px] border px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap"
+                                    rows="3"
+                                    disabled
+                                    readonly
+                                    title="{{ $row['scheme'] }}"
+                                >{{ $row['scheme'] }}</textarea>
+                            </div>
+                        </x-form.form-field>
+                    @endforeach
                 @endif
             </div>
 

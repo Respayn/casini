@@ -16,6 +16,7 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Exceptions\CallibriApiException;
 use App\Helpers\PhraseDuplicateHelper;
 use App\Services\CallibriService;
+use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
@@ -87,6 +88,14 @@ class extends Component
 
     /** Показать баннер «Изменения сохранены» после редиректа с успешного save */
     public bool $startWithSuccessMessage = false;
+
+    /**
+     * Схемы расчёта параметров (пересобираются при смене интеграций / KPI / типа).
+     *
+     * @var list<array{code: string, label: string, scheme: string}>
+     */
+    public array $parameterCalculationRows = [];
+
 
     public function boot(
         ClientService $clientService,
@@ -300,6 +309,30 @@ class extends Component
         if (session()->pull('client_project_saved')) {
             $this->startWithSuccessMessage = true;
         }
+
+        $this->rebuildParameterCalculationRows();
+    }
+
+    public function updatedClientProjectFormProjectType(mixed $value): void
+    {
+        $this->rebuildParameterCalculationRows();
+    }
+
+    public function updatedClientProjectFormKpi(mixed $value): void
+    {
+        $this->rebuildParameterCalculationRows();
+    }
+
+    public function updatedIntegrationSettings(mixed $value = null, ?string $key = null): void
+    {
+        // Тогл на карточке: wire:model="integrationSettings.{id}.isEnabled"
+        if ($key === null || str_ends_with($key, 'isEnabled') || str_ends_with($key, '.isEnabled')) {
+            $this->rebuildParameterCalculationRows();
+        }
+
+        if ($key !== null && (str_ends_with($key, 'isEnabled') || str_ends_with($key, '.isEnabled'))) {
+            $this->markPendingChanges();
+        }
     }
 
     public function validateUtmField(int $index, string $attribute): void
@@ -358,6 +391,50 @@ class extends Component
     {
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function enabledIntegrationCodesForKey(): array
+    {
+        return $this->enabledIntegrationCodes();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function enabledIntegrationCodes(): array
+    {
+        return $this->integrationSettings
+            ->filter(fn ($setting) => (bool) ($setting->isEnabled ?? false))
+            ->map(fn ($setting) => (string) ($setting->integration->code ?? ''))
+            ->filter(fn (string $code) => $code !== '')
+            ->values()
+            ->all();
+    }
+
+    private function rebuildParameterCalculationRows(): void
+    {
+        $projectType = ProjectType::tryFrom((string) $this->clientProjectForm->projectType);
+        $kpi = Kpi::tryFrom((string) $this->clientProjectForm->kpi);
+
+        if ($projectType === null || $kpi === null) {
+            $this->parameterCalculationRows = [];
+
+            return;
+        }
+
+        $this->parameterCalculationRows = app(ParameterCalculationSchemeBuilder::class)->build(
+            $projectType,
+            $kpi,
+            $this->enabledIntegrationCodes()
+        );
+    }
+
+    private function refreshParameterCalculationRows(): void
+    {
+        $this->rebuildParameterCalculationRows();
     }
 
     #[Computed]
@@ -496,6 +573,12 @@ class extends Component
         }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
+        // Пересоздаём коллекцию, чтобы Livewire точно увидел изменение для UI схем.
+        $this->integrationSettings = $this->integrationSettings->mapWithKeys(
+            fn ($setting, $id) => [(int) $id => $setting]
+        );
+        unset($this->configuredMoneyIntegrations, $this->configuredAnalyticsIntegrations, $this->configuredToolsIntegrations);
+        $this->refreshParameterCalculationRows();
         $this->markPendingChanges();
     }
 
@@ -734,6 +817,7 @@ class extends Component
             $projectIntegrationData->isEnabled = true;
             $projectIntegrationData->settings = $mergedSettings;
             $this->integrationSettings[$integrationId] = $projectIntegrationData;
+            $this->refreshParameterCalculationRows();
 
             $this->integrationModalBodyRevision++;
             $this->markPendingChanges();
@@ -807,6 +891,7 @@ class extends Component
                 $projectIntegrationData->isEnabled = $this->selectedIntegration->isEnabled ?? false;
                 $projectIntegrationData->settings = $mergedSettings;
                 $this->integrationSettings[$integrationId] = $projectIntegrationData;
+                $this->refreshParameterCalculationRows();
             }
         }
 
@@ -969,6 +1054,11 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->integrationSettings->forget($integrationId);
+        $this->integrationSettings = $this->integrationSettings->mapWithKeys(
+            fn ($setting, $id) => [(int) $id => $setting]
+        );
+        unset($this->configuredMoneyIntegrations, $this->configuredAnalyticsIntegrations, $this->configuredToolsIntegrations);
+        $this->refreshParameterCalculationRows();
         $this->markPendingChanges();
     }
 
@@ -977,6 +1067,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->integrationSettings[$integrationId]->isEnabled = $isEnabled;
+        $this->refreshParameterCalculationRows();
         $this->markPendingChanges();
     }
 
