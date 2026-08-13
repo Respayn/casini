@@ -151,7 +151,9 @@ class extends Component
 
     public function updatedStatisticsRebuildFrom(mixed $value): void
     {
-        if ($this->statisticsRebuildFrom === null) {
+        if ($this->statisticsRebuildFrom === null || $this->isEpochStatisticsMonth($this->statisticsRebuildFrom)) {
+            $this->statisticsRebuildFrom = null;
+
             return;
         }
 
@@ -160,11 +162,21 @@ class extends Component
 
     public function updatedStatisticsRebuildTo(mixed $value): void
     {
-        if ($this->statisticsRebuildTo === null) {
+        if ($this->statisticsRebuildTo === null || $this->isEpochStatisticsMonth($this->statisticsRebuildTo)) {
+            $this->statisticsRebuildTo = null;
+
             return;
         }
 
         $this->statisticsRebuildTo = $this->statisticsRebuildTo->endOfMonth()->startOfDay();
+    }
+
+    private function isEpochStatisticsMonth(?Carbon $date): bool
+    {
+        return $date !== null
+            && $date->year === 1970
+            && $date->month === 1
+            && $date->day === 1;
     }
 
     public function updatedClientProjectFormIsActive(mixed $value): void

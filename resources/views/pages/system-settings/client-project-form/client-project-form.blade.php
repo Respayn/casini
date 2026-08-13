@@ -718,10 +718,14 @@
                         tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций"
                     >Выберите период</x-form.form-label>
                     <div class="flex flex-col gap-2">
-                        <div class="flex flex-row items-center gap-2">
-                            <x-form.month-picker wire:model.live="statisticsRebuildFrom" />
-                            <span>-</span>
-                            <x-form.month-picker wire:model.live="statisticsRebuildTo" />
+                        <div class="flex w-full min-w-0 flex-row items-center gap-2">
+                            <div class="min-w-0 flex-1">
+                                <x-form.month-picker wire:model.live="statisticsRebuildFrom" />
+                            </div>
+                            <span class="shrink-0">-</span>
+                            <div class="min-w-0 flex-1">
+                                <x-form.month-picker wire:model.live="statisticsRebuildTo" />
+                            </div>
                         </div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <div

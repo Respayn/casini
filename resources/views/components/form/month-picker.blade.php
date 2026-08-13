@@ -1,16 +1,27 @@
 @props([
-    'borderColor' => '#C4D0E0'
+    'borderColor' => '#C4D0E0',
+    'placeholder' => 'Выберите месяц',
 ])
 
 {{-- TODO: объединить этот компонент с компонентом date-picker. Сделать по аналогии с компонентом из библиотеки PrimeVue
 --}}
-<div class="monthpicker" x-data="monthpicker" x-modelable="value" {{ $attributes }}>
+<div
+    class="monthpicker"
+    x-data="monthpicker({ placeholder: @js($placeholder) })"
+    x-modelable="value"
+    {{ $attributes }}
+>
     {{-- Trigger --}}
     <button type="button" class="monthpicker-trigger" x-ref="trigger" x-on:click="toggle">
         <span class="monthpicker-trigger__icon">
             <x-icons.calendar />
         </span>
-        <span class="monthpicker-trigger__label" x-text="displayValue"></span>
+        <span
+            class="monthpicker-trigger__label"
+            x-bind:class="{ 'monthpicker-trigger__label--placeholder': ! hasValue() }"
+            x-bind:title="displayValue"
+            x-text="displayValue"
+        ></span>
     </button>
 
     {{-- Dropdown --}}
@@ -42,7 +53,8 @@
 @once
     @script
     <script>
-        Alpine.data('monthpicker', () => ({
+        Alpine.data('monthpicker', (config = {}) => ({
+            placeholder: config.placeholder || 'Выберите месяц',
             value: null,
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
@@ -99,7 +111,12 @@
             },
 
             init() {
+                this.normalizeEmptyValue();
                 this.updateDateFromValue();
+                this.$watch('value', () => {
+                    this.normalizeEmptyValue();
+                    this.updateDateFromValue();
+                });
             },
 
             toggle() {
@@ -110,8 +127,37 @@
                 this.isOpen = false;
             },
 
+            /**
+             * Livewire иногда отдаёт null Carbon как эпоху (1970-01-01).
+             * Для UI и модели это «пустое» значение.
+             */
+            isEmptyDate(value) {
+                if (value === null || value === undefined || value === '') {
+                    return true;
+                }
+
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return true;
+                }
+
+                return date.getUTCFullYear() === 1970
+                    && date.getUTCMonth() === 0
+                    && date.getUTCDate() === 1;
+            },
+
+            hasValue() {
+                return ! this.isEmptyDate(this.value);
+            },
+
+            normalizeEmptyValue() {
+                if (this.value !== null && this.isEmptyDate(this.value)) {
+                    this.value = null;
+                }
+            },
+
             updateDateFromValue() {
-                if (! this.value) {
+                if (! this.hasValue()) {
                     const now = new Date();
                     this.year = now.getFullYear();
                     this.month = now.getMonth();
@@ -144,8 +190,8 @@
             },
 
             get displayValue() {
-                if (! this.value) {
-                    return '';
+                if (! this.hasValue()) {
+                    return this.placeholder;
                 }
 
                 const date = new Date(this.value);
@@ -155,7 +201,7 @@
             },
 
             monthSelected(monthIndex) {
-                if (! this.value) {
+                if (! this.hasValue()) {
                     return false;
                 }
 
@@ -172,6 +218,8 @@
         .monthpicker {
             color: #486388;
             position: relative;
+            min-width: 0;
+            max-width: 100%;
         }
 
         .monthpicker-trigger {
@@ -185,8 +233,11 @@
             background: none;
             color: inherit;
             font: inherit;
-            min-width: 141px;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
             min-height: 42px;
+            box-sizing: border-box;
         }
 
         .monthpicker-trigger__icon {
@@ -204,6 +255,13 @@
         .monthpicker-trigger__label {
             font-size: 14px;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .monthpicker-trigger__label--placeholder {
+            color: #94A8C1;
         }
 
         .monthpicker-dropdown {
