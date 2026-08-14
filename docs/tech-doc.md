@@ -248,7 +248,7 @@ php artisan tinker --execute="echo config('services.yandex_direct.client_id') ? 
 
 После OAuth в settings сохраняется профиль **Passport-аккаунта** (кто нажал «Разрешить»), отдельно от `client_login` (рекламодатель в Директе):
 
-**OAuth scope в redirect** (`YandexDirectOAuthController::redirect`): `login:email`, `login:info`, `login:avatar`, `direct:api`. Право должно быть включено в консоли OAuth-приложения; в URL авторизации scope **обязательно** запрашивать явно — иначе токен не содержит нужных полей в `login.yandex.ru/info`. Для аватарки критичен `login:avatar` (`default_avatar_id`); для имени — `login:info` (`display_name`). После смены scope интеграции с уже выданным токеном нужен повторный OAuth.
+**OAuth scope в redirect** (`YandexDirectOAuthController::redirect`): `login:info`, `login:avatar`, `direct:api`. Право должно быть включено в консоли OAuth-приложения; в URL авторизации scope **обязательно** запрашивать явно — иначе токен не содержит нужных полей в `login.yandex.ru/info`. Почту и телефон не запрашиваем (`login:email` / `login:phone`) — иначе Яндекс отвечает `invalid_scope`. Для аватарки критичен `login:avatar` (`default_avatar_id`); для имени — `login:info` (`display_name`). После смены scope интеграции с уже выданным токеном нужен повторный OAuth.
 
 | Ключ | Назначение |
 |------|------------|
