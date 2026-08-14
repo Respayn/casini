@@ -67,6 +67,7 @@
         testCount: null,
         testLoading: false,
         testError: null,
+        testDateHintOpen: false,
 
         init() {
             this.$watch('settings.is_enabled', (enabled) => {
@@ -464,20 +465,38 @@
             >
                 <x-form.form-field>
                     <x-form.form-label>Дата</x-form.form-label>
-                    <div class="flex w-[305px] items-center gap-3">
-                        <div class="min-w-0 flex-1">
-                            <x-form.date-picker
+                    <div class="flex w-[305px] flex-col gap-3">
+                        <x-form.date-picker
+                            class="w-full"
+                            placeholder="Выберите дату"
+                            x-model="testDate"
+                        ></x-form.date-picker>
+                        <div
+                            class="w-full"
+                            x-ref="testButtonWrap"
+                            x-on:mouseenter="testDateHintOpen = !testDate"
+                            x-on:mouseleave="testDateHintOpen = false"
+                        >
+                            <x-button.button
+                                type="button"
+                                icon="icons.refresh"
                                 class="w-full"
-                                placeholder="дд.мм.гггг"
-                                x-model="testDate"
-                            ></x-form.date-picker>
+                                label="Проверить"
+                                x-bind:disabled="!testDate || testLoading"
+                                x-on:click="runTest()"
+                            />
                         </div>
-                        <x-button.button
-                            size="sm"
-                            label="Проверить"
-                            x-bind:disabled="testLoading"
-                            x-on:click="runTest()"
-                        />
+                        <template x-teleport="body">
+                            <div
+                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                style="z-index: 1000"
+                                x-show="testDateHintOpen && !testDate"
+                                x-cloak
+                                x-anchor.bottom="$refs.testButtonWrap"
+                            >
+                                Выберите дату
+                            </div>
+                        </template>
                     </div>
                 </x-form.form-field>
 

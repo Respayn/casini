@@ -323,3 +323,41 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение».
 
 Разбор фильтров И/ИЛИ и ночной съём отчётов — **этап 2**.
+
+## UI-шаблон: проверка работы интеграции
+
+Эталон: блок «Проверить работу интеграции» в [`callibri-integration-modal-body`](resources/views/components/project-form/callibri-integration-modal-body.blade.php). Копировать в другие модалки интеграций, не изобретать заново.
+
+### Где стоит блок
+
+- **Внутри** `x-panel.scroll-panel` и формы, после основных полей. Не между скроллом и подвалом — иначе ссылка «прилипает» к «Сохранить» / «Отменить».
+- При открытии модалки блок **свёрнут** (`testPanelOpen: false`). Видны только ссылка и стрелка вниз.
+
+### Ссылка-аккордеон
+
+- Кнопка `variant="action"` + `wrap` (как «Добавить фильтр…» в Метрике). Не `variant="link"` и не `class="underline"` на всей кнопке: иначе остаются `h-10 px-3.5 inline-flex`, подчёркивание шире текста.
+- Стрелка — та же, что у «Вернуться к отчетам»: `<x-icons.arrow-left />`. Иконка смотрит влево, направление задаём поворотом обёртки:
+  - свёрнуто: `rotate-270` (вниз);
+  - раскрыто: `rotate-90` (вверх);
+  - анимация: `transition-transform duration-300`.
+- Классы поворота брать **уже используемые** в проекте (`rotate-90`, `rotate-270`). `-rotate-90` может отсутствовать в собранном CSS на staging — стрелка останется влево.
+- Клик по строке «текст + стрелка» (обёртка), не по двум обработчикам сразу.
+- После раскрытия прокрутить панель в видимую область: `scrollIntoView({ behavior: 'smooth', block: 'end' })` на `x-ref` блока. Скролл идёт внутри `.scrollpanel-content`, не у окна. Вызывать в `$nextTick` + `requestAnimationFrame`, чтобы `x-show` успел показать DOM.
+
+### Дата и кнопка «Проверить»
+
+- Колонка `w-[305px] flex-col gap-3`, как остальные поля модалки.
+- Дата на всю ширину. Placeholder: «Выберите дату».
+- Кнопка **под** полем, `class="w-full"`, вариант по умолчанию (второстепенная, как «Удалить» у фильтра Метрики), `icon="icons.refresh"`.
+- Disabled, пока дата пустая **или** идёт запрос: `x-bind:disabled="!testDate || testLoading"`.
+- Тултип «Выберите дату» только без даты. Disabled-кнопка не ловит hover — обёртка с `mouseenter`/`mouseleave` + `x-teleport` + `x-anchor` (как `x-permissions.field-guard`).
+
+### PNG-иконка в кнопке
+
+Файл: `public/images/icons/refresh.png`. Компонент [`icons.refresh`](resources/views/components/icons/refresh.blade.php) — не `<img>`: при hover кнопки текст белый, чёрный PNG останется чёрным. Цвет через `background-color: currentColor` и CSS `mask-image` по PNG.
+
+У SVG-иконок в кнопке (`<x-dynamic-component :component="$icon" />`) на корне нужен `{{ $attributes }}`, иначе `iconClasses` не применяются.
+
+### Чего не делать в blade модалок
+
+Не ставить `@if` внутрь атрибутов `<x-form.checkbox>` / других Blade-компонентов — компилятор даёт `ParseError: unexpected token ":"`. Условия disabled/тултипа — в Alpine (`x-bind:disabled`, `x-show`).
