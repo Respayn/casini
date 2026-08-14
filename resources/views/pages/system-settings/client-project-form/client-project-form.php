@@ -15,6 +15,7 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeFor
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Exceptions\CallibriApiException;
 use App\Helpers\PhraseDuplicateHelper;
+use App\Livewire\Concerns\WithYandexMetrikaOAuth;
 use App\Services\CallibriService;
 use App\Services\ClientProject\MonthPeriodNormalizer;
 use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
@@ -54,6 +55,7 @@ new
 class extends Component
 {
     use WithFileUploads;
+    use WithYandexMetrikaOAuth;
 
     public CreateClientProjectForm $clientProjectForm;
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
@@ -207,7 +209,7 @@ class extends Component
         }
     }
 
-    private function ensureCanEdit(): void
+    protected function ensureCanEdit(): void
     {
         if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
             throw UnauthorizedException::forPermissions(
@@ -216,7 +218,7 @@ class extends Component
         }
     }
 
-    private function markPendingChanges(): void
+    protected function markPendingChanges(): void
     {
         if (! $this->canEditClientsAndProjects) {
             return;
@@ -440,7 +442,7 @@ class extends Component
         );
     }
 
-    private function refreshParameterCalculationRows(): void
+    protected function refreshParameterCalculationRows(): void
     {
         $this->rebuildParameterCalculationRows();
     }
@@ -522,6 +524,7 @@ class extends Component
         return match ($code) {
             'yandex_search_api' => $this->isYandexSearchApiConfigured,
             'yandex_direct' => $this->isYandexDirectOAuthConfigured,
+            'yandex_metrika' => $this->isYandexMetrikaOAuthConfigured,
             default => true,
         };
     }
@@ -964,7 +967,7 @@ class extends Component
         }
     }
 
-    private function buildOAuthCachePayload(): array
+    protected function buildOAuthCachePayload(): array
     {
         return [
             'integrationSettings' => $this->integrationSettings
@@ -1036,7 +1039,7 @@ class extends Component
         return ['phrases' => $phrases];
     }
 
-    private function ensureSelectedIntegration(string $code): void
+    protected function ensureSelectedIntegration(string $code): void
     {
         if ($this->selectedIntegration?->integration?->code === $code) {
             return;

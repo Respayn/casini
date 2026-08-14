@@ -9,13 +9,19 @@
     'iconClasses' => '',
     'square' => null,
     'type' => 'button',
-    'target' => '_self'
+    'target' => '_self',
+    'wrap' => false,
 ])
 @php
     // Если параметр square не передан, делаем кнопку квадратной, если label пустой
     $square ??= empty($label) && $slot->isEmpty();
+    $wrap = $wrap === true || $wrap === 1 || $wrap === '1' || $wrap === 'true' || $wrap === 'wrap';
     $isAction = in_array($variant, ['action', 'implicit-action']);
-    $size = $isAction ? 'xs-action' : $size;
+    if ($wrap) {
+        $size = 'none';
+    } elseif ($isAction) {
+        $size = 'xs-action';
+    }
 
     // TODO: добавить severity для изменения цветовой темы. Пример - https://primevue.org/button/#severity
     $variantClasses = match ($variant) {
@@ -36,18 +42,20 @@
         default => 'h-10 rounded-lg ' . ($square ? 'w-10' : 'px-3.5'),
     };
 
-    $underlineColor = match ($variant) {
+    $underlineColor = $wrap ? null : match ($variant) {
         'action' => 'border-primary',
         'implicit-action' => 'border-secondary-text',
         default => null,
     };
 
     $classes = [
-        'inline-flex gap-2 items-center justify-center cursor-pointer transition',
+        'cursor-pointer transition',
         'disabled:cursor-not-allowed' => !$href,
         $variantClasses,
         $sizeClasses,
-        '!rounded-full' => $rounded,
+        '!rounded-full' => $rounded && ! $wrap,
+        'inline-flex gap-2 items-center justify-center' => ! $wrap,
+        'inline-block max-w-full p-0 h-auto text-left bg-transparent border-0 appearance-none whitespace-normal align-top' => $wrap,
     ];
 
     $useSpaNavigation = $target !== '_blank';
@@ -58,30 +66,39 @@
 @else
     <button type="{{ $type }}" {{ $attributes->class($classes) }} @disabled($disabled)>
 @endif
-    @if ($icon)
+    @if ($icon && ! $wrap)
         <x-dynamic-component :component="$icon" @class([$iconClasses])/>
     @endif
-        
 
     @if ($label || $slot->isNotEmpty())
-        <span @class(['relative' => $underlineColor])>
-            <span @class(['whitespace-nowrap' => $isAction])>
+        @if ($wrap)
+            <span @class(['inline box-decoration-clone', 'underline' => $isAction])>
                 @if ($label)
                     {{ $label }}
                 @else
                     {{ $slot }}
                 @endif
             </span>
+        @else
+            <span @class(['relative' => $underlineColor])>
+                <span @class(['whitespace-nowrap' => $isAction])>
+                    @if ($label)
+                        {{ $label }}
+                    @else
+                        {{ $slot }}
+                    @endif
+                </span>
 
-        @if ($underlineColor)
-            <span
-            @class(['absolute bottom-[2px] left-0 right-0 rounded-xl border-b', $underlineColor])
-                style="border-width: .5px;"
-            ></span>
+            @if ($underlineColor)
+                <span
+                @class(['absolute bottom-[2px] left-0 right-0 rounded-xl border-b', $underlineColor])
+                    style="border-width: .5px;"
+                ></span>
+            @endif
+            </span>
         @endif
-        </span>
     @endif
-    
+
 @if ($href)
     </a>
 @else

@@ -207,7 +207,7 @@ php artisan tinker --execute="echo config('services.yandex_direct.client_id') ? 
 
 ### Общая модалка интеграций (remount)
 
-Одна модалка [`integration-settings-modal`](resources/views/components/project-form/integration-settings-modal.blade.php) для Callibri, Яндекс.Директ, Yandex Search API и будущих интеграций (Метрика и др.).
+Одна модалка [`integration-settings-modal`](resources/views/components/project-form/integration-settings-modal.blade.php) для Callibri, Яндекс.Директ, Yandex Search API и Яндекс Метрики.
 
 | Механизм | Назначение |
 |----------|------------|
@@ -275,3 +275,51 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `sync_enabled_at` | дата включения синхронизации (`Y-m-d`) |
 
 Чтение поддерживает legacy camelCase (`clientLogin`, `encryptedOauthToken`).
+
+## Интеграция Яндекс Метрики (настройки клиенто-проекта, этап 1)
+
+Модалка в карточке «Аналитика». На этапе 1 сохраняются только настройки; отчёты из API **не** запрашиваются (это этап 2).
+
+### Переменные окружения (OAuth)
+
+| Переменная | Назначение |
+|------------|------------|
+| `YANDEX_METRIKA_CLIENT_ID` | Client ID OAuth-приложения Яндекса (отдельное от Директа) |
+| `YANDEX_METRIKA_CLIENT_SECRET` | Client Secret |
+| `YANDEX_METRIKA_REDIRECT_URI` | Callback, должен совпадать с URI в консоли (напр. `https://test.casini.ru/yandex-metrika/callback`) |
+
+Токен Директа для Метрики не подходит: разные приложения и scope. Аккаунт Яндекса может быть тем же.
+
+Если `CLIENT_ID` / `CLIENT_SECRET` пусты, `prepareYandexMetrikaOAuth()` возвращает `error` без URL; popup показывает «не настроена на сервере».
+
+### OAuth popup
+
+Тот же контур, что у Директа, но отдельные ключи Cache / localStorage / BroadcastChannel:
+
+1. Ползунок «Синхронизация» → Livewire `prepareYandexMetrikaOAuth($popup)` → UUID `cache_data_id`, черновик в `integration_data_{uuid}`, URL `yandex-metrika.auth`.
+2. Alpine: popup или redirect (Cursor/Electron/iframe).
+3. Authorize URL: `force_confirm=yes`, scope `login:info login:avatar metrika:read`.
+4. Callback (`YandexMetrikaAuthController`) **не пишет в БД**. `popup=1`: Cache `yandex_metrika_oauth_result_{id}` + view popup-complete. `popup=0`: redirect на форму со `open_integration=yandex_metrika`. **`counter_id` не заполняется** — выбор вручную.
+5. Coordinator в layout `system-settings` (`x-scripts.yandex-metrika-oauth-coordinator`).
+6. После apply: список счётчиков `GET management/v1/counters`, событие `yandex-metrika-oauth-applied`.
+
+**UI счётчика:** `{id} ({домен})`. Поле disabled, пока нет OAuth-токена.
+
+### Settings (snake_case)
+
+| Ключ | Назначение | По умолчанию |
+|------|------------|--------------|
+| `oauth_token` / `refresh_token` / `token_expires_at` | OAuth | — |
+| `oauth_yandex_*` | профиль Яндекс ID | — |
+| `sync_enabled_at` | дата включения синхронизации | — |
+| `counter_id` / `counter_domain` | выбранный счётчик | — |
+| `attribution_model` | значение из справочника `AttributionModel` (в API — `trim`) | `automatic` |
+| `data_mode` | `without_robots` / `with_robots` | `without_robots` |
+| `filters.entry_page` | текст фильтра страницы входа (`!` = исключение) | `null` |
+| `filters.last_search_phrase` | последняя значимая поисковая фраза | `null` |
+| `filters.geo` | география | `null` |
+| `reports.*` | какие отчёты подтягивать (этап 2) | все `false` |
+
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`.
+
+Разбор фильтров И/ИЛИ и ночной съём отчётов — **этап 2**.

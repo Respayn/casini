@@ -116,6 +116,7 @@
     @livewireScriptConfig
 
     <x-scripts.yandex-direct-oauth-coordinator />
+    <x-scripts.yandex-metrika-oauth-coordinator />
 </body>
 
 </html>
