@@ -10,6 +10,7 @@
     use App\Enums\AttributionModel;
     use Illuminate\Support\Js;
     use Illuminate\Support\Str;
+    use Src\Domain\ValueObjects\ProjectType;
 
     $savedSettings = $projectIntegration->settings ?? [];
     $getSetting = function (string $key, mixed $default = '') use ($savedSettings) {
@@ -56,14 +57,21 @@
         'goals_search_engines',
         'goals_utm',
         'goals_conversions',
+        'goals_direct_summary',
     ];
+    $seoOnlyVisitReportKeys = [
+        'visits_search_engines',
+        'visits_search_queries',
+    ];
+    $exclusiveGoalSourceTooltip = 'Может быть выбран только один источник достижения целей';
+    $seoOnlyVisitTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
     $reportOptions = [
         ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true],
         ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки', 'exclusive_goal_source' => true],
         ['key' => 'goals_conversions', 'label' => 'Достижение целей из отчета Конверсии', 'exclusive_goal_source' => true],
-        ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка'],
-        ['key' => 'visits_search_engines', 'label' => 'Переходы из отчета Поисковые системы'],
-        ['key' => 'visits_search_queries', 'label' => 'Переходы из отчета Поисковые запросы'],
+        ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка', 'exclusive_goal_source' => true],
+        ['key' => 'visits_search_engines', 'label' => 'Переходы из отчета Поисковые системы', 'seo_only' => true],
+        ['key' => 'visits_search_queries', 'label' => 'Переходы из отчета Поисковые запросы', 'seo_only' => true],
         ['key' => 'visits_geo', 'label' => 'Переходы из отчета География'],
     ];
     $filterTypes = [
@@ -152,14 +160,37 @@
             geo: {{ Js::from($metrikaSettings['filters']['geo'] !== '') }},
         },
         exclusiveGoalReportKeys: {{ Js::from($exclusiveGoalReportKeys) }},
-        goalSourceTooltipKey: null,
+        seoOnlyVisitReportKeys: {{ Js::from($seoOnlyVisitReportKeys) }},
+        seoPromotionType: {{ Js::from(ProjectType::SEO_PROMOTION->value) }},
+        exclusiveGoalSourceTooltip: {{ Js::from($exclusiveGoalSourceTooltip) }},
+        seoOnlyVisitTooltip: {{ Js::from($seoOnlyVisitTooltip) }},
+        reportTooltipKey: null,
 
-        isGoalReportDisabled(key) {
-            if (!this.exclusiveGoalReportKeys.includes(key)) {
-                return false;
+        currentProjectType() {
+            return this.$wire?.clientProjectForm?.projectType ?? '';
+        },
+
+        isSeoPromotion() {
+            return this.currentProjectType() === this.seoPromotionType;
+        },
+
+        reportDisabledReason(key) {
+            if (this.seoOnlyVisitReportKeys.includes(key) && !this.isSeoPromotion()) {
+                return this.seoOnlyVisitTooltip;
             }
 
-            return this.exclusiveGoalReportKeys.some((other) => other !== key && this.settings.reports[other]);
+            if (
+                this.exclusiveGoalReportKeys.includes(key)
+                && this.exclusiveGoalReportKeys.some((other) => other !== key && this.settings.reports[other])
+            ) {
+                return this.exclusiveGoalSourceTooltip;
+            }
+
+            return '';
+        },
+
+        isReportDisabled(key) {
+            return this.reportDisabledReason(key) !== '';
         },
 
         normalizeExclusiveGoalReports() {
@@ -176,6 +207,16 @@
                 }
 
                 kept = true;
+            });
+        },
+
+        normalizeSeoOnlyVisitReports() {
+            if (this.isSeoPromotion()) {
+                return;
+            }
+
+            this.seoOnlyVisitReportKeys.forEach((key) => {
+                this.settings.reports[key] = false;
             });
         },
 
@@ -202,6 +243,13 @@
 
         init() {
             this.normalizeExclusiveGoalReports();
+            this.normalizeSeoOnlyVisitReports();
+
+            if (this.$wire && typeof this.$wire.$watch === 'function') {
+                this.$wire.$watch('clientProjectForm.projectType', () => {
+                    this.normalizeSeoOnlyVisitReports();
+                });
+            }
 
             this.$watch('settings.is_enabled', (enabled) => {
                 if (!enabled) {
@@ -1173,25 +1221,24 @@
                     <label
                         class="flex items-center gap-2 text-sm"
                         x-ref="goalReport_{{ $reportKey }}"
-                        x-bind:class="isGoalReportDisabled('{{ $reportKey }}') && 'cursor-not-allowed text-secondary-text'"
-                        x-on:mouseenter="goalSourceTooltipKey = isGoalReportDisabled('{{ $reportKey }}') ? '{{ $reportKey }}' : null"
-                        x-on:mouseleave="goalSourceTooltipKey = null"
+                        x-bind:class="isReportDisabled('{{ $reportKey }}') && 'cursor-not-allowed text-secondary-text'"
+                        x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $reportKey }}') ? '{{ $reportKey }}' : null"
+                        x-on:mouseleave="reportTooltipKey = null"
                     >
                         <x-form.checkbox
                             x-model="settings.reports.{{ $reportKey }}"
-                            x-bind:disabled="isGoalReportDisabled('{{ $reportKey }}')"
+                            x-bind:disabled="isReportDisabled('{{ $reportKey }}')"
                         />
                         {{ $reportOption['label'] }}
                         <template x-teleport="body">
                             <div
                                 class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                                 style="z-index: 1000"
-                                x-show="goalSourceTooltipKey === '{{ $reportKey }}'"
+                                x-show="reportTooltipKey === '{{ $reportKey }}'"
                                 x-cloak
                                 x-anchor.bottom="$refs.goalReport_{{ $reportKey }}"
-                            >
-                                Может быть выбран только один источник достижения целей
-                            </div>
+                                x-text="reportDisabledReason('{{ $reportKey }}')"
+                            ></div>
                         </template>
                     </label>
                 @endforeach
