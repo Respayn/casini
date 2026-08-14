@@ -182,6 +182,24 @@
             $dispatch('modal-hide', { name: 'integration-settings-modal' });
         },
 
+        toggleTestPanel() {
+            this.testPanelOpen = !this.testPanelOpen;
+
+            if (!this.testPanelOpen) {
+                return;
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.callibriTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
         async runTest() {
             if (!this.testDate) {
                 this.testError = 'Укажите дату';
@@ -414,47 +432,65 @@
                     <x-form.input-text x-model="settings.appeals_class"></x-form.input-text>
                 </div>
             </x-form.form-field>
+
+            <x-form.form-field>
+                <div
+                    class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                    x-on:click="toggleTestPanel()"
+                    x-bind:aria-expanded="testPanelOpen"
+                >
+                    <x-button.button
+                        class="pointer-events-none self-start"
+                        type="button"
+                        variant="action"
+                        wrap
+                        label="Проверить работу интеграции"
+                    />
+                    <span
+                        class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                        x-bind:class="{ 'rotate-90': testPanelOpen, 'rotate-270': !testPanelOpen }"
+                    >
+                        <x-icons.arrow-left />
+                    </span>
+                </div>
+                <span class="w-[305px]" aria-hidden="true"></span>
+            </x-form.form-field>
+
+            <div
+                class="flex flex-col gap-3"
+                x-ref="callibriTestPanel"
+                x-show="testPanelOpen"
+                x-cloak
+            >
+                <x-form.form-field>
+                    <x-form.form-label>Дата</x-form.form-label>
+                    <div class="flex w-[305px] items-center gap-3">
+                        <div class="min-w-0 flex-1">
+                            <x-form.date-picker
+                                class="w-full"
+                                placeholder="дд.мм.гггг"
+                                x-model="testDate"
+                            ></x-form.date-picker>
+                        </div>
+                        <x-button.button
+                            size="sm"
+                            label="Проверить"
+                            x-bind:disabled="testLoading"
+                            x-on:click="runTest()"
+                        />
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                    <div class="w-[305px]">
+                        <span class="text-sm" x-show="testCount !== null" x-text="'Обращений: ' + testCount" x-cloak></span>
+                        <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
+                    </div>
+                </x-form.form-field>
+            </div>
         </x-form.form>
     </x-panel.scroll-panel>
-
-    <x-form.form-field class="mb-4">
-        <x-button.button
-            variant="link"
-            class="text-primary h-auto p-0 font-semibold underline"
-            label="Проверить работу интеграции"
-            x-on:click="testPanelOpen = !testPanelOpen"
-        />
-        <span class="w-[305px]" aria-hidden="true"></span>
-    </x-form.form-field>
-
-    <div class="mb-4 flex flex-col gap-3" x-show="testPanelOpen" x-cloak>
-        <x-form.form-field>
-            <x-form.form-label>Дата</x-form.form-label>
-            <div class="flex w-[305px] items-center gap-3">
-                <div class="min-w-0 flex-1">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="дд.мм.гггг"
-                        x-model="testDate"
-                    ></x-form.date-picker>
-                </div>
-                <x-button.button
-                    size="sm"
-                    label="Проверить"
-                    x-bind:disabled="testLoading"
-                    x-on:click="runTest()"
-                />
-            </div>
-        </x-form.form-field>
-
-        <x-form.form-field>
-            <span class="invisible text-sm" aria-hidden="true">Дата</span>
-            <div class="w-[305px]">
-                <span class="text-sm" x-show="testCount !== null" x-text="'Обращений: ' + testCount" x-cloak></span>
-                <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
-            </div>
-        </x-form.form-field>
-    </div>
 
     <x-project-form.integration-modal-footer class="mt-4" />
 </div>
