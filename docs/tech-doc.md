@@ -320,6 +320,6 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `filters.geo` | география | `null` |
 | `reports.*` | какие отчёты подтягивать (этап 2) | все `false` |
 
-Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`.
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из трёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей».
 
 Разбор фильтров И/ИЛИ и ночной съём отчётов — **этап 2**.

@@ -52,10 +52,15 @@
         ['value' => 'without_robots', 'label' => 'Без роботов'],
         ['value' => 'with_robots', 'label' => 'С роботами'],
     ];
+    $exclusiveGoalReportKeys = [
+        'goals_search_engines',
+        'goals_utm',
+        'goals_conversions',
+    ];
     $reportOptions = [
-        ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы'],
-        ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки'],
-        ['key' => 'goals_conversions', 'label' => 'Достижение целей из отчета Конверсии'],
+        ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true],
+        ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки', 'exclusive_goal_source' => true],
+        ['key' => 'goals_conversions', 'label' => 'Достижение целей из отчета Конверсии', 'exclusive_goal_source' => true],
         ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка'],
         ['key' => 'visits_search_engines', 'label' => 'Переходы из отчета Поисковые системы'],
         ['key' => 'visits_search_queries', 'label' => 'Переходы из отчета Поисковые запросы'],
@@ -146,6 +151,33 @@
             last_search_phrase: {{ Js::from($metrikaSettings['filters']['last_search_phrase'] !== '') }},
             geo: {{ Js::from($metrikaSettings['filters']['geo'] !== '') }},
         },
+        exclusiveGoalReportKeys: {{ Js::from($exclusiveGoalReportKeys) }},
+        goalSourceTooltipKey: null,
+
+        isGoalReportDisabled(key) {
+            if (!this.exclusiveGoalReportKeys.includes(key)) {
+                return false;
+            }
+
+            return this.exclusiveGoalReportKeys.some((other) => other !== key && this.settings.reports[other]);
+        },
+
+        normalizeExclusiveGoalReports() {
+            let kept = false;
+
+            this.exclusiveGoalReportKeys.forEach((key) => {
+                if (!this.settings.reports[key]) {
+                    return;
+                }
+
+                if (kept) {
+                    this.settings.reports[key] = false;
+                    return;
+                }
+
+                kept = true;
+            });
+        },
 
         persistOAuthPending() {
             if (!this.oauthCacheDataId) {
@@ -169,6 +201,8 @@
         },
 
         init() {
+            this.normalizeExclusiveGoalReports();
+
             this.$watch('settings.is_enabled', (enabled) => {
                 if (!enabled) {
                     this.settings.sync_enabled_at = '';
@@ -1133,9 +1167,32 @@
             </x-form.form-label>
             <div class="flex w-[305px] flex-col gap-3">
                 @foreach ($reportOptions as $reportOption)
-                    <label class="flex items-center gap-2 text-sm">
-                        <x-form.checkbox x-model="settings.reports.{{ $reportOption['key'] }}"></x-form.checkbox>
+                    @php
+                        $reportKey = $reportOption['key'];
+                    @endphp
+                    <label
+                        class="flex items-center gap-2 text-sm"
+                        x-ref="goalReport_{{ $reportKey }}"
+                        x-bind:class="isGoalReportDisabled('{{ $reportKey }}') && 'cursor-not-allowed text-secondary-text'"
+                        x-on:mouseenter="goalSourceTooltipKey = isGoalReportDisabled('{{ $reportKey }}') ? '{{ $reportKey }}' : null"
+                        x-on:mouseleave="goalSourceTooltipKey = null"
+                    >
+                        <x-form.checkbox
+                            x-model="settings.reports.{{ $reportKey }}"
+                            x-bind:disabled="isGoalReportDisabled('{{ $reportKey }}')"
+                        />
                         {{ $reportOption['label'] }}
+                        <template x-teleport="body">
+                            <div
+                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                                style="z-index: 1000"
+                                x-show="goalSourceTooltipKey === '{{ $reportKey }}'"
+                                x-cloak
+                                x-anchor.bottom="$refs.goalReport_{{ $reportKey }}"
+                            >
+                                Может быть выбран только один источник достижения целей
+                            </div>
+                        </template>
                     </label>
                 @endforeach
             </div>
