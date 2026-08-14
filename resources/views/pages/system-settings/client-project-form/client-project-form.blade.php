@@ -48,7 +48,7 @@
                     <div>
                         <div class="flex items-center justify-end gap-3">
                             <label>
-                                Активен
+                                {{ $clientProjectForm->isActive ? 'Активен' : 'Неактивный' }}
                             </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                                 <x-form.toggle-switch wire:model.live="clientProjectForm.isActive" :disabled="! $canEdit">
@@ -248,9 +248,9 @@
                 <x-form.form-field>
                     <x-form.form-label class="self-baseline">Свой проект</x-form.form-label>
                     <div class="flex items-center justify-end gap-3">
-                        <label>Проект клиента</label>
+                        <label>{{ $clientProjectForm->isInternal ? 'Свой проект' : 'Проект клиента' }}</label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch wire:model="clientProjectForm.isInternal" :disabled="! $canEdit"></x-form.toggle-switch>
+                            <x-form.toggle-switch wire:model.live="clientProjectForm.isInternal" :disabled="! $canEdit"></x-form.toggle-switch>
                         </x-permissions.field-guard>
                     </div>
                 </x-form.form-field>
@@ -359,7 +359,7 @@
                         В договоре предусмотрены бонусы и/или гарантии
                     </x-form.form-label>
                     <div class="flex items-center justify-end gap-3">
-                        <label>Да</label>
+                        <label>{{ $bonusGuaranteeForm->bonusesEnabled ? 'Есть бонусы' : 'Нет бонусов' }}</label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                             <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.bonusesEnabled" :disabled="! $canEdit" />
                         </x-permissions.field-guard>
@@ -373,7 +373,7 @@
                             Бонус и/или гарантия рассчитывается в % от суммы чека клиента
                         </x-form.form-label>
                         <div class="flex items-center justify-end gap-3">
-                            <label>Да</label>
+                            <label>{{ $bonusGuaranteeForm->calculateInPercentage ? 'Да' : 'Нет' }}</label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                                 <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.calculateInPercentage" :disabled="! $canEdit" />
                             </x-permissions.field-guard>
