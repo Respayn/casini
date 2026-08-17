@@ -57,7 +57,7 @@ class ChannelReportQueryData extends Data implements Wireable
 
         $instance->columns = new Collection([
             new TableReportColumnData('project-type', 'Тип клиенто-проекта', $colOrder++),
-            new TableReportColumnData('tool', 'Инструмент', $colOrder++),
+            new TableReportColumnData('tool', 'Интеграции', $colOrder++),
             new TableReportColumnData('client', 'Клиент', $colOrder++),
             new TableReportColumnData('client-project', 'Клиенто-проект', $colOrder++),
             new TableReportColumnData('client-project-id', 'ID', $colOrder++),
