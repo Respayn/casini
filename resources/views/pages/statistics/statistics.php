@@ -7,6 +7,7 @@ use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
 use App\Domain\Statistics\Services\StatisticsService;
 use App\Livewire\Concerns\WithReportDataRefresh;
+use App\Livewire\Concerns\WithSidebarProjectFilter;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
@@ -18,6 +19,7 @@ new
 class extends Component
 {
     use WithReportDataRefresh;
+    use WithSidebarProjectFilter;
 
     public StatisticsReportQueryData $queryData;
 
@@ -43,6 +45,11 @@ class extends Component
             Auth::user()->id,
         );
         $this->queryData->clampPeriodToPresent();
+    }
+
+    protected function afterSidebarProjectFilterChanged(): void
+    {
+        unset($this->reportData);
     }
 
     /**
@@ -159,7 +166,7 @@ class extends Component
             $this->queryData,
         );
 
-        return $this->statisticsService->getReportData($this->queryData);
+        return $this->statisticsService->getReportData($this->queryData, $this->sidebarProjectId);
     }
 
     private function rebuildQueryDataForPeriod(): void

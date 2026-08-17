@@ -68,7 +68,7 @@ class StatisticsService
             );
     }
 
-    public function getReportData(StatisticsReportQueryData $query): TableReportData
+    public function getReportData(StatisticsReportQueryData $query, ?int $projectId = null): TableReportData
     {
         $user = Auth::user();
 
@@ -86,8 +86,12 @@ class StatisticsService
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
-        if (!$query->showInactive) {
-            $projects = $projects->filter(fn($project) => $project->is_active);
+        if ($projectId !== null) {
+            $projects = $projects->filter(fn ($project) => $project->id === $projectId);
+            $clientIds = $projects->pluck('client_id');
+            $clients = $clients->filter(fn ($client) => $clientIds->contains($client->id));
+        } elseif (! $query->showInactive) {
+            $projects = $projects->filter(fn ($project) => $project->is_active);
         }
 
         $plans = $query->isSingleMonthPeriod()

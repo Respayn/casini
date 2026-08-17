@@ -1,4 +1,6 @@
 <div>
+    <x-layout.sidebar-filter-hint />
+
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <div class="mb-7 flex items-center gap-2">
@@ -22,7 +24,7 @@
 
     {{-- Фильтры --}}
     @php
-        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, refreshAllData, applySettingsSnapshot';
+        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, refreshAllData, applySettingsSnapshot, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
     @endphp
 
     <div
