@@ -989,7 +989,7 @@
             </div>
             <div class="mt-3">
                 <x-button.button
-                    variant="link"
+                    variant="secondary"
                     label="Выбрать другую учетную запись"
                     x-bind:disabled="oauthStarting || oauthApplying"
                     x-on:click="reauthorizeOAuthAccount()"
