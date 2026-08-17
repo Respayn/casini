@@ -10,13 +10,13 @@ use App\Events\Notifications\IntegrationSyncFailed;
 use App\Models\IntegrationSyncItem;
 use App\Models\IntegrationSyncRun;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
+use App\Support\SafeLogger;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ProcessIntegrationSyncItem implements ShouldQueue
@@ -74,15 +74,16 @@ class ProcessIntegrationSyncItem implements ShouldQueue
                 targetDate: $run->target_date->copy(),
             ));
         } catch (Throwable $e) {
-            Log::warning('Integration sync: collect threw', [
+            $message = SafeLogger::publicMessage($e);
+            SafeLogger::warning('Integration sync: collect threw', [
                 'item_id' => $item->id,
                 'project_id' => $item->project_id,
                 'collector' => $item->collector,
-                'message' => $e->getMessage(),
+                'message' => $message,
             ]);
 
             $result = IntegrationSyncResult::failure(
-                filled($e->getMessage()) ? $e->getMessage() : 'Ошибка съёма данных',
+                filled($message) ? $message : 'Ошибка съёма данных',
                 requeue: false,
             );
         }
@@ -129,7 +130,7 @@ class ProcessIntegrationSyncItem implements ShouldQueue
 
         $this->markFailedAndNotify(
             $item,
-            filled($e?->getMessage()) ? $e->getMessage() : 'Ошибка съёма данных',
+            filled($e?->getMessage()) ? SafeLogger::publicMessage($e) : 'Ошибка съёма данных',
         );
         $this->maybeFinishRun($item->run_id);
     }
@@ -164,7 +165,7 @@ class ProcessIntegrationSyncItem implements ShouldQueue
             ]);
         });
 
-        Log::info('Integration sync item requeued', [
+        SafeLogger::info('Integration sync item requeued', [
             'item_id' => $item->id,
             'project_id' => $item->project_id,
             'attempts' => $item->fresh()->attempts,

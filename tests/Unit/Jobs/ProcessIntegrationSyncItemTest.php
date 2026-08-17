@@ -173,6 +173,68 @@ class ProcessIntegrationSyncItemTest extends TestCase
         Event::assertDispatched(IntegrationSyncFailed::class);
     }
 
+    public function test_collect_exception_strips_log_permission_wrapper_from_last_error(): void
+    {
+        $project = Project::factory()->create(['is_active' => true]);
+        $throwing = new class implements IntegrationSyncCollector
+        {
+            public function key(): string
+            {
+                return 'throwing';
+            }
+
+            public function integrationCode(): string
+            {
+                return 'throwing';
+            }
+
+            public function supportsProject(int $projectId): bool
+            {
+                return true;
+            }
+
+            public function collect(IntegrationSyncCollectContext $context): IntegrationSyncResult
+            {
+                throw new RuntimeException(
+                    'The stream or file "/tmp/x.log" could not be opened in append mode: Failed to open stream: Permission denied'
+                    ."\nThe exception occurred while attempting to log: Failed to get daily expenses"
+                );
+            }
+
+            public function collectRange(int $projectId, Carbon $from, Carbon $to): IntegrationSyncResult
+            {
+                return IntegrationSyncResult::failure('unused', requeue: false);
+            }
+        };
+
+        $this->app->instance(
+            IntegrationSyncDispatcher::class,
+            new IntegrationSyncDispatcher([$throwing])
+        );
+
+        $run = IntegrationSyncRun::query()->create([
+            'local_date' => '2026-08-03',
+            'timezone' => 'UTC',
+            'target_date' => '2026-08-02',
+            'status' => IntegrationSyncRunStatus::Running,
+            'started_at' => now(),
+        ]);
+
+        $item = IntegrationSyncItem::query()->create([
+            'run_id' => $run->id,
+            'project_id' => $project->id,
+            'collector' => 'throwing',
+            'status' => IntegrationSyncItemStatus::Pending,
+            'attempts' => 0,
+            'position' => 0,
+        ]);
+
+        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class));
+
+        $item->refresh();
+        $this->assertSame('Failed to get daily expenses', $item->last_error);
+    }
+
     public function test_collect_exception_finishes_run_when_last_item(): void
     {
         $project = Project::factory()->create(['is_active' => true]);

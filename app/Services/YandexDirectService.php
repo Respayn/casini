@@ -599,6 +599,11 @@ class YandexDirectService
                 'end' => $endDate->toDateString(),
                 'include_vat' => $includeVat,
             ]);
+
+            if ($e instanceof YandexDirectApiException) {
+                throw $e;
+            }
+
             throw new YandexDirectApiException('Failed to get daily expenses', 0, $e);
         }
     }
@@ -656,10 +661,17 @@ class YandexDirectService
      */
     private function logError(string $method, \Throwable $e, array $context = []): void
     {
-        Log::channel('yandex_direct')->error("[$method] {$e->getMessage()}", [
-            'exception' => get_class($e),
-            'trace' => $e->getTraceAsString(),
-            'context' => $context
-        ]);
+        try {
+            Log::channel('yandex_direct')->error("[$method] {$e->getMessage()}", [
+                'exception' => get_class($e),
+                'trace' => $e->getTraceAsString(),
+                'context' => $context,
+            ]);
+        } catch (\Throwable) {
+            \App\Support\SafeLogger::error("[$method] {$e->getMessage()}", [
+                'exception' => get_class($e),
+                'context' => $context,
+            ]);
+        }
     }
 }

@@ -9,8 +9,8 @@ use App\Models\Project;
 use App\Models\YandexDirectDailySpending;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Services\YandexDirectService;
+use App\Support\SafeLogger;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Log;
 
 class YandexDirectDailySpendCollector implements IntegrationSyncCollector
 {
@@ -67,22 +67,31 @@ class YandexDirectDailySpendCollector implements IntegrationSyncCollector
 
         $from = $from->copy()->startOfDay();
         $to = $to->copy()->startOfDay();
+        $token = $credentials['token'];
+        $clientLogin = $credentials['client_login'];
+        $retriedAfterRefresh = false;
 
         try {
-            $withVatByDay = $this->fetchDailyCosts(
-                $credentials['token'],
-                $credentials['client_login'],
-                $from,
-                $to,
-                true,
-            );
-            $withoutVatByDay = $this->fetchDailyCosts(
-                $credentials['token'],
-                $credentials['client_login'],
-                $from,
-                $to,
-                false,
-            );
+            while (true) {
+                try {
+                    $withVatByDay = $this->fetchDailyCosts($token, $clientLogin, $from, $to, true);
+                    $withoutVatByDay = $this->fetchDailyCosts($token, $clientLogin, $from, $to, false);
+                    break;
+                } catch (\Throwable $e) {
+                    if ($retriedAfterRefresh || ! SafeLogger::isYandexDirectAuthError($e)) {
+                        throw $e;
+                    }
+
+                    $refreshed = $this->credentials->refreshYandexDirectAccessToken($projectId);
+
+                    if (! filled($refreshed)) {
+                        throw $e;
+                    }
+
+                    $token = $refreshed;
+                    $retriedAfterRefresh = true;
+                }
+            }
 
             for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
                 $key = $day->toDateString();
@@ -100,15 +109,15 @@ class YandexDirectDailySpendCollector implements IntegrationSyncCollector
 
             return IntegrationSyncResult::success();
         } catch (\Throwable $e) {
-            Log::warning('Integration sync: Yandex Direct daily spend range failed', [
+            SafeLogger::warning('Integration sync: Yandex Direct daily spend range failed', [
                 'project_id' => $projectId,
                 'from' => $from->toDateString(),
                 'to' => $to->toDateString(),
-                'message' => $e->getMessage(),
+                'message' => SafeLogger::publicMessage($e),
             ]);
 
             return IntegrationSyncResult::failure(
-                'Не удалось получить расход в Директе: '.$e->getMessage(),
+                'Не удалось получить расход в Директе: '.SafeLogger::publicMessage($e),
                 requeue: true,
             );
         }

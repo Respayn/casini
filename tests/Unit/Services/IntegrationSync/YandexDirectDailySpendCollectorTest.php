@@ -82,6 +82,93 @@ class YandexDirectDailySpendCollectorTest extends TestCase
         $this->assertSame(2, YandexDirectDailySpending::query()->where('project_id', $project->id)->count());
     }
 
+    public function test_collect_range_retries_after_refreshing_invalid_oauth_token(): void
+    {
+        $project = Project::factory()->create(['is_active' => true]);
+
+        $direct = Mockery::mock(YandexDirectService::class);
+        $direct->shouldReceive('setupClient')->once()->with('old-tok', 'login');
+        $direct->shouldReceive('setupClient')->twice()->with('new-tok', 'login');
+        $direct->shouldReceive('getDailyProjectExpenses')
+            ->once()
+            ->andThrow(new \App\Exceptions\YandexDirectApiException(
+                'Invalid request parameters: Недействительный OAuth-токен',
+                53,
+            ));
+        $direct->shouldReceive('getDailyProjectExpenses')
+            ->once()
+            ->withArgs(fn ($from, $to, $vat) => $vat === true)
+            ->andReturn(['2026-08-16' => 50.0]);
+        $direct->shouldReceive('getDailyProjectExpenses')
+            ->once()
+            ->withArgs(fn ($from, $to, $vat) => $vat === false)
+            ->andReturn(['2026-08-16' => 40.0]);
+        $this->app->instance(YandexDirectService::class, $direct);
+
+        $credentials = Mockery::mock(IntegrationProjectCredentials::class);
+        $credentials->shouldReceive('yandexDirect')
+            ->once()
+            ->with($project->id)
+            ->andReturn([
+                'token' => 'old-tok',
+                'client_login' => 'login',
+                'refresh_token' => 'refresh',
+            ]);
+        $credentials->shouldReceive('refreshYandexDirectAccessToken')
+            ->once()
+            ->with($project->id)
+            ->andReturn('new-tok');
+
+        $collector = new YandexDirectDailySpendCollector($credentials);
+        $result = $collector->collectRange(
+            $project->id,
+            Carbon::parse('2026-08-16'),
+            Carbon::parse('2026-08-16'),
+        );
+
+        $this->assertTrue($result->ok);
+        $this->assertDatabaseHas('yandex_direct_daily_spendings', [
+            'project_id' => $project->id,
+            'date' => '2026-08-16',
+            'cost_with_vat' => 50.00,
+            'cost_without_vat' => 40.00,
+        ]);
+    }
+
+    public function test_collect_range_keeps_api_error_when_logging_fails(): void
+    {
+        $project = Project::factory()->create(['is_active' => true]);
+        $data = $this->makeDirectIntegrationData();
+
+        $repository = Mockery::mock(IntegrationRepository::class);
+        $repository->shouldReceive('getActiveIntegrationsMappedByProjects')
+            ->once()
+            ->andReturn(collect([$project->id => collect([$data])]));
+
+        $direct = Mockery::mock(YandexDirectService::class);
+        $direct->shouldReceive('setupClient');
+        $direct->shouldReceive('getDailyProjectExpenses')
+            ->once()
+            ->andThrow(new \RuntimeException(
+                'The stream or file "/tmp/laravel.log" could not be opened in append mode: Failed to open stream: Permission denied'
+                ."\nThe exception occurred while attempting to log: Failed to get daily expenses"
+            ));
+        $this->app->instance(YandexDirectService::class, $direct);
+
+        $collector = new YandexDirectDailySpendCollector(
+            new IntegrationProjectCredentials($repository),
+        );
+        $result = $collector->collectRange(
+            $project->id,
+            Carbon::parse('2026-08-16'),
+            Carbon::parse('2026-08-16'),
+        );
+
+        $this->assertFalse($result->ok);
+        $this->assertStringContainsString('Failed to get daily expenses', (string) $result->error);
+        $this->assertStringNotContainsString('Permission denied', (string) $result->error);
+    }
+
     public function test_collect_single_day_delegates_to_range(): void
     {
         $project = Project::factory()->create(['is_active' => true]);

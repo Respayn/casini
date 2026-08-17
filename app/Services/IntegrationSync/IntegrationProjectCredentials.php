@@ -2,8 +2,11 @@
 
 namespace App\Services\IntegrationSync;
 
+use App\Clients\YandexDirect\YandexDirectOAuthClient;
 use App\Helpers\PhraseDuplicateHelper;
+use App\Models\IntegrationProject;
 use App\Repositories\IntegrationRepository;
+use App\Support\SafeLogger;
 use Illuminate\Support\Collection;
 
 /**
@@ -71,7 +74,72 @@ class IntegrationProjectCredentials
         return [
             'token' => (string) $token,
             'client_login' => (string) $login,
+            'refresh_token' => filled($settings['refresh_token'] ?? $settings['encryptedRefreshToken'] ?? null)
+                ? (string) ($settings['refresh_token'] ?? $settings['encryptedRefreshToken'])
+                : null,
         ];
+    }
+
+    /**
+     * Обновить access-токен Директа и записать его в settings проекта.
+     * Без секретов в логах. null — refresh недоступен или Яндекс отклонил grant.
+     */
+    public function refreshYandexDirectAccessToken(int $projectId): ?string
+    {
+        $item = IntegrationProject::query()
+            ->where('project_id', $projectId)
+            ->where('is_enabled', true)
+            ->whereHas('integration', fn ($query) => $query->where('code', 'yandex_direct'))
+            ->first();
+
+        if ($item === null) {
+            return null;
+        }
+
+        $settings = is_array($item->settings) ? $item->settings : [];
+        $refreshToken = $settings['refresh_token'] ?? $settings['encryptedRefreshToken'] ?? null;
+        $clientId = config('services.yandex_direct.client_id');
+        $clientSecret = config('services.yandex_direct.client_secret');
+
+        if (! filled($refreshToken) || ! filled($clientId) || ! filled($clientSecret)) {
+            return null;
+        }
+
+        try {
+            $tokens = app(YandexDirectOAuthClient::class)->refreshToken(
+                (string) $clientId,
+                (string) $clientSecret,
+                (string) $refreshToken,
+            );
+        } catch (\Throwable $e) {
+            SafeLogger::warning('Yandex Direct token refresh failed', [
+                'project_id' => $projectId,
+                'message' => SafeLogger::publicMessage($e),
+            ]);
+
+            return null;
+        }
+
+        $access = $tokens['access_token'] ?? null;
+
+        if (! filled($access)) {
+            return null;
+        }
+
+        $settings['oauth_token'] = $access;
+
+        if (filled($tokens['refresh_token'] ?? null)) {
+            $settings['refresh_token'] = $tokens['refresh_token'];
+        }
+
+        if (isset($tokens['expires_in'])) {
+            $settings['token_expires_at'] = now()->addSeconds((int) $tokens['expires_in'])->toDateTimeString();
+        }
+
+        $item->settings = $settings;
+        $item->save();
+
+        return (string) $access;
     }
 
     /**
