@@ -14,7 +14,8 @@
         </div>
 
         <x-button.button
-            variant="link"
+            variant="secondary"
+            icon="icons.delete"
             label="Сбросить фильтр"
             wire:click="clearSidebarProjectFilter"
         />
