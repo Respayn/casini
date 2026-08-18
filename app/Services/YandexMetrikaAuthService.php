@@ -56,7 +56,7 @@ class YandexMetrikaAuthService
     }
 
     /**
-     * @return list<array{value: string, label: string, domain: string}>
+     * @return list<array{value: string, label: string, domain: string, time_zone_name: string}>
      */
     public function listCounters(string $token): array
     {
@@ -93,6 +93,7 @@ class YandexMetrikaAuthService
                 'value' => (string) $id,
                 'label' => $domain !== '' ? $id.' ('.$domain.')' : (string) $id,
                 'domain' => $domain,
+                'time_zone_name' => (string) ($counter['time_zone_name'] ?? ''),
             ];
         }
 

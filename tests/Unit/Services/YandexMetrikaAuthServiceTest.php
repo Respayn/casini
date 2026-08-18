@@ -16,8 +16,8 @@ class YandexMetrikaAuthServiceTest extends TestCase
         Http::fake([
             'api-metrika.yandex.net/management/v1/counters*' => Http::response([
                 'counters' => [
-                    ['id' => 111, 'site' => 'first.ru'],
-                    ['id' => 222, 'site2' => ['site' => 'second.ru']],
+                    ['id' => 111, 'site' => 'first.ru', 'time_zone_name' => 'Europe/Moscow'],
+                    ['id' => 222, 'site2' => ['site' => 'second.ru'], 'time_zone_name' => 'Asia/Yekaterinburg'],
                     ['id' => 0, 'site' => 'skip.ru'],
                 ],
             ]),
@@ -29,6 +29,8 @@ class YandexMetrikaAuthServiceTest extends TestCase
         $this->assertSame('111 (first.ru)', $options[0]['label']);
         $this->assertSame('222 (second.ru)', $options[1]['label']);
         $this->assertSame('second.ru', $options[1]['domain']);
+        $this->assertSame('Europe/Moscow', $options[0]['time_zone_name']);
+        $this->assertSame('Asia/Yekaterinburg', $options[1]['time_zone_name']);
     }
 
     #[Test]
@@ -37,6 +39,7 @@ class YandexMetrikaAuthServiceTest extends TestCase
         $data = YandexMetrikaIntegrationSettingsData::fromSettings(collect());
 
         $this->assertNull($data->counterId);
+        $this->assertNull($data->counterTimeZone);
         $this->assertSame('automatic', $data->attributionModel);
         $this->assertSame('without_robots', $data->dataMode);
         $this->assertNull($data->filters['entry_page']);

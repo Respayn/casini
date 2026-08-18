@@ -78,6 +78,7 @@ class YandexMetrikaModalTest extends TestCase
             ->assertSee('Сначала включите синхронизацию')
             ->assertSee('Автоматическая атрибуция')
             ->assertSee('Без роботов')
+            ->assertSee('часовым поясом счётчика в Яндекс Метрике')
             ->assertSee('Добавить фильтр по странице входа')
             ->assertSee('Достижение целей из отчета Поисковые системы')
             ->assertSee('Достижение целей из отчета Директ, сводка')
@@ -100,6 +101,7 @@ class YandexMetrikaModalTest extends TestCase
                 'oauth_token' => 'token',
                 'counter_id' => 12345678,
                 'counter_domain' => 'example.ru',
+                'counter_time_zone' => 'Asia/Yekaterinburg',
                 'attribution_model' => AttributionModel::AUTOMATIC->value,
                 'data_mode' => 'without_robots',
                 'filters' => [
@@ -119,6 +121,7 @@ class YandexMetrikaModalTest extends TestCase
             ])
             ->assertSet("integrationSettings.{$integration->id}.isEnabled", true)
             ->assertSet("integrationSettings.{$integration->id}.settings.counter_id", 12345678)
+            ->assertSet("integrationSettings.{$integration->id}.settings.counter_time_zone", 'Asia/Yekaterinburg')
             ->assertSet("integrationSettings.{$integration->id}.settings.attribution_model", 'automatic')
             ->assertSet("integrationSettings.{$integration->id}.settings.data_mode", 'without_robots')
             ->assertSet("integrationSettings.{$integration->id}.settings.filters.entry_page", '!*promo*')

@@ -259,7 +259,7 @@ trait WithYandexMetrikaOAuth
     }
 
     /**
-     * @return array{counters?: array<int, array{value: string, label: string, domain: string}>, error?: string}
+     * @return array{counters?: array<int, array{value: string, label: string, domain: string, time_zone_name: string}>, error?: string}
      */
     public function loadYandexMetrikaCounters(string $oauthToken): array
     {

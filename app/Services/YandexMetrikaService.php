@@ -7,8 +7,11 @@ use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Data\YandexMetrika\GoalDTO;
 use App\Data\YandexMetrika\VisitReportDTO;
 use App\Factories\YandexMetrikaClientFactory;
+use App\Models\Agency;
+use App\Support\YandexMetrikaTimezone;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Log;
 use Src\Domain\YandexMetrika\YandexMetrikaFiltersBuilder;
 
@@ -80,7 +83,9 @@ class YandexMetrikaService
         Carbon $endDate,
         array $dimensions = ['ym:s:date'],
         ?array $filters = null,
-        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        ?string $timezone = null,
+        ?string $counterTimezone = null
     ): VisitReportDTO
     {
         $this->validateDateRange($startDate, $endDate);
@@ -92,6 +97,7 @@ class YandexMetrikaService
                 'metrics' => 'ym:s:visits,ym:s:users',
                 'dimensions' => implode(',', $dimensions),
             ], $filters, $dataMode);
+            $params = $this->applyReportTimezone($params, $timezone, $startDate, $counterTimezone);
 
             $response = $this->getClient()->getVisitsReport($params);
 
@@ -125,12 +131,19 @@ class YandexMetrikaService
         int $goalId,
         array $params = [],
         ?array $filters = null,
-        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        ?string $timezone = null,
+        ?string $counterTimezone = null
     ): array {
         try {
+            $params = $this->applyReportFilters($params, $filters, $dataMode);
+            $at = isset($params['date1'])
+                ? Carbon::parse((string) $params['date1'])
+                : Carbon::now();
+
             return $this->getClient()->getGoalAchievements(
                 $goalId,
-                $this->applyReportFilters($params, $filters, $dataMode)
+                $this->applyReportTimezone($params, $timezone, $at, $counterTimezone)
             );
         } catch (\Exception $e) {
             $this->logError(__METHOD__, $e, ['goal_id' => $goalId]);
@@ -156,6 +169,48 @@ class YandexMetrikaService
             : '(' . $existing . ') AND (' . $built . ')';
 
         return $params;
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    private function applyReportTimezone(
+        array $params,
+        ?string $timezone,
+        Carbon $at,
+        ?string $counterTimezone = null
+    ): array {
+        $offset = YandexMetrikaTimezone::offsetIfDiffers(
+            $timezone ?? $this->resolveTimezone(),
+            $counterTimezone,
+            $at
+        );
+
+        if ($offset !== null) {
+            $params['timezone'] = $offset;
+        }
+
+        return $params;
+    }
+
+    private function resolveTimezone(?string $timezone = null): string
+    {
+        if ($timezone !== null && $timezone !== '') {
+            return $timezone;
+        }
+
+        $agencyId = session('current_agency_id') ?? Auth::user()?->agencies()->first()?->id;
+
+        if ($agencyId) {
+            $agencyTimezone = Agency::query()->whereKey($agencyId)->value('time_zone');
+
+            if ($agencyTimezone) {
+                return $agencyTimezone;
+            }
+        }
+
+        return (string) config('app.timezone', 'UTC');
     }
 
     /**

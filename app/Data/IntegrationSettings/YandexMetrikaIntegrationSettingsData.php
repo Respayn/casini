@@ -28,6 +28,8 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 
     public ?string $counterDomain = null;
 
+    public ?string $counterTimeZone = null;
+
     public ?string $encryptedOauthToken = null;
 
     public ?string $encryptedRefreshToken = null;
@@ -61,6 +63,8 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
             ? (int) $settings->get('counter_id')
             : null;
         $data->counterDomain = $settings->get('counter_domain');
+        $counterTimeZone = $settings->get('counter_time_zone');
+        $data->counterTimeZone = filled($counterTimeZone) ? (string) $counterTimeZone : null;
 
         $oauthToken = $settings->get('oauth_token');
         $refreshToken = $settings->get('refresh_token');

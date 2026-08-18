@@ -109,6 +109,7 @@
         'oauth_yandex_avatar_url' => (string) $getSetting('oauth_yandex_avatar_url', ''),
         'counter_id' => (string) $getSetting('counter_id', ''),
         'counter_domain' => (string) $getSetting('counter_domain', ''),
+        'counter_time_zone' => (string) $getSetting('counter_time_zone', ''),
         'attribution_model' => (string) ($getSetting('attribution_model', YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL)
             ?: YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL),
         'data_mode' => (string) ($getSetting('data_mode', YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE)
@@ -535,6 +536,7 @@
         selectCounter(option) {
             this.settings.counter_id = String(option.value);
             this.settings.counter_domain = option.domain || '';
+            this.settings.counter_time_zone = option.time_zone_name || '';
             this.counterSelectOpen = false;
         },
 
@@ -690,6 +692,7 @@
             this.settings.oauth_yandex_avatar_url = '';
             this.settings.counter_id = '';
             this.settings.counter_domain = '';
+            this.settings.counter_time_zone = '';
             this.oauthAvatarFailed = false;
             this.counterOptions = [];
             this.countersError = null;
@@ -710,6 +713,7 @@
             this.settings.oauth_token = '';
             this.settings.counter_id = '';
             this.settings.counter_domain = '';
+            this.settings.counter_time_zone = '';
             this.settings.refresh_token = '';
             this.settings.token_expires_at = '';
             this.settings.oauth_yandex_user_id = '';
@@ -808,6 +812,7 @@
             this.oauthAvatarFailed = false;
             this.settings.counter_id = '';
             this.settings.counter_domain = '';
+            this.settings.counter_time_zone = '';
             this.settings.is_enabled = true;
             this.settings.sync_enabled_at = oauthSettings.sync_enabled_at || this.todayIso();
             this.oauthError = null;
@@ -892,6 +897,14 @@
                     ) {
                         this.settings.counter_id = '';
                         this.settings.counter_domain = '';
+                        this.settings.counter_time_zone = '';
+                    } else if (this.settings.counter_id) {
+                        const selected = this.counterOptions.find(
+                            o => String(o.value) === String(this.settings.counter_id)
+                        );
+                        if (selected?.time_zone_name) {
+                            this.settings.counter_time_zone = selected.time_zone_name;
+                        }
                     }
                 }
             } catch (e) {
@@ -941,6 +954,15 @@
 >
     <x-panel.scroll-panel style="max-height: 500px">
     <x-form.form class="lg:min-w-[580px]">
+        <div class="border-primary mb-4 break-words rounded-lg border bg-blue-50 p-4 text-sm text-primary-text">
+            Чтобы цифры в Касини совпадали с интерфейсом Яндекс Метрики, проверьте, чтобы в
+            <a
+                class="text-primary underline"
+                href="{{ route('system-settings.agency.default') }}"
+            >настройках агентства</a>
+            поле «Основной часовой пояс агентства» совпадало с часовым поясом счётчика в Яндекс Метрике.
+        </div>
+
         @unless ($platformConfigured)
             <p class="text-warning-red mb-4 text-sm">
                 Интеграция Яндекс Метрики не настроена на сервере. Обратитесь к администратору.

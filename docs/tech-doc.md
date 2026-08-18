@@ -313,6 +313,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `oauth_yandex_*` | профиль Яндекс ID | — |
 | `sync_enabled_at` | дата включения синхронизации | — |
 | `counter_id` / `counter_domain` | выбранный счётчик | — |
+| `counter_time_zone` | IANA-пояс счётчика (`time_zone_name` из Management API) | — |
 | `attribution_model` | значение из справочника `AttributionModel` (в API — `trim`) | `automatic` |
 | `data_mode` | `without_robots` / `with_robots` | `without_robots` |
 | `filters.entry_page` | текст фильтра страницы входа (`!` = исключение) | `null` |
@@ -341,6 +342,14 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 Пример страницы входа `catalog` + `store` + `!*promo*`:
 
 `(ym:s:startURL=@'catalog' OR ym:s:startURL=@'store') AND ym:s:startURL!*'*promo*'`
+
+### Часовой пояс в запросах к API
+
+Callibri отдаёт каждое обращение с временем в UTC — Касини переводит его в пояс агентства и решает, в какой день оно попало. Reporting API Метрики считает сразу по календарным дням (`date1` / `date2`). Если не передать `timezone`, Метрика берёт **пояс счётчика** (часто Москва), и сутки в Касини могут разъехаться с интерфейсом Метрики.
+
+Поэтому [`YandexMetrikaService`](app/Services/YandexMetrikaService.php) передаёт параметр `timezone` (`±hh:mm` из пояса агентства) **только если** смещение агентства отличается от пояса счётчика (`counter_time_zone`). Если пояса совпадают (например оба Екатеринбург `+05:00`) или пояс счётчика ещё не сохранён — параметр не шлём, API сам берёт пояс счётчика. Плюс в query кодируется как `%2B` (`PHP_QUERY_RFC3986`), иначе `+05:00` превратится в пробел.
+
+Чтобы цифры совпали с интерфейсом Метрики, пояс агентства должен совпадать с поясом счётчика — об этом напоминает синий блок в модалке (как у Callibri).
 
 Ночной съём семи отчётов из пункта 6 — отдельный этап.
 
