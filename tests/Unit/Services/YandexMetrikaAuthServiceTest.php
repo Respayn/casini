@@ -44,6 +44,15 @@ class YandexMetrikaAuthServiceTest extends TestCase
         $this->assertSame('without_robots', $data->dataMode);
         $this->assertNull($data->filters['entry_page']);
         $this->assertFalse($data->reports['goals_search_engines']);
+        $this->assertSame([], $data->goals);
+        $this->assertSame('target_visits', $data->goalsMetric);
+
+        $withGoals = YandexMetrikaIntegrationSettingsData::fromSettings(collect([
+            'goals' => ['111', 0, 222, 222],
+            'goals_metric' => 'goal_reaches',
+        ]));
+        $this->assertSame([111, 222], $withGoals->goals);
+        $this->assertSame('goal_reaches', $withGoals->goalsMetric);
         $this->assertNull($data->encryptedOauthToken);
     }
 }

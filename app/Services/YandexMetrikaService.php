@@ -8,6 +8,7 @@ use App\Data\YandexMetrika\GoalDTO;
 use App\Data\YandexMetrika\VisitReportDTO;
 use App\Factories\YandexMetrikaClientFactory;
 use App\Models\Agency;
+use App\Support\YandexMetrikaSearchEngine;
 use App\Support\YandexMetrikaTimezone;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -17,7 +18,7 @@ use Src\Domain\YandexMetrika\YandexMetrikaFiltersBuilder;
 
 class YandexMetrikaService
 {
-    private readonly YandexMetrikaClientInterface $client;
+    private ?YandexMetrikaClientInterface $client = null;
 
     public function __construct(
         private readonly YandexMetrikaClientFactory $clientFactory,
@@ -34,7 +35,7 @@ class YandexMetrikaService
 
     private function getClient(): YandexMetrikaClientInterface
     {
-        if (!isset($this->client)) {
+        if ($this->client === null) {
             throw new \RuntimeException('YandexMetrikaClient not initialized. Call setupClient() first.');
         }
         return $this->client;
@@ -152,6 +153,127 @@ class YandexMetrikaService
     }
 
     /**
+     * @return list<array{id: int, name: string}>
+     */
+    public function listGoalOptions(): array
+    {
+        $response = $this->getClient()->getGoals();
+        $options = [];
+
+        foreach ($response['goals'] ?? [] as $goal) {
+            $id = (int) ($goal['id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+
+            $options[] = [
+                'id' => $id,
+                'name' => (string) ($goal['name'] ?? ('Цель '.$id)),
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function countSearchEnginesGoalsForDate(array $settings, Carbon $date): int
+    {
+        $this->setupClientFromSettings($settings);
+
+        $rows = $this->fetchSearchEnginesGoalsStats(
+            $date,
+            $date,
+            YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []),
+            YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($settings['goals_metric'] ?? null),
+            is_array($settings['filters'] ?? null) ? $settings['filters'] : null,
+            (string) ($settings['data_mode'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE),
+            (string) ($settings['attribution_model'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL),
+            null,
+            filled($settings['counter_time_zone'] ?? null) ? (string) $settings['counter_time_zone'] : null
+        );
+
+        return array_sum(array_column($rows, 'value'));
+    }
+
+    /**
+     * @param  list<int|string>  $goalIds
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     * @return list<array{search_engine: string, month: string, value: int}>
+     */
+    public function fetchSearchEnginesGoalsStats(
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        array $goalIds,
+        string $goalsMetric = YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_METRIC,
+        ?array $filters = null,
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        string $attributionModel = YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL,
+        ?string $timezone = null,
+        ?string $counterTimezone = null
+    ): array {
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        $normalizedGoalIds = YandexMetrikaIntegrationSettingsData::normalizeGoalIds($goalIds);
+        if ($normalizedGoalIds === []) {
+            throw new \InvalidArgumentException('Выберите хотя бы одну цель');
+        }
+
+        $metricName = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($goalsMetric) === YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
+            ? 'reaches'
+            : 'visits';
+        $metrics = implode(',', array_map(
+            fn (int $id) => 'ym:s:goal'.$id.$metricName,
+            $normalizedGoalIds
+        ));
+
+        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        $dimensions = $includeMonth
+            ? 'ym:s:searchEngine,ym:s:month'
+            : 'ym:s:searchEngine';
+
+        try {
+            $params = $this->applyReportFilters([
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => $metrics,
+                'dimensions' => $dimensions,
+                'limit' => 10000,
+            ], $filters, $dataMode);
+            $params = $this->applyReportAttribution($params, $attributionModel);
+            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+
+            $response = $this->getClient()->getVisitsReport($params);
+
+            return $this->aggregateSearchEnginesGoalRows($response, $dateFrom, $includeMonth);
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+                'goals' => $normalizedGoalIds,
+            ]);
+            throw new \Exception('Failed to get search engines goals report', 0, $e);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function setupClientFromSettings(array $settings): void
+    {
+        $token = trim((string) ($settings['oauth_token'] ?? ''));
+        $login = trim((string) ($settings['oauth_yandex_login'] ?? ''));
+        $counterId = (int) ($settings['counter_id'] ?? 0);
+
+        $this->setupClient($token, $login, $counterId > 0 ? $counterId : null);
+    }
+
+    /**
      * @param array<string, mixed> $params
      * @param array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null $filters
      * @return array<string, mixed>
@@ -211,6 +333,79 @@ class YandexMetrikaService
         }
 
         return (string) config('app.timezone', 'UTC');
+    }
+
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    private function applyReportAttribution(array $params, string $attributionModel): array
+    {
+        $attribution = trim($attributionModel);
+        if ($attribution !== '') {
+            $params['attribution'] = $attribution;
+        }
+
+        return $params;
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     * @return list<array{search_engine: string, month: string, value: int}>
+     */
+    private function aggregateSearchEnginesGoalRows(array $response, Carbon $fallbackDate, bool $includeMonth): array
+    {
+        $aggregated = [];
+
+        foreach ($response['data'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+            $engineName = is_array($dimensions[0] ?? null)
+                ? (string) ($dimensions[0]['name'] ?? '')
+                : '';
+            $monthName = $includeMonth && is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? '')
+                : '';
+            $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
+            $value = (int) round(array_sum(array_map('floatval', $metrics)));
+
+            $engine = YandexMetrikaSearchEngine::normalize($engineName);
+            $month = $this->parseMonthDimension($monthName, $fallbackDate);
+            $key = $engine.'|'.$month;
+
+            if (! isset($aggregated[$key])) {
+                $aggregated[$key] = [
+                    'search_engine' => $engine,
+                    'month' => $month,
+                    'value' => 0,
+                ];
+            }
+
+            $aggregated[$key]['value'] += $value;
+        }
+
+        return array_values($aggregated);
+    }
+
+    private function parseMonthDimension(string $value, Carbon $fallback): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return $fallback->copy()->startOfMonth()->format('Y-m-d');
+        }
+
+        try {
+            if (preg_match('/^\d{4}-\d{2}$/', $value) === 1) {
+                return $value.'-01';
+            }
+
+            return Carbon::parse($value)->startOfMonth()->format('Y-m-d');
+        } catch (\Throwable) {
+            return $fallback->copy()->startOfMonth()->format('Y-m-d');
+        }
     }
 
     /**

@@ -7,6 +7,7 @@ use App\Models\YandexMetrikaGoalUtm as EloquentYandexMetrikaGoalUtm;
 use App\Models\YandexMetrikaSearchEnginesStats as EloquentYandexMetrikaSearchEnginesStats;
 use App\Models\YandexMetrikaVisitsGeo as EloquentYandexMetrikaVisitsGeo;
 use App\Models\YandexMetrikaVisitsSearchQueries as EloquentYandexMetrikaVisitsSearchQueries;
+use Carbon\Carbon;
 use Src\Domain\ValueObjects\DateTimeRange;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalConversion;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
@@ -120,6 +121,35 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         return $query->get()
             ->map(fn(EloquentYandexMetrikaVisitsSearchQueries $model) => $this->mapVisitsSearchQueriesToEntity($model))
             ->toArray();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function upsertSearchEnginesConversions(int $projectId, string $searchEngine, string $month, int $conversions): void
+    {
+        $monthKey = Carbon::parse($month)->startOfMonth()->format('Y-m-d');
+
+        $existing = EloquentYandexMetrikaSearchEnginesStats::query()
+            ->where('project_id', $projectId)
+            ->where('search_engine', $searchEngine)
+            ->where('month', $monthKey)
+            ->first();
+
+        if ($existing !== null) {
+            $existing->conversions = $conversions;
+            $existing->save();
+
+            return;
+        }
+
+        EloquentYandexMetrikaSearchEnginesStats::query()->create([
+            'project_id' => $projectId,
+            'search_engine' => $searchEngine,
+            'month' => $monthKey,
+            'visits' => 0,
+            'conversions' => $conversions,
+        ]);
     }
 
     private function mapSearchEnginesStatsToEntity(EloquentYandexMetrikaSearchEnginesStats $stats): YandexMetrikaSearchEnginesStats

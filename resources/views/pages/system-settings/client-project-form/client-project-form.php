@@ -1,6 +1,7 @@
 <?php
 
 use App\Data\BonusData;
+use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Data\Integrations\IntegrationData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
@@ -27,6 +28,7 @@ use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
 use App\Services\YandexDirectService;
+use App\Services\YandexMetrikaService;
 use App\Services\YandexSearchApiPhraseParser;
 use App\Support\ClientsAndProjectsPermissions;
 use App\Models\Project;
@@ -583,6 +585,29 @@ class extends Component
             }
         }
 
+        if ($integration?->code === 'yandex_metrika') {
+            $reports = is_array($projectIntegrationData->settings['reports'] ?? null)
+                ? $projectIntegrationData->settings['reports']
+                : [];
+
+            if ($reports['goals_search_engines'] ?? false) {
+                $goals = YandexMetrikaIntegrationSettingsData::normalizeGoalIds(
+                    $projectIntegrationData->settings['goals'] ?? []
+                );
+
+                if ($goals === []) {
+                    throw ValidationException::withMessages([
+                        'goals' => 'Выберите хотя бы одну цель',
+                    ]);
+                }
+
+                $projectIntegrationData->settings['goals'] = $goals;
+                $projectIntegrationData->settings['goals_metric'] = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric(
+                    $projectIntegrationData->settings['goals_metric'] ?? null
+                );
+            }
+        }
+
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
         // Пересоздаём коллекцию, чтобы Livewire точно увидел изменение для UI схем.
         $this->integrationSettings = $this->integrationSettings->mapWithKeys(
@@ -662,6 +687,52 @@ class extends Component
             return ['error' => 'Ошибка API Callibri. Проверьте настройки интеграции.'];
         } catch (\Throwable $e) {
             return ['error' => 'Не удалось проверить интеграцию.'];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaGoalsSearchEnginesIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_search_engines'] ?? false)) {
+            return ['error' => 'Включите отчёт «Достижение целей из отчета Поисковые системы»'];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []) === []) {
+            return ['error' => 'Выберите хотя бы одну цель'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countSearchEnginesGoalsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
         }
     }
 

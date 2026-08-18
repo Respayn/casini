@@ -65,8 +65,16 @@
     ];
     $exclusiveGoalSourceTooltip = 'Может быть выбран только один источник достижения целей';
     $seoOnlyVisitTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
+    $contextOnlyGoalReportKeys = [
+        'goals_search_engines',
+    ];
+    $contextOnlyTooltip = 'Доступен только для клиенто-проектов с типом Контекстная реклама';
+    $goalsMetricOptions = [
+        ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_TARGET_VISITS, 'label' => 'Целевые визиты'],
+        ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES, 'label' => 'Достижения цели'],
+    ];
     $reportOptions = [
-        ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true],
+        ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true, 'context_only' => true],
         ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки', 'exclusive_goal_source' => true],
         ['key' => 'goals_conversions', 'label' => 'Достижение целей из отчета Конверсии', 'exclusive_goal_source' => true],
         ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка', 'exclusive_goal_source' => true],
@@ -74,6 +82,8 @@
         ['key' => 'visits_search_queries', 'label' => 'Переходы из отчета Поисковые запросы', 'seo_only' => true],
         ['key' => 'visits_geo', 'label' => 'Переходы из отчета География'],
     ];
+    $primaryReportOption = $reportOptions[0];
+    $otherReportOptions = array_slice($reportOptions, 1);
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -96,6 +106,11 @@
     ];
 
     $filterTooltip = "Настройте условия фильтрации в отчетах: знак \"!\" перед условием означает отрицание (НЕ).\nУсловия И/ИЛИ проставляются автоматически.\nУтвердительные фильтры (без \"!\") идут с ИЛИ. Пример - Страница входа catalog ИЛИ store\nОтрицательные фильтры (с \"!\") идут с И. Каждое новое условие с новой строки";
+
+    $savedGoals = $getSetting('goals', []);
+    if (! is_array($savedGoals)) {
+        $savedGoals = [];
+    }
 
     $metrikaSettings = [
         'is_enabled' => $projectIntegration->isEnabled ?? false,
@@ -123,6 +138,11 @@
             YandexMetrikaIntegrationSettingsData::DEFAULT_REPORTS,
             array_map(fn ($value) => (bool) $value, $savedReports)
         ),
+        'goals' => YandexMetrikaIntegrationSettingsData::normalizeGoalIds($savedGoals),
+        'goals_metric' => YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($getSetting(
+            'goals_metric',
+            YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_METRIC
+        )),
     ];
 @endphp
 
@@ -135,12 +155,22 @@
         settings: {{ Js::from($metrikaSettings) }},
         attributionOptions: {{ Js::from($attributionOptions) }},
         dataModeOptions: {{ Js::from($dataModeOptions) }},
+        goalsMetricOptions: {{ Js::from($goalsMetricOptions) }},
         counterOptions: [],
         counterSelectOpen: false,
         attributionSelectOpen: false,
         dataModeSelectOpen: false,
+        goalsMetricSelectOpen: false,
         countersLoading: false,
         countersError: null,
+        goalOptions: [],
+        goalsLoading: false,
+        goalsError: null,
+        testPanelOpen: false,
+        testDate: '',
+        testCount: null,
+        testLoading: false,
+        testError: null,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -162,9 +192,12 @@
         },
         exclusiveGoalReportKeys: {{ Js::from($exclusiveGoalReportKeys) }},
         seoOnlyVisitReportKeys: {{ Js::from($seoOnlyVisitReportKeys) }},
+        contextOnlyGoalReportKeys: {{ Js::from($contextOnlyGoalReportKeys) }},
         seoPromotionType: {{ Js::from(ProjectType::SEO_PROMOTION->value) }},
+        contextAdType: {{ Js::from(ProjectType::CONTEXT_AD->value) }},
         exclusiveGoalSourceTooltip: {{ Js::from($exclusiveGoalSourceTooltip) }},
         seoOnlyVisitTooltip: {{ Js::from($seoOnlyVisitTooltip) }},
+        contextOnlyTooltip: {{ Js::from($contextOnlyTooltip) }},
         reportTooltipKey: null,
 
         currentProjectType() {
@@ -175,9 +208,17 @@
             return this.currentProjectType() === this.seoPromotionType;
         },
 
+        isContextAd() {
+            return this.currentProjectType() === this.contextAdType;
+        },
+
         reportDisabledReason(key) {
             if (this.seoOnlyVisitReportKeys.includes(key) && !this.isSeoPromotion()) {
                 return this.seoOnlyVisitTooltip;
+            }
+
+            if (this.contextOnlyGoalReportKeys.includes(key) && !this.isContextAd()) {
+                return this.contextOnlyTooltip;
             }
 
             if (
@@ -221,6 +262,16 @@
             });
         },
 
+        normalizeContextOnlyGoalReports() {
+            if (this.isContextAd()) {
+                return;
+            }
+
+            this.contextOnlyGoalReportKeys.forEach((key) => {
+                this.settings.reports[key] = false;
+            });
+        },
+
         persistOAuthPending() {
             if (!this.oauthCacheDataId) {
                 return;
@@ -245,12 +296,38 @@
         init() {
             this.normalizeExclusiveGoalReports();
             this.normalizeSeoOnlyVisitReports();
+            this.normalizeContextOnlyGoalReports();
 
             if (this.$wire && typeof this.$wire.$watch === 'function') {
                 this.$wire.$watch('clientProjectForm.projectType', () => {
                     this.normalizeSeoOnlyVisitReports();
+                    this.normalizeContextOnlyGoalReports();
                 });
             }
+
+            this.$watch('settings.reports.goals_search_engines', (enabled) => {
+                if (enabled) {
+                    this.loadGoals();
+                    return;
+                }
+
+                this.testPanelOpen = false;
+                this.testDate = '';
+                this.testCount = null;
+                this.testError = null;
+            });
+
+            this.$watch('testDate', (value) => {
+                if (this.testPanelOpen && value) {
+                    this.runTest();
+                }
+            });
+
+            this.$watch('settings.counter_id', () => {
+                if (this.settings.reports.goals_search_engines) {
+                    this.loadGoals();
+                }
+            });
 
             this.$watch('settings.is_enabled', (enabled) => {
                 if (!enabled) {
@@ -409,6 +486,12 @@
                 return false;
             }
 
+            if (this.settings.reports?.goals_search_engines) {
+                if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
+                    return false;
+                }
+            }
+
             return Object.values(this.settings.reports || {}).some(Boolean);
         },
 
@@ -525,6 +608,14 @@
             return option ? option.label : 'Выберите значение';
         },
 
+        goalsMetricSelectLabel() {
+            const option = this.goalsMetricOptions.find(
+                o => String(o.value) === String(this.settings.goals_metric)
+            );
+
+            return option ? option.label : 'Выберите значение';
+        },
+
         toggleCounterSelect() {
             if (this.counterSelectDisabled) {
                 return;
@@ -548,6 +639,29 @@
         selectDataMode(value) {
             this.settings.data_mode = String(value);
             this.dataModeSelectOpen = false;
+        },
+
+        selectGoalsMetric(value) {
+            this.settings.goals_metric = String(value);
+            this.goalsMetricSelectOpen = false;
+        },
+
+        isGoalSelected(id) {
+            return (this.settings.goals || []).some(goalId => Number(goalId) === Number(id));
+        },
+
+        toggleGoal(id) {
+            const value = Number(id);
+            if (!Array.isArray(this.settings.goals)) {
+                this.settings.goals = [];
+            }
+
+            const index = this.settings.goals.findIndex(goalId => Number(goalId) === value);
+            if (index === -1) {
+                this.settings.goals.push(value);
+            } else {
+                this.settings.goals.splice(index, 1);
+            }
         },
 
         showFilter(key) {
@@ -913,6 +1027,92 @@
             }
 
             this.countersLoading = false;
+
+            if (this.settings.reports.goals_search_engines) {
+                this.loadGoals();
+            }
+        },
+
+        async loadGoals() {
+            if (!this.settings.oauth_token || !this.settings.counter_id) {
+                this.goalOptions = [];
+                return;
+            }
+
+            this.goalsLoading = true;
+            this.goalsError = null;
+
+            try {
+                const result = await $wire.loadYandexMetrikaGoals(
+                    this.settings.oauth_token,
+                    Number(this.settings.counter_id),
+                    this.settings.oauth_yandex_login || ''
+                );
+
+                if (result.error) {
+                    this.goalsError = result.error;
+                    this.goalOptions = [];
+                } else {
+                    this.goalOptions = result.goals ?? [];
+                    const validIds = this.goalOptions.map(goal => Number(goal.id));
+                    this.settings.goals = (this.settings.goals || [])
+                        .map(Number)
+                        .filter(id => validIds.includes(id));
+                }
+            } catch (e) {
+                this.goalsError = 'Не удалось загрузить цели Яндекс Метрики';
+                this.goalOptions = [];
+            }
+
+            this.goalsLoading = false;
+        },
+
+        toggleTestPanel() {
+            this.testPanelOpen = !this.testPanelOpen;
+
+            if (!this.testPanelOpen) {
+                return;
+            }
+
+            if (this.testDate) {
+                this.runTest();
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.metrikaTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
+        async runTest() {
+            if (!this.testDate) {
+                this.testError = 'Укажите дату';
+                return;
+            }
+
+            if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
+                this.testError = 'Выберите хотя бы одну цель';
+                return;
+            }
+
+            this.testLoading = true;
+            this.testError = null;
+            this.testCount = null;
+
+            const result = await $wire.testYandexMetrikaGoalsSearchEnginesIntegration(this.settings, this.testDate);
+
+            if (result.error) {
+                this.testError = result.error;
+            } else {
+                this.testCount = result.count;
+            }
+
+            this.testLoading = false;
         },
 
         save() {
@@ -921,6 +1121,7 @@
             }
 
             const payload = { ...this.settings };
+            payload.goals = (this.settings.goals || []).map(Number).filter(id => id > 0);
             payload.filters = {
                 entry_page: this.shownFilters.entry_page && this.settings.filters.entry_page.trim() !== ''
                     ? this.settings.filters.entry_page
@@ -1231,27 +1432,186 @@
             </div>
         </x-form.form-field>
 
+        @php
+            $reportKey = $primaryReportOption['key'];
+        @endphp
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline" required>
+                Какие отчеты нужно подтянуть из Яндекс Метрики?
+            </x-form.form-label>
+            <div class="w-[305px]">
+                <label
+                    class="flex items-center justify-between gap-2 text-sm"
+                    x-ref="goalReport_{{ $reportKey }}"
+                    x-bind:class="isReportDisabled('{{ $reportKey }}') && 'cursor-not-allowed text-secondary-text'"
+                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $reportKey }}') ? '{{ $reportKey }}' : null"
+                    x-on:mouseleave="reportTooltipKey = null"
+                >
+                    <span>{{ $primaryReportOption['label'] }}</span>
+                    <x-form.checkbox
+                        x-model="settings.reports.{{ $reportKey }}"
+                        x-bind:disabled="isReportDisabled('{{ $reportKey }}')"
+                    />
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="reportTooltipKey === '{{ $reportKey }}'"
+                            x-cloak
+                            x-anchor.bottom="$refs.goalReport_{{ $reportKey }}"
+                            x-text="reportDisabledReason('{{ $reportKey }}')"
+                        ></div>
+                    </template>
+                </label>
+            </div>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-2"
+            x-show="settings.reports.goals_search_engines"
+            x-cloak
+        >
+            <x-form.form-label required>
+                Выберите цели, по которым хотите получать статистику
+            </x-form.form-label>
+            <div>
+                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
+                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
+                <p
+                    class="text-secondary-text text-sm"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
+                    x-cloak
+                >У счётчика нет целей</p>
+                <div
+                    class="border-input-border max-h-40 overflow-y-auto rounded-[5px] border px-3"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
+                    x-cloak
+                >
+                    <template x-for="goal in goalOptions" :key="goal.id">
+                        <label
+                            class="flex min-h-[40px] cursor-pointer items-center gap-2 text-sm"
+                            x-on:click.prevent="toggleGoal(goal.id)"
+                        >
+                            <x-form.checkbox
+                                x-bind:checked="isGoalSelected(goal.id)"
+                            />
+                            <span class="min-w-0">
+                                <span x-text="goal.name"></span>
+                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
+                            </span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <x-form.form-field x-show="settings.reports.goals_search_engines" x-cloak>
+            <x-form.form-label class="self-baseline">
+                По какому параметру рассчитываем достижение целей?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="goalsMetricSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
+                                'rounded-[5px]': !goalsMetricSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="goalsMetricSelectOpen"
+                        x-anchor.no-style="$refs.goalsMetricSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="goalsMetricSelectOpen = false"
+                    >
+                        <template x-for="option in goalsMetricOptions" :key="option.value">
+                            <div
+                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                x-on:click="selectGoalsMetric(option.value)"
+                                x-text="option.label"
+                            ></div>
+                        </template>
+                    </div>
+                </div>
+                <x-button.button
+                    class="self-start"
+                    type="button"
+                    variant="action"
+                    wrap
+                    label="Проверить работу интеграции"
+                    x-on:click="toggleTestPanel()"
+                    x-bind:aria-expanded="testPanelOpen"
+                />
+            </div>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-3"
+            x-ref="metrikaTestPanel"
+            x-show="settings.reports.goals_search_engines && testPanelOpen"
+            x-cloak
+        >
+            <x-form.form-field>
+                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Поисковые системы в Яндекс Метрике">
+                    Выберите дату
+                </x-form.form-label>
+                <div class="w-[305px]">
+                    <x-form.date-picker
+                        class="w-full"
+                        placeholder="ДД.ММ.ГГ"
+                        x-model="testDate"
+                    ></x-form.date-picker>
+                </div>
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <x-form.form-label tooltip="Сумма достижений выбранных целей за выбранную дату">
+                    Количество достижений цели
+                </x-form.form-label>
+                <div class="w-[305px]">
+                    <x-form.input-text
+                        disabled
+                        x-bind:value="testCount === null ? '' : String(testCount)"
+                    />
+                    <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
+                </div>
+            </x-form.form-field>
+        </div>
+
         <x-form.form-field>
             <x-form.form-label class="self-baseline" required>
                 Какие отчеты нужно подтянуть из Яндекс Метрики?
             </x-form.form-label>
             <div class="flex w-[305px] flex-col gap-3">
-                @foreach ($reportOptions as $reportOption)
+                @foreach ($otherReportOptions as $reportOption)
                     @php
                         $reportKey = $reportOption['key'];
                     @endphp
                     <label
-                        class="flex items-center gap-2 text-sm"
+                        class="flex items-center justify-between gap-2 text-sm"
                         x-ref="goalReport_{{ $reportKey }}"
                         x-bind:class="isReportDisabled('{{ $reportKey }}') && 'cursor-not-allowed text-secondary-text'"
                         x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $reportKey }}') ? '{{ $reportKey }}' : null"
                         x-on:mouseleave="reportTooltipKey = null"
                     >
+                        <span>{{ $reportOption['label'] }}</span>
                         <x-form.checkbox
                             x-model="settings.reports.{{ $reportKey }}"
                             x-bind:disabled="isReportDisabled('{{ $reportKey }}')"
                         />
-                        {{ $reportOption['label'] }}
                         <template x-teleport="body">
                             <div
                                 class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"

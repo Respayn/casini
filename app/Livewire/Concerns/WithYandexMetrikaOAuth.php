@@ -4,6 +4,7 @@ namespace App\Livewire\Concerns;
 
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Services\YandexMetrikaAuthService;
+use App\Services\YandexMetrikaService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
@@ -283,6 +284,33 @@ trait WithYandexMetrikaOAuth
             report($e);
 
             return ['error' => 'Не удалось загрузить счётчики Яндекс Метрики'];
+        }
+    }
+
+    /**
+     * @return array{goals?: list<array{id: int, name: string}>, error?: string}
+     */
+    public function loadYandexMetrikaGoals(string $oauthToken, int $counterId, string $clientLogin = ''): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim($oauthToken) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ($counterId <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        try {
+            $service = app(YandexMetrikaService::class);
+            $service->setupClient($oauthToken, $clientLogin, $counterId);
+
+            return ['goals' => $service->listGoalOptions()];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить цели Яндекс Метрики'];
         }
     }
 

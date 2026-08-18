@@ -50,4 +50,9 @@ interface YandexMetrikaRepositoryInterface
      * @return YandexMetrikaVisitsSearchQueries[]
      */
     public function getVisitsSearchQueriesStats(int $projectId, DateTimeRange $period): array;
+
+    /**
+     * Сохраняет конверсии из отчёта «Поисковые системы», не затирая визиты.
+     */
+    public function upsertSearchEnginesConversions(int $projectId, string $searchEngine, string $month, int $conversions): void;
 }

@@ -11,6 +11,12 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 
     public const DEFAULT_ATTRIBUTION_MODEL = 'automatic';
 
+    public const GOALS_METRIC_TARGET_VISITS = 'target_visits';
+
+    public const GOALS_METRIC_GOAL_REACHES = 'goal_reaches';
+
+    public const DEFAULT_GOALS_METRIC = self::GOALS_METRIC_TARGET_VISITS;
+
     /**
      * @var array<string, bool>
      */
@@ -36,7 +42,12 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 
     public ?string $tokenExpiresAt = null;
 
+    /**
+     * @var list<int>
+     */
     public array $goals = [];
+
+    public string $goalsMetric = self::DEFAULT_GOALS_METRIC;
 
     public string $attributionModel = self::DEFAULT_ATTRIBUTION_MODEL;
 
@@ -72,7 +83,8 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         $data->encryptedOauthToken = filled($oauthToken) ? Crypt::encryptString((string) $oauthToken) : null;
         $data->encryptedRefreshToken = filled($refreshToken) ? Crypt::encryptString((string) $refreshToken) : null;
         $data->tokenExpiresAt = $settings->get('token_expires_at');
-        $data->goals = $settings->get('goals', []);
+        $data->goals = self::normalizeGoalIds($settings->get('goals', []));
+        $data->goalsMetric = self::normalizeGoalsMetric($settings->get('goals_metric'));
         $data->attributionModel = (string) $settings->get('attribution_model', self::DEFAULT_ATTRIBUTION_MODEL);
         $data->dataMode = (string) $settings->get('data_mode', self::DEFAULT_DATA_MODE);
         $data->filters = array_merge(
@@ -90,6 +102,35 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         );
 
         return $data;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public static function normalizeGoalIds(mixed $goals): array
+    {
+        if (! is_array($goals)) {
+            return [];
+        }
+
+        $ids = [];
+        foreach ($goals as $goal) {
+            $id = (int) $goal;
+            if ($id > 0) {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
+
+    public static function normalizeGoalsMetric(mixed $metric): string
+    {
+        $value = trim((string) $metric);
+
+        return in_array($value, [self::GOALS_METRIC_TARGET_VISITS, self::GOALS_METRIC_GOAL_REACHES], true)
+            ? $value
+            : self::DEFAULT_GOALS_METRIC;
     }
 
     public function getDecryptedOauthToken(): string

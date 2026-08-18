@@ -111,7 +111,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 - Список фильтруется `ClientListVisibilityFilter` (self: менеджер клиента / specialist проекта; all: всё).
 - Создание и сохранение клиента/проекта — `ensureUserCanEdit` (edit|full self|all).
 - Открытие существующего проекта — `ClientProjectAccessPolicy` (all или self с привязкой).
-- **Форма клиенто-проекта (read-only):** при `read` без `edit|full` форма открывается на просмотр — все поля, toggles, кнопки и интеграции disabled + тултип `permissions.denied` (`x-permissions.field-guard`). Кнопка «Сохранить» disabled. Серверная защита: `ensureCanEdit()` на всех публичных мутациях (`save`, `addRegion`, `removeRegion`, `addTopic`, `removeTopic`, `addInterval`, `removeInterval`, `addMapping`, `removeMapping`, `selectIntegration`, `setIntegrationSettings`, `removeIntegration`, `setIntegrationEnabled`, OAuth-методы, `loadCallibriProjects`, `testCallibriIntegration`, `parsePhrasesFromDocx`). Модалки интеграций (Callibri, Яндекс.Директ, Search API) также заблокированы через Alpine `canEdit` + серверный guard. Восстановление OAuth state из cache при mount пропускается для read-only.
+- **Форма клиенто-проекта (read-only):** при `read` без `edit|full` форма открывается на просмотр — все поля, toggles, кнопки и интеграции disabled + тултип `permissions.denied` (`x-permissions.field-guard`). Кнопка «Сохранить» disabled. Серверная защита: `ensureCanEdit()` на всех публичных мутациях (`save`, `addRegion`, `removeRegion`, `addTopic`, `removeTopic`, `addInterval`, `removeInterval`, `addMapping`, `removeMapping`, `selectIntegration`, `setIntegrationSettings`, `removeIntegration`, `setIntegrationEnabled`, OAuth-методы, `loadCallibriProjects`, `testCallibriIntegration`, `loadYandexMetrikaGoals`, `testYandexMetrikaGoalsSearchEnginesIntegration`, `parsePhrasesFromDocx`). Модалки интеграций (Callibri, Яндекс.Директ, Search API) также заблокированы через Alpine `canEdit` + серверный guard. Восстановление OAuth state из cache при mount пропускается для read-only.
 
 ## Тестирование
 
@@ -160,9 +160,9 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 | KPI / тип | Параметры | Источники |
 |---|---|---|
 | Контекст + Traffic | CPC, бюджет, визиты | Яндекс Директ (расходы / клики) |
-| Контекст + Leads | CPL, бюджет, лиды | Директ (расходы); Callibri ЕЖЛ и/или Метрика (цели UTM) |
-| SEO + Positions | % в топ 10, конверсии | Yandex Search API; Метрика (цели «Поисковые системы») |
-| SEO + Traffic | объём визитов, конверсии | Метрика (переходы / цели «Поисковые системы») |
+| Контекст + Leads | CPL, бюджет, лиды | Директ (расходы); Callibri ЕЖЛ и/или Метрика (цели UTM; цели «Поисковые системы» — этап 3) |
+| SEO + Positions | % в топ 10, конверсии | Yandex Search API; схема в коде ещё пишет «цели Поисковые системы», в UI этот отчёт Метрики доступен только для Контекста |
+| SEO + Traffic | объём визитов, конверсии | Метрика (переходы «Поисковые системы»); цели в UI — только для Контекста |
 
 **Yandex Search API не влияет** на CPL, рекламный бюджет и лиды. Если для параметра нет подходящей интеграции — текст `Не настроено`. Длинные схемы обрезаются с `…`, полный текст в `title`.
 
@@ -278,7 +278,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 ## Интеграция Яндекс Метрики (настройки клиенто-проекта, этап 1)
 
-Модалка в карточке «Аналитика». На этапе 1 сохраняются настройки и OAuth. Разбор фильтров в параметр API — этап 2 (ниже). Ночной съём семи отчётов — отдельный этап.
+Модалка в карточке «Аналитика». На этапе 1 сохраняются настройки и OAuth. Разбор фильтров в параметр API — этап 2 (ниже). Съём отчёта «Поисковые системы / цели» — этап 3.
 
 ### Переменные окружения (OAuth)
 
@@ -319,9 +319,11 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `filters.entry_page` | текст фильтра страницы входа (`!` = исключение) | `null` |
 | `filters.last_search_phrase` | последняя значимая поисковая фраза | `null` |
 | `filters.geo` | география | `null` |
-| `reports.*` | какие отчёты подтягивать (этап 2) | все `false` |
+| `reports.*` | какие отчёты подтягивать | все `false` |
+| `goals` | ID выбранных целей счётчика | `[]` |
+| `goals_metric` | `target_visits` (Целевые визиты) или `goal_reaches` (Достижения цели) | `target_visits` |
 
-Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение».
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `context_ad` (Контекстная реклама); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом Контекстная реклама». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
 
 ### Фильтры в запросах к API (этап 2)
 
@@ -351,7 +353,41 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 Чтобы цифры совпали с интерфейсом Метрики, пояс агентства должен совпадать с поясом счётчика — об этом напоминает синий блок в модалке (как у Callibri).
 
-Ночной съём семи отчётов из пункта 6 — отдельный этап.
+## Интеграция Яндекс Метрики (этап 3: цели «Поисковые системы»)
+
+Первый отчёт этапа 3. Остальные шесть отчётов добавляются позже по тому же шаблону.
+
+### UI
+
+Если выбран `goals_search_engines` (и тип проекта — Контекстная реклама):
+
+Поля этапа 3 вставляются сразу после первого отчёта, остальные шесть отчётов идут ниже. Чекбоксы отчётов справа от названия.
+
+1. «Выберите цели, по которым хотите получать статистику» — чекбоксы `{название} (№{номер})` в рамке, видно 4 строки, остальные за скроллом. Список грузит Livewire `loadYandexMetrikaGoals()` (`GET management/v1/counter/{id}/goals`).
+2. «По какому параметру рассчитываем достижение целей?» — `target_visits` (Целевые визиты, по умолчанию) или `goal_reaches` (Достижения цели).
+3. Ссылка «Проверить работу интеграции» (без стрелки и без кнопки «Проверить») открывает поля: дата (`ДД.ММ.ГГ`) и disabled «Количество достижений цели». Запрос уходит при выборе даты. Livewire: `testYandexMetrikaGoalsSearchEnginesIntegration()`.
+
+Сохранить без выбранных целей нельзя (`canSave` + серверная проверка в `setIntegrationSettings`).
+
+### API
+
+[`YandexMetrikaService::fetchSearchEnginesGoalsStats()`](app/Services/YandexMetrikaService.php) запрашивает Reporting API `stat/v1/data`:
+
+- группировка: `ym:s:searchEngine` (один месяц) или `ym:s:searchEngine,ym:s:month` (несколько месяцев);
+- метрики: `ym:s:goal{ID}visits` или `ym:s:goal{ID}reaches` по выбранным целям;
+- фильтры, timezone и `attribution` (trim модели атрибуции) — как на этапе 2.
+
+Названия ПС нормализуются в `yandex` / `google` / `other` ([`YandexMetrikaSearchEngine`](app/Support/YandexMetrikaSearchEngine.php)). Проверка за день суммирует все строки.
+
+### Ночной съём
+
+Команда `metrika:sync-search-engines-goals` (расписание `03:00` в [`routes/console.php`](routes/console.php)):
+
+- проекты с включённой Метрикой, `reports.goals_search_engines`, токеном, счётчиком, целями и `sync_enabled_at`;
+- период: с начала месяца `sync_enabled_at` по сегодня;
+- запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits`.
+
+Ошибка по одному проекту не останавливает остальные.
 
 ## UI-шаблон: проверка работы интеграции
 

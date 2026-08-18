@@ -6,6 +6,7 @@ use App\Enums\AttributionModel;
 use App\Models\Agency;
 use App\Models\Integration;
 use App\Models\User;
+use App\Services\YandexMetrikaService;
 use Database\Seeders\IntegrationSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
@@ -76,16 +77,18 @@ class YandexMetrikaModalTest extends TestCase
             ->assertDispatched('modal-show')
             ->assertSee('Номер счетчика')
             ->assertSee('Сначала включите синхронизацию')
-            ->assertSee('Автоматическая атрибуция')
-            ->assertSee('Без роботов')
             ->assertSee('часовым поясом счётчика в Яндекс Метрике')
             ->assertSee('Добавить фильтр по странице входа')
             ->assertSee('Достижение целей из отчета Поисковые системы')
             ->assertSee('Достижение целей из отчета Директ, сводка')
             ->assertSee('Переходы из отчета Поисковые системы')
             ->assertSee('Переходы из отчета Поисковые запросы')
-            ->assertSee('Может быть выбран только один источник достижения целей')
-            ->assertSee('Доступен только для клиенто-проектов с типом SEO-продвижение');
+            ->assertSee('Выберите цели, по которым хотите получать статистику')
+            ->assertSee('По какому параметру рассчитываем достижение целей?')
+            ->assertSee('Проверить работу интеграции')
+            ->assertSee('Количество достижений цели')
+            ->assertSee('Выберите дату')
+            ->assertSee('ДД.ММ.ГГ');
     }
 
     #[Test]
@@ -118,6 +121,8 @@ class YandexMetrikaModalTest extends TestCase
                     'visits_search_queries' => false,
                     'visits_geo' => false,
                 ],
+                'goals' => [111, 222],
+                'goals_metric' => 'goal_reaches',
             ])
             ->assertSet("integrationSettings.{$integration->id}.isEnabled", true)
             ->assertSet("integrationSettings.{$integration->id}.settings.counter_id", 12345678)
@@ -126,7 +131,9 @@ class YandexMetrikaModalTest extends TestCase
             ->assertSet("integrationSettings.{$integration->id}.settings.data_mode", 'without_robots')
             ->assertSet("integrationSettings.{$integration->id}.settings.filters.entry_page", '!*promo*')
             ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_search_engines", true)
-            ->assertSet("integrationSettings.{$integration->id}.settings.reports.visits_search_engines", true);
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.visits_search_engines", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.goals", [111, 222])
+            ->assertSet("integrationSettings.{$integration->id}.settings.goals_metric", 'goal_reaches');
     }
 
     #[Test]
@@ -318,5 +325,75 @@ class YandexMetrikaModalTest extends TestCase
         $this->assertContains('Автоматическая атрибуция', $labels);
         $this->assertContains('Последний переход из Директа', $labels);
         $this->assertSame('last_yandex_direct_click', AttributionModel::options()[3]['value']);
+    }
+
+    #[Test]
+    public function test_set_integration_settings_requires_goals_for_search_engines_report(): void
+    {
+        $user = $this->createUserWithAgency();
+        $integration = Integration::query()->where('code', 'yandex_metrika')->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('setIntegrationSettings', $integration->id, [
+                'is_enabled' => true,
+                'oauth_token' => 'token',
+                'counter_id' => 12345678,
+                'reports' => [
+                    'goals_search_engines' => true,
+                ],
+                'goals' => [],
+            ])
+            ->assertHasErrors(['goals']);
+    }
+
+    #[Test]
+    public function test_load_yandex_metrika_goals_returns_id_and_name(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('setupClient')->once();
+            $mock->shouldReceive('listGoalOptions')->once()->andReturn([
+                ['id' => 111, 'name' => 'Заявка'],
+                ['id' => 222, 'name' => 'Звонок'],
+            ]);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('loadYandexMetrikaGoals', 'oauth-token', 12345678, 'login');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame('Заявка', $result['goals'][0]['name']);
+        $this->assertSame(222, $result['goals'][1]['id']);
+    }
+
+    #[Test]
+    public function test_yandex_metrika_goals_search_engines_test_returns_count(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('countSearchEnginesGoalsForDate')->once()->andReturn(15);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('testYandexMetrikaGoalsSearchEnginesIntegration', [
+                'oauth_token' => 'token',
+                'oauth_yandex_login' => 'login',
+                'counter_id' => 12345678,
+                'goals' => [111],
+                'goals_metric' => 'target_visits',
+                'reports' => ['goals_search_engines' => true],
+            ], '2026-08-18');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame(15, $result['count']);
     }
 }
