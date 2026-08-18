@@ -278,7 +278,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 ## Интеграция Яндекс Метрики (настройки клиенто-проекта, этап 1)
 
-Модалка в карточке «Аналитика». На этапе 1 сохраняются только настройки; отчёты из API **не** запрашиваются (это этап 2).
+Модалка в карточке «Аналитика». На этапе 1 сохраняются настройки и OAuth. Разбор фильтров в параметр API — этап 2 (ниже). Ночной съём семи отчётов — отдельный этап.
 
 ### Переменные окружения (OAuth)
 
@@ -322,7 +322,27 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение».
 
-Разбор фильтров И/ИЛИ и ночной съём отчётов — **этап 2**.
+### Фильтры в запросах к API (этап 2)
+
+Текст из модалки собирает [`YandexMetrikaFiltersBuilder`](src/Domain/YandexMetrika/YandexMetrikaFiltersBuilder.php) в параметр `filters` Reporting API. Пустое поле (или фильтр не добавляли) в запрос не попадает. [`YandexMetrikaService::getVisitsReport()`](app/Services/YandexMetrikaService.php) и `getGoalAchievements()` подставляют эту строку автоматически.
+
+Правила как в тултипе модалки: каждое условие с новой строки; `!` в начале строки — отрицание (НЕ); утверждения внутри одного поля соединяются через **ИЛИ**; отрицания — через **И**; разные поля и «Без роботов» — через **И**.
+
+| Поле | Группировка API |
+|------|-----------------|
+| `filters.entry_page` | `ym:s:startURL` |
+| `filters.last_search_phrase` | `ym:s:lastsignSearchPhrase` |
+| `filters.geo` | `ym:s:regionCityName` **или** `ym:s:regionCountryName` **или** `ym:s:regionAreaName` (чтобы сработали и город, и страна) |
+| `data_mode=without_robots` | `ym:s:isRobot=='No'` |
+| `data_mode=with_robots` | кусок про роботов не добавляется |
+
+Операторы: если в тексте есть `*` (как `!*promo*`) — шаблон `=*` / `!*`; если звёздочек нет (как `catalog`) — «содержит» `=@` / `!@`. В значении экранируются `'` и `\`.
+
+Пример страницы входа `catalog` + `store` + `!*promo*`:
+
+`(ym:s:startURL=@'catalog' OR ym:s:startURL=@'store') AND ym:s:startURL!*'*promo*'`
+
+Ночной съём семи отчётов из пункта 6 — отдельный этап.
 
 ## UI-шаблон: проверка работы интеграции
 
