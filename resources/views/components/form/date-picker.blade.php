@@ -52,7 +52,7 @@
         },
     
         selectDate(year, month, day) {
-            const selectedDate = new Date(year, month, day);
+            const selectedDate = new Date(year, month - 1, day);
             this.datepickerValue = selectedDate.getFullYear() + '-' + ('0' + (selectedDate.getMonth() + 1)).slice(-2) + '-' + ('0' + selectedDate.getDate()).slice(-2);
             this.showDatepicker = false;
         },
