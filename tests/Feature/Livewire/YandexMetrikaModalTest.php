@@ -472,4 +472,41 @@ class YandexMetrikaModalTest extends TestCase
         $this->assertIsArray($result);
         $this->assertSame(77, $result['count']);
     }
+
+    #[Test]
+    public function test_modal_shows_direct_summary_report_label(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('selectIntegration', 'yandex_metrika')
+            ->assertSee('Достижение целей из отчета Директ, сводка');
+    }
+
+    #[Test]
+    public function test_direct_summary_integration_returns_count(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('countDirectSummaryGoalsForDate')->once()->andReturn(42);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('testYandexMetrikaGoalsDirectSummaryIntegration', [
+                'oauth_token' => 'token',
+                'oauth_yandex_login' => 'login',
+                'counter_id' => 12345678,
+                'goals' => [111],
+                'goals_metric' => 'target_visits',
+                'reports' => ['goals_direct_summary' => true],
+            ], '2026-08-18');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame(42, $result['count']);
+    }
 }

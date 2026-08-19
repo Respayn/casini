@@ -69,4 +69,18 @@ interface YandexMetrikaRepositoryInterface
      * @param list<array{goal_name: string, month: string, conversions: int}> $rows
      */
     public function upsertGoalConversions(int $projectId, array $rows): void;
+
+    /**
+     * @param int $projectId
+     * @param DateTimeRange $period
+     * @return YandexMetrikaGoalDirectSummary[]
+     */
+    public function getGoalDirectSummaryStats(int $projectId, DateTimeRange $period): array;
+
+    /**
+     * Upsert строк «Директ, сводка» по unique (project_id, goal_name, month).
+     *
+     * @param list<array{goal_name: string, month: string, conversions: int}> $rows
+     */
+    public function upsertGoalDirectSummary(int $projectId, array $rows): void;
 }

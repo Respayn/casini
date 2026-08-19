@@ -191,6 +191,11 @@ class ReportDataProvider implements ReportDataProviderInterface
         $goalsConversionsTable = $this->buildGoalsConversionsTable($goalConversionsStats, $period);
         $builder->table('ym.table.goals_conversions', $goalsConversionsTable['headers'], $goalsConversionsTable['rows']);
 
+        // Yandex Metrika - Goals Direct Summary
+        $goalDirectSummaryStats = $this->yandexMetrikaRepository->getGoalDirectSummaryStats($projectId, $period);
+        $goalsDirectSummaryTable = $this->buildGoalsDirectSummaryTable($goalDirectSummaryStats, $period);
+        $builder->table('ym.table.goals_direct_summary', $goalsDirectSummaryTable['headers'], $goalsDirectSummaryTable['rows']);
+
         // Yandex Metrika - Visits from search systems (Plan/Fact)
         $visitsSearchSystemsTable = $this->buildVisitsSearchSystemsTable($projectId, $searchEnginesStats, $period);
         $builder->table('ym.table.visits_search_systems', $visitsSearchSystemsTable['headers'], $visitsSearchSystemsTable['rows']);
@@ -558,6 +563,76 @@ class ReportDataProvider implements ReportDataProviderInterface
         }
 
         // Строка "Итого"
+        $totalRow = ['Итого'];
+        foreach ($columnTotals as $total) {
+            $totalRow[] = $total;
+        }
+        $totalRow[] = $grandTotal;
+        $rows[] = $totalRow;
+
+        return [
+            'headers' => $headers,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Строит таблицу достижений целей из отчёта "Директ, сводка".
+     *
+     * @param array<\Src\Domain\YandexMetrika\YandexMetrikaGoalDirectSummary> $stats
+     * @param DateTimeRange $period
+     * @return array{headers: array<string>, rows: array<array<string|int>>}
+     */
+    private function buildGoalsDirectSummaryTable(array $stats, DateTimeRange $period): array
+    {
+        $months = [];
+        $current = $period->start->modify('first day of this month');
+        $endMonth = $period->end->modify('first day of this month');
+
+        while ($current <= $endMonth) {
+            $months[] = clone $current;
+            $current = $current->modify('+1 month');
+        }
+
+        $headers = ['Название цели'];
+        foreach ($months as $month) {
+            $headers[] = $this->formatMonthHeader($month);
+        }
+        $headers[] = 'Итого';
+
+        $data = [];
+        foreach ($stats as $item) {
+            $goalName = $item->getGoalName();
+            $monthKey = $item->getMonth()->format('Y-m-01');
+
+            if (!isset($data[$goalName])) {
+                $data[$goalName] = [];
+            }
+
+            $data[$goalName][$monthKey] = $item->getConversions();
+        }
+
+        $rows = [];
+        $columnTotals = array_fill(0, count($months), 0);
+        $grandTotal = 0;
+
+        foreach ($data as $goalName => $monthlyData) {
+            $row = [$goalName];
+            $rowTotal = 0;
+
+            foreach ($months as $month) {
+                $monthKey = $month->format('Y-m-01');
+                $value = $monthlyData[$monthKey] ?? 0;
+                $row[] = $value;
+                $rowTotal += $value;
+                $columnTotals[array_search($month, $months)] += $value;
+            }
+
+            $row[] = $rowTotal;
+            $rows[] = $row;
+            $grandTotal += $rowTotal;
+        }
+
         $totalRow = ['Итого'];
         foreach ($columnTotals as $total) {
             $totalRow[] = $total;

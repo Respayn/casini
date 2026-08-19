@@ -69,7 +69,7 @@
     $exclusiveGoalSourceTooltip = 'Может быть выбран только один источник достижения целей';
     $seoOnlyVisitTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
     $seoOnlyGoalTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
-    $contextOnlyGoalReportKeys = [];
+    $contextOnlyGoalReportKeys = ['goals_direct_summary'];
     $contextOnlyTooltip = 'Доступен только для клиенто-проектов с типом Контекстная реклама';
     $goalsMetricOptions = [
         ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_TARGET_VISITS, 'label' => 'Целевые визиты'],
@@ -79,7 +79,7 @@
         ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true, 'seo_only' => true],
         ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки', 'exclusive_goal_source' => true],
         ['key' => 'goals_conversions', 'label' => 'Достижение целей из отчета Конверсии', 'exclusive_goal_source' => true],
-        ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка', 'exclusive_goal_source' => true],
+        ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка', 'exclusive_goal_source' => true, 'context_only' => true],
         ['key' => 'visits_search_engines', 'label' => 'Переходы из отчета Поисковые системы', 'seo_only' => true],
         ['key' => 'visits_search_queries', 'label' => 'Переходы из отчета Поисковые запросы', 'seo_only' => true],
         ['key' => 'visits_geo', 'label' => 'Переходы из отчета География'],
@@ -87,7 +87,8 @@
     $primaryReportOption = $reportOptions[0];
     $utmReportOption = $reportOptions[1];
     $conversionsReportOption = $reportOptions[2];
-    $otherReportOptions = array_slice($reportOptions, 3);
+    $directSummaryReportOption = $reportOptions[3];
+    $otherReportOptions = array_slice($reportOptions, 4);
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -196,6 +197,12 @@
         conversionsTestLoading: false,
         conversionsTestError: null,
         conversionsTestDateHintOpen: false,
+        directSummaryTestPanelOpen: false,
+        directSummaryTestDate: '',
+        directSummaryTestCount: null,
+        directSummaryTestLoading: false,
+        directSummaryTestError: null,
+        directSummaryTestDateHintOpen: false,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -384,8 +391,20 @@
                 this.conversionsTestError = null;
             });
 
+            this.$watch('settings.reports.goals_direct_summary', (enabled) => {
+                if (enabled) {
+                    this.loadGoals();
+                    return;
+                }
+
+                this.directSummaryTestPanelOpen = false;
+                this.directSummaryTestDate = '';
+                this.directSummaryTestCount = null;
+                this.directSummaryTestError = null;
+            });
+
             this.$watch('settings.counter_id', () => {
-                if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions) {
+                if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions || this.settings.reports.goals_direct_summary) {
                     this.loadGoals();
                 }
             });
@@ -547,7 +566,7 @@
                 return false;
             }
 
-            if (this.settings.reports?.goals_search_engines || this.settings.reports?.goals_utm || this.settings.reports?.goals_conversions) {
+            if (this.settings.reports?.goals_search_engines || this.settings.reports?.goals_utm || this.settings.reports?.goals_conversions || this.settings.reports?.goals_direct_summary) {
                 if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
                     return false;
                 }
@@ -1283,6 +1302,50 @@
             }
 
             this.conversionsTestLoading = false;
+        },
+
+        toggleDirectSummaryTestPanel() {
+            this.directSummaryTestPanelOpen = !this.directSummaryTestPanelOpen;
+
+            if (!this.directSummaryTestPanelOpen) {
+                return;
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.metrikaDirectSummaryTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
+        async runDirectSummaryTest() {
+            if (!this.directSummaryTestDate) {
+                this.directSummaryTestError = 'Укажите дату';
+                return;
+            }
+
+            if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
+                this.directSummaryTestError = 'Выберите хотя бы одну цель';
+                return;
+            }
+
+            this.directSummaryTestLoading = true;
+            this.directSummaryTestError = null;
+            this.directSummaryTestCount = null;
+
+            const result = await $wire.testYandexMetrikaGoalsDirectSummaryIntegration(this.settings, this.directSummaryTestDate);
+
+            if (result.error) {
+                this.directSummaryTestError = result.error;
+            } else {
+                this.directSummaryTestCount = result.count;
+            }
+
+            this.directSummaryTestLoading = false;
         },
 
         save() {
@@ -2302,6 +2365,210 @@
                 <div class="w-[305px]">
                     <span class="text-sm" x-show="conversionsTestCount !== null" x-text="'Достижений цели в отчете Конверсии: ' + conversionsTestCount" x-cloak></span>
                     <p class="text-warning-red mt-1 text-xs" x-show="conversionsTestError" x-text="conversionsTestError" x-cloak></p>
+                </div>
+            </x-form.form-field>
+        </div>
+        </div>
+
+        {{-- Direct Summary report checkbox --}}
+        @php $directSummaryKey = $directSummaryReportOption['key']; @endphp
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+            </x-form.form-label>
+            <div class="w-[305px]">
+                <label
+                    class="flex items-center justify-between gap-2 text-sm"
+                    x-ref="goalReport_{{ $directSummaryKey }}"
+                    x-bind:class="isReportDisabled('{{ $directSummaryKey }}') && 'cursor-not-allowed text-secondary-text'"
+                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $directSummaryKey }}') ? '{{ $directSummaryKey }}' : null"
+                    x-on:mouseleave="reportTooltipKey = null"
+                >
+                    <span>{{ $directSummaryReportOption['label'] }}</span>
+                    <x-form.checkbox
+                        x-model="settings.reports.{{ $directSummaryKey }}"
+                        x-bind:disabled="isReportDisabled('{{ $directSummaryKey }}')"
+                    />
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="reportTooltipKey === '{{ $directSummaryKey }}'"
+                            x-cloak
+                            x-anchor.bottom="$refs.goalReport_{{ $directSummaryKey }}"
+                            x-text="reportDisabledReason('{{ $directSummaryKey }}')"
+                        ></div>
+                    </template>
+                </label>
+            </div>
+        </x-form.form-field>
+
+        {{-- Direct Summary report details border --}}
+        <div
+            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
+            x-show="settings.reports.{{ $directSummaryKey }}"
+            x-cloak
+        >
+
+        {{-- Goals list --}}
+        <div
+            class="flex flex-col gap-2"
+            x-show="settings.reports.goals_direct_summary"
+            x-cloak
+        >
+            <x-form.form-label required>
+                Выберите цели, по которым хотите получать статистику
+            </x-form.form-label>
+            <div>
+                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
+                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
+                <p
+                    class="text-secondary-text text-sm"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
+                    x-cloak
+                >У счётчика нет целей</p>
+                <div
+                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
+                    style="max-height: 196px; overflow-y: auto"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
+                    x-cloak
+                >
+                    <template x-for="goal in goalOptions" :key="goal.id">
+                        <label
+                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
+                            x-on:click.prevent="toggleGoal(goal.id)"
+                        >
+                            <x-form.checkbox
+                                x-bind:checked="isGoalSelected(goal.id)"
+                            />
+                            <span class="min-w-0">
+                                <span x-text="goal.name"></span>
+                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
+                            </span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        {{-- Goals metric select --}}
+        <x-form.form-field x-show="settings.reports.goals_direct_summary" x-cloak>
+            <x-form.form-label class="self-baseline">
+                По какому параметру рассчитываем достижение целей?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="directSummaryGoalsMetricSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
+                                'rounded-[5px]': !goalsMetricSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="goalsMetricSelectOpen"
+                        x-anchor.no-style="$refs.directSummaryGoalsMetricSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="goalsMetricSelectOpen = false"
+                    >
+                        <template x-for="option in goalsMetricOptions" :key="option.value">
+                            <div
+                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                x-on:click="selectGoalsMetric(option.value)"
+                                x-text="option.label"
+                            ></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        {{-- Direct Summary test integration --}}
+        <x-form.form-field x-show="settings.reports.goals_direct_summary" x-cloak>
+            <div
+                class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                x-on:click="toggleDirectSummaryTestPanel()"
+                x-bind:aria-expanded="directSummaryTestPanelOpen"
+            >
+                <x-button.button
+                    class="pointer-events-none self-start"
+                    type="button"
+                    variant="action"
+                    wrap
+                    label="Проверить работу интеграции"
+                />
+                <span
+                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                    x-bind:class="{ 'rotate-90': directSummaryTestPanelOpen, 'rotate-270': !directSummaryTestPanelOpen }"
+                >
+                    <x-icons.arrow-left />
+                </span>
+            </div>
+            <span class="w-[305px]" aria-hidden="true"></span>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-3"
+            x-ref="metrikaDirectSummaryTestPanel"
+            x-show="settings.reports.goals_direct_summary && directSummaryTestPanelOpen"
+            x-cloak
+        >
+            <x-form.form-field>
+                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Директ, сводка в Яндекс Метрике">
+                    Дата
+                </x-form.form-label>
+                <div class="flex w-[305px] flex-col gap-3">
+                    <x-form.date-picker
+                        class="w-full"
+                        placeholder="Выберите дату"
+                        x-model="directSummaryTestDate"
+                    ></x-form.date-picker>
+                    <div
+                        class="w-full"
+                        x-ref="directSummaryTestButtonWrap"
+                        x-on:mouseenter="directSummaryTestDateHintOpen = !directSummaryTestDate"
+                        x-on:mouseleave="directSummaryTestDateHintOpen = false"
+                    >
+                        <x-button.button
+                            type="button"
+                            icon="icons.refresh"
+                            class="w-full"
+                            label="Проверить"
+                            x-bind:disabled="!directSummaryTestDate || directSummaryTestLoading || !(settings.goals || []).length"
+                            x-on:click="runDirectSummaryTest()"
+                        />
+                    </div>
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="directSummaryTestDateHintOpen && !directSummaryTestDate"
+                            x-cloak
+                            x-anchor.bottom="$refs.directSummaryTestButtonWrap"
+                        >
+                            Выберите дату
+                        </div>
+                    </template>
+                </div>
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                <div class="w-[305px]">
+                    <span class="text-sm" x-show="directSummaryTestCount !== null" x-text="'Достижений цели в отчете Директ, сводка: ' + directSummaryTestCount" x-cloak></span>
+                    <p class="text-warning-red mt-1 text-xs" x-show="directSummaryTestError" x-text="directSummaryTestError" x-cloak></p>
                 </div>
             </x-form.form-field>
         </div>

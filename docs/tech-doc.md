@@ -467,6 +467,45 @@ Callibri отдаёт каждое обращение с временем в UTC
 - условия: `is_enabled`, `reports.goals_conversions`, токен, счётчик, цели, `sync_enabled_at`;
 - стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_conversions`.
 
+## Интеграция Яндекс Метрики (этап 3.4: цели «Директ, сводка»)
+
+Четвёртый отчёт этапа 3. UI, API и ночной съём — по шаблону этапа 3.3 (Конверсии).
+
+### Ограничение по типу проекта
+
+`goals_direct_summary` доступен только для типа «Контекстная реклама» (`context_ad`). Реализовано через `$contextOnlyGoalReportKeys` — зеркало `$seoOnlyGoalReportKeys` для SEO.
+
+### Ключи settings
+
+Новых ключей нет. Используются общие `goals` и `goals_metric`.
+
+### UI
+
+При включённом `goals_direct_summary` блок обёрнут рамкой (`border-primary/30`) с полями:
+
+1. «Выберите цели…» — общий список.
+2. «По какому параметру…» — `target_visits` / `goal_reaches`.
+3. «Проверить работу интеграции» — по шаблону Callibri. Livewire: `testYandexMetrikaGoalsDirectSummaryIntegration()`.
+
+Сохранить без целей нельзя (`canSave` + серверная валидация `$needsGoals`).
+
+### API
+
+[`YandexMetrikaService::fetchDirectSummaryGoalsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев);
+- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям;
+- дополнительный фильтр Директа: `ym:s:lastAdvEngine=@'Директ'` (AND к фильтрам этапа 2);
+- имя цели из `dimensions[0].name`;
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+### Ночной съём
+
+Команда `metrika:sync-direct-summary-goals` (расписание `04:30` в [`routes/console.php`](routes/console.php)):
+
+- условия: `is_enabled`, `reports.goals_direct_summary`, токен, счётчик, цели, `sync_enabled_at`;
+- стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary`.
+
 ## UI-шаблон: проверка работы интеграции
 
 Эталон: блок «Проверить работу интеграции» в [`callibri-integration-modal-body`](resources/views/components/project-form/callibri-integration-modal-body.blade.php). Копировать в другие модалки интеграций, не изобретать заново.

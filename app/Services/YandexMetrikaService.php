@@ -685,6 +685,95 @@ class YandexMetrikaService
         return array_values($aggregated);
     }
 
+    public function countDirectSummaryGoalsForDate(array $settings, Carbon $date): int
+    {
+        $this->setupClientFromSettings($settings);
+
+        $rows = $this->fetchDirectSummaryGoalsStats(
+            $date,
+            $date,
+            YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []),
+            YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($settings['goals_metric'] ?? null),
+            is_array($settings['filters'] ?? null) ? $settings['filters'] : null,
+            (string) ($settings['data_mode'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE),
+            (string) ($settings['attribution_model'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL),
+            null,
+            filled($settings['counter_time_zone'] ?? null) ? (string) $settings['counter_time_zone'] : null
+        );
+
+        return array_sum(array_column($rows, 'value'));
+    }
+
+    /**
+     * @param  list<int|string>  $goalIds
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     * @return list<array{goal_name: string, month: string, value: int}>
+     */
+    public function fetchDirectSummaryGoalsStats(
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        array $goalIds,
+        string $goalsMetric = YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_METRIC,
+        ?array $filters = null,
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        string $attributionModel = YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL,
+        ?string $timezone = null,
+        ?string $counterTimezone = null
+    ): array {
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        $normalizedGoalIds = YandexMetrikaIntegrationSettingsData::normalizeGoalIds($goalIds);
+        if ($normalizedGoalIds === []) {
+            throw new \InvalidArgumentException('Выберите хотя бы одну цель');
+        }
+
+        $metricName = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($goalsMetric) === YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
+            ? 'reaches'
+            : 'visits';
+        $metrics = implode(',', array_map(
+            fn (int $id) => 'ym:s:goal'.$id.$metricName,
+            $normalizedGoalIds
+        ));
+
+        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        $dimensions = $includeMonth
+            ? 'ym:s:goal,ym:s:month'
+            : 'ym:s:goal';
+
+        try {
+            $params = $this->applyReportFilters([
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => $metrics,
+                'dimensions' => $dimensions,
+                'limit' => 10000,
+            ], $filters, $dataMode);
+            $params = $this->applyReportAttribution($params, $attributionModel);
+            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+
+            $existingFilters = $params['filters'] ?? '';
+            $directFilter = "ym:s:lastAdvEngine=@'Директ'";
+            $params['filters'] = $existingFilters !== ''
+                ? $existingFilters.' AND '.$directFilter
+                : $directFilter;
+
+            $response = $this->getClient()->getVisitsReport($params);
+
+            return $this->aggregateConversionsGoalRows($response, $dateFrom, $includeMonth);
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+                'goals' => $normalizedGoalIds,
+            ]);
+            throw new \Exception('Failed to get direct summary goals report', 0, $e);
+        }
+    }
+
     /**
      * Валидация временного диапазона
      */
