@@ -152,6 +152,40 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         ]);
     }
 
+    /**
+     * {@inheritdoc}
+     */
+    public function replaceGoalUtmRows(int $projectId, string $dateFrom, string $dateTo, array $rows): void
+    {
+        EloquentYandexMetrikaGoalUtm::query()
+            ->where('project_id', $projectId)
+            ->where('achieved_date', '>=', $dateFrom)
+            ->where('achieved_date', '<=', $dateTo)
+            ->delete();
+
+        if ($rows === []) {
+            return;
+        }
+
+        $now = now();
+        $inserts = array_map(fn (array $row) => [
+            'project_id' => $projectId,
+            'goal_name' => $row['goal_name'],
+            'achieved_date' => $row['achieved_date'],
+            'utm_source' => $row['utm_source'] ?? null,
+            'utm_medium' => $row['utm_medium'] ?? null,
+            'utm_campaign' => $row['utm_campaign'] ?? null,
+            'utm_content' => $row['utm_content'] ?? null,
+            'utm_term' => $row['utm_term'] ?? null,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ], $rows);
+
+        foreach (array_chunk($inserts, 500) as $chunk) {
+            EloquentYandexMetrikaGoalUtm::query()->insert($chunk);
+        }
+    }
+
     private function mapSearchEnginesStatsToEntity(EloquentYandexMetrikaSearchEnginesStats $stats): YandexMetrikaSearchEnginesStats
     {
         return YandexMetrikaSearchEnginesStats::restore($stats->toArray());

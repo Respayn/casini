@@ -590,7 +590,9 @@ class extends Component
                 ? $projectIntegrationData->settings['reports']
                 : [];
 
-            if ($reports['goals_search_engines'] ?? false) {
+            $needsGoals = ($reports['goals_search_engines'] ?? false) || ($reports['goals_utm'] ?? false);
+
+            if ($needsGoals) {
                 $goals = YandexMetrikaIntegrationSettingsData::normalizeGoalIds(
                     $projectIntegrationData->settings['goals'] ?? []
                 );
@@ -605,6 +607,15 @@ class extends Component
                 $projectIntegrationData->settings['goals_metric'] = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric(
                     $projectIntegrationData->settings['goals_metric'] ?? null
                 );
+            }
+
+            if ($reports['goals_utm'] ?? false) {
+                $projectIntegrationData->settings['utm_filter_mode'] = YandexMetrikaIntegrationSettingsData::normalizeUtmFilterMode(
+                    $projectIntegrationData->settings['utm_filter_mode'] ?? null
+                );
+                $projectIntegrationData->settings['utm_source'] = trim((string) ($projectIntegrationData->settings['utm_source'] ?? ''));
+                $projectIntegrationData->settings['utm_medium'] = trim((string) ($projectIntegrationData->settings['utm_medium'] ?? ''));
+                $projectIntegrationData->settings['utm_campaign'] = trim((string) ($projectIntegrationData->settings['utm_campaign'] ?? ''));
             }
         }
 
@@ -736,6 +747,51 @@ class extends Component
         }
     }
 
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaGoalsUtmIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_utm'] ?? false)) {
+            return ['error' => 'Включите отчёт «Достижение целей из отчета UTM-метки»'];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []) === []) {
+            return ['error' => 'Выберите хотя бы одну цель'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countUtmGoalsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
 
     /**
      * @return array{url?: string, cache_data_id?: string, error?: string}

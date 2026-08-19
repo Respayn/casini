@@ -85,7 +85,8 @@
         ['key' => 'visits_geo', 'label' => 'Переходы из отчета География'],
     ];
     $primaryReportOption = $reportOptions[0];
-    $otherReportOptions = array_slice($reportOptions, 1);
+    $utmReportOption = $reportOptions[1];
+    $otherReportOptions = array_slice($reportOptions, 2);
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -145,6 +146,12 @@
             'goals_metric',
             YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_METRIC
         )),
+        'utm_filter_mode' => YandexMetrikaIntegrationSettingsData::normalizeUtmFilterMode(
+            $getSetting('utm_filter_mode', YandexMetrikaIntegrationSettingsData::DEFAULT_UTM_FILTER_MODE)
+        ),
+        'utm_source' => (string) $getSetting('utm_source', ''),
+        'utm_medium' => (string) $getSetting('utm_medium', ''),
+        'utm_campaign' => (string) $getSetting('utm_campaign', ''),
     ];
 @endphp
 
@@ -175,6 +182,13 @@
         testLoading: false,
         testError: null,
         testDateHintOpen: false,
+        utmTestPanelOpen: false,
+        utmTestDate: '',
+        utmTestCount: null,
+        utmTestLoading: false,
+        utmTestError: null,
+        utmTestDateHintOpen: false,
+        utmFilterModeSelectOpen: false,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -339,9 +353,20 @@
                 this.testError = null;
             });
 
+            this.$watch('settings.reports.goals_utm', (enabled) => {
+                if (enabled) {
+                    this.loadGoals();
+                    return;
+                }
+
+                this.utmTestPanelOpen = false;
+                this.utmTestDate = '';
+                this.utmTestCount = null;
+                this.utmTestError = null;
+            });
 
             this.$watch('settings.counter_id', () => {
-                if (this.settings.reports.goals_search_engines) {
+                if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm) {
                     this.loadGoals();
                 }
             });
@@ -503,7 +528,7 @@
                 return false;
             }
 
-            if (this.settings.reports?.goals_search_engines) {
+            if (this.settings.reports?.goals_search_engines || this.settings.reports?.goals_utm) {
                 if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
                     return false;
                 }
@@ -1065,7 +1090,7 @@
 
             this.countersLoading = false;
 
-            if (this.settings.reports.goals_search_engines) {
+            if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm) {
                 this.loadGoals();
             }
         },
@@ -1146,6 +1171,55 @@
             }
 
             this.testLoading = false;
+        },
+
+        toggleUtmTestPanel() {
+            this.utmTestPanelOpen = !this.utmTestPanelOpen;
+
+            if (!this.utmTestPanelOpen) {
+                return;
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.metrikaUtmTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
+        async runUtmTest() {
+            if (!this.utmTestDate) {
+                this.utmTestError = 'Укажите дату';
+                return;
+            }
+
+            if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
+                this.utmTestError = 'Выберите хотя бы одну цель';
+                return;
+            }
+
+            this.utmTestLoading = true;
+            this.utmTestError = null;
+            this.utmTestCount = null;
+
+            const result = await $wire.testYandexMetrikaGoalsUtmIntegration(this.settings, this.utmTestDate);
+
+            if (result.error) {
+                this.utmTestError = result.error;
+            } else {
+                this.utmTestCount = result.count;
+            }
+
+            this.utmTestLoading = false;
+        },
+
+        utmFilterModeLabel() {
+            const map = { source: 'Только с UTM_source', medium: 'Только с UTM_medium', campaign: 'Только с UTM_campaign' };
+            return map[this.settings.utm_filter_mode] || map.source;
         },
 
         save() {
@@ -1677,6 +1751,290 @@
                 <div class="w-[305px]">
                     <span class="text-sm" x-show="testCount !== null" x-text="'Достижений цели в отчете Поисковые системы: ' + testCount" x-cloak></span>
                     <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
+                </div>
+            </x-form.form-field>
+        </div>
+        </div>
+
+        {{-- UTM report checkbox --}}
+        @php $utmKey = $utmReportOption['key']; @endphp
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+            </x-form.form-label>
+            <div class="w-[305px]">
+                <label
+                    class="flex items-center justify-between gap-2 text-sm"
+                    x-ref="goalReport_{{ $utmKey }}"
+                    x-bind:class="isReportDisabled('{{ $utmKey }}') && 'cursor-not-allowed text-secondary-text'"
+                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $utmKey }}') ? '{{ $utmKey }}' : null"
+                    x-on:mouseleave="reportTooltipKey = null"
+                >
+                    <span>{{ $utmReportOption['label'] }}</span>
+                    <x-form.checkbox
+                        x-model="settings.reports.{{ $utmKey }}"
+                        x-bind:disabled="isReportDisabled('{{ $utmKey }}')"
+                    />
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="reportTooltipKey === '{{ $utmKey }}'"
+                            x-cloak
+                            x-anchor.bottom="$refs.goalReport_{{ $utmKey }}"
+                            x-text="reportDisabledReason('{{ $utmKey }}')"
+                        ></div>
+                    </template>
+                </label>
+            </div>
+        </x-form.form-field>
+
+        {{-- UTM report details border --}}
+        <div
+            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
+            x-show="settings.reports.{{ $utmKey }}"
+            x-cloak
+        >
+
+        {{-- Goals list (shared with search engines) --}}
+        <div
+            class="flex flex-col gap-2"
+            x-show="settings.reports.goals_utm"
+            x-cloak
+        >
+            <x-form.form-label required>
+                Выберите цели, по которым хотите получать статистику
+            </x-form.form-label>
+            <div>
+                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
+                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
+                <p
+                    class="text-secondary-text text-sm"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
+                    x-cloak
+                >У счётчика нет целей</p>
+                <div
+                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
+                    style="max-height: 196px; overflow-y: auto"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
+                    x-cloak
+                >
+                    <template x-for="goal in goalOptions" :key="goal.id">
+                        <label
+                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
+                            x-on:click.prevent="toggleGoal(goal.id)"
+                        >
+                            <x-form.checkbox
+                                x-bind:checked="isGoalSelected(goal.id)"
+                            />
+                            <span class="min-w-0">
+                                <span x-text="goal.name"></span>
+                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
+                            </span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        {{-- Goals metric select --}}
+        <x-form.form-field x-show="settings.reports.goals_utm" x-cloak>
+            <x-form.form-label class="self-baseline">
+                По какому параметру рассчитываем достижение целей?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="utmGoalsMetricSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
+                                'rounded-[5px]': !goalsMetricSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="goalsMetricSelectOpen"
+                        x-anchor.no-style="$refs.utmGoalsMetricSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="goalsMetricSelectOpen = false"
+                    >
+                        <template x-for="option in goalsMetricOptions" :key="option.value">
+                            <div
+                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                x-on:click="selectGoalsMetric(option.value)"
+                                x-text="option.label"
+                            ></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        {{-- UTM filter mode select --}}
+        <x-form.form-field x-show="settings.reports.goals_utm" x-cloak>
+            <x-form.form-label class="self-baseline">
+                С каких UTM-меток нужно забирать достижение целей?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="utmFilterModeSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="utmFilterModeSelectOpen = !utmFilterModeSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': utmFilterModeSelectOpen,
+                                'rounded-[5px]': !utmFilterModeSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="utmFilterModeLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': utmFilterModeSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="utmFilterModeSelectOpen"
+                        x-anchor.no-style="$refs.utmFilterModeSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="utmFilterModeSelectOpen = false"
+                    >
+                        <div
+                            class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 hover:text-white"
+                            x-on:click="settings.utm_filter_mode = 'source'; utmFilterModeSelectOpen = false"
+                        >Только с UTM_source</div>
+                        <div
+                            class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 hover:text-white"
+                            x-on:click="settings.utm_filter_mode = 'medium'; utmFilterModeSelectOpen = false"
+                        >Только с UTM_medium</div>
+                        <div
+                            class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                            x-on:click="settings.utm_filter_mode = 'campaign'; utmFilterModeSelectOpen = false"
+                        >Только с UTM_campaign</div>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        {{-- UTM source field --}}
+        <x-form.form-field x-show="settings.reports.goals_utm && settings.utm_filter_mode === 'source'" x-cloak>
+            <x-form.form-label
+                tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_source."
+            >Какие цели забираем с меткой UTM_source?</x-form.form-label>
+            <div class="w-[305px]">
+                <x-form.input-text x-model="settings.utm_source"></x-form.input-text>
+            </div>
+        </x-form.form-field>
+
+        {{-- UTM medium field --}}
+        <x-form.form-field x-show="settings.reports.goals_utm && settings.utm_filter_mode === 'medium'" x-cloak>
+            <x-form.form-label
+                tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_medium."
+            >Какие цели забираем с меткой UTM_medium?</x-form.form-label>
+            <div class="w-[305px]">
+                <x-form.input-text x-model="settings.utm_medium"></x-form.input-text>
+            </div>
+        </x-form.form-field>
+
+        {{-- UTM campaign field --}}
+        <x-form.form-field x-show="settings.reports.goals_utm && settings.utm_filter_mode === 'campaign'" x-cloak>
+            <x-form.form-label
+                tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_campaign."
+            >Какие цели забираем с меткой UTM_campaign?</x-form.form-label>
+            <div class="w-[305px]">
+                <x-form.input-text x-model="settings.utm_campaign"></x-form.input-text>
+            </div>
+        </x-form.form-field>
+
+        {{-- UTM test integration --}}
+        <x-form.form-field x-show="settings.reports.goals_utm" x-cloak>
+            <div
+                class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                x-on:click="toggleUtmTestPanel()"
+                x-bind:aria-expanded="utmTestPanelOpen"
+            >
+                <x-button.button
+                    class="pointer-events-none self-start"
+                    type="button"
+                    variant="action"
+                    wrap
+                    label="Проверить работу интеграции"
+                />
+                <span
+                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                    x-bind:class="{ 'rotate-90': utmTestPanelOpen, 'rotate-270': !utmTestPanelOpen }"
+                >
+                    <x-icons.arrow-left />
+                </span>
+            </div>
+            <span class="w-[305px]" aria-hidden="true"></span>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-3"
+            x-ref="metrikaUtmTestPanel"
+            x-show="settings.reports.goals_utm && utmTestPanelOpen"
+            x-cloak
+        >
+            <x-form.form-field>
+                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом UTM-метки в Яндекс Метрике">
+                    Дата
+                </x-form.form-label>
+                <div class="flex w-[305px] flex-col gap-3">
+                    <x-form.date-picker
+                        class="w-full"
+                        placeholder="Выберите дату"
+                        x-model="utmTestDate"
+                    ></x-form.date-picker>
+                    <div
+                        class="w-full"
+                        x-ref="utmTestButtonWrap"
+                        x-on:mouseenter="utmTestDateHintOpen = !utmTestDate"
+                        x-on:mouseleave="utmTestDateHintOpen = false"
+                    >
+                        <x-button.button
+                            type="button"
+                            icon="icons.refresh"
+                            class="w-full"
+                            label="Проверить"
+                            x-bind:disabled="!utmTestDate || utmTestLoading || !(settings.goals || []).length"
+                            x-on:click="runUtmTest()"
+                        />
+                    </div>
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="utmTestDateHintOpen && !utmTestDate"
+                            x-cloak
+                            x-anchor.bottom="$refs.utmTestButtonWrap"
+                        >
+                            Выберите дату
+                        </div>
+                    </template>
+                </div>
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                <div class="w-[305px]">
+                    <span class="text-sm" x-show="utmTestCount !== null" x-text="'Достижений цели в отчете UTM-метки: ' + utmTestCount" x-cloak></span>
+                    <p class="text-warning-red mt-1 text-xs" x-show="utmTestError" x-text="utmTestError" x-cloak></p>
                 </div>
             </x-form.form-field>
         </div>

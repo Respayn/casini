@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Log;
 use Src\Domain\YandexMetrika\YandexMetrikaFiltersBuilder;
+use Src\Domain\YandexMetrika\YandexMetrikaUtmFilterBuilder;
 
 class YandexMetrikaService
 {
@@ -22,7 +23,8 @@ class YandexMetrikaService
 
     public function __construct(
         private readonly YandexMetrikaClientFactory $clientFactory,
-        private readonly YandexMetrikaFiltersBuilder $filtersBuilder
+        private readonly YandexMetrikaFiltersBuilder $filtersBuilder,
+        private readonly YandexMetrikaUtmFilterBuilder $utmFilterBuilder = new YandexMetrikaUtmFilterBuilder()
     ) {}
 
     /**
@@ -259,6 +261,156 @@ class YandexMetrikaService
             ]);
             throw new \Exception('Failed to get search engines goals report', 0, $e);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function countUtmGoalsForDate(array $settings, Carbon $date): int
+    {
+        $this->setupClientFromSettings($settings);
+
+        $rows = $this->fetchUtmGoalsStats(
+            $date,
+            $date,
+            YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []),
+            YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($settings['goals_metric'] ?? null),
+            YandexMetrikaIntegrationSettingsData::normalizeUtmFilterMode($settings['utm_filter_mode'] ?? null),
+            $this->activeUtmValue($settings),
+            is_array($settings['filters'] ?? null) ? $settings['filters'] : null,
+            (string) ($settings['data_mode'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE),
+            (string) ($settings['attribution_model'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL),
+            null,
+            filled($settings['counter_time_zone'] ?? null) ? (string) $settings['counter_time_zone'] : null
+        );
+
+        return array_sum(array_column($rows, 'value'));
+    }
+
+    /**
+     * @param  list<int|string>  $goalIds
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     * @return list<array{utm_dimension: string, utm_value: string, date: string, value: int}>
+     */
+    public function fetchUtmGoalsStats(
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        array $goalIds,
+        string $goalsMetric = YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_METRIC,
+        string $utmFilterMode = YandexMetrikaIntegrationSettingsData::DEFAULT_UTM_FILTER_MODE,
+        string $utmValue = '',
+        ?array $filters = null,
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        string $attributionModel = YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL,
+        ?string $timezone = null,
+        ?string $counterTimezone = null
+    ): array {
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        $normalizedGoalIds = YandexMetrikaIntegrationSettingsData::normalizeGoalIds($goalIds);
+        if ($normalizedGoalIds === []) {
+            throw new \InvalidArgumentException('Выберите хотя бы одну цель');
+        }
+
+        $utmDimensionMap = [
+            'source' => 'ym:s:UTMSource',
+            'medium' => 'ym:s:UTMMedium',
+            'campaign' => 'ym:s:UTMCampaign',
+        ];
+        $utmDimension = $utmDimensionMap[$utmFilterMode] ?? $utmDimensionMap['source'];
+
+        $metricName = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($goalsMetric) === YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
+            ? 'reaches'
+            : 'visits';
+        $metrics = implode(',', array_map(
+            fn (int $id) => 'ym:s:goal' . $id . $metricName,
+            $normalizedGoalIds
+        ));
+
+        $dimensions = $utmDimension . ',ym:s:date';
+
+        try {
+            $params = $this->applyReportFilters([
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => $metrics,
+                'dimensions' => $dimensions,
+                'limit' => 10000,
+            ], $filters, $dataMode);
+
+            $utmFilter = $this->utmFilterBuilder->build($utmFilterMode, $utmValue);
+            if ($utmFilter !== null) {
+                $existing = trim((string) ($params['filters'] ?? ''));
+                $params['filters'] = $existing === ''
+                    ? $utmFilter
+                    : '(' . $existing . ') AND (' . $utmFilter . ')';
+            }
+
+            $params = $this->applyReportAttribution($params, $attributionModel);
+            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+
+            $response = $this->getClient()->getVisitsReport($params);
+
+            return $this->aggregateUtmGoalRows($response, $utmDimension);
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+                'goals' => $normalizedGoalIds,
+                'utm_mode' => $utmFilterMode,
+            ]);
+            throw new \Exception('Failed to get UTM goals report', 0, $e);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     * @return list<array{utm_dimension: string, utm_value: string, date: string, value: int}>
+     */
+    private function aggregateUtmGoalRows(array $response, string $utmDimension): array
+    {
+        $aggregated = [];
+
+        foreach ($response['data'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+            $utmVal = is_array($dimensions[0] ?? null)
+                ? (string) ($dimensions[0]['name'] ?? '')
+                : '';
+            $dateVal = is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? '')
+                : '';
+            $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
+            $value = (int) round(array_sum(array_map('floatval', $metrics)));
+
+            $key = $utmVal . '|' . $dateVal;
+            if (! isset($aggregated[$key])) {
+                $aggregated[$key] = [
+                    'utm_dimension' => $utmDimension,
+                    'utm_value' => $utmVal,
+                    'date' => $dateVal,
+                    'value' => 0,
+                ];
+            }
+
+            $aggregated[$key]['value'] += $value;
+        }
+
+        return array_values($aggregated);
+    }
+
+    private function activeUtmValue(array $settings): string
+    {
+        $mode = YandexMetrikaIntegrationSettingsData::normalizeUtmFilterMode($settings['utm_filter_mode'] ?? null);
+
+        return trim((string) ($settings['utm_' . $mode] ?? ''));
     }
 
     /**

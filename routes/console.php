@@ -9,3 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('metrika:sync-search-engines-goals')->dailyAt('03:00');
+Schedule::command('metrika:sync-utm-goals')->dailyAt('03:30');

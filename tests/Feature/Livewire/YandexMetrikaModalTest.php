@@ -394,4 +394,46 @@ class YandexMetrikaModalTest extends TestCase
         $this->assertIsArray($result);
         $this->assertSame(15, $result['count']);
     }
+
+    #[Test]
+    public function test_yandex_metrika_goals_utm_test_returns_count(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('countUtmGoalsForDate')->once()->andReturn(42);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('testYandexMetrikaGoalsUtmIntegration', [
+                'oauth_token' => 'token',
+                'oauth_yandex_login' => 'login',
+                'counter_id' => 12345678,
+                'goals' => [111],
+                'goals_metric' => 'target_visits',
+                'reports' => ['goals_utm' => true],
+                'utm_filter_mode' => 'source',
+                'utm_source' => 'yandex',
+            ], '2026-08-18');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame(42, $result['count']);
+    }
+
+    #[Test]
+    public function test_modal_shows_utm_report_labels(): void
+    {
+        $user = $this->createUserWithAgency();
+        $this->fakeCountersResponse();
+
+        $integration = Integration::where('code', 'yandex_metrika')->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('selectIntegration', $integration->id)
+            ->assertSee('Достижение целей из отчета UTM-метки');
+    }
 }

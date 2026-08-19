@@ -17,6 +17,20 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 
     public const DEFAULT_GOALS_METRIC = self::GOALS_METRIC_TARGET_VISITS;
 
+    public const UTM_FILTER_MODE_SOURCE = 'source';
+
+    public const UTM_FILTER_MODE_MEDIUM = 'medium';
+
+    public const UTM_FILTER_MODE_CAMPAIGN = 'campaign';
+
+    public const DEFAULT_UTM_FILTER_MODE = self::UTM_FILTER_MODE_SOURCE;
+
+    public const ALLOWED_UTM_FILTER_MODES = [
+        self::UTM_FILTER_MODE_SOURCE,
+        self::UTM_FILTER_MODE_MEDIUM,
+        self::UTM_FILTER_MODE_CAMPAIGN,
+    ];
+
     /**
      * @var array<string, bool>
      */
@@ -67,6 +81,14 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
      */
     public array $reports = self::DEFAULT_REPORTS;
 
+    public string $utmFilterMode = self::DEFAULT_UTM_FILTER_MODE;
+
+    public string $utmSource = '';
+
+    public string $utmMedium = '';
+
+    public string $utmCampaign = '';
+
     public static function fromSettings(Collection $settings): self
     {
         $data = new self();
@@ -100,6 +122,10 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
             self::DEFAULT_REPORTS,
             array_map(fn ($value) => (bool) $value, $savedReports)
         );
+        $data->utmFilterMode = self::normalizeUtmFilterMode($settings->get('utm_filter_mode'));
+        $data->utmSource = trim((string) $settings->get('utm_source', ''));
+        $data->utmMedium = trim((string) $settings->get('utm_medium', ''));
+        $data->utmCampaign = trim((string) $settings->get('utm_campaign', ''));
 
         return $data;
     }
@@ -122,6 +148,15 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         }
 
         return array_values(array_unique($ids));
+    }
+
+    public static function normalizeUtmFilterMode(mixed $mode): string
+    {
+        $value = trim((string) $mode);
+
+        return in_array($value, self::ALLOWED_UTM_FILTER_MODES, true)
+            ? $value
+            : self::DEFAULT_UTM_FILTER_MODE;
     }
 
     public static function normalizeGoalsMetric(mixed $metric): string
