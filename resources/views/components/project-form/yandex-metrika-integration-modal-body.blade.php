@@ -86,7 +86,8 @@
     ];
     $primaryReportOption = $reportOptions[0];
     $utmReportOption = $reportOptions[1];
-    $otherReportOptions = array_slice($reportOptions, 2);
+    $conversionsReportOption = $reportOptions[2];
+    $otherReportOptions = array_slice($reportOptions, 3);
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -189,6 +190,12 @@
         utmTestError: null,
         utmTestDateHintOpen: false,
         utmFilterModeSelectOpen: false,
+        conversionsTestPanelOpen: false,
+        conversionsTestDate: '',
+        conversionsTestCount: null,
+        conversionsTestLoading: false,
+        conversionsTestError: null,
+        conversionsTestDateHintOpen: false,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -365,8 +372,20 @@
                 this.utmTestError = null;
             });
 
+            this.$watch('settings.reports.goals_conversions', (enabled) => {
+                if (enabled) {
+                    this.loadGoals();
+                    return;
+                }
+
+                this.conversionsTestPanelOpen = false;
+                this.conversionsTestDate = '';
+                this.conversionsTestCount = null;
+                this.conversionsTestError = null;
+            });
+
             this.$watch('settings.counter_id', () => {
-                if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm) {
+                if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions) {
                     this.loadGoals();
                 }
             });
@@ -528,7 +547,7 @@
                 return false;
             }
 
-            if (this.settings.reports?.goals_search_engines || this.settings.reports?.goals_utm) {
+            if (this.settings.reports?.goals_search_engines || this.settings.reports?.goals_utm || this.settings.reports?.goals_conversions) {
                 if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
                     return false;
                 }
@@ -1090,7 +1109,7 @@
 
             this.countersLoading = false;
 
-            if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm) {
+            if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions) {
                 this.loadGoals();
             }
         },
@@ -1220,6 +1239,50 @@
         utmFilterModeLabel() {
             const map = { source: 'Только с UTM_source', medium: 'Только с UTM_medium', campaign: 'Только с UTM_campaign' };
             return map[this.settings.utm_filter_mode] || map.source;
+        },
+
+        toggleConversionsTestPanel() {
+            this.conversionsTestPanelOpen = !this.conversionsTestPanelOpen;
+
+            if (!this.conversionsTestPanelOpen) {
+                return;
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.metrikaConversionsTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
+        async runConversionsTest() {
+            if (!this.conversionsTestDate) {
+                this.conversionsTestError = 'Укажите дату';
+                return;
+            }
+
+            if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
+                this.conversionsTestError = 'Выберите хотя бы одну цель';
+                return;
+            }
+
+            this.conversionsTestLoading = true;
+            this.conversionsTestError = null;
+            this.conversionsTestCount = null;
+
+            const result = await $wire.testYandexMetrikaGoalsConversionsIntegration(this.settings, this.conversionsTestDate);
+
+            if (result.error) {
+                this.conversionsTestError = result.error;
+            } else {
+                this.conversionsTestCount = result.count;
+            }
+
+            this.conversionsTestLoading = false;
         },
 
         save() {
@@ -2035,6 +2098,210 @@
                 <div class="w-[305px]">
                     <span class="text-sm" x-show="utmTestCount !== null" x-text="'Достижений цели в отчете UTM-метки: ' + utmTestCount" x-cloak></span>
                     <p class="text-warning-red mt-1 text-xs" x-show="utmTestError" x-text="utmTestError" x-cloak></p>
+                </div>
+            </x-form.form-field>
+        </div>
+        </div>
+
+        {{-- Conversions report checkbox --}}
+        @php $conversionsKey = $conversionsReportOption['key']; @endphp
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+            </x-form.form-label>
+            <div class="w-[305px]">
+                <label
+                    class="flex items-center justify-between gap-2 text-sm"
+                    x-ref="goalReport_{{ $conversionsKey }}"
+                    x-bind:class="isReportDisabled('{{ $conversionsKey }}') && 'cursor-not-allowed text-secondary-text'"
+                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $conversionsKey }}') ? '{{ $conversionsKey }}' : null"
+                    x-on:mouseleave="reportTooltipKey = null"
+                >
+                    <span>{{ $conversionsReportOption['label'] }}</span>
+                    <x-form.checkbox
+                        x-model="settings.reports.{{ $conversionsKey }}"
+                        x-bind:disabled="isReportDisabled('{{ $conversionsKey }}')"
+                    />
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="reportTooltipKey === '{{ $conversionsKey }}'"
+                            x-cloak
+                            x-anchor.bottom="$refs.goalReport_{{ $conversionsKey }}"
+                            x-text="reportDisabledReason('{{ $conversionsKey }}')"
+                        ></div>
+                    </template>
+                </label>
+            </div>
+        </x-form.form-field>
+
+        {{-- Conversions report details border --}}
+        <div
+            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
+            x-show="settings.reports.{{ $conversionsKey }}"
+            x-cloak
+        >
+
+        {{-- Goals list --}}
+        <div
+            class="flex flex-col gap-2"
+            x-show="settings.reports.goals_conversions"
+            x-cloak
+        >
+            <x-form.form-label required>
+                Выберите цели, по которым хотите получать статистику
+            </x-form.form-label>
+            <div>
+                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
+                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
+                <p
+                    class="text-secondary-text text-sm"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
+                    x-cloak
+                >У счётчика нет целей</p>
+                <div
+                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
+                    style="max-height: 196px; overflow-y: auto"
+                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
+                    x-cloak
+                >
+                    <template x-for="goal in goalOptions" :key="goal.id">
+                        <label
+                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
+                            x-on:click.prevent="toggleGoal(goal.id)"
+                        >
+                            <x-form.checkbox
+                                x-bind:checked="isGoalSelected(goal.id)"
+                            />
+                            <span class="min-w-0">
+                                <span x-text="goal.name"></span>
+                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
+                            </span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        {{-- Goals metric select --}}
+        <x-form.form-field x-show="settings.reports.goals_conversions" x-cloak>
+            <x-form.form-label class="self-baseline">
+                По какому параметру рассчитываем достижение целей?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="conversionsGoalsMetricSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
+                                'rounded-[5px]': !goalsMetricSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="goalsMetricSelectOpen"
+                        x-anchor.no-style="$refs.conversionsGoalsMetricSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="goalsMetricSelectOpen = false"
+                    >
+                        <template x-for="option in goalsMetricOptions" :key="option.value">
+                            <div
+                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                x-on:click="selectGoalsMetric(option.value)"
+                                x-text="option.label"
+                            ></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        {{-- Conversions test integration --}}
+        <x-form.form-field x-show="settings.reports.goals_conversions" x-cloak>
+            <div
+                class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                x-on:click="toggleConversionsTestPanel()"
+                x-bind:aria-expanded="conversionsTestPanelOpen"
+            >
+                <x-button.button
+                    class="pointer-events-none self-start"
+                    type="button"
+                    variant="action"
+                    wrap
+                    label="Проверить работу интеграции"
+                />
+                <span
+                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                    x-bind:class="{ 'rotate-90': conversionsTestPanelOpen, 'rotate-270': !conversionsTestPanelOpen }"
+                >
+                    <x-icons.arrow-left />
+                </span>
+            </div>
+            <span class="w-[305px]" aria-hidden="true"></span>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-3"
+            x-ref="metrikaConversionsTestPanel"
+            x-show="settings.reports.goals_conversions && conversionsTestPanelOpen"
+            x-cloak
+        >
+            <x-form.form-field>
+                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Конверсии в Яндекс Метрике">
+                    Дата
+                </x-form.form-label>
+                <div class="flex w-[305px] flex-col gap-3">
+                    <x-form.date-picker
+                        class="w-full"
+                        placeholder="Выберите дату"
+                        x-model="conversionsTestDate"
+                    ></x-form.date-picker>
+                    <div
+                        class="w-full"
+                        x-ref="conversionsTestButtonWrap"
+                        x-on:mouseenter="conversionsTestDateHintOpen = !conversionsTestDate"
+                        x-on:mouseleave="conversionsTestDateHintOpen = false"
+                    >
+                        <x-button.button
+                            type="button"
+                            icon="icons.refresh"
+                            class="w-full"
+                            label="Проверить"
+                            x-bind:disabled="!conversionsTestDate || conversionsTestLoading || !(settings.goals || []).length"
+                            x-on:click="runConversionsTest()"
+                        />
+                    </div>
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="conversionsTestDateHintOpen && !conversionsTestDate"
+                            x-cloak
+                            x-anchor.bottom="$refs.conversionsTestButtonWrap"
+                        >
+                            Выберите дату
+                        </div>
+                    </template>
+                </div>
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                <div class="w-[305px]">
+                    <span class="text-sm" x-show="conversionsTestCount !== null" x-text="'Достижений цели в отчете Конверсии: ' + conversionsTestCount" x-cloak></span>
+                    <p class="text-warning-red mt-1 text-xs" x-show="conversionsTestError" x-text="conversionsTestError" x-cloak></p>
                 </div>
             </x-form.form-field>
         </div>

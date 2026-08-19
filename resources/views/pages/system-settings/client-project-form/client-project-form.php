@@ -590,7 +590,7 @@ class extends Component
                 ? $projectIntegrationData->settings['reports']
                 : [];
 
-            $needsGoals = ($reports['goals_search_engines'] ?? false) || ($reports['goals_utm'] ?? false);
+            $needsGoals = ($reports['goals_search_engines'] ?? false) || ($reports['goals_utm'] ?? false) || ($reports['goals_conversions'] ?? false);
 
             if ($needsGoals) {
                 $goals = YandexMetrikaIntegrationSettingsData::normalizeGoalIds(
@@ -784,6 +784,48 @@ class extends Component
             }
 
             $count = app(YandexMetrikaService::class)->countUtmGoalsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    public function testYandexMetrikaGoalsConversionsIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_conversions'] ?? false)) {
+            return ['error' => 'Включите отчёт «Достижение целей из отчета Конверсии»'];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []) === []) {
+            return ['error' => 'Выберите хотя бы одну цель'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countConversionsGoalsForDate($settings, $parsedDate);
 
             return ['count' => $count];
         } catch (\Throwable $e) {

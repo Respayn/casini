@@ -62,4 +62,11 @@ interface YandexMetrikaRepositoryInterface
      * @param list<array{goal_name: string, achieved_date: string, utm_source: ?string, utm_medium: ?string, utm_campaign: ?string, utm_content: ?string, utm_term: ?string}> $rows
      */
     public function replaceGoalUtmRows(int $projectId, string $dateFrom, string $dateTo, array $rows): void;
+
+    /**
+     * Upsert строк конверсий по unique (project_id, goal_name, month).
+     *
+     * @param list<array{goal_name: string, month: string, conversions: int}> $rows
+     */
+    public function upsertGoalConversions(int $projectId, array $rows): void;
 }

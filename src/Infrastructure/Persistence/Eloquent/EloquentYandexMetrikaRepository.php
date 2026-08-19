@@ -186,6 +186,22 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
     }
 
+    public function upsertGoalConversions(int $projectId, array $rows): void
+    {
+        foreach ($rows as $row) {
+            EloquentYandexMetrikaGoalConversion::query()->updateOrCreate(
+                [
+                    'project_id' => $projectId,
+                    'goal_name' => $row['goal_name'],
+                    'month' => $row['month'],
+                ],
+                [
+                    'conversions' => $row['conversions'],
+                ]
+            );
+        }
+    }
+
     private function mapSearchEnginesStatsToEntity(EloquentYandexMetrikaSearchEnginesStats $stats): YandexMetrikaSearchEnginesStats
     {
         return YandexMetrikaSearchEnginesStats::restore($stats->toArray());

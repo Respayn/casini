@@ -431,6 +431,42 @@ Callibri отдаёт каждое обращение с временем в UTC
 - условия: `is_enabled`, `reports.goals_utm`, токен, счётчик, цели, `sync_enabled_at`;
 - стратегия: удаляет старые строки за период и вставляет свежие в `yandex_metrika_goal_utms`.
 
+## Интеграция Яндекс Метрики (этап 3.3: цели «Конверсии»)
+
+Третий отчёт этапа 3. UI, API и ночной съём — по шаблону этапа 3.1.
+
+### Ключи settings
+
+Новых ключей нет. Используются общие `goals` и `goals_metric`.
+
+`goals_conversions` **без** ограничения по типу проекта (в отличие от `goals_search_engines`).
+
+### UI
+
+При включённом `goals_conversions` блок обёрнут рамкой (`border-primary/30`) с полями:
+
+1. «Выберите цели…» — общий список с `goals_search_engines` и `goals_utm`.
+2. «По какому параметру…» — `target_visits` / `goal_reaches`.
+3. «Проверить работу интеграции» — по шаблону Callibri. Livewire: `testYandexMetrikaGoalsConversionsIntegration()`.
+
+Сохранить без целей нельзя (`canSave` + серверная валидация).
+
+### API
+
+[`YandexMetrikaService::fetchConversionsGoalsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев);
+- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям;
+- имя цели из `dimensions[0].name`;
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+### Ночной съём
+
+Команда `metrika:sync-conversions-goals` (расписание `04:00` в [`routes/console.php`](routes/console.php)):
+
+- условия: `is_enabled`, `reports.goals_conversions`, токен, счётчик, цели, `sync_enabled_at`;
+- стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_conversions`.
+
 ## UI-шаблон: проверка работы интеграции
 
 Эталон: блок «Проверить работу интеграции» в [`callibri-integration-modal-body`](resources/views/components/project-form/callibri-integration-modal-body.blade.php). Копировать в другие модалки интеграций, не изобретать заново.

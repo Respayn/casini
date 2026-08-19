@@ -10,3 +10,4 @@ Artisan::command('inspire', function () {
 
 Schedule::command('metrika:sync-search-engines-goals')->dailyAt('03:00');
 Schedule::command('metrika:sync-utm-goals')->dailyAt('03:30');
+Schedule::command('metrika:sync-conversions-goals')->dailyAt('04:00');

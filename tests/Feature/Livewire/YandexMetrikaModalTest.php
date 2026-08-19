@@ -80,13 +80,15 @@ class YandexMetrikaModalTest extends TestCase
             ->assertSee('часовым поясом счётчика в Яндекс Метрике')
             ->assertSee('Добавить фильтр по странице входа')
             ->assertSee('Достижение целей из отчета Поисковые системы')
+            ->assertSee('Достижение целей из отчета UTM-метки')
+            ->assertSee('Достижение целей из отчета Конверсии')
             ->assertSee('Достижение целей из отчета Директ, сводка')
             ->assertSee('Переходы из отчета Поисковые системы')
             ->assertSee('Переходы из отчета Поисковые запросы')
             ->assertSee('Выберите цели, по которым хотите получать статистику')
             ->assertSee('По какому параметру рассчитываем достижение целей?')
             ->assertSee('Проверить работу интеграции')
-            ->assertSee('ДД.ММ.ГГ');
+            ->assertSee('Выберите дату');
     }
 
     #[Test]
@@ -427,13 +429,47 @@ class YandexMetrikaModalTest extends TestCase
     public function test_modal_shows_utm_report_labels(): void
     {
         $user = $this->createUserWithAgency();
-        $this->fakeCountersResponse();
-
-        $integration = Integration::where('code', 'yandex_metrika')->firstOrFail();
 
         Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')
-            ->call('selectIntegration', $integration->id)
+            ->call('selectIntegration', 'yandex_metrika')
             ->assertSee('Достижение целей из отчета UTM-метки');
+    }
+
+    #[Test]
+    public function test_modal_shows_conversions_report_label(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('selectIntegration', 'yandex_metrika')
+            ->assertSee('Достижение целей из отчета Конверсии');
+    }
+
+    #[Test]
+    public function test_conversions_integration_returns_count(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('countConversionsGoalsForDate')->once()->andReturn(77);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('testYandexMetrikaGoalsConversionsIntegration', [
+                'oauth_token' => 'token',
+                'oauth_yandex_login' => 'login',
+                'counter_id' => 12345678,
+                'goals' => [111],
+                'goals_metric' => 'target_visits',
+                'reports' => ['goals_conversions' => true],
+            ], '2026-08-18');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame(77, $result['count']);
     }
 }
