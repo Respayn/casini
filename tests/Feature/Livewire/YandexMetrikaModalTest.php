@@ -86,8 +86,6 @@ class YandexMetrikaModalTest extends TestCase
             ->assertSee('Выберите цели, по которым хотите получать статистику')
             ->assertSee('По какому параметру рассчитываем достижение целей?')
             ->assertSee('Проверить работу интеграции')
-            ->assertSee('Количество достижений цели')
-            ->assertSee('Выберите дату')
             ->assertSee('ДД.ММ.ГГ');
     }
 

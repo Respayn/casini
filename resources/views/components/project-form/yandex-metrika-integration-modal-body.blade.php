@@ -174,6 +174,7 @@
         testCount: null,
         testLoading: false,
         testError: null,
+        testDateHintOpen: false,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -338,11 +339,6 @@
                 this.testError = null;
             });
 
-            this.$watch('testDate', (value) => {
-                if (this.testPanelOpen && value) {
-                    this.runTest();
-                }
-            });
 
             this.$watch('settings.counter_id', () => {
                 if (this.settings.reports.goals_search_engines) {
@@ -1115,10 +1111,6 @@
                 return;
             }
 
-            if (this.testDate) {
-                this.runTest();
-            }
-
             this.$nextTick(() => {
                 requestAnimationFrame(() => {
                     this.$refs.metrikaTestPanel?.scrollIntoView({
@@ -1523,6 +1515,12 @@
         </x-form.form-field>
 
         <div
+            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
+            x-show="settings.reports.{{ $reportKey }}"
+            x-cloak
+        >
+
+        <div
             class="flex flex-col gap-2"
             x-show="settings.reports.goals_search_engines"
             x-cloak
@@ -1539,13 +1537,14 @@
                     x-cloak
                 >У счётчика нет целей</p>
                 <div
-                    class="border-input-border max-h-40 overflow-y-auto rounded-[5px] border px-3"
+                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
+                    style="max-height: 196px; overflow-y: auto"
                     x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
                     x-cloak
                 >
                     <template x-for="goal in goalOptions" :key="goal.id">
                         <label
-                            class="flex min-h-[40px] cursor-pointer items-center gap-2 text-sm"
+                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
                             x-on:click.prevent="toggleGoal(goal.id)"
                         >
                             <x-form.checkbox
@@ -1602,16 +1601,30 @@
                         </template>
                     </div>
                 </div>
+            </div>
+        </x-form.form-field>
+
+        <x-form.form-field x-show="settings.reports.goals_search_engines" x-cloak>
+            <div
+                class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                x-on:click="toggleTestPanel()"
+                x-bind:aria-expanded="testPanelOpen"
+            >
                 <x-button.button
-                    class="self-start"
+                    class="pointer-events-none self-start"
                     type="button"
                     variant="action"
                     wrap
                     label="Проверить работу интеграции"
-                    x-on:click="toggleTestPanel()"
-                    x-bind:aria-expanded="testPanelOpen"
                 />
+                <span
+                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                    x-bind:class="{ 'rotate-90': testPanelOpen, 'rotate-270': !testPanelOpen }"
+                >
+                    <x-icons.arrow-left />
+                </span>
             </div>
+            <span class="w-[305px]" aria-hidden="true"></span>
         </x-form.form-field>
 
         <div
@@ -1622,29 +1635,51 @@
         >
             <x-form.form-field>
                 <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Поисковые системы в Яндекс Метрике">
-                    Выберите дату
+                    Дата
                 </x-form.form-label>
-                <div class="w-[305px]">
+                <div class="flex w-[305px] flex-col gap-3">
                     <x-form.date-picker
                         class="w-full"
-                        placeholder="ДД.ММ.ГГ"
+                        placeholder="Выберите дату"
                         x-model="testDate"
                     ></x-form.date-picker>
+                    <div
+                        class="w-full"
+                        x-ref="testButtonWrap"
+                        x-on:mouseenter="testDateHintOpen = !testDate"
+                        x-on:mouseleave="testDateHintOpen = false"
+                    >
+                        <x-button.button
+                            type="button"
+                            icon="icons.refresh"
+                            class="w-full"
+                            label="Проверить"
+                            x-bind:disabled="!testDate || testLoading || !(settings.goals || []).length"
+                            x-on:click="runTest()"
+                        />
+                    </div>
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="testDateHintOpen && !testDate"
+                            x-cloak
+                            x-anchor.bottom="$refs.testButtonWrap"
+                        >
+                            Выберите дату
+                        </div>
+                    </template>
                 </div>
             </x-form.form-field>
 
             <x-form.form-field>
-                <x-form.form-label tooltip="Сумма достижений выбранных целей за выбранную дату">
-                    Количество достижений цели
-                </x-form.form-label>
+                <span class="invisible text-sm" aria-hidden="true">Дата</span>
                 <div class="w-[305px]">
-                    <x-form.input-text
-                        disabled
-                        x-bind:value="testCount === null ? '' : String(testCount)"
-                    />
+                    <span class="text-sm" x-show="testCount !== null" x-text="'Достижений цели в отчете Поисковые системы: ' + testCount" x-cloak></span>
                     <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
                 </div>
             </x-form.form-field>
+        </div>
         </div>
 
         <x-form.form-field>
