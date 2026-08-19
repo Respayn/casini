@@ -323,7 +323,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `goals` | ID выбранных целей счётчика | `[]` |
 | `goals_metric` | `target_visits` (Целевые визиты) или `goal_reaches` (Достижения цели) | `target_visits` |
 
-Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `context_ad` (Контекстная реклама); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом Контекстная реклама». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
 
 ### Фильтры в запросах к API (этап 2)
 
@@ -359,7 +359,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### UI
 
-Если выбран `goals_search_engines` (и тип проекта — Контекстная реклама):
+Если выбран `goals_search_engines` (и тип проекта — SEO-продвижение):
 
 Поля этапа 3 вставляются сразу после первого отчёта, остальные шесть отчётов идут ниже. Чекбоксы отчётов справа от названия.
 

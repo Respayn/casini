@@ -63,18 +63,20 @@
         'visits_search_engines',
         'visits_search_queries',
     ];
-    $exclusiveGoalSourceTooltip = 'Может быть выбран только один источник достижения целей';
-    $seoOnlyVisitTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
-    $contextOnlyGoalReportKeys = [
+    $seoOnlyGoalReportKeys = [
         'goals_search_engines',
     ];
+    $exclusiveGoalSourceTooltip = 'Может быть выбран только один источник достижения целей';
+    $seoOnlyVisitTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
+    $seoOnlyGoalTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
+    $contextOnlyGoalReportKeys = [];
     $contextOnlyTooltip = 'Доступен только для клиенто-проектов с типом Контекстная реклама';
     $goalsMetricOptions = [
         ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_TARGET_VISITS, 'label' => 'Целевые визиты'],
         ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES, 'label' => 'Достижения цели'],
     ];
     $reportOptions = [
-        ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true, 'context_only' => true],
+        ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true, 'seo_only' => true],
         ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки', 'exclusive_goal_source' => true],
         ['key' => 'goals_conversions', 'label' => 'Достижение целей из отчета Конверсии', 'exclusive_goal_source' => true],
         ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка', 'exclusive_goal_source' => true],
@@ -158,6 +160,7 @@
         goalsMetricOptions: {{ Js::from($goalsMetricOptions) }},
         counterOptions: [],
         counterSelectOpen: false,
+        counterSearchQuery: '',
         attributionSelectOpen: false,
         dataModeSelectOpen: false,
         goalsMetricSelectOpen: false,
@@ -192,11 +195,13 @@
         },
         exclusiveGoalReportKeys: {{ Js::from($exclusiveGoalReportKeys) }},
         seoOnlyVisitReportKeys: {{ Js::from($seoOnlyVisitReportKeys) }},
+        seoOnlyGoalReportKeys: {{ Js::from($seoOnlyGoalReportKeys) }},
         contextOnlyGoalReportKeys: {{ Js::from($contextOnlyGoalReportKeys) }},
         seoPromotionType: {{ Js::from(ProjectType::SEO_PROMOTION->value) }},
         contextAdType: {{ Js::from(ProjectType::CONTEXT_AD->value) }},
         exclusiveGoalSourceTooltip: {{ Js::from($exclusiveGoalSourceTooltip) }},
         seoOnlyVisitTooltip: {{ Js::from($seoOnlyVisitTooltip) }},
+        seoOnlyGoalTooltip: {{ Js::from($seoOnlyGoalTooltip) }},
         contextOnlyTooltip: {{ Js::from($contextOnlyTooltip) }},
         reportTooltipKey: null,
 
@@ -215,6 +220,10 @@
         reportDisabledReason(key) {
             if (this.seoOnlyVisitReportKeys.includes(key) && !this.isSeoPromotion()) {
                 return this.seoOnlyVisitTooltip;
+            }
+
+            if (this.seoOnlyGoalReportKeys.includes(key) && !this.isSeoPromotion()) {
+                return this.seoOnlyGoalTooltip;
             }
 
             if (this.contextOnlyGoalReportKeys.includes(key) && !this.isContextAd()) {
@@ -262,6 +271,16 @@
             });
         },
 
+        normalizeSeoOnlyGoalReports() {
+            if (this.isSeoPromotion()) {
+                return;
+            }
+
+            this.seoOnlyGoalReportKeys.forEach((key) => {
+                this.settings.reports[key] = false;
+            });
+        },
+
         normalizeContextOnlyGoalReports() {
             if (this.isContextAd()) {
                 return;
@@ -296,11 +315,13 @@
         init() {
             this.normalizeExclusiveGoalReports();
             this.normalizeSeoOnlyVisitReports();
+            this.normalizeSeoOnlyGoalReports();
             this.normalizeContextOnlyGoalReports();
 
             if (this.$wire && typeof this.$wire.$watch === 'function') {
                 this.$wire.$watch('clientProjectForm.projectType', () => {
                     this.normalizeSeoOnlyVisitReports();
+                    this.normalizeSeoOnlyGoalReports();
                     this.normalizeContextOnlyGoalReports();
                 });
             }
@@ -592,6 +613,18 @@
             return !this.settings.oauth_token || this.countersLoading || this.counterOptions.length === 0;
         },
 
+        get filteredCounterOptions() {
+            const q = this.counterSearchQuery.trim().toLowerCase();
+            if (!q) {
+                return this.counterOptions;
+            }
+            return this.counterOptions.filter(o =>
+                String(o.label).toLowerCase().includes(q)
+                || String(o.value).toLowerCase().includes(q)
+                || String(o.domain || '').toLowerCase().includes(q)
+            );
+        },
+
         attributionSelectLabel() {
             const option = this.attributionOptions.find(
                 o => String(o.value) === String(this.settings.attribution_model)
@@ -622,6 +655,13 @@
             }
 
             this.counterSelectOpen = !this.counterSelectOpen;
+            this.counterSearchQuery = '';
+
+            if (this.counterSelectOpen) {
+                this.$nextTick(() => {
+                    this.$refs.counterSearchInput?.focus();
+                });
+            }
         },
 
         selectCounter(option) {
@@ -629,6 +669,7 @@
             this.settings.counter_domain = option.domain || '';
             this.settings.counter_time_zone = option.time_zone_name || '';
             this.counterSelectOpen = false;
+            this.counterSearchQuery = '';
         },
 
         selectAttribution(value) {
@@ -1262,9 +1303,20 @@
                                 'opacity-70': !countersLoading && !settings.oauth_token
                             }"
                         >
+                            <input
+                                type="text"
+                                class="w-full border-0 bg-transparent p-0 outline-none placeholder:text-gray-400"
+                                placeholder="Поиск по домену или номеру"
+                                x-ref="counterSearchInput"
+                                x-model="counterSearchQuery"
+                                x-show="counterSelectOpen"
+                                x-on:click.stop
+                                x-on:keydown.escape="counterSelectOpen = false; counterSearchQuery = ''"
+                            />
                             <span
                                 class="overflow-hidden"
                                 x-text="counterSelectLabel"
+                                x-show="!counterSelectOpen"
                                 x-bind:class="{
                                     'opacity-50': settings.oauth_token && !settings.counter_id && counterOptions.length > 0,
                                     'text-gray-400 italic': !settings.oauth_token || counterOptions.length === 0
@@ -1290,9 +1342,13 @@
                         x-show="counterSelectOpen && counterOptions.length > 0"
                         x-anchor.no-style="$refs.counterSelectButton"
                         x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="counterSelectOpen = false"
+                        x-on:click.outside="counterSelectOpen = false; counterSearchQuery = ''"
                     >
-                        <template x-for="option in counterOptions" :key="option.value">
+                        <div
+                            class="flex min-h-[42px] items-center bg-white px-4 text-sm text-gray-400 italic"
+                            x-show="filteredCounterOptions.length === 0"
+                        >Ничего не найдено</div>
+                        <template x-for="option in filteredCounterOptions" :key="option.value">
                             <div
                                 class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
                                 x-on:click="selectCounter(option)"
@@ -1592,8 +1648,7 @@
         </div>
 
         <x-form.form-field>
-            <x-form.form-label class="self-baseline" required>
-                Какие отчеты нужно подтянуть из Яндекс Метрики?
+            <x-form.form-label class="self-baseline">
             </x-form.form-label>
             <div class="flex w-[305px] flex-col gap-3">
                 @foreach ($otherReportOptions as $reportOption)
