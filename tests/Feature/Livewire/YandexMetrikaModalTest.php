@@ -509,4 +509,69 @@ class YandexMetrikaModalTest extends TestCase
         $this->assertIsArray($result);
         $this->assertSame(42, $result['count']);
     }
+
+    #[Test]
+    public function test_modal_shows_visits_search_engines_report_labels(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('selectIntegration', 'yandex_metrika')
+            ->assertSee('Переходы из отчета Поисковые системы')
+            ->assertSee('Выберите поисковые системы для отчётов')
+            ->assertSee('Все поисковые системы')
+            ->assertSee('По какому параметру рассчитываем переходы?');
+    }
+
+    #[Test]
+    public function test_visits_search_engines_integration_returns_count(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('countSearchEnginesVisitsForDate')->once()->andReturn(55);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('testYandexMetrikaVisitsSearchEnginesIntegration', [
+                'oauth_token' => 'token',
+                'oauth_yandex_login' => 'login',
+                'counter_id' => 12345678,
+                'visits_metric' => 'visits',
+                'search_engines_all' => true,
+                'search_engines' => [],
+                'reports' => ['visits_search_engines' => true],
+            ], '2026-08-18');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame(55, $result['count']);
+    }
+
+    #[Test]
+    public function test_load_yandex_metrika_search_engines_returns_options(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('setupClient')->once();
+            $mock->shouldReceive('listSearchEngineRootOptions')->once()->andReturn([
+                ['id' => 'yandex', 'name' => 'Яндекс'],
+                ['id' => 'google', 'name' => 'Google'],
+            ]);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('loadYandexMetrikaSearchEngines', 'oauth-token', 12345678, 'login');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('search_engines', $result);
+        $this->assertSame('yandex', $result['search_engines'][0]['id']);
+    }
 }

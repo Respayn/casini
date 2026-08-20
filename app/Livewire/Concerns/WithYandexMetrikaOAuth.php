@@ -315,6 +315,33 @@ trait WithYandexMetrikaOAuth
     }
 
     /**
+     * @return array{search_engines?: list<array{id: string, name: string}>, error?: string}
+     */
+    public function loadYandexMetrikaSearchEngines(string $oauthToken, int $counterId, string $clientLogin = ''): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim($oauthToken) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ($counterId <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        try {
+            $service = app(YandexMetrikaService::class);
+            $service->setupClient($oauthToken, $clientLogin, $counterId);
+
+            return ['search_engines' => $service->listSearchEngineRootOptions()];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось загрузить поисковые системы Яндекс Метрики'];
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $settings
      * @return array<string, string|null>
      */

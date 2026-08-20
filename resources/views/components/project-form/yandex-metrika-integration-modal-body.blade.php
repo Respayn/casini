@@ -75,6 +75,14 @@
         ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_TARGET_VISITS, 'label' => 'Целевые визиты'],
         ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES, 'label' => 'Достижения цели'],
     ];
+    $visitsMetricOptions = [
+        ['value' => YandexMetrikaIntegrationSettingsData::VISITS_METRIC_VISITS, 'label' => 'Визиты'],
+        ['value' => YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS, 'label' => 'Посетители'],
+    ];
+    $searchEnginesTooltip = 'По умолчанию учитываются все поисковые системы, включая те, что появятся в Метрике позже';
+    [$resolvedSearchEnginesAll, $resolvedSearchEngines] = YandexMetrikaIntegrationSettingsData::resolveSearchEnginesSelection(
+        collect($savedSettings)
+    );
     $reportOptions = [
         ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true, 'seo_only' => true],
         ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки', 'exclusive_goal_source' => true],
@@ -88,7 +96,8 @@
     $utmReportOption = $reportOptions[1];
     $conversionsReportOption = $reportOptions[2];
     $directSummaryReportOption = $reportOptions[3];
-    $otherReportOptions = array_slice($reportOptions, 4);
+    $visitsSearchEnginesReportOption = $reportOptions[4];
+    $otherReportOptions = array_slice($reportOptions, 5);
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -154,6 +163,12 @@
         'utm_source' => (string) $getSetting('utm_source', ''),
         'utm_medium' => (string) $getSetting('utm_medium', ''),
         'utm_campaign' => (string) $getSetting('utm_campaign', ''),
+        'search_engines_all' => $resolvedSearchEnginesAll,
+        'search_engines' => $resolvedSearchEngines,
+        'visits_metric' => YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($getSetting(
+            'visits_metric',
+            YandexMetrikaIntegrationSettingsData::DEFAULT_VISITS_METRIC
+        )),
     ];
 @endphp
 
@@ -167,17 +182,22 @@
         attributionOptions: {{ Js::from($attributionOptions) }},
         dataModeOptions: {{ Js::from($dataModeOptions) }},
         goalsMetricOptions: {{ Js::from($goalsMetricOptions) }},
+        visitsMetricOptions: {{ Js::from($visitsMetricOptions) }},
         counterOptions: [],
         counterSelectOpen: false,
         counterSearchQuery: '',
         attributionSelectOpen: false,
         dataModeSelectOpen: false,
         goalsMetricSelectOpen: false,
+        visitsMetricSelectOpen: false,
         countersLoading: false,
         countersError: null,
         goalOptions: [],
         goalsLoading: false,
         goalsError: null,
+        searchEngineOptions: [],
+        searchEnginesLoading: false,
+        searchEnginesError: null,
         testPanelOpen: false,
         testDate: '',
         testCount: null,
@@ -203,6 +223,12 @@
         directSummaryTestLoading: false,
         directSummaryTestError: null,
         directSummaryTestDateHintOpen: false,
+        visitsSearchEnginesTestPanelOpen: false,
+        visitsSearchEnginesTestDate: '',
+        visitsSearchEnginesTestCount: null,
+        visitsSearchEnginesTestLoading: false,
+        visitsSearchEnginesTestError: null,
+        visitsSearchEnginesTestDateHintOpen: false,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -403,9 +429,25 @@
                 this.directSummaryTestError = null;
             });
 
+            this.$watch('settings.reports.visits_search_engines', (enabled) => {
+                if (enabled) {
+                    this.loadSearchEngines();
+                    return;
+                }
+
+                this.visitsSearchEnginesTestPanelOpen = false;
+                this.visitsSearchEnginesTestDate = '';
+                this.visitsSearchEnginesTestCount = null;
+                this.visitsSearchEnginesTestError = null;
+            });
+
             this.$watch('settings.counter_id', () => {
                 if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions || this.settings.reports.goals_direct_summary) {
                     this.loadGoals();
+                }
+
+                if (this.settings.reports.visits_search_engines) {
+                    this.loadSearchEngines();
                 }
             });
 
@@ -708,6 +750,14 @@
             return option ? option.label : 'Выберите значение';
         },
 
+        visitsMetricSelectLabel() {
+            const option = this.visitsMetricOptions.find(
+                o => String(o.value) === String(this.settings.visits_metric)
+            );
+
+            return option ? option.label : 'Выберите значение';
+        },
+
         toggleCounterSelect() {
             if (this.counterSelectDisabled) {
                 return;
@@ -746,6 +796,11 @@
             this.goalsMetricSelectOpen = false;
         },
 
+        selectVisitsMetric(value) {
+            this.settings.visits_metric = String(value);
+            this.visitsMetricSelectOpen = false;
+        },
+
         isGoalSelected(id) {
             return (this.settings.goals || []).some(goalId => Number(goalId) === Number(id));
         },
@@ -762,6 +817,108 @@
             } else {
                 this.settings.goals.splice(index, 1);
             }
+        },
+
+        isAllSearchEnginesSelected() {
+            return !!this.settings.search_engines_all;
+        },
+
+        isSearchEngineSelected(id) {
+            if (this.settings.search_engines_all) {
+                return true;
+            }
+
+            return (this.settings.search_engines || []).some(engineId => String(engineId) === String(id));
+        },
+
+        toggleAllSearchEngines() {
+            if (this.settings.search_engines_all) {
+                this.settings.search_engines_all = false;
+                this.settings.search_engines = [];
+                return;
+            }
+
+            this.settings.search_engines_all = true;
+            this.settings.search_engines = [];
+        },
+
+        toggleSearchEngine(id) {
+            if (this.settings.search_engines_all) {
+                return;
+            }
+
+            const value = String(id);
+            const optionIds = (this.searchEngineOptions || []).map(option => String(option.id));
+
+            if (!Array.isArray(this.settings.search_engines)) {
+                this.settings.search_engines = [];
+            }
+
+            const index = this.settings.search_engines.findIndex(engineId => String(engineId) === value);
+            if (index === -1) {
+                this.settings.search_engines.push(value);
+            } else {
+                this.settings.search_engines.splice(index, 1);
+            }
+
+            if (
+                optionIds.length > 0
+                && optionIds.every(engineId => this.settings.search_engines.some(selected => String(selected) === engineId))
+            ) {
+                this.settings.search_engines_all = true;
+                this.settings.search_engines = [];
+            }
+        },
+
+        syncSearchEnginesAfterLoad() {
+            if (this.settings.search_engines_all) {
+                this.settings.search_engines = [];
+                return;
+            }
+
+            const validIds = (this.searchEngineOptions || []).map(option => String(option.id));
+            this.settings.search_engines = (this.settings.search_engines || [])
+                .map(String)
+                .filter(id => validIds.includes(id));
+
+            if (
+                validIds.length > 0
+                && validIds.every(id => this.settings.search_engines.includes(id))
+            ) {
+                this.settings.search_engines_all = true;
+                this.settings.search_engines = [];
+            }
+        },
+
+        async loadSearchEngines() {
+            if (!this.settings.oauth_token || !this.settings.counter_id) {
+                this.searchEngineOptions = [];
+                return;
+            }
+
+            this.searchEnginesLoading = true;
+            this.searchEnginesError = null;
+
+            try {
+                const result = await $wire.loadYandexMetrikaSearchEngines(
+                    this.settings.oauth_token,
+                    Number(this.settings.counter_id),
+                    this.settings.oauth_yandex_login || ''
+                );
+
+                if (result.error) {
+                    this.searchEnginesError = result.error;
+                    this.searchEngineOptions = [];
+                } else {
+                    this.searchEngineOptions = result.search_engines ?? [];
+                    this.syncSearchEnginesAfterLoad();
+                }
+            } catch (e) {
+                this.searchEnginesError = 'Не удалось загрузить поисковые системы Яндекс Метрики';
+                this.searchEngineOptions = [];
+            }
+
+            this.searchEnginesLoading = false;
         },
 
         showFilter(key) {
@@ -1128,8 +1285,12 @@
 
             this.countersLoading = false;
 
-            if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions) {
+            if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions || this.settings.reports.goals_direct_summary) {
                 this.loadGoals();
+            }
+
+            if (this.settings.reports.visits_search_engines) {
+                this.loadSearchEngines();
             }
         },
 
@@ -1346,6 +1507,45 @@
             }
 
             this.directSummaryTestLoading = false;
+        },
+
+        toggleVisitsSearchEnginesTestPanel() {
+            this.visitsSearchEnginesTestPanelOpen = !this.visitsSearchEnginesTestPanelOpen;
+
+            if (!this.visitsSearchEnginesTestPanelOpen) {
+                return;
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.metrikaVisitsSearchEnginesTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
+        async runVisitsSearchEnginesTest() {
+            if (!this.visitsSearchEnginesTestDate) {
+                this.visitsSearchEnginesTestError = 'Укажите дату';
+                return;
+            }
+
+            this.visitsSearchEnginesTestLoading = true;
+            this.visitsSearchEnginesTestError = null;
+            this.visitsSearchEnginesTestCount = null;
+
+            const result = await $wire.testYandexMetrikaVisitsSearchEnginesIntegration(this.settings, this.visitsSearchEnginesTestDate);
+
+            if (result.error) {
+                this.visitsSearchEnginesTestError = result.error;
+            } else {
+                this.visitsSearchEnginesTestCount = result.count;
+            }
+
+            this.visitsSearchEnginesTestLoading = false;
         },
 
         save() {
@@ -2569,6 +2769,211 @@
                 <div class="w-[305px]">
                     <span class="text-sm" x-show="directSummaryTestCount !== null" x-text="'Достижений цели в отчете Директ, сводка: ' + directSummaryTestCount" x-cloak></span>
                     <p class="text-warning-red mt-1 text-xs" x-show="directSummaryTestError" x-text="directSummaryTestError" x-cloak></p>
+                </div>
+            </x-form.form-field>
+        </div>
+        </div>
+
+        {{-- Visits Search Engines report checkbox --}}
+        @php $visitsSearchEnginesKey = $visitsSearchEnginesReportOption['key']; @endphp
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+            </x-form.form-label>
+            <div class="w-[305px]">
+                <label
+                    class="flex items-center justify-between gap-2 text-sm"
+                    x-ref="goalReport_{{ $visitsSearchEnginesKey }}"
+                    x-bind:class="isReportDisabled('{{ $visitsSearchEnginesKey }}') && 'cursor-not-allowed text-secondary-text'"
+                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $visitsSearchEnginesKey }}') ? '{{ $visitsSearchEnginesKey }}' : null"
+                    x-on:mouseleave="reportTooltipKey = null"
+                >
+                    <span>{{ $visitsSearchEnginesReportOption['label'] }}</span>
+                    <x-form.checkbox
+                        x-model="settings.reports.{{ $visitsSearchEnginesKey }}"
+                        x-bind:disabled="isReportDisabled('{{ $visitsSearchEnginesKey }}')"
+                    />
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="reportTooltipKey === '{{ $visitsSearchEnginesKey }}'"
+                            x-cloak
+                            x-anchor.bottom="$refs.goalReport_{{ $visitsSearchEnginesKey }}"
+                            x-text="reportDisabledReason('{{ $visitsSearchEnginesKey }}')"
+                        ></div>
+                    </template>
+                </label>
+            </div>
+        </x-form.form-field>
+
+        {{-- Visits Search Engines report details border --}}
+        <div
+            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
+            x-show="settings.reports.{{ $visitsSearchEnginesKey }}"
+            x-cloak
+        >
+
+        <div class="flex flex-col gap-2">
+            <x-form.form-label tooltip="{{ $searchEnginesTooltip }}">
+                Выберите поисковые системы для отчётов
+            </x-form.form-label>
+            <div>
+                <p class="text-secondary-text text-sm" x-show="searchEnginesLoading" x-cloak>Загрузка поисковых систем…</p>
+                <p class="text-warning-red text-sm" x-show="searchEnginesError" x-text="searchEnginesError" x-cloak></p>
+                <p
+                    class="text-secondary-text text-sm"
+                    x-show="!searchEnginesLoading && !searchEnginesError && searchEngineOptions.length === 0"
+                    x-cloak
+                >За выбранный период у счётчика нет данных по поисковым системам</p>
+                <div
+                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
+                    style="max-height: 196px; overflow-y: auto"
+                    x-show="!searchEnginesLoading && !searchEnginesError && searchEngineOptions.length > 0"
+                    x-cloak
+                >
+                    <label
+                        class="flex cursor-pointer items-center gap-2 py-2 text-sm"
+                        x-on:click.prevent="toggleAllSearchEngines()"
+                    >
+                        <x-form.checkbox
+                            x-bind:checked="isAllSearchEnginesSelected()"
+                        />
+                        <span class="min-w-0">Все поисковые системы</span>
+                    </label>
+                    <template x-for="engine in searchEngineOptions" :key="engine.id">
+                        <label
+                            class="flex items-center gap-2 py-2 text-sm"
+                            x-bind:class="isAllSearchEnginesSelected() ? 'cursor-not-allowed' : 'cursor-pointer'"
+                            x-on:click.prevent="!isAllSearchEnginesSelected() && toggleSearchEngine(engine.id)"
+                        >
+                            <x-form.checkbox
+                                x-bind:checked="isSearchEngineSelected(engine.id)"
+                                x-bind:disabled="isAllSearchEnginesSelected()"
+                            />
+                            <span class="min-w-0" x-text="engine.name"></span>
+                        </label>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+                По какому параметру рассчитываем переходы?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="visitsMetricSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="visitsMetricSelectOpen = !visitsMetricSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': visitsMetricSelectOpen,
+                                'rounded-[5px]': !visitsMetricSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="visitsMetricSelectLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': visitsMetricSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="visitsMetricSelectOpen"
+                        x-anchor.no-style="$refs.visitsMetricSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="visitsMetricSelectOpen = false"
+                    >
+                        <template x-for="option in visitsMetricOptions" :key="option.value">
+                            <div
+                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                x-on:click="selectVisitsMetric(option.value)"
+                                x-text="option.label"
+                            ></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        <x-form.form-field>
+            <div
+                class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                x-on:click="toggleVisitsSearchEnginesTestPanel()"
+                x-bind:aria-expanded="visitsSearchEnginesTestPanelOpen"
+            >
+                <x-button.button
+                    class="pointer-events-none self-start"
+                    type="button"
+                    variant="action"
+                    wrap
+                    label="Проверить работу интеграции"
+                />
+                <span
+                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                    x-bind:class="{ 'rotate-90': visitsSearchEnginesTestPanelOpen, 'rotate-270': !visitsSearchEnginesTestPanelOpen }"
+                >
+                    <x-icons.arrow-left />
+                </span>
+            </div>
+            <span class="w-[305px]" aria-hidden="true"></span>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-3"
+            x-ref="metrikaVisitsSearchEnginesTestPanel"
+            x-show="settings.reports.visits_search_engines && visitsSearchEnginesTestPanelOpen"
+            x-cloak
+        >
+            <x-form.form-field>
+                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Поисковые системы в Яндекс Метрике">
+                    Дата
+                </x-form.form-label>
+                <div class="flex w-[305px] flex-col gap-3">
+                    <x-form.date-picker
+                        class="w-full"
+                        placeholder="Выберите дату"
+                        x-model="visitsSearchEnginesTestDate"
+                    ></x-form.date-picker>
+                    <div
+                        class="w-full"
+                        x-ref="visitsSearchEnginesTestButtonWrap"
+                        x-on:mouseenter="visitsSearchEnginesTestDateHintOpen = !visitsSearchEnginesTestDate"
+                        x-on:mouseleave="visitsSearchEnginesTestDateHintOpen = false"
+                    >
+                        <x-button.button
+                            type="button"
+                            icon="icons.refresh"
+                            class="w-full"
+                            label="Проверить"
+                            x-bind:disabled="!visitsSearchEnginesTestDate || visitsSearchEnginesTestLoading"
+                            x-on:click="runVisitsSearchEnginesTest()"
+                        />
+                    </div>
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="visitsSearchEnginesTestDateHintOpen && !visitsSearchEnginesTestDate"
+                            x-cloak
+                            x-anchor.bottom="$refs.visitsSearchEnginesTestButtonWrap"
+                        >
+                            Выберите дату
+                        </div>
+                    </template>
+                </div>
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                <div class="w-[305px]">
+                    <span class="text-sm" x-show="visitsSearchEnginesTestCount !== null" x-text="'Количество переходов из отчета Поисковые системы: ' + visitsSearchEnginesTestCount" x-cloak></span>
+                    <p class="text-warning-red mt-1 text-xs" x-show="visitsSearchEnginesTestError" x-text="visitsSearchEnginesTestError" x-cloak></p>
                 </div>
             </x-form.form-field>
         </div>

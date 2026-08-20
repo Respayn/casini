@@ -111,7 +111,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 - Список фильтруется `ClientListVisibilityFilter` (self: менеджер клиента / specialist проекта; all: всё).
 - Создание и сохранение клиента/проекта — `ensureUserCanEdit` (edit|full self|all).
 - Открытие существующего проекта — `ClientProjectAccessPolicy` (all или self с привязкой).
-- **Форма клиенто-проекта (read-only):** при `read` без `edit|full` форма открывается на просмотр — все поля, toggles, кнопки и интеграции disabled + тултип `permissions.denied` (`x-permissions.field-guard`). Кнопка «Сохранить» disabled. Серверная защита: `ensureCanEdit()` на всех публичных мутациях (`save`, `addRegion`, `removeRegion`, `addTopic`, `removeTopic`, `addInterval`, `removeInterval`, `addMapping`, `removeMapping`, `selectIntegration`, `setIntegrationSettings`, `removeIntegration`, `setIntegrationEnabled`, OAuth-методы, `loadCallibriProjects`, `testCallibriIntegration`, `loadYandexMetrikaGoals`, `testYandexMetrikaGoalsSearchEnginesIntegration`, `parsePhrasesFromDocx`). Модалки интеграций (Callibri, Яндекс.Директ, Search API) также заблокированы через Alpine `canEdit` + серверный guard. Восстановление OAuth state из cache при mount пропускается для read-only.
+- **Форма клиенто-проекта (read-only):** при `read` без `edit|full` форма открывается на просмотр — все поля, toggles, кнопки и интеграции disabled + тултип `permissions.denied` (`x-permissions.field-guard`). Кнопка «Сохранить» disabled. Серверная защита: `ensureCanEdit()` на всех публичных мутациях (`save`, `addRegion`, `removeRegion`, `addTopic`, `removeTopic`, `addInterval`, `removeInterval`, `addMapping`, `removeMapping`, `selectIntegration`, `setIntegrationSettings`, `removeIntegration`, `setIntegrationEnabled`, OAuth-методы, `loadCallibriProjects`, `testCallibriIntegration`, `loadYandexMetrikaGoals`, `loadYandexMetrikaSearchEngines`, `testYandexMetrikaGoalsSearchEnginesIntegration`, `parsePhrasesFromDocx`). Модалки интеграций (Callibri, Яндекс.Директ, Search API) также заблокированы через Alpine `canEdit` + серверный guard. Восстановление OAuth state из cache при mount пропускается для read-only.
 
 ## Тестирование
 
@@ -322,6 +322,9 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `reports.*` | какие отчёты подтягивать | все `false` |
 | `goals` | ID выбранных целей счётчика | `[]` |
 | `goals_metric` | `target_visits` (Целевые визиты) или `goal_reaches` (Достижения цели) | `target_visits` |
+| `search_engines_all` | режим «Все поисковые системы» для отчёта «Переходы» | `true` |
+| `search_engines` | root-ID выбранных ПС (`yandex`, `google`…) при `search_engines_all=false` | `[]` |
+| `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчёта «Переходы» | `visits` |
 
 Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
 
@@ -505,6 +508,58 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 - условия: `is_enabled`, `reports.goals_direct_summary`, токен, счётчик, цели, `sync_enabled_at`;
 - стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary`.
+
+## Интеграция Яндекс Метрики (этап 3.5: переходы «Поисковые системы»)
+
+Пятый отчёт этапа 3. Не цели, а переходы (визиты/посетители).
+
+### Ограничение по типу проекта
+
+`visits_search_engines` доступен только для `seo_promotion` (уже через `$seoOnlyVisitReportKeys`).
+
+### Ключи settings
+
+| Ключ | Значения | По умолчанию |
+|------|----------|--------------|
+| `search_engines_all` | `true` = все ПС (включая будущие); `false` = только `search_engines` | `true` |
+| `search_engines` | массив root-ID (`yandex`, `google`, …) | `[]` |
+| `visits_metric` | `visits` (Визиты) / `users` (Посетители) | `visits` |
+
+При `search_engines_all=true` массив `search_engines` при сохранении очищается. Legacy-ключ `search_engines_display` (textarea) при чтении мигрируется в ID через [`SearchEnginesDisplayList::migrateDisplayTextToIds()`](src/Domain/YandexMetrika/SearchEnginesDisplayList.php); при новом сохранении не пишется.
+
+### UI
+
+При включённом `visits_search_engines` блок обёрнут рамкой с полями:
+
+1. «Выберите поисковые системы для отчётов» — чекбоксы из API (`loadYandexMetrikaSearchEngines` → `listSearchEngineRootOptions`). Первый пункт — **«Все поисковые системы»** (по умолчанию выбран). Снятие одной ПС при активном «Все» переводит в явный список; если отмечены все видимые — снова включается «Все».
+2. «По какому параметру рассчитываем переходы?» — `visits` / `users`.
+3. «Проверить работу интеграции» — по шаблону Callibri. Результат: `Количество переходов из отчета Поисковые системы: N`. Livewire: `testYandexMetrikaVisitsSearchEnginesIntegration()`.
+
+Цели для этого отчёта не требуются.
+
+### API
+
+[`YandexMetrikaService::fetchSearchEnginesVisitsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:searchEngineRoot` или `ym:s:searchEngineRoot,ym:s:month`;
+- метрики: `ym:s:visits` / `ym:s:users`;
+- при `search_engines_all=false` — доп. фильтр `ym:s:searchEngineRoot=@'…'` (через [`SearchEnginesDisplayList::buildSearchEngineRootFilter()`](src/Domain/YandexMetrika/SearchEnginesDisplayList.php));
+- в БД пишется root-ID (`dimensions[0].id`), label из `name` — для отчётов;
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+Список опций для UI: `listSearchEngineRootOptions()` за последние 30 дней, `dimensions=ym:s:searchEngineRoot`, organic + without_robots.
+
+### БД
+
+Колонка `yandex_metrika_search_engines_stats.search_engine` — `VARCHAR(255)`. Goals-синк по-прежнему пишет в `conversions` с ключами `yandex`/`google`/`other`. Visits-синк пишет в `visits` через `upsertSearchEnginesVisits` с root-ID (не затирает `conversions`).
+
+### Ночной съём
+
+Команда `metrika:sync-search-engines-visits` (расписание `05:00` в [`routes/console.php`](routes/console.php)):
+
+- условия: `is_enabled`, `reports.visits_search_engines`, токен, счётчик, `sync_enabled_at`;
+- период: с начала месяца `sync_enabled_at` по сегодня;
+- upsert `visits` по `(project_id, search_engine, month)`.
 
 ## UI-шаблон: проверка работы интеграции
 

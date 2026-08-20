@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Log;
+use Src\Domain\YandexMetrika\SearchEnginesDisplayList;
 use Src\Domain\YandexMetrika\YandexMetrikaFiltersBuilder;
 use Src\Domain\YandexMetrika\YandexMetrikaUtmFilterBuilder;
 
@@ -178,6 +179,70 @@ class YandexMetrikaService
     }
 
     /**
+     * Список корневых ПС (ym:s:searchEngineRoot) за период.
+     *
+     * @return list<array{id: string, name: string}>
+     */
+    public function listSearchEngineRootOptions(?Carbon $dateFrom = null, ?Carbon $dateTo = null): array
+    {
+        $dateTo ??= Carbon::yesterday();
+        $dateFrom ??= $dateTo->copy()->subDays(29);
+
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        try {
+            $params = $this->applyReportFilters([
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => 'ym:s:visits',
+                'dimensions' => 'ym:s:searchEngineRoot',
+                'filters' => "ym:s:trafficSource=='organic'",
+                'limit' => 10000,
+            ], null, YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE);
+
+            $response = $this->getClient()->getVisitsReport($params);
+            $options = [];
+            $seen = [];
+
+            foreach ($response['data'] ?? [] as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+                $dim = is_array($dimensions[0] ?? null) ? $dimensions[0] : [];
+                $id = trim((string) ($dim['id'] ?? ''));
+                $name = trim((string) ($dim['name'] ?? ''));
+
+                if ($id === '' || isset($seen[$id])) {
+                    continue;
+                }
+
+                $seen[$id] = true;
+                $options[] = [
+                    'id' => $id,
+                    'name' => $name !== '' ? $name : $id,
+                ];
+            }
+
+            usort(
+                $options,
+                static fn (array $a, array $b): int => strcasecmp($a['name'], $b['name'])
+            );
+
+            return $options;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+            ]);
+            throw new \Exception('Failed to list search engine root options', 0, $e);
+        }
+    }
+
+    /**
      * @param  array<string, mixed>  $settings
      */
     public function countSearchEnginesGoalsForDate(array $settings, Carbon $date): int
@@ -260,6 +325,100 @@ class YandexMetrikaService
                 'goals' => $normalizedGoalIds,
             ]);
             throw new \Exception('Failed to get search engines goals report', 0, $e);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function countSearchEnginesVisitsForDate(array $settings, Carbon $date): int
+    {
+        $this->setupClientFromSettings($settings);
+
+        [$searchEnginesAll, $searchEngineIds] = YandexMetrikaIntegrationSettingsData::resolveSearchEnginesSelection(
+            collect($settings)
+        );
+
+        $rows = $this->fetchSearchEnginesVisitsStats(
+            $date,
+            $date,
+            YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($settings['visits_metric'] ?? null),
+            is_array($settings['filters'] ?? null) ? $settings['filters'] : null,
+            (string) ($settings['data_mode'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE),
+            (string) ($settings['attribution_model'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL),
+            null,
+            filled($settings['counter_time_zone'] ?? null) ? (string) $settings['counter_time_zone'] : null,
+            $searchEnginesAll,
+            $searchEngineIds
+        );
+
+        return array_sum(array_column($rows, 'value'));
+    }
+
+    /**
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     * @param  list<string>  $searchEngineIds
+     * @return list<array{search_engine: string, search_engine_label: string, month: string, value: int}>
+     */
+    public function fetchSearchEnginesVisitsStats(
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        string $visitsMetric = YandexMetrikaIntegrationSettingsData::DEFAULT_VISITS_METRIC,
+        ?array $filters = null,
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        string $attributionModel = YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL,
+        ?string $timezone = null,
+        ?string $counterTimezone = null,
+        bool $searchEnginesAll = true,
+        array $searchEngineIds = []
+    ): array {
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        $normalizedMetric = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($visitsMetric);
+        $metrics = $normalizedMetric === YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS
+            ? 'ym:s:users'
+            : 'ym:s:visits';
+
+        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        $dimensions = $includeMonth
+            ? 'ym:s:searchEngineRoot,ym:s:month'
+            : 'ym:s:searchEngineRoot';
+
+        try {
+            $params = [
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => $metrics,
+                'dimensions' => $dimensions,
+                'limit' => 10000,
+            ];
+
+            $searchEngineFilter = SearchEnginesDisplayList::buildSearchEngineRootFilter(
+                $searchEnginesAll,
+                YandexMetrikaIntegrationSettingsData::normalizeSearchEngineIds($searchEngineIds)
+            );
+            if ($searchEngineFilter !== null) {
+                $params['filters'] = $searchEngineFilter;
+            }
+
+            $params = $this->applyReportFilters($params, $filters, $dataMode);
+            $params = $this->applyReportAttribution($params, $attributionModel);
+            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+
+            $response = $this->getClient()->getVisitsReport($params);
+
+            return $this->aggregateSearchEnginesVisitsRows($response, $dateFrom, $includeMonth);
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+                'visits_metric' => $normalizedMetric,
+            ]);
+            throw new \Exception('Failed to get search engines visits report', 0, $e);
         }
     }
 
@@ -531,6 +690,60 @@ class YandexMetrikaService
             if (! isset($aggregated[$key])) {
                 $aggregated[$key] = [
                     'search_engine' => $engine,
+                    'month' => $month,
+                    'value' => 0,
+                ];
+            }
+
+            $aggregated[$key]['value'] += $value;
+        }
+
+        return array_values($aggregated);
+    }
+
+    /**
+     * Агрегация переходов: ключ — root-ID из API, label — локализованное name.
+     *
+     * @param  array<string, mixed>  $response
+     * @return list<array{search_engine: string, search_engine_label: string, month: string, value: int}>
+     */
+    private function aggregateSearchEnginesVisitsRows(array $response, Carbon $fallbackDate, bool $includeMonth): array
+    {
+        $aggregated = [];
+
+        foreach ($response['data'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+            $engineDim = is_array($dimensions[0] ?? null) ? $dimensions[0] : [];
+            $engineId = trim((string) ($engineDim['id'] ?? ''));
+            $engineLabel = trim((string) ($engineDim['name'] ?? ''));
+            if ($engineId === '') {
+                $engineId = $engineLabel;
+            }
+            if ($engineLabel === '') {
+                $engineLabel = $engineId;
+            }
+
+            $monthName = $includeMonth && is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? '')
+                : '';
+            $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
+            $value = (int) round(array_sum(array_map('floatval', $metrics)));
+
+            if ($engineId === '') {
+                continue;
+            }
+
+            $month = $this->parseMonthDimension($monthName, $fallbackDate);
+            $key = $engineId.'|'.$month;
+
+            if (! isset($aggregated[$key])) {
+                $aggregated[$key] = [
+                    'search_engine' => $engineId,
+                    'search_engine_label' => $engineLabel,
                     'month' => $month,
                     'value' => 0,
                 ];

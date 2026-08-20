@@ -4,6 +4,7 @@ namespace App\Data\IntegrationSettings;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
+use Src\Domain\YandexMetrika\SearchEnginesDisplayList;
 
 class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 {
@@ -16,6 +17,12 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
     public const GOALS_METRIC_GOAL_REACHES = 'goal_reaches';
 
     public const DEFAULT_GOALS_METRIC = self::GOALS_METRIC_TARGET_VISITS;
+
+    public const VISITS_METRIC_VISITS = 'visits';
+
+    public const VISITS_METRIC_USERS = 'users';
+
+    public const DEFAULT_VISITS_METRIC = self::VISITS_METRIC_VISITS;
 
     public const UTM_FILTER_MODE_SOURCE = 'source';
 
@@ -89,6 +96,25 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 
     public string $utmCampaign = '';
 
+    /**
+     * Режим «Все поисковые системы» (включая будущие из API).
+     */
+    public bool $searchEnginesAll = true;
+
+    /**
+     * Root-ID выбранных ПС (ym:s:searchEngineRoot). Используется только при searchEnginesAll = false.
+     *
+     * @var list<string>
+     */
+    public array $searchEngines = [];
+
+    /**
+     * @deprecated Legacy textarea; читается только для миграции в searchEngines.
+     */
+    public string $searchEnginesDisplay = '';
+
+    public string $visitsMetric = self::DEFAULT_VISITS_METRIC;
+
     public static function fromSettings(Collection $settings): self
     {
         $data = new self();
@@ -126,8 +152,65 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         $data->utmSource = trim((string) $settings->get('utm_source', ''));
         $data->utmMedium = trim((string) $settings->get('utm_medium', ''));
         $data->utmCampaign = trim((string) $settings->get('utm_campaign', ''));
+        $data->searchEnginesDisplay = (string) $settings->get('search_engines_display', '');
+        [$data->searchEnginesAll, $data->searchEngines] = self::resolveSearchEnginesSelection($settings);
+        $data->visitsMetric = self::normalizeVisitsMetric($settings->get('visits_metric'));
 
         return $data;
+    }
+
+    /**
+     * @return array{0: bool, 1: list<string>}
+     */
+    public static function resolveSearchEnginesSelection(Collection $settings): array
+    {
+        $hasAllKey = $settings->has('search_engines_all');
+        $hasIdsKey = $settings->has('search_engines');
+
+        if ($hasAllKey || $hasIdsKey) {
+            $all = $hasAllKey
+                ? (bool) $settings->get('search_engines_all')
+                : true;
+            $ids = self::normalizeSearchEngineIds($settings->get('search_engines', []));
+
+            if ($all) {
+                return [true, []];
+            }
+
+            return [false, $ids];
+        }
+
+        $legacyDisplay = trim((string) $settings->get('search_engines_display', ''));
+        if ($legacyDisplay === '') {
+            return [true, []];
+        }
+
+        return [false, SearchEnginesDisplayList::migrateDisplayTextToIds($legacyDisplay)];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function normalizeSearchEngineIds(mixed $ids): array
+    {
+        if (! is_array($ids)) {
+            return [];
+        }
+
+        $result = [];
+        foreach ($ids as $id) {
+            $value = trim((string) $id);
+            if ($value !== '') {
+                $result[] = $value;
+            }
+        }
+
+        return array_values(array_unique($result));
+    }
+
+    public function isAllSearchEnginesSelected(): bool
+    {
+        return $this->searchEnginesAll;
     }
 
     /**
@@ -166,6 +249,15 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         return in_array($value, [self::GOALS_METRIC_TARGET_VISITS, self::GOALS_METRIC_GOAL_REACHES], true)
             ? $value
             : self::DEFAULT_GOALS_METRIC;
+    }
+
+    public static function normalizeVisitsMetric(mixed $metric): string
+    {
+        $value = trim((string) $metric);
+
+        return in_array($value, [self::VISITS_METRIC_VISITS, self::VISITS_METRIC_USERS], true)
+            ? $value
+            : self::DEFAULT_VISITS_METRIC;
     }
 
     public function getDecryptedOauthToken(): string

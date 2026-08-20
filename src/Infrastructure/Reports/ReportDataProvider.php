@@ -658,7 +658,6 @@ class ReportDataProvider implements ReportDataProviderInterface
     {
         $headers = ['Название', 'План', 'Факт'];
 
-        // Получаем плановое значение для общего объёма визитов
         $planValues = $this->projectPlanValueRepository->findByCodes(
             $projectId,
             ['visits'],
@@ -669,39 +668,46 @@ class ReportDataProvider implements ReportDataProviderInterface
             ? (int) $planValues['visits']->getValue()
             : null;
 
-        // Группируем фактические данные по поисковым системам
-        $factData = [];
-        foreach ($stats as $item) {
-            $engine = $item->getSearchEngine();
-            if (!isset($factData[$engine])) {
-                $factData[$engine] = 0;
-            }
-            $factData[$engine] += $item->getVisits();
-        }
-
-        // Метки поисковых систем
-        $engineLabels = [
+        $legacyLabels = [
             'yandex' => 'Яндекс',
             'google' => 'Google',
+            'bing' => 'Bing',
+            'mail' => 'Mail.ru',
+            'yahoo' => 'Yahoo',
+            'rambler' => 'Rambler',
+            'duckduckgo' => 'DuckDuckGo',
             'other' => 'другие',
         ];
 
-        // Формируем строки таблицы (только факт, план только в итоговой строке)
+        $factData = [];
+        foreach ($stats as $item) {
+            $visits = $item->getVisits();
+            if ($visits <= 0) {
+                continue;
+            }
+
+            $engine = $item->getSearchEngine();
+            $label = $legacyLabels[$engine] ?? $engine;
+
+            if (! isset($factData[$label])) {
+                $factData[$label] = 0;
+            }
+            $factData[$label] += $visits;
+        }
+
         $rows = [];
         $totalFact = 0;
 
-        foreach (['yandex', 'google', 'other'] as $engine) {
-            $factValue = $factData[$engine] ?? 0;
+        foreach ($factData as $label => $factValue) {
             $totalFact += $factValue;
 
             $rows[] = [
-                $engineLabels[$engine],
+                $label,
                 '—',
                 $factValue,
             ];
         }
 
-        // Строка "Итого" — здесь показываем общий план
         $rows[] = [
             'Итого',
             $totalPlan ?? '—',

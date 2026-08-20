@@ -57,6 +57,11 @@ interface YandexMetrikaRepositoryInterface
     public function upsertSearchEnginesConversions(int $projectId, string $searchEngine, string $month, int $conversions): void;
 
     /**
+     * Сохраняет визиты/переходы из отчёта «Поисковые системы», не затирая конверсии.
+     */
+    public function upsertSearchEnginesVisits(int $projectId, string $searchEngine, string $month, int $visits): void;
+
+    /**
      * Заменяет строки UTM-целей за период: удаляет старые и вставляет свежие.
      *
      * @param list<array{goal_name: string, achieved_date: string, utm_source: ?string, utm_medium: ?string, utm_campaign: ?string, utm_content: ?string, utm_term: ?string}> $rows
