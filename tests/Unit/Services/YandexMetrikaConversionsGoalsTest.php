@@ -29,16 +29,20 @@ class YandexMetrikaConversionsGoalsTest extends TestCase
             ->andReturn([
                 'data' => [
                     [
-                        'dimensions' => [['name' => 'Заявка']],
+                        'dimensions' => [['id' => '111', 'name' => 'Заявка']],
                         'metrics' => [10, 5],
                     ],
                     [
-                        'dimensions' => [['name' => 'Заявка']],
+                        'dimensions' => [['id' => '111', 'name' => 'Заявка']],
                         'metrics' => [2],
                     ],
                     [
-                        'dimensions' => [['name' => 'Звонок']],
+                        'dimensions' => [['id' => '222', 'name' => 'Звонок']],
                         'metrics' => [3],
+                    ],
+                    [
+                        'dimensions' => [['id' => '999', 'name' => 'Чужая цель']],
+                        'metrics' => [100],
                     ],
                 ],
             ]);
@@ -67,6 +71,7 @@ class YandexMetrikaConversionsGoalsTest extends TestCase
         $this->assertSame(17, $byGoal['Заявка']['value']);
         $this->assertSame('2026-08-01', $byGoal['Заявка']['month']);
         $this->assertSame(3, $byGoal['Звонок']['value']);
+        $this->assertArrayNotHasKey('Чужая цель', $byGoal);
     }
 
     #[Test]
@@ -84,11 +89,11 @@ class YandexMetrikaConversionsGoalsTest extends TestCase
             ->andReturn([
                 'data' => [
                     [
-                        'dimensions' => [['name' => 'Заявка'], ['name' => '2026-07']],
+                        'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-07']],
                         'metrics' => [4],
                     ],
                     [
-                        'dimensions' => [['name' => 'Заявка'], ['name' => '2026-08']],
+                        'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-08']],
                         'metrics' => [9],
                     ],
                 ],
@@ -114,13 +119,13 @@ class YandexMetrikaConversionsGoalsTest extends TestCase
     }
 
     #[Test]
-    public function test_count_for_date_sums_all_goals(): void
+    public function test_count_for_date_sums_only_selected_goals(): void
     {
         $client = Mockery::mock(YandexMetrikaClientInterface::class);
         $client->shouldReceive('getVisitsReport')->once()->andReturn([
             'data' => [
-                ['dimensions' => [['name' => 'Заявка']], 'metrics' => [7]],
-                ['dimensions' => [['name' => 'Звонок']], 'metrics' => [2]],
+                ['dimensions' => [['id' => '111', 'name' => 'Заявка']], 'metrics' => [7]],
+                ['dimensions' => [['id' => '999', 'name' => 'Чужая']], 'metrics' => [50]],
             ],
         ]);
 
@@ -134,7 +139,7 @@ class YandexMetrikaConversionsGoalsTest extends TestCase
             'attribution_model' => 'lastsign',
         ], Carbon::parse('2026-08-18'));
 
-        $this->assertSame(9, $count);
+        $this->assertSame(7, $count);
     }
 
     private function makeService(YandexMetrikaClientInterface $client): YandexMetrikaService

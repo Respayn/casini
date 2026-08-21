@@ -631,6 +631,15 @@ class extends Component
                     );
                 unset($projectIntegrationData->settings['search_engines_display']);
             }
+
+            if ($reports['visits_search_queries'] ?? false) {
+                $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
+                    $projectIntegrationData->settings['visits_metric'] ?? null
+                );
+                $projectIntegrationData->settings['search_queries_minus'] = (string) (
+                    $projectIntegrationData->settings['search_queries_minus'] ?? ''
+                );
+            }
         }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
@@ -794,6 +803,48 @@ class extends Component
             }
 
             $count = app(YandexMetrikaService::class)->countSearchEnginesVisitsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaVisitsSearchQueriesIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['visits_search_queries'] ?? false)) {
+            return ['error' => 'Включите отчёт «Переходы из отчета Поисковые запросы»'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countSearchQueriesVisitsForDate($settings, $parsedDate);
 
             return ['count' => $count];
         } catch (\Throwable $e) {

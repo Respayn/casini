@@ -59,8 +59,9 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
         );
 
         $this->assertSame('ym:s:goal111visits,ym:s:goal222visits', $captured['metrics']);
-        $this->assertSame('ym:s:searchEngine', $captured['dimensions']);
+        $this->assertSame('ym:s:<attribution>SearchEngineRoot', $captured['dimensions']);
         $this->assertSame('automatic', $captured['attribution']);
+        $this->assertStringContainsString("ym:s:<attribution>TrafficSource=='organic'", (string) $captured['filters']);
         $this->assertStringContainsString("ym:s:isRobot=='No'", (string) $captured['filters']);
 
         $byEngine = [];
@@ -108,7 +109,8 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
         );
 
         $this->assertSame('ym:s:goal333reaches', $captured['metrics']);
-        $this->assertSame('ym:s:searchEngine,ym:s:month', $captured['dimensions']);
+        $this->assertSame('ym:s:<attribution>SearchEngineRoot,ym:s:month', $captured['dimensions']);
+        $this->assertStringContainsString("ym:s:<attribution>TrafficSource=='organic'", (string) $captured['filters']);
 
         $this->assertCount(2, $rows);
         $this->assertSame('2026-07-01', $rows[0]['month']);

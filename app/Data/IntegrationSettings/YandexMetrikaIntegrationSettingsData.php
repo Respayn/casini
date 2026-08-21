@@ -113,6 +113,11 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
      */
     public string $searchEnginesDisplay = '';
 
+    /**
+     * Минус-фразы для отчёта «Поисковые запросы» (каждая с новой строки).
+     */
+    public string $searchQueriesMinus = '';
+
     public string $visitsMetric = self::DEFAULT_VISITS_METRIC;
 
     public static function fromSettings(Collection $settings): self
@@ -154,6 +159,7 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         $data->utmCampaign = trim((string) $settings->get('utm_campaign', ''));
         $data->searchEnginesDisplay = (string) $settings->get('search_engines_display', '');
         [$data->searchEnginesAll, $data->searchEngines] = self::resolveSearchEnginesSelection($settings);
+        $data->searchQueriesMinus = (string) $settings->get('search_queries_minus', '');
         $data->visitsMetric = self::normalizeVisitsMetric($settings->get('visits_metric'));
 
         return $data;

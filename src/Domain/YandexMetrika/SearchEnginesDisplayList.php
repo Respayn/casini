@@ -8,6 +8,16 @@ namespace Src\Domain\YandexMetrika;
 class SearchEnginesDisplayList
 {
     /**
+     * Корневая ПС под выбранную модель атрибуции (как в отчёте «Поисковые системы»).
+     */
+    public const SEARCH_ENGINE_ROOT_DIMENSION = 'ym:s:<attribution>SearchEngineRoot';
+
+    /**
+     * Детальная ПС под атрибуцию (лист дерева; для целей используем Root).
+     */
+    public const SEARCH_ENGINE_DIMENSION = 'ym:s:<attribution>SearchEngine';
+
+    /**
      * @return list<string>
      */
     public static function parse(string $text): array
@@ -73,7 +83,7 @@ class SearchEnginesDisplayList
     }
 
     /**
-     * Фильтр API для ym:s:searchEngineRoot. null = без доп. фильтра (все ПС).
+     * Фильтр API для корневых ПС. null = без доп. фильтра (все ПС).
      *
      * @param  list<string>  $ids
      */
@@ -96,8 +106,9 @@ class SearchEnginesDisplayList
             return null;
         }
 
+        $dimension = self::SEARCH_ENGINE_ROOT_DIMENSION;
         $parts = array_map(
-            static fn (string $id): string => "ym:s:searchEngineRoot=@'".str_replace("'", "\\'", $id)."'",
+            static fn (string $id): string => $dimension."=@'".str_replace("'", "\\'", $id)."'",
             $normalized
         );
 

@@ -574,4 +574,43 @@ class YandexMetrikaModalTest extends TestCase
         $this->assertArrayHasKey('search_engines', $result);
         $this->assertSame('yandex', $result['search_engines'][0]['id']);
     }
+
+    #[Test]
+    public function test_modal_shows_visits_search_queries_report_labels(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('selectIntegration', 'yandex_metrika')
+            ->assertSee('Переходы из отчета Поисковые запросы')
+            ->assertSee('Минус-фразы')
+            ->assertSee('По какому параметру рассчитываем переходы?');
+    }
+
+    #[Test]
+    public function test_visits_search_queries_integration_returns_count(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('countSearchQueriesVisitsForDate')->once()->andReturn(33);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('testYandexMetrikaVisitsSearchQueriesIntegration', [
+                'oauth_token' => 'token',
+                'oauth_yandex_login' => 'login',
+                'counter_id' => 12345678,
+                'visits_metric' => 'visits',
+                'search_queries_minus' => '',
+                'reports' => ['visits_search_queries' => true],
+            ], '2026-08-18');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame(33, $result['count']);
+    }
 }

@@ -324,7 +324,8 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `goals_metric` | `target_visits` (Целевые визиты) или `goal_reaches` (Достижения цели) | `target_visits` |
 | `search_engines_all` | режим «Все поисковые системы» для отчёта «Переходы» | `true` |
 | `search_engines` | root-ID выбранных ПС (`yandex`, `google`…) при `search_engines_all=false` | `[]` |
-| `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчёта «Переходы» | `visits` |
+| `search_queries_minus` | минус-фразы для отчёта «Поисковые запросы» (каждая с новой строки) | `''` |
+| `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчётов «Переходы» | `visits` |
 
 Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
 
@@ -374,11 +375,12 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### API
 
-[`YandexMetrikaService::fetchSearchEnginesGoalsStats()`](app/Services/YandexMetrikaService.php) запрашивает Reporting API `stat/v1/data`:
+[`YandexMetrikaService::fetchSearchEnginesGoalsStats()`](app/Services/YandexMetrikaService.php) запрашивает Reporting API `stat/v1/data` как отчёт [«Поисковые системы»](https://yandex.ru/support/metrica/ru/sources/search-engines.html) / preset `search_engines`:
 
-- группировка: `ym:s:searchEngine` (один месяц) или `ym:s:searchEngine,ym:s:month` (несколько месяцев);
+- группировка: `ym:s:<attribution>SearchEngineRoot` (один месяц) или `ym:s:<attribution>SearchEngineRoot,ym:s:month` (несколько месяцев);
+- фильтр источника: `ym:s:<attribution>TrafficSource=='organic'`;
 - метрики: `ym:s:goal{ID}visits` или `ym:s:goal{ID}reaches` по выбранным целям;
-- фильтры, timezone и `attribution` (trim модели атрибуции) — как на этапе 2.
+- фильтры этапа 2, timezone и `attribution` — как обычно.
 
 Названия ПС нормализуются в `yandex` / `google` / `other` ([`YandexMetrikaSearchEngine`](app/Support/YandexMetrikaSearchEngine.php)). Проверка за день суммирует все строки.
 
@@ -423,8 +425,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 [`YandexMetrikaService::fetchUtmGoalsStats()`](app/Services/YandexMetrikaService.php):
 
-- группировка: `{UTM-измерение},ym:s:date`;
-- фильтр UTM строит [`YandexMetrikaUtmFilterBuilder`](src/Domain/YandexMetrika/YandexMetrikaUtmFilterBuilder.php): пустое поле → «не пусто», значения через запятую → OR с `=@` / `=*`;
+- как отчёт [«Метки UTM»](https://yandex.ru/support/metrica/ru/reports/tags-utm.html) / preset `tags_u_t_m`;
+- группировка: `ym:s:<attribution>UTM{Source|Medium|Campaign},ym:s:date` (под выбранную атрибуцию);
+- фильтр UTM строит [`YandexMetrikaUtmFilterBuilder`](src/Domain/YandexMetrika/YandexMetrikaUtmFilterBuilder.php): пустое поле → «не пусто» на том же attribution-измерении, значения через запятую → OR с `=@` / `=*`;
+- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches`;
 - фильтры этапа 2, timezone, attribution — как обычно.
 
 ### Ночной съём
@@ -458,8 +462,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 [`YandexMetrikaService::fetchConversionsGoalsStats()`](app/Services/YandexMetrikaService.php):
 
-- группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев);
-- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям;
+- группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев) — как preset `conversion` ([отчёт «Конверсии»](https://yandex.ru/support/metrica/ru/reports/conversion.html));
+- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям («Целевые визиты» / «Достижения цели»);
+- атрибуция на итог цели не влияет (проверено: automatic/lastsign/last/first дают одно число);
+- в ответе оставляем только строки с `dimensions[0].id` из выбранных целей;
 - имя цели из `dimensions[0].name`;
 - фильтры этапа 2, timezone, attribution — как обычно.
 
@@ -498,7 +504,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 - группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев);
 - метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям;
-- дополнительный фильтр Директа: `ym:s:lastAdvEngine=@'Директ'` (AND к фильтрам этапа 2);
+- сегмент как у отчёта [«Директ, сводка»](https://yandex.ru/support/metrica/ru/sources/direct-summary.html) / preset `sources_direct_summary`: фильтр `ym:s:<attribution>DirectClickOrder!n` (учтенный клик Директа / yclid), не `AdvEngine`;
+- в ответе оставляем только строки с `dimensions[0].id` из выбранных целей (API в разрезе `ym:s:goal` может отдать чужие цели);
 - имя цели из `dimensions[0].name`;
 - фильтры этапа 2, timezone, attribution — как обычно.
 
@@ -541,13 +548,13 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 [`YandexMetrikaService::fetchSearchEnginesVisitsStats()`](app/Services/YandexMetrikaService.php):
 
-- группировка: `ym:s:searchEngineRoot` или `ym:s:searchEngineRoot,ym:s:month`;
+- группировка: `ym:s:<attribution>SearchEngineRoot` или `ym:s:<attribution>SearchEngineRoot,ym:s:month` (при «Автоматической» → `automaticSearchEngineRoot`);
 - метрики: `ym:s:visits` / `ym:s:users`;
-- при `search_engines_all=false` — доп. фильтр `ym:s:searchEngineRoot=@'…'` (через [`SearchEnginesDisplayList::buildSearchEngineRootFilter()`](src/Domain/YandexMetrika/SearchEnginesDisplayList.php));
+- при `search_engines_all=false` — доп. фильтр `ym:s:<attribution>SearchEngineRoot=@'…'` (через [`SearchEnginesDisplayList::buildSearchEngineRootFilter()`](src/Domain/YandexMetrika/SearchEnginesDisplayList.php));
 - в БД пишется root-ID (`dimensions[0].id`), label из `name` — для отчётов;
 - фильтры этапа 2, timezone, attribution — как обычно.
 
-Список опций для UI: `listSearchEngineRootOptions()` за последние 30 дней, `dimensions=ym:s:searchEngineRoot`, organic + without_robots.
+Список опций для UI: `listSearchEngineRootOptions()` за последние 30 дней, `dimensions=ym:s:<attribution>SearchEngineRoot`, organic + without_robots.
 
 ### БД
 
@@ -560,6 +567,52 @@ Callibri отдаёт каждое обращение с временем в UTC
 - условия: `is_enabled`, `reports.visits_search_engines`, токен, счётчик, `sync_enabled_at`;
 - период: с начала месяца `sync_enabled_at` по сегодня;
 - upsert `visits` по `(project_id, search_engine, month)`.
+
+## Интеграция Яндекс Метрики (этап 3.6: переходы «Поисковые запросы»)
+
+Шестой отчёт этапа 3. Переходы по поисковым фразам с исключением минус-слов.
+
+### Ограничение по типу проекта
+
+`visits_search_queries` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
+
+Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`, `visits_geo`) можно включить одновременно (условие «И» с фильтрами этапа 2).
+
+### Ключи settings
+
+| Ключ | Значения | По умолчанию |
+|------|----------|--------------|
+| `search_queries_minus` | многострочный текст (каждая минус-фраза на своей строке) | `''` |
+| `visits_metric` | `visits` / `users` (общий с отчётом «Поисковые системы») | `visits` |
+
+### UI
+
+При включённом `visits_search_queries` блок обёрнут рамкой:
+
+1. «Минус-фразы» — textarea + тултип про брендовые запросы; placeholder «Вакансии» / «Реквизиты».
+2. «По какому параметру рассчитываем переходы?» — тот же `visits_metric`.
+3. «Проверить работу интеграции» — результат: `Количество переходов из отчета Поисковые запросы: N`. Livewire: `testYandexMetrikaVisitsSearchQueriesIntegration()`.
+
+### API
+
+[`YandexMetrikaService::fetchSearchQueriesVisitsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:<attribution>SearchPhrase` (+ `ym:s:month` на несколько месяцев) — как официальный preset `sources_search_phrases` (при «Автоматической» → `ym:s:automaticSearchPhrase`);
+- метрики: `ym:s:visits` / `ym:s:users`;
+- минус-фразы → AND-фильтр `ym:s:<attribution>SearchPhrase!@'…'` ([`SearchQueriesMinusList`](src/Domain/YandexMetrika/SearchQueriesMinusList.php), исключение по вхождению);
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+### БД
+
+Таблица `yandex_metrika_visits_search_queries` (`phrase`, `visits`, `visitors`, `goal_reaches`). Upsert через `upsertSearchQueriesVisits` обновляет только выбранную метрику, не затирая вторую и `goal_reaches`.
+
+### Ночной съём
+
+Команда `metrika:sync-search-queries-visits` (расписание `05:30` в [`routes/console.php`](routes/console.php)):
+
+- условия: `is_enabled`, `reports.visits_search_queries`, токен, счётчик, `sync_enabled_at`;
+- период: с начала месяца `sync_enabled_at` по сегодня;
+- upsert по `(project_id, month, phrase)`.
 
 ## UI-шаблон: проверка работы интеграции
 

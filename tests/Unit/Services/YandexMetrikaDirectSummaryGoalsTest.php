@@ -29,12 +29,16 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
             ->andReturn([
                 'data' => [
                     [
-                        'dimensions' => [['name' => 'Заявка']],
+                        'dimensions' => [['id' => '111', 'name' => 'Заявка']],
                         'metrics' => [10, 5],
                     ],
                     [
-                        'dimensions' => [['name' => 'Звонок']],
+                        'dimensions' => [['id' => '222', 'name' => 'Звонок']],
                         'metrics' => [3],
+                    ],
+                    [
+                        'dimensions' => [['id' => '999', 'name' => 'Чужая цель']],
+                        'metrics' => [100],
                     ],
                 ],
             ]);
@@ -52,7 +56,7 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
 
         $this->assertSame('ym:s:goal111visits,ym:s:goal222visits', $captured['metrics']);
         $this->assertSame('ym:s:goal', $captured['dimensions']);
-        $this->assertStringContainsString("ym:s:lastAdvEngine=@'Директ'", (string) $captured['filters']);
+        $this->assertStringContainsString("ym:s:<attribution>DirectClickOrder!n", (string) $captured['filters']);
 
         $byGoal = [];
         foreach ($rows as $row) {
@@ -61,6 +65,7 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
 
         $this->assertSame(15, $byGoal['Заявка']['value']);
         $this->assertSame(3, $byGoal['Звонок']['value']);
+        $this->assertArrayNotHasKey('Чужая цель', $byGoal);
     }
 
     #[Test]
@@ -78,11 +83,11 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
             ->andReturn([
                 'data' => [
                     [
-                        'dimensions' => [['name' => 'Заявка'], ['name' => '2026-07']],
+                        'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-07']],
                         'metrics' => [4],
                     ],
                     [
-                        'dimensions' => [['name' => 'Заявка'], ['name' => '2026-08']],
+                        'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-08']],
                         'metrics' => [9],
                     ],
                 ],
@@ -98,7 +103,7 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
 
         $this->assertSame('ym:s:goal333reaches', $captured['metrics']);
         $this->assertSame('ym:s:goal,ym:s:month', $captured['dimensions']);
-        $this->assertStringContainsString("ym:s:lastAdvEngine=@'Директ'", (string) $captured['filters']);
+        $this->assertStringContainsString("ym:s:<attribution>DirectClickOrder!n", (string) $captured['filters']);
 
         $this->assertCount(2, $rows);
         $this->assertSame('2026-07-01', $rows[0]['month']);
@@ -113,8 +118,8 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
         $client = Mockery::mock(YandexMetrikaClientInterface::class);
         $client->shouldReceive('getVisitsReport')->once()->andReturn([
             'data' => [
-                ['dimensions' => [['name' => 'Заявка']], 'metrics' => [7]],
-                ['dimensions' => [['name' => 'Звонок']], 'metrics' => [2]],
+                ['dimensions' => [['id' => '111', 'name' => 'Заявка']], 'metrics' => [7]],
+                ['dimensions' => [['id' => '111', 'name' => 'Заявка']], 'metrics' => [2]],
             ],
         ]);
 

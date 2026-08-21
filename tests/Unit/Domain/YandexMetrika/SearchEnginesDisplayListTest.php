@@ -42,7 +42,7 @@ class SearchEnginesDisplayListTest extends TestCase
     public function test_build_filter_for_single_id(): void
     {
         $this->assertSame(
-            "ym:s:searchEngineRoot=@'yandex'",
+            "ym:s:<attribution>SearchEngineRoot=@'yandex'",
             SearchEnginesDisplayList::buildSearchEngineRootFilter(false, ['yandex'])
         );
     }
@@ -51,7 +51,7 @@ class SearchEnginesDisplayListTest extends TestCase
     public function test_build_filter_for_multiple_ids(): void
     {
         $this->assertSame(
-            "(ym:s:searchEngineRoot=@'yandex' OR ym:s:searchEngineRoot=@'google')",
+            "(ym:s:<attribution>SearchEngineRoot=@'yandex' OR ym:s:<attribution>SearchEngineRoot=@'google')",
             SearchEnginesDisplayList::buildSearchEngineRootFilter(false, ['yandex', 'google'])
         );
     }

@@ -47,8 +47,8 @@ class YandexMetrikaSearchEnginesVisitsTest extends TestCase
         );
 
         $this->assertSame('ym:s:visits', $captured['metrics']);
-        $this->assertSame('ym:s:searchEngineRoot', $captured['dimensions']);
-        $this->assertStringNotContainsString('searchEngineRoot=@', (string) ($captured['filters'] ?? ''));
+        $this->assertSame('ym:s:<attribution>SearchEngineRoot', $captured['dimensions']);
+        $this->assertStringNotContainsString('SearchEngineRoot=@', (string) ($captured['filters'] ?? ''));
         $this->assertSame('yandex', $rows[0]['search_engine']);
         $this->assertSame('Яндекс', $rows[0]['search_engine_label']);
         $this->assertSame(12, $rows[0]['value']);
@@ -89,7 +89,7 @@ class YandexMetrikaSearchEnginesVisitsTest extends TestCase
         );
 
         $this->assertSame('ym:s:users', $captured['metrics']);
-        $this->assertSame('ym:s:searchEngineRoot,ym:s:month', $captured['dimensions']);
+        $this->assertSame('ym:s:<attribution>SearchEngineRoot,ym:s:month', $captured['dimensions']);
         $this->assertCount(2, $rows);
         $this->assertSame('2026-07-01', $rows[0]['month']);
         $this->assertSame(8, $rows[0]['value']);
@@ -128,7 +128,7 @@ class YandexMetrikaSearchEnginesVisitsTest extends TestCase
             ['yandex']
         );
 
-        $this->assertStringContainsString("ym:s:searchEngineRoot=@'yandex'", (string) ($captured['filters'] ?? ''));
+        $this->assertStringContainsString("ym:s:<attribution>SearchEngineRoot=@'yandex'", (string) ($captured['filters'] ?? ''));
         $this->assertCount(1, $rows);
         $this->assertSame('yandex', $rows[0]['search_engine']);
         $this->assertSame(10, $rows[0]['value']);

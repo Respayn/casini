@@ -186,6 +186,46 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
     /**
      * {@inheritdoc}
      */
+    public function upsertSearchQueriesVisits(
+        int $projectId,
+        string $phrase,
+        string $month,
+        string $visitsMetric,
+        int $value
+    ): void {
+        $monthKey = Carbon::parse($month)->startOfMonth()->format('Y-m-d');
+        $isUsers = $visitsMetric === 'users';
+
+        $existing = EloquentYandexMetrikaVisitsSearchQueries::query()
+            ->where('project_id', $projectId)
+            ->where('phrase', $phrase)
+            ->where('month', $monthKey)
+            ->first();
+
+        if ($existing !== null) {
+            if ($isUsers) {
+                $existing->visitors = $value;
+            } else {
+                $existing->visits = $value;
+            }
+            $existing->save();
+
+            return;
+        }
+
+        EloquentYandexMetrikaVisitsSearchQueries::query()->create([
+            'project_id' => $projectId,
+            'phrase' => $phrase,
+            'month' => $monthKey,
+            'visits' => $isUsers ? 0 : $value,
+            'visitors' => $isUsers ? $value : 0,
+            'goal_reaches' => 0,
+        ]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function replaceGoalUtmRows(int $projectId, string $dateFrom, string $dateTo, array $rows): void
     {
         EloquentYandexMetrikaGoalUtm::query()

@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Log;
 use Src\Domain\YandexMetrika\SearchEnginesDisplayList;
+use Src\Domain\YandexMetrika\SearchQueriesMinusList;
 use Src\Domain\YandexMetrika\YandexMetrikaFiltersBuilder;
 use Src\Domain\YandexMetrika\YandexMetrikaUtmFilterBuilder;
 
@@ -197,7 +198,7 @@ class YandexMetrikaService
                 'date1' => $dateFrom->format('Y-m-d'),
                 'date2' => $dateTo->format('Y-m-d'),
                 'metrics' => 'ym:s:visits',
-                'dimensions' => 'ym:s:searchEngineRoot',
+                'dimensions' => SearchEnginesDisplayList::SEARCH_ENGINE_ROOT_DIMENSION,
                 'filters' => "ym:s:trafficSource=='organic'",
                 'limit' => 10000,
             ], null, YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE);
@@ -298,9 +299,11 @@ class YandexMetrikaService
         ));
 
         $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        // Как отчёт «Поисковые системы» / preset search_engines: корень ПС + organic.
+        $engineDimension = SearchEnginesDisplayList::SEARCH_ENGINE_ROOT_DIMENSION;
         $dimensions = $includeMonth
-            ? 'ym:s:searchEngine,ym:s:month'
-            : 'ym:s:searchEngine';
+            ? $engineDimension.',ym:s:month'
+            : $engineDimension;
 
         try {
             $params = $this->applyReportFilters([
@@ -308,6 +311,7 @@ class YandexMetrikaService
                 'date2' => $dateTo->format('Y-m-d'),
                 'metrics' => $metrics,
                 'dimensions' => $dimensions,
+                'filters' => "ym:s:<attribution>TrafficSource=='organic'",
                 'limit' => 10000,
             ], $filters, $dataMode);
             $params = $this->applyReportAttribution($params, $attributionModel);
@@ -382,9 +386,10 @@ class YandexMetrikaService
             : 'ym:s:visits';
 
         $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        $engineRootDimension = SearchEnginesDisplayList::SEARCH_ENGINE_ROOT_DIMENSION;
         $dimensions = $includeMonth
-            ? 'ym:s:searchEngineRoot,ym:s:month'
-            : 'ym:s:searchEngineRoot';
+            ? $engineRootDimension.',ym:s:month'
+            : $engineRootDimension;
 
         try {
             $params = [
@@ -419,6 +424,96 @@ class YandexMetrikaService
                 'visits_metric' => $normalizedMetric,
             ]);
             throw new \Exception('Failed to get search engines visits report', 0, $e);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function countSearchQueriesVisitsForDate(array $settings, Carbon $date): int
+    {
+        $this->setupClientFromSettings($settings);
+
+        $rows = $this->fetchSearchQueriesVisitsStats(
+            $date,
+            $date,
+            YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($settings['visits_metric'] ?? null),
+            is_array($settings['filters'] ?? null) ? $settings['filters'] : null,
+            (string) ($settings['data_mode'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE),
+            (string) ($settings['attribution_model'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL),
+            null,
+            filled($settings['counter_time_zone'] ?? null) ? (string) $settings['counter_time_zone'] : null,
+            (string) ($settings['search_queries_minus'] ?? '')
+        );
+
+        return array_sum(array_column($rows, 'value'));
+    }
+
+    /**
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     * @return list<array{phrase: string, month: string, visits: int, visitors: int, value: int}>
+     */
+    public function fetchSearchQueriesVisitsStats(
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        string $visitsMetric = YandexMetrikaIntegrationSettingsData::DEFAULT_VISITS_METRIC,
+        ?array $filters = null,
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        string $attributionModel = YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL,
+        ?string $timezone = null,
+        ?string $counterTimezone = null,
+        string $searchQueriesMinus = ''
+    ): array {
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        $normalizedMetric = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($visitsMetric);
+        $metrics = $normalizedMetric === YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS
+            ? 'ym:s:users'
+            : 'ym:s:visits';
+
+        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        $phraseDimension = SearchQueriesMinusList::SEARCH_PHRASE_DIMENSION;
+        $dimensions = $includeMonth
+            ? $phraseDimension.',ym:s:month'
+            : $phraseDimension;
+
+        try {
+            $params = [
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => $metrics,
+                'dimensions' => $dimensions,
+                'limit' => 10000,
+            ];
+
+            $minusFilter = SearchQueriesMinusList::buildFilter($searchQueriesMinus);
+            if ($minusFilter !== null) {
+                $params['filters'] = $minusFilter;
+            }
+
+            $params = $this->applyReportFilters($params, $filters, $dataMode);
+            $params = $this->applyReportAttribution($params, $attributionModel);
+            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+
+            $response = $this->getClient()->getVisitsReport($params);
+
+            return $this->aggregateSearchQueriesVisitsRows(
+                $response,
+                $dateFrom,
+                $includeMonth,
+                $normalizedMetric
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+                'visits_metric' => $normalizedMetric,
+            ]);
+            throw new \Exception('Failed to get search queries visits report', 0, $e);
         }
     }
 
@@ -473,12 +568,8 @@ class YandexMetrikaService
             throw new \InvalidArgumentException('Выберите хотя бы одну цель');
         }
 
-        $utmDimensionMap = [
-            'source' => 'ym:s:UTMSource',
-            'medium' => 'ym:s:UTMMedium',
-            'campaign' => 'ym:s:UTMCampaign',
-        ];
-        $utmDimension = $utmDimensionMap[$utmFilterMode] ?? $utmDimensionMap['source'];
+        $utmDimension = $this->utmFilterBuilder->dimension($utmFilterMode)
+            ?? 'ym:s:<attribution>UTMSource';
 
         $metricName = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($goalsMetric) === YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
             ? 'reaches'
@@ -755,6 +846,65 @@ class YandexMetrikaService
         return array_values($aggregated);
     }
 
+    /**
+     * @param  array<string, mixed>  $response
+     * @return list<array{phrase: string, month: string, visits: int, visitors: int, value: int}>
+     */
+    private function aggregateSearchQueriesVisitsRows(
+        array $response,
+        Carbon $fallbackDate,
+        bool $includeMonth,
+        string $visitsMetric
+    ): array {
+        $aggregated = [];
+        $isUsers = $visitsMetric === YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS;
+
+        foreach ($response['data'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+            $phraseDim = is_array($dimensions[0] ?? null) ? $dimensions[0] : [];
+            $phrase = trim((string) ($phraseDim['name'] ?? ''));
+            if ($phrase === '') {
+                $phrase = trim((string) ($phraseDim['id'] ?? ''));
+            }
+
+            $monthName = $includeMonth && is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? '')
+                : '';
+            $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
+            $value = (int) round(array_sum(array_map('floatval', $metrics)));
+
+            if ($phrase === '') {
+                continue;
+            }
+
+            $month = $this->parseMonthDimension($monthName, $fallbackDate);
+            $key = $phrase.'|'.$month;
+
+            if (! isset($aggregated[$key])) {
+                $aggregated[$key] = [
+                    'phrase' => $phrase,
+                    'month' => $month,
+                    'visits' => 0,
+                    'visitors' => 0,
+                    'value' => 0,
+                ];
+            }
+
+            if ($isUsers) {
+                $aggregated[$key]['visitors'] += $value;
+            } else {
+                $aggregated[$key]['visits'] += $value;
+            }
+            $aggregated[$key]['value'] += $value;
+        }
+
+        return array_values($aggregated);
+    }
+
     private function parseMonthDimension(string $value, Carbon $fallback): string
     {
         $value = trim($value);
@@ -845,6 +995,10 @@ class YandexMetrikaService
             $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
 
             $response = $this->getClient()->getVisitsReport($params);
+            $response['data'] = $this->filterGoalDimensionRowsByIds(
+                is_array($response['data'] ?? null) ? $response['data'] : [],
+                $normalizedGoalIds
+            );
 
             return $this->aggregateConversionsGoalRows($response, $dateFrom, $includeMonth);
         } catch (\InvalidArgumentException $e) {
@@ -967,12 +1121,22 @@ class YandexMetrikaService
             $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
 
             $existingFilters = $params['filters'] ?? '';
-            $directFilter = "ym:s:lastAdvEngine=@'Директ'";
+            // Отчёт «Директ, сводка» (preset sources_direct_summary): визиты с учтённым
+            // кликом Директа (yclid) — непустой DirectClickOrder под выбранную атрибуцию.
+            // Не путать с AdvEngine / «Рекламные системы».
+            $directFilter = "ym:s:<attribution>DirectClickOrder!n";
             $params['filters'] = $existingFilters !== ''
                 ? $existingFilters.' AND '.$directFilter
                 : $directFilter;
 
             $response = $this->getClient()->getVisitsReport($params);
+
+            // В разрезе ym:s:goal API может вернуть чужие цели с ненулевыми значениями
+            // выбранной метрики — оставляем только запрошенные goal id.
+            $response['data'] = $this->filterGoalDimensionRowsByIds(
+                is_array($response['data'] ?? null) ? $response['data'] : [],
+                $normalizedGoalIds
+            );
 
             return $this->aggregateConversionsGoalRows($response, $dateFrom, $includeMonth);
         } catch (\InvalidArgumentException $e) {
@@ -985,6 +1149,29 @@ class YandexMetrikaService
             ]);
             throw new \Exception('Failed to get direct summary goals report', 0, $e);
         }
+    }
+
+    /**
+     * @param  list<mixed>  $rows
+     * @param  list<int>  $goalIds
+     * @return list<mixed>
+     */
+    private function filterGoalDimensionRowsByIds(array $rows, array $goalIds): array
+    {
+        $allowedGoalIds = array_fill_keys(array_map('strval', $goalIds), true);
+
+        return array_values(array_filter(
+            $rows,
+            static function (mixed $row) use ($allowedGoalIds): bool {
+                if (! is_array($row)) {
+                    return false;
+                }
+                $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+                $id = trim((string) (is_array($dimensions[0] ?? null) ? ($dimensions[0]['id'] ?? '') : ''));
+
+                return $id !== '' && isset($allowedGoalIds[$id]);
+            }
+        ));
     }
 
     /**

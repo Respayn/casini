@@ -80,6 +80,7 @@
         ['value' => YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS, 'label' => 'Посетители'],
     ];
     $searchEnginesTooltip = 'По умолчанию учитываются все поисковые системы, включая те, что появятся в Метрике позже';
+    $searchQueriesMinusTooltip = 'Укажите список минус-фраз, которые не должны попасть в отчет, например брендовые запросы. Каждая минус-фраза с новой строки';
     [$resolvedSearchEnginesAll, $resolvedSearchEngines] = YandexMetrikaIntegrationSettingsData::resolveSearchEnginesSelection(
         collect($savedSettings)
     );
@@ -97,7 +98,8 @@
     $conversionsReportOption = $reportOptions[2];
     $directSummaryReportOption = $reportOptions[3];
     $visitsSearchEnginesReportOption = $reportOptions[4];
-    $otherReportOptions = array_slice($reportOptions, 5);
+    $visitsSearchQueriesReportOption = $reportOptions[5];
+    $otherReportOptions = array_slice($reportOptions, 6);
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -165,6 +167,7 @@
         'utm_campaign' => (string) $getSetting('utm_campaign', ''),
         'search_engines_all' => $resolvedSearchEnginesAll,
         'search_engines' => $resolvedSearchEngines,
+        'search_queries_minus' => (string) $getSetting('search_queries_minus', ''),
         'visits_metric' => YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($getSetting(
             'visits_metric',
             YandexMetrikaIntegrationSettingsData::DEFAULT_VISITS_METRIC
@@ -190,6 +193,7 @@
         dataModeSelectOpen: false,
         goalsMetricSelectOpen: false,
         visitsMetricSelectOpen: false,
+        visitsQueriesMetricSelectOpen: false,
         countersLoading: false,
         countersError: null,
         goalOptions: [],
@@ -229,6 +233,12 @@
         visitsSearchEnginesTestLoading: false,
         visitsSearchEnginesTestError: null,
         visitsSearchEnginesTestDateHintOpen: false,
+        visitsSearchQueriesTestPanelOpen: false,
+        visitsSearchQueriesTestDate: '',
+        visitsSearchQueriesTestCount: null,
+        visitsSearchQueriesTestLoading: false,
+        visitsSearchQueriesTestError: null,
+        visitsSearchQueriesTestDateHintOpen: false,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -439,6 +449,17 @@
                 this.visitsSearchEnginesTestDate = '';
                 this.visitsSearchEnginesTestCount = null;
                 this.visitsSearchEnginesTestError = null;
+            });
+
+            this.$watch('settings.reports.visits_search_queries', (enabled) => {
+                if (enabled) {
+                    return;
+                }
+
+                this.visitsSearchQueriesTestPanelOpen = false;
+                this.visitsSearchQueriesTestDate = '';
+                this.visitsSearchQueriesTestCount = null;
+                this.visitsSearchQueriesTestError = null;
             });
 
             this.$watch('settings.counter_id', () => {
@@ -799,6 +820,7 @@
         selectVisitsMetric(value) {
             this.settings.visits_metric = String(value);
             this.visitsMetricSelectOpen = false;
+            this.visitsQueriesMetricSelectOpen = false;
         },
 
         isGoalSelected(id) {
@@ -1546,6 +1568,45 @@
             }
 
             this.visitsSearchEnginesTestLoading = false;
+        },
+
+        toggleVisitsSearchQueriesTestPanel() {
+            this.visitsSearchQueriesTestPanelOpen = !this.visitsSearchQueriesTestPanelOpen;
+
+            if (!this.visitsSearchQueriesTestPanelOpen) {
+                return;
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.metrikaVisitsSearchQueriesTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
+        async runVisitsSearchQueriesTest() {
+            if (!this.visitsSearchQueriesTestDate) {
+                this.visitsSearchQueriesTestError = 'Укажите дату';
+                return;
+            }
+
+            this.visitsSearchQueriesTestLoading = true;
+            this.visitsSearchQueriesTestError = null;
+            this.visitsSearchQueriesTestCount = null;
+
+            const result = await $wire.testYandexMetrikaVisitsSearchQueriesIntegration(this.settings, this.visitsSearchQueriesTestDate);
+
+            if (result.error) {
+                this.visitsSearchQueriesTestError = result.error;
+            } else {
+                this.visitsSearchQueriesTestCount = result.count;
+            }
+
+            this.visitsSearchQueriesTestLoading = false;
         },
 
         save() {
@@ -2974,6 +3035,191 @@
                 <div class="w-[305px]">
                     <span class="text-sm" x-show="visitsSearchEnginesTestCount !== null" x-text="'Количество переходов из отчета Поисковые системы: ' + visitsSearchEnginesTestCount" x-cloak></span>
                     <p class="text-warning-red mt-1 text-xs" x-show="visitsSearchEnginesTestError" x-text="visitsSearchEnginesTestError" x-cloak></p>
+                </div>
+            </x-form.form-field>
+        </div>
+        </div>
+
+        {{-- Visits Search Queries report checkbox --}}
+        @php $visitsSearchQueriesKey = $visitsSearchQueriesReportOption['key']; @endphp
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+            </x-form.form-label>
+            <div class="w-[305px]">
+                <label
+                    class="flex items-center justify-between gap-2 text-sm"
+                    x-ref="goalReport_{{ $visitsSearchQueriesKey }}"
+                    x-bind:class="isReportDisabled('{{ $visitsSearchQueriesKey }}') && 'cursor-not-allowed text-secondary-text'"
+                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $visitsSearchQueriesKey }}') ? '{{ $visitsSearchQueriesKey }}' : null"
+                    x-on:mouseleave="reportTooltipKey = null"
+                >
+                    <span>{{ $visitsSearchQueriesReportOption['label'] }}</span>
+                    <x-form.checkbox
+                        x-model="settings.reports.{{ $visitsSearchQueriesKey }}"
+                        x-bind:disabled="isReportDisabled('{{ $visitsSearchQueriesKey }}')"
+                    />
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="reportTooltipKey === '{{ $visitsSearchQueriesKey }}'"
+                            x-cloak
+                            x-anchor.bottom="$refs.goalReport_{{ $visitsSearchQueriesKey }}"
+                            x-text="reportDisabledReason('{{ $visitsSearchQueriesKey }}')"
+                        ></div>
+                    </template>
+                </label>
+            </div>
+        </x-form.form-field>
+
+        {{-- Visits Search Queries report details border --}}
+        <div
+            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
+            x-show="settings.reports.{{ $visitsSearchQueriesKey }}"
+            x-cloak
+        >
+
+        <x-form.form-field>
+            <x-form.form-label tooltip="{{ $searchQueriesMinusTooltip }}">
+                Минус-фразы
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="relative">
+                    <x-form.textarea
+                        class="min-h-[84px] w-full rounded-[5px] border border-input-border px-3 py-2"
+                        rows="3"
+                        x-model="settings.search_queries_minus"
+                    />
+                    <div
+                        class="text-secondary-text pointer-events-none absolute inset-0 px-3 py-2 text-sm"
+                        x-show="!(settings.search_queries_minus || '').trim()"
+                        x-cloak
+                    >
+                        <div>Например:</div>
+                        <div class="italic">Вакансии</div>
+                        <div class="italic">Реквизиты</div>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+                По какому параметру рассчитываем переходы?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="visitsQueriesMetricSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="visitsQueriesMetricSelectOpen = !visitsQueriesMetricSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': visitsQueriesMetricSelectOpen,
+                                'rounded-[5px]': !visitsQueriesMetricSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="visitsMetricSelectLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': visitsQueriesMetricSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="visitsQueriesMetricSelectOpen"
+                        x-anchor.no-style="$refs.visitsQueriesMetricSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="visitsQueriesMetricSelectOpen = false"
+                    >
+                        <template x-for="option in visitsMetricOptions" :key="option.value">
+                            <div
+                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                x-on:click="selectVisitsMetric(option.value); visitsQueriesMetricSelectOpen = false"
+                                x-text="option.label"
+                            ></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        <x-form.form-field>
+            <div
+                class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                x-on:click="toggleVisitsSearchQueriesTestPanel()"
+                x-bind:aria-expanded="visitsSearchQueriesTestPanelOpen"
+            >
+                <x-button.button
+                    class="pointer-events-none self-start"
+                    type="button"
+                    variant="action"
+                    wrap
+                    label="Проверить работу интеграции"
+                />
+                <span
+                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                    x-bind:class="{ 'rotate-90': visitsSearchQueriesTestPanelOpen, 'rotate-270': !visitsSearchQueriesTestPanelOpen }"
+                >
+                    <x-icons.arrow-left />
+                </span>
+            </div>
+            <span class="w-[305px]" aria-hidden="true"></span>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-3"
+            x-ref="metrikaVisitsSearchQueriesTestPanel"
+            x-show="settings.reports.visits_search_queries && visitsSearchQueriesTestPanelOpen"
+            x-cloak
+        >
+            <x-form.form-field>
+                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Поисковые запросы в Яндекс Метрике">
+                    Дата
+                </x-form.form-label>
+                <div class="flex w-[305px] flex-col gap-3">
+                    <x-form.date-picker
+                        class="w-full"
+                        placeholder="Выберите дату"
+                        x-model="visitsSearchQueriesTestDate"
+                    ></x-form.date-picker>
+                    <div
+                        class="w-full"
+                        x-ref="visitsSearchQueriesTestButtonWrap"
+                        x-on:mouseenter="visitsSearchQueriesTestDateHintOpen = !visitsSearchQueriesTestDate"
+                        x-on:mouseleave="visitsSearchQueriesTestDateHintOpen = false"
+                    >
+                        <x-button.button
+                            type="button"
+                            icon="icons.refresh"
+                            class="w-full"
+                            label="Проверить"
+                            x-bind:disabled="!visitsSearchQueriesTestDate || visitsSearchQueriesTestLoading"
+                            x-on:click="runVisitsSearchQueriesTest()"
+                        />
+                    </div>
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="visitsSearchQueriesTestDateHintOpen && !visitsSearchQueriesTestDate"
+                            x-cloak
+                            x-anchor.bottom="$refs.visitsSearchQueriesTestButtonWrap"
+                        >
+                            Выберите дату
+                        </div>
+                    </template>
+                </div>
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                <div class="w-[305px]">
+                    <span class="text-sm" x-show="visitsSearchQueriesTestCount !== null" x-text="'Количество переходов из отчета Поисковые запросы: ' + visitsSearchQueriesTestCount" x-cloak></span>
+                    <p class="text-warning-red mt-1 text-xs" x-show="visitsSearchQueriesTestError" x-text="visitsSearchQueriesTestError" x-cloak></p>
                 </div>
             </x-form.form-field>
         </div>
