@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
+use App\Support\SystemSettingsSectionPermissions;
+use App\Support\UserProfileAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -14,6 +16,7 @@ use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 
 new
 class extends Component
@@ -37,6 +40,18 @@ class extends Component
         $this->form->from($user);
         $this->rates = $ratesService->getRates();
         $this->roles = $roleService->getRoleOptions();
+    }
+
+    #[Computed]
+    public function isOwnProfile(): bool
+    {
+        return UserProfileAccess::isOwnProfile($this->user);
+    }
+
+    #[Computed]
+    public function canEditUserAdminFields(): bool
+    {
+        return UserProfileAccess::canEditAdminFields();
     }
 
     #[Computed]
@@ -68,6 +83,14 @@ class extends Component
 
     public function save(UserService $userService)
     {
+        if (! UserProfileAccess::canSaveUser($this->user)) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::editPermissionNames(
+                    SystemSettingsSectionPermissions::users()
+                )
+            );
+        }
+
         $this->form->validate();
 
         $passwordChanged = $this->form->hasPasswordChange();
@@ -121,13 +144,25 @@ class extends Component
             unset($data['password']);
         }
 
+        $data = UserProfileAccess::mergeSavePayload($this->user, $data);
+
         $userService->update($this->form->id, $data);
 
         $this->form->clearPasswordFields();
         $this->user = $this->user->fresh();
+        $this->form->from($this->user);
 
         if ($passwordChanged) {
             session()->flash('password_updated', 'Пароль успешно обновлен');
+
+            return $this->redirect(
+                route('system-settings.users.edit', $this->user),
+                navigate: true
+            );
+        }
+
+        if (UserProfileAccess::isOwnProfile($this->user)) {
+            session()->flash('success', 'Профиль успешно обновлен!');
 
             return $this->redirect(
                 route('system-settings.users.edit', $this->user),

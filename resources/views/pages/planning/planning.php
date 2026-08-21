@@ -107,6 +107,7 @@ new
         {
             return Auth::user()->hasAnyPermission([
                 'read planning approval',
+                'edit planning approval',
                 'full planning approval'
             ]);
         }

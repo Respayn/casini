@@ -74,6 +74,44 @@ Controller -> QueryHandler -> Repository -> Data Source
 3. **Infrastructure Layer**:
    - Создать реализацию репозитория в `src/Infrastructure/Persistence/{Entity}Repository.php`
 
+## Права разделов настроек системы
+
+Продукт «Настройки» разделён на независимые группы Spatie Permission:
+
+| Группа (value) | Раздел UI / URL |
+|----------------|-----------------|
+| `system settings` | Настройки агентства `/system-settings/agency` |
+| `system settings dictionaries` | Справочники |
+| `system settings users` | Пользователи и роли |
+| `system settings roles and permissions` | Продукты и права |
+
+Уровни: `read` / `edit` / `full` + имя группы.
+
+**Миграция ролей со старого единого права:** после `PermissionSeeder` на стенде с уже выданными `* system settings` выполнить:
+
+```bash
+php artisan db:seed --class=PermissionSeeder --force
+php artisan db:seed --class=MigrateSystemSettingsPermissionsSeeder --force
+```
+
+Seeder копирует read/edit/full с `system settings` на три новых группы; право на агентство не снимает. Admin получает новые permissions через `PermissionSeeder`. Seeder **не** в `DatabaseSeeder` — одноразовый перенос.
+
+**Свой профиль:** маршрут `system-settings.users.edit` для `user.id === auth()->id()` доступен любому авторизованному (middleware `EnsureCanAccessUserEdit`). Список пользователей — с `read|edit|full system settings users`; создание (`/users/create`) — только с `edit|full system settings users` (кнопка «+ Добавить пользователя» disabled без edit). Поля логин / статус / роль / ставка / Мегаплан редактируются только при `edit|full system settings users`; без этого права — disabled в UI и отсекаются в `UserProfileAccess::mergeSavePayload`.
+
+**Продукты и права:** `read` открывает страницу; `edit|full` — изменение. Без edit UI в режиме read-only: кнопки, ссылки, чекбоксы и переключатели disabled, при наведении — `permissions.denied` (`field-guard` / Alpine-тултип). `save()` без edit бросает `UnauthorizedException`.
+
+**Роль по умолчанию** (`default`): системная роль для регистрации / приглашений. Seed: `read channels`, `read statistics`, `read reports`, `read planning`, `read clients and projects self`. Удаление запрещено (UI + `RoleRepository`). На «Продукты и права» у этой роли и у **Администратора** скрыты блоки «Собрать портфель…» и «Подчинённые»; у default все чекбоксы locked (пять read всегда включены и disabled, остальные выкл.) с `permissions.default_role_locked`. При save права всегда восстанавливаются в `DefaultRole::grantedPermissionNames()`. Переименование **Администратора** тоже запрещено (`permissions.admin_role_name_locked`).
+
+**Шестерёнка в header:** показывается, если есть чтение хотя бы одного из пяти продуктов (Продукты и права, Пользователи и роли, Клиенты и клиенто-проекты, Справочники, Настройки агентства). Ссылка — первый доступный раздел в том же порядке (`SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName`).
+
+## Клиенты и клиенто-проекты (доступ)
+
+Маршруты списка и формы проекта: middleware `ClientsAndProjectsPermissions` — любое из read|edit|full для родителя `clients and projects`, `… self`, `… all`.
+
+- Список фильтруется `ClientListVisibilityFilter` (self: менеджер клиента / specialist проекта; all: всё).
+- Создание и сохранение клиента/проекта — `ensureUserCanEdit` (edit|full self|all).
+- Открытие существующего проекта — `ClientProjectAccessPolicy` (all или self с привязкой).
+
 ## Тестирование
 
 - **Unit-тесты** для доменной логики в `tests/Unit/Domain/`

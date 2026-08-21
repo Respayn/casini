@@ -138,7 +138,7 @@ new #[Layout('layouts::auth')] class extends Component {
             ->firstOrFail();
 
         $role = RoleModel::query()
-            ->where('name', Role::MANAGER->value)
+            ->where('name', Role::DEFAULT->value)
             ->firstOrFail();
 
         $login = $this->generateUniqueLogin($this->email);
@@ -162,7 +162,6 @@ new #[Layout('layouts::auth')] class extends Component {
         ]);
 
         $user = User::query()->findOrFail($userData->id);
-        $this->grantRegistrationChannelsAccess($user);
 
         $verifyUrl = URL::temporarySignedRoute(
             'register.verify',

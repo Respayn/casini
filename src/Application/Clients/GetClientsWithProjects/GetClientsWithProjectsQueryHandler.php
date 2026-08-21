@@ -2,22 +2,24 @@
 
 namespace Src\Application\Clients\GetClientsWithProjects;
 
+use App\Models\User;
 use Src\Application\Clients\ClientReadRepositoryInterface;
 
 class GetClientsWithProjectsQueryHandler
 {
-    private readonly ClientReadRepositoryInterface $clientRepository;
-
-    public function __construct(ClientReadRepositoryInterface $clientRepository)
-    {
-        $this->clientRepository = $clientRepository;
-    }
+    public function __construct(
+        private readonly ClientReadRepositoryInterface $clientRepository,
+        private readonly ClientListVisibilityFilter $visibilityFilter,
+    ) {}
 
     /**
      * @return ClientDto[]
      */
     public function handle(GetClientsWithProjectsQuery $query): array
     {
-        return $this->clientRepository->getClientsWithProjects();
+        $clients = $this->clientRepository->getClientsWithProjects();
+        $user = User::query()->findOrFail($query->viewerUserId);
+
+        return $this->visibilityFilter->filterForUser($clients, $user);
     }
 }

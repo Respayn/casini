@@ -25,9 +25,11 @@ use App\Services\PromotionTopicService;
 use App\Services\UserService;
 use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
+use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +40,7 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
 
 new
@@ -93,6 +96,10 @@ class extends Component
 
     public function mount(Request $request, $projectId = null)
     {
+        if ($projectId === null) {
+            ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+        }
+
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
@@ -102,7 +109,10 @@ class extends Component
             // Получение данных
             $project = $this->projectService->getProjectDataById($projectId);
             $client = $this->clientRepository->findById($project->client_id);
-            
+
+            app(ClientProjectAccessPolicy::class)
+                ->ensureUserCanViewProject(Auth::user(), $project, $client->getManagerId());
+
             $this->clientProjectForm->from($project);
             $this->clientProjectForm->manager = $client->getManagerId();
             $this->bonusGuaranteeForm->from($project->bonusCondition);
@@ -779,6 +789,8 @@ class extends Component
 
     public function save()
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
         $this->bonusGuaranteeForm->validate();

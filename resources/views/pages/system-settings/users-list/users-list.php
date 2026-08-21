@@ -4,6 +4,8 @@ namespace App\Livewire\Users;
 
 use App\Services\AgencySettingsService;
 use App\Services\UserService;
+use App\Support\SystemSettingsSectionPermissions;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -12,13 +14,23 @@ new
 class extends Component
 {
     public bool $onlyActive = false;
+
     public array $users = [];
+
     public ?int $agencyId = null;
 
     public function mount(UserService $userService, AgencySettingsService $agencySettingsService)
     {
         $this->agencyId = $agencySettingsService->getActualAgencyId();
         $this->loadUsers($userService);
+    }
+
+    #[Computed]
+    public function canCreateUsers(): bool
+    {
+        return SystemSettingsSectionPermissions::userCanEdit(
+            SystemSettingsSectionPermissions::users()
+        );
     }
 
     public function updatedOnlyActive(UserService $userService)

@@ -6,12 +6,14 @@ use App\Livewire\Forms\SystemSettings\Users\UserForm;
 use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
+use App\Support\SystemSettingsSectionPermissions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 
 new
 #[Layout('layouts::system-settings')]
@@ -37,6 +39,16 @@ class extends Component
 
     public function save(UserService $userService)
     {
+        if (! SystemSettingsSectionPermissions::userCanEdit(
+            SystemSettingsSectionPermissions::users()
+        )) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::editPermissionNames(
+                    SystemSettingsSectionPermissions::users()
+                )
+            );
+        }
+
         $this->validate();
 
         // TODO: Вынести в репозиторий
