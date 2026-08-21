@@ -613,4 +613,41 @@ class YandexMetrikaModalTest extends TestCase
         $this->assertIsArray($result);
         $this->assertSame(33, $result['count']);
     }
+
+    #[Test]
+    public function test_modal_shows_visits_geo_report_labels(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('selectIntegration', 'yandex_metrika')
+            ->assertSee('Переходы из отчета География')
+            ->assertSee('По какому параметру рассчитываем переходы?');
+    }
+
+    #[Test]
+    public function test_visits_geo_integration_returns_count(): void
+    {
+        $user = $this->createUserWithAgency();
+
+        $this->mock(YandexMetrikaService::class, function ($mock) {
+            $mock->shouldReceive('countGeoVisitsForDate')->once()->andReturn(55);
+        });
+
+        $component = Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->call('testYandexMetrikaVisitsGeoIntegration', [
+                'oauth_token' => 'token',
+                'oauth_yandex_login' => 'login',
+                'counter_id' => 12345678,
+                'visits_metric' => 'visits',
+                'reports' => ['visits_geo' => true],
+            ], '2026-08-18');
+
+        $result = ($component->effects['returns'] ?? [])[0] ?? null;
+
+        $this->assertIsArray($result);
+        $this->assertSame(55, $result['count']);
+    }
 }

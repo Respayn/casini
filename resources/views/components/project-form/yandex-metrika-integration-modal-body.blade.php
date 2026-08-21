@@ -62,6 +62,7 @@
     $seoOnlyVisitReportKeys = [
         'visits_search_engines',
         'visits_search_queries',
+        'visits_geo',
     ];
     $seoOnlyGoalReportKeys = [
         'goals_search_engines',
@@ -91,7 +92,7 @@
         ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка', 'exclusive_goal_source' => true, 'context_only' => true],
         ['key' => 'visits_search_engines', 'label' => 'Переходы из отчета Поисковые системы', 'seo_only' => true],
         ['key' => 'visits_search_queries', 'label' => 'Переходы из отчета Поисковые запросы', 'seo_only' => true],
-        ['key' => 'visits_geo', 'label' => 'Переходы из отчета География'],
+        ['key' => 'visits_geo', 'label' => 'Переходы из отчета География', 'seo_only' => true],
     ];
     $primaryReportOption = $reportOptions[0];
     $utmReportOption = $reportOptions[1];
@@ -99,7 +100,8 @@
     $directSummaryReportOption = $reportOptions[3];
     $visitsSearchEnginesReportOption = $reportOptions[4];
     $visitsSearchQueriesReportOption = $reportOptions[5];
-    $otherReportOptions = array_slice($reportOptions, 6);
+    $visitsGeoReportOption = $reportOptions[6];
+    $otherReportOptions = array_slice($reportOptions, 7);
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -194,6 +196,7 @@
         goalsMetricSelectOpen: false,
         visitsMetricSelectOpen: false,
         visitsQueriesMetricSelectOpen: false,
+        visitsGeoMetricSelectOpen: false,
         countersLoading: false,
         countersError: null,
         goalOptions: [],
@@ -239,6 +242,12 @@
         visitsSearchQueriesTestLoading: false,
         visitsSearchQueriesTestError: null,
         visitsSearchQueriesTestDateHintOpen: false,
+        visitsGeoTestPanelOpen: false,
+        visitsGeoTestDate: '',
+        visitsGeoTestCount: null,
+        visitsGeoTestLoading: false,
+        visitsGeoTestError: null,
+        visitsGeoTestDateHintOpen: false,
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -460,6 +469,17 @@
                 this.visitsSearchQueriesTestDate = '';
                 this.visitsSearchQueriesTestCount = null;
                 this.visitsSearchQueriesTestError = null;
+            });
+
+            this.$watch('settings.reports.visits_geo', (enabled) => {
+                if (enabled) {
+                    return;
+                }
+
+                this.visitsGeoTestPanelOpen = false;
+                this.visitsGeoTestDate = '';
+                this.visitsGeoTestCount = null;
+                this.visitsGeoTestError = null;
             });
 
             this.$watch('settings.counter_id', () => {
@@ -821,6 +841,7 @@
             this.settings.visits_metric = String(value);
             this.visitsMetricSelectOpen = false;
             this.visitsQueriesMetricSelectOpen = false;
+            this.visitsGeoMetricSelectOpen = false;
         },
 
         isGoalSelected(id) {
@@ -1609,6 +1630,45 @@
             this.visitsSearchQueriesTestLoading = false;
         },
 
+        toggleVisitsGeoTestPanel() {
+            this.visitsGeoTestPanelOpen = !this.visitsGeoTestPanelOpen;
+
+            if (!this.visitsGeoTestPanelOpen) {
+                return;
+            }
+
+            this.$nextTick(() => {
+                requestAnimationFrame(() => {
+                    this.$refs.metrikaVisitsGeoTestPanel?.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'end',
+                        inline: 'nearest',
+                    });
+                });
+            });
+        },
+
+        async runVisitsGeoTest() {
+            if (!this.visitsGeoTestDate) {
+                this.visitsGeoTestError = 'Укажите дату';
+                return;
+            }
+
+            this.visitsGeoTestLoading = true;
+            this.visitsGeoTestError = null;
+            this.visitsGeoTestCount = null;
+
+            const result = await $wire.testYandexMetrikaVisitsGeoIntegration(this.settings, this.visitsGeoTestDate);
+
+            if (result.error) {
+                this.visitsGeoTestError = result.error;
+            } else {
+                this.visitsGeoTestCount = result.count;
+            }
+
+            this.visitsGeoTestLoading = false;
+        },
+
         save() {
             if (!this.canEdit || !this.canSave) {
                 return;
@@ -1906,7 +1966,7 @@
             </div>
             <div class="flex w-[305px] flex-col gap-4">
                 @foreach ($filterTypes as $filterKey => $filterMeta)
-                    <div>
+<div>
                         <template x-if="!shownFilters.{{ $filterKey }}">
                             <x-button.button
                                 class="self-start"
@@ -3220,6 +3280,167 @@
                 <div class="w-[305px]">
                     <span class="text-sm" x-show="visitsSearchQueriesTestCount !== null" x-text="'Количество переходов из отчета Поисковые запросы: ' + visitsSearchQueriesTestCount" x-cloak></span>
                     <p class="text-warning-red mt-1 text-xs" x-show="visitsSearchQueriesTestError" x-text="visitsSearchQueriesTestError" x-cloak></p>
+                </div>
+            </x-form.form-field>
+        </div>
+        </div>
+
+        {{-- Visits Geo report checkbox --}}
+        @php $visitsGeoKey = $visitsGeoReportOption['key']; @endphp
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+            </x-form.form-label>
+            <div class="w-[305px]">
+                <label
+                    class="flex items-center justify-between gap-2 text-sm"
+                    x-ref="goalReport_{{ $visitsGeoKey }}"
+                    x-bind:class="isReportDisabled('{{ $visitsGeoKey }}') && 'cursor-not-allowed text-secondary-text'"
+                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $visitsGeoKey }}') ? '{{ $visitsGeoKey }}' : null"
+                    x-on:mouseleave="reportTooltipKey = null"
+                >
+                    <span>{{ $visitsGeoReportOption['label'] }}</span>
+                    <x-form.checkbox
+                        x-model="settings.reports.{{ $visitsGeoKey }}"
+                        x-bind:disabled="isReportDisabled('{{ $visitsGeoKey }}')"
+                    />
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="reportTooltipKey === '{{ $visitsGeoKey }}'"
+                            x-cloak
+                            x-anchor.bottom="$refs.goalReport_{{ $visitsGeoKey }}"
+                            x-text="reportDisabledReason('{{ $visitsGeoKey }}')"
+                        ></div>
+                    </template>
+                </label>
+            </div>
+        </x-form.form-field>
+
+        {{-- Visits Geo report details border --}}
+        <div
+            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
+            x-show="settings.reports.{{ $visitsGeoKey }}"
+            x-cloak
+        >
+
+        <x-form.form-field>
+            <x-form.form-label class="self-baseline">
+                По какому параметру рассчитываем переходы?
+            </x-form.form-label>
+            <div class="flex w-[305px] flex-col gap-3">
+                <div class="text-input-text relative select-none">
+                    <div class="group" x-ref="visitsGeoMetricSelectButton">
+                        <div
+                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                            x-on:click="visitsGeoMetricSelectOpen = !visitsGeoMetricSelectOpen"
+                            x-bind:class="{
+                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': visitsGeoMetricSelectOpen,
+                                'rounded-[5px]': !visitsGeoMetricSelectOpen,
+                            }"
+                        >
+                            <span class="overflow-hidden" x-text="visitsMetricSelectLabel()"></span>
+                        </div>
+                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                            <x-icons.arrow
+                                class="transition-transform duration-300"
+                                x-bind:class="{ 'rotate-180 group-hover:text-white': visitsGeoMetricSelectOpen }"
+                            />
+                        </span>
+                    </div>
+                    <div
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        x-cloak
+                        x-show="visitsGeoMetricSelectOpen"
+                        x-anchor.no-style="$refs.visitsGeoMetricSelectButton"
+                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                        x-on:click.outside="visitsGeoMetricSelectOpen = false"
+                    >
+                        <template x-for="option in visitsMetricOptions" :key="option.value">
+                            <div
+                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                x-on:click="selectVisitsMetric(option.value); visitsGeoMetricSelectOpen = false"
+                                x-text="option.label"
+                            ></div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </x-form.form-field>
+
+        <x-form.form-field>
+            <div
+                class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                x-on:click="toggleVisitsGeoTestPanel()"
+                x-bind:aria-expanded="visitsGeoTestPanelOpen"
+            >
+                <x-button.button
+                    class="pointer-events-none self-start"
+                    type="button"
+                    variant="action"
+                    wrap
+                    label="Проверить работу интеграции"
+                />
+                <span
+                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
+                    x-bind:class="{ 'rotate-90': visitsGeoTestPanelOpen, 'rotate-270': !visitsGeoTestPanelOpen }"
+                >
+                    <x-icons.arrow-left />
+                </span>
+            </div>
+            <span class="w-[305px]" aria-hidden="true"></span>
+        </x-form.form-field>
+
+        <div
+            class="flex flex-col gap-3"
+            x-ref="metrikaVisitsGeoTestPanel"
+            x-show="settings.reports.visits_geo && visitsGeoTestPanelOpen"
+            x-cloak
+        >
+            <x-form.form-field>
+                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом География в Яндекс Метрике">
+                    Дата
+                </x-form.form-label>
+                <div class="flex w-[305px] flex-col gap-3">
+                    <x-form.date-picker
+                        class="w-full"
+                        placeholder="Выберите дату"
+                        x-model="visitsGeoTestDate"
+                    ></x-form.date-picker>
+                    <div
+                        class="w-full"
+                        x-ref="visitsGeoTestButtonWrap"
+                        x-on:mouseenter="visitsGeoTestDateHintOpen = !visitsGeoTestDate"
+                        x-on:mouseleave="visitsGeoTestDateHintOpen = false"
+                    >
+                        <x-button.button
+                            type="button"
+                            icon="icons.refresh"
+                            class="w-full"
+                            label="Проверить"
+                            x-bind:disabled="!visitsGeoTestDate || visitsGeoTestLoading"
+                            x-on:click="runVisitsGeoTest()"
+                        />
+                    </div>
+                    <template x-teleport="body">
+                        <div
+                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                            style="z-index: 1000"
+                            x-show="visitsGeoTestDateHintOpen && !visitsGeoTestDate"
+                            x-cloak
+                            x-anchor.bottom="$refs.visitsGeoTestButtonWrap"
+                        >
+                            Выберите дату
+                        </div>
+                    </template>
+                </div>
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                <div class="w-[305px]">
+                    <span class="text-sm" x-show="visitsGeoTestCount !== null" x-text="'Количество переходов из отчета География: ' + visitsGeoTestCount" x-cloak></span>
+                    <p class="text-warning-red mt-1 text-xs" x-show="visitsGeoTestError" x-text="visitsGeoTestError" x-cloak></p>
                 </div>
             </x-form.form-field>
         </div>

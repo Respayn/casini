@@ -14,6 +14,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Log;
+use Src\Domain\YandexMetrika\GeographyDisplayList;
 use Src\Domain\YandexMetrika\SearchEnginesDisplayList;
 use Src\Domain\YandexMetrika\SearchQueriesMinusList;
 use Src\Domain\YandexMetrika\YandexMetrikaFiltersBuilder;
@@ -520,6 +521,89 @@ class YandexMetrikaService
     /**
      * @param  array<string, mixed>  $settings
      */
+    public function countGeoVisitsForDate(array $settings, Carbon $date): int
+    {
+        $this->setupClientFromSettings($settings);
+
+        $rows = $this->fetchGeoVisitsStats(
+            $date,
+            $date,
+            YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($settings['visits_metric'] ?? null),
+            is_array($settings['filters'] ?? null) ? $settings['filters'] : null,
+            (string) ($settings['data_mode'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE),
+            (string) ($settings['attribution_model'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL),
+            null,
+            filled($settings['counter_time_zone'] ?? null) ? (string) $settings['counter_time_zone'] : null
+        );
+
+        return array_sum(array_column($rows, 'value'));
+    }
+
+    /**
+     * Переходы из отчёта «География» (preset geo_country, группировка по городу).
+     *
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     * @return list<array{city: string, month: string, visits: int, visitors: int, value: int}>
+     */
+    public function fetchGeoVisitsStats(
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        string $visitsMetric = YandexMetrikaIntegrationSettingsData::DEFAULT_VISITS_METRIC,
+        ?array $filters = null,
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        string $attributionModel = YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL,
+        ?string $timezone = null,
+        ?string $counterTimezone = null
+    ): array {
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        $normalizedMetric = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($visitsMetric);
+        $metrics = $normalizedMetric === YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS
+            ? 'ym:s:users'
+            : 'ym:s:visits';
+
+        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        $cityDimension = GeographyDisplayList::CITY_DIMENSION;
+        $dimensions = $includeMonth
+            ? $cityDimension.',ym:s:month'
+            : $cityDimension;
+
+        try {
+            $params = $this->applyReportFilters([
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => $metrics,
+                'dimensions' => $dimensions,
+                'limit' => 10000,
+            ], $filters, $dataMode);
+            $params = $this->applyReportAttribution($params, $attributionModel);
+            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+
+            $response = $this->getClient()->getVisitsReport($params);
+
+            return $this->aggregateGeoVisitsRows(
+                $response,
+                $dateFrom,
+                $includeMonth,
+                $normalizedMetric
+            );
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+                'visits_metric' => $normalizedMetric,
+            ]);
+            throw new \Exception('Failed to get geography visits report', 0, $e);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
     public function countUtmGoalsForDate(array $settings, Carbon $date): int
     {
         $this->setupClientFromSettings($settings);
@@ -887,6 +971,65 @@ class YandexMetrikaService
             if (! isset($aggregated[$key])) {
                 $aggregated[$key] = [
                     'phrase' => $phrase,
+                    'month' => $month,
+                    'visits' => 0,
+                    'visitors' => 0,
+                    'value' => 0,
+                ];
+            }
+
+            if ($isUsers) {
+                $aggregated[$key]['visitors'] += $value;
+            } else {
+                $aggregated[$key]['visits'] += $value;
+            }
+            $aggregated[$key]['value'] += $value;
+        }
+
+        return array_values($aggregated);
+    }
+
+    /**
+     * @param  array<string, mixed>  $response
+     * @return list<array{city: string, month: string, visits: int, visitors: int, value: int}>
+     */
+    private function aggregateGeoVisitsRows(
+        array $response,
+        Carbon $fallbackDate,
+        bool $includeMonth,
+        string $visitsMetric
+    ): array {
+        $aggregated = [];
+        $isUsers = $visitsMetric === YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS;
+
+        foreach ($response['data'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+            $cityDim = is_array($dimensions[0] ?? null) ? $dimensions[0] : [];
+            $city = trim((string) ($cityDim['name'] ?? ''));
+            if ($city === '') {
+                $city = trim((string) ($cityDim['id'] ?? ''));
+            }
+
+            $monthName = $includeMonth && is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? '')
+                : '';
+            $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
+            $value = (int) round(array_sum(array_map('floatval', $metrics)));
+
+            if ($city === '') {
+                continue;
+            }
+
+            $month = $this->parseMonthDimension($monthName, $fallbackDate);
+            $key = $city.'|'.$month;
+
+            if (! isset($aggregated[$key])) {
+                $aggregated[$key] = [
+                    'city' => $city,
                     'month' => $month,
                     'visits' => 0,
                     'visitors' => 0,
