@@ -168,16 +168,10 @@ class UserRepository extends EloquentRepository
                 }
             }
 
-            if (array_key_exists('is_active', $data)) {
-                $updateData['is_active'] = ! empty($data['is_active']);
-            }
-
-            if (array_key_exists('enable_important_notifications', $data)) {
-                $updateData['enable_important_notifications'] = ! empty($data['enable_important_notifications']);
-            }
-
-            if (array_key_exists('enable_notifications', $data)) {
-                $updateData['enable_notifications'] = ! empty($data['enable_notifications']);
+            foreach (['is_active', 'enable_important_notifications', 'enable_notifications'] as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updateData[$field] = ! empty($data[$field]);
+                }
             }
 
             // Обновлять пароль, только если он был явно передан
