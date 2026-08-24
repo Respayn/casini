@@ -29,8 +29,7 @@
     ></div>
 
     <x-panel.scroll-panel
-        class="mb-3 mt-4"
-        style="max-height: calc(100vh - 300px);"
+        class="mb-3 mt-4 max-h-[calc(100vh-300px)]"
     >
         <x-form.form
             :is-normalized="true"
@@ -747,8 +746,7 @@
                                 @if ($canEdit && ! $this->canRebuildStatistics)
                                     <template x-teleport="body">
                                         <div
-                                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                            style="z-index: 1000"
+                                            class="z-1000 w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                                             x-show="open"
                                             x-cloak
                                             x-anchor.top="$refs.rebuildStatisticsTrigger"

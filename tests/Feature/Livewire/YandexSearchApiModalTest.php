@@ -80,7 +80,7 @@ class YandexSearchApiModalTest extends TestCase
      */
     private function makeUploadedDocx(array $lines): UploadedFile
     {
-        $phpWord = new PhpWord();
+        $phpWord = new PhpWord;
         $section = $phpWord->addSection();
         $section->addText(implode("\n", $lines));
 

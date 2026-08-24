@@ -6,27 +6,25 @@ use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Data\ProjectUtmMappingData;
+use App\Data\UserData;
 use App\Enums\IntegrationCategory;
-use Src\Domain\ValueObjects\Kpi;
-use Src\Domain\ValueObjects\ProjectType;
+use App\Exceptions\CallibriApiException;
 use App\Factories\IntegrationSettingsFactory;
+use App\Helpers\PhraseDuplicateHelper;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
-use App\Exceptions\CallibriApiException;
-use App\Helpers\PhraseDuplicateHelper;
+use App\Models\Project;
+use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
-use Illuminate\Validation\ValidationException;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
 use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
-use App\Models\Project;
-use App\Models\ProjectFieldHistory;
 use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -36,6 +34,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -44,6 +43,8 @@ use Livewire\Component;
 use Livewire\WithFileUploads;
 use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 
 new
 #[Layout('layouts::system-settings')]
@@ -53,20 +54,29 @@ class extends Component
     use WithFileUploads;
 
     public CreateClientProjectForm $clientProjectForm;
+
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
+
     public ProjectUtmMappingForm $utmMappingForm;
 
     private ClientRepositoryInterface $clientRepository;
 
     private ClientService $clientService;
+
     private ProjectService $projectService;
+
     private PromotionRegionService $promotionRegionService;
+
     private PromotionTopicService $promotionTopicService;
+
     private IntegrationService $integrationService;
+
     private UserService $userService;
 
     public Collection $clients;
+
     public Collection $promotionRegions;
+
     public Collection $promotionTopics;
 
     public ?ProjectIntegrationData $selectedIntegration = null;
@@ -95,8 +105,7 @@ class extends Component
         IntegrationService $integrationService,
         UserService $userService,
         ClientRepositoryInterface $clientRepository
-    )
-    {
+    ) {
         $this->clientService = $clientService;
         $this->projectService = $projectService;
         $this->promotionRegionService = $promotionRegionService;
@@ -247,14 +256,14 @@ class extends Component
 
         if ($request->input('state')) {
             $state = json_decode(Crypt::decryptString(base64_decode($request->input('state'))), true);
-            $cachedData = Cache::pull('integration_data_' . $state['cache_data_id']);
+            $cachedData = Cache::pull('integration_data_'.$state['cache_data_id']);
 
             if ($cachedData) {
                 $this->restoreFromOAuthCache($cachedData);
             }
 
             foreach ($state['integrations'] as $setting) {
-                $integrationData = new ProjectIntegrationData();
+                $integrationData = new ProjectIntegrationData;
                 $integrationData->integration = IntegrationData::from($setting['integration']);
                 $integrationData->settings = $setting['settings'];
                 $integrationData->isEnabled = $setting['isEnabled'];
@@ -305,27 +314,28 @@ class extends Component
     public function moneyIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::MONEY);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::MONEY);
     }
 
     #[Computed]
     public function analyticsIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::ANALYTICS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::ANALYTICS);
     }
 
     #[Computed]
     public function toolsIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::TOOLS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::TOOLS);
     }
 
     #[Computed]
     public function configuredMoneyIntegrations(): Collection
     {
         $moneyIntegrationIds = $this->moneyIntegrations()->pluck('id');
+
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $moneyIntegrationIds->contains($integrationId));
     }
 
@@ -333,6 +343,7 @@ class extends Component
     public function configuredAnalyticsIntegrations(): Collection
     {
         $analyticsIntegrationIds = $this->analyticsIntegrations()->pluck('id');
+
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $analyticsIntegrationIds->contains($integrationId));
     }
 
@@ -340,6 +351,7 @@ class extends Component
     public function configuredToolsIntegrations(): Collection
     {
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
+
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
     }
 
@@ -369,7 +381,7 @@ class extends Component
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, \App\Data\UserData>  $users
+     * @param  Collection<int, UserData>  $users
      * @return list<array{label: string, value: int|null}>
      */
     private function mapUsersToSelectOptions(Collection $users): array
@@ -437,8 +449,8 @@ class extends Component
         if ($this->integrationSettings->has($integration->id)) {
             $this->selectedIntegration = $this->integrationSettings->get($integration->id);
         } else {
-            $integrationSettingsFactory = new IntegrationSettingsFactory();
-            $selectedIntegration = new ProjectIntegrationData();
+            $integrationSettingsFactory = new IntegrationSettingsFactory;
+            $selectedIntegration = new ProjectIntegrationData;
             $selectedIntegration->integration = IntegrationData::from($integration);
             $selectedIntegration->isEnabled = false;
             $selectedIntegration->settings = $integrationSettingsFactory->create($code)->toArray();
@@ -462,7 +474,7 @@ class extends Component
 
         $integration = $this->integrations()->firstWhere('id', $integrationId);
 
-        $projectIntegrationData = new ProjectIntegrationData();
+        $projectIntegrationData = new ProjectIntegrationData;
         $projectIntegrationData->integration = IntegrationData::from($integration);
         $settingsCollection = collect($settings);
         $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
@@ -481,7 +493,6 @@ class extends Component
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
         $this->markPendingChanges();
     }
-
 
     public function loadCallibriProjects(string $email, string $token, ?string $includeSiteId = null): array
     {
@@ -510,7 +521,7 @@ class extends Component
             report($e);
 
             return ['error' => 'Не удалось загрузить проекты Callibri. Проверьте email и token.'];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return ['error' => 'Не удалось загрузить проекты Callibri.'];
@@ -549,11 +560,10 @@ class extends Component
             return ['count' => $count];
         } catch (CallibriApiException $e) {
             return ['error' => 'Ошибка API Callibri. Проверьте настройки интеграции.'];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return ['error' => 'Не удалось проверить интеграцию.'];
         }
     }
-
 
     /**
      * @return array{url?: string, cache_data_id?: string, error?: string}
@@ -712,7 +722,7 @@ class extends Component
             $this->selectedIntegration->isEnabled = true;
             $this->selectedIntegration->settings = $mergedSettings;
 
-            $projectIntegrationData = new ProjectIntegrationData();
+            $projectIntegrationData = new ProjectIntegrationData;
             $projectIntegrationData->integration = $this->selectedIntegration->integration;
             $projectIntegrationData->isEnabled = true;
             $projectIntegrationData->settings = $mergedSettings;
@@ -761,7 +771,7 @@ class extends Component
 
         try {
             $profile = app(YandexDirectService::class)->fetchOauthUserProfile($oauthToken);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return ['error' => 'Не удалось получить данные аккаунта Яндекса'];
@@ -785,7 +795,7 @@ class extends Component
             if ($this->integrationSettings->has($integrationId)) {
                 $this->integrationSettings[$integrationId]->settings = $mergedSettings;
             } else {
-                $projectIntegrationData = new ProjectIntegrationData();
+                $projectIntegrationData = new ProjectIntegrationData;
                 $projectIntegrationData->integration = $this->selectedIntegration->integration;
                 $projectIntegrationData->isEnabled = $this->selectedIntegration->isEnabled ?? false;
                 $projectIntegrationData->settings = $mergedSettings;
@@ -847,7 +857,7 @@ class extends Component
             }
 
             return ['logins' => $logins];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return ['error' => 'Не удалось загрузить логины Яндекс.Директ'];
@@ -889,7 +899,7 @@ class extends Component
                 continue;
             }
 
-            $integrationData = new ProjectIntegrationData();
+            $integrationData = new ProjectIntegrationData;
             $integrationData->integration = IntegrationData::from($setting['integration']);
             $integrationData->settings = $setting['settings'] ?? [];
             $integrationData->isEnabled = $setting['isEnabled'] ?? false;
@@ -911,7 +921,7 @@ class extends Component
         try {
             $phrases = app(YandexSearchApiPhraseParser::class)
                 ->parseFromPath($this->phraseDocxFile->getRealPath());
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->reset('phraseDocxFile');
 
             return ['phrases' => [], 'error' => $exception->getMessage()];
@@ -939,7 +949,7 @@ class extends Component
         }
 
         if ($this->selectedIntegration === null) {
-            $this->selectedIntegration = new ProjectIntegrationData();
+            $this->selectedIntegration = new ProjectIntegrationData;
             $this->selectedIntegration->isEnabled = false;
             $this->selectedIntegration->settings = [];
         }
@@ -1168,7 +1178,7 @@ class extends Component
                 ]),
                 navigate: true
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
 
             // Обработка исключения, можно добавить сообщение об ошибке

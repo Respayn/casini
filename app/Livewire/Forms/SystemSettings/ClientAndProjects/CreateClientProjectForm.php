@@ -9,6 +9,7 @@ use Livewire\Form;
 class CreateClientProjectForm extends Form
 {
     public ?int $id = null;
+
     #[Validate('required|boolean', message: 'Статус клиенто-проекта обязателен')]
     public bool $isActive = false;
 
@@ -75,7 +76,7 @@ class CreateClientProjectForm extends Form
     /**
      * Метод для заполнения данных формы из модели проекта.
      *
-     * @param ProjectData $project
+     * @param  ProjectData  $project
      * @return void
      */
     public function from($project)
