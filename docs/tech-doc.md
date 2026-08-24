@@ -327,7 +327,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `search_queries_minus` | минус-фразы для отчёта «Поисковые запросы» (каждая с новой строки) | `''` |
 | `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчётов «Переходы» | `visits` |
 
-Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines`, `visits_search_queries` и `visits_geo` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries` (`visits_geo` снят с UI интеграции). Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
 
 ### Фильтры в запросах к API (этап 2)
 
@@ -576,7 +576,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 `visits_search_queries` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
 
-Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`, `visits_geo`) можно включить одновременно (условие «И» с фильтрами этапа 2).
+Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`; `visits_geo` снят с UI) можно включать одновременно (условие «И» с фильтрами этапа 2).
 
 ### Ключи settings
 
@@ -616,48 +616,9 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ## Интеграция Яндекс Метрики (этап 3.7: переходы «География»)
 
-Седьмой отчёт этапа 3. Переходы по городам из отчёта [«География»](https://yandex.ru/support/metrica/ru/visitors/geography.html) (API preset `geo_country`).
+Отчёт `visits_geo` **снят с UI** интеграции: Reporting API Метрики не отдаёт стабильные данные по `ym:s:regionCity` в режиме «без роботов» (пустой ответ при `ym:s:isRobot=='No'`), сверка с интерфейсом Метрики получается неоднозначной.
 
-### Ограничение по типу проекта
-
-`visits_geo` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
-
-Все три SEO-отчёта по переходам (`visits_search_engines`, `visits_search_queries`, `visits_geo`) можно включать одновременно (условие «И» с фильтрами этапа 2).
-
-### Ключи settings
-
-| Ключ | Значения | По умолчанию |
-|------|----------|--------------|
-| `visits_metric` | `visits` / `users` (общий с другими отчётами «Переходы») | `visits` |
-
-### UI
-
-При включённом `visits_geo` блок обёрнут рамкой:
-
-1. «По какому параметру рассчитываем переходы?» — тот же `visits_metric`.
-2. «Проверить работу интеграции» — результат: `Количество переходов из отчета География: N`. Livewire: `testYandexMetrikaVisitsGeoIntegration()`.
-
-### API
-
-[`YandexMetrikaService::fetchGeoVisitsStats()`](app/Services/YandexMetrikaService.php):
-
-- группировка: `ym:s:regionCity` (+ `ym:s:month` на несколько месяцев) — лист дерева country → area → city;
-- метрики: `ym:s:visits` / `ym:s:users`;
-- атрибуция в измерениях не нужна (локация посетителя); параметр `attribution` передаётся как у соседних методов;
-- фильтры этапа 2, timezone — как обычно;
-- константа измерения: [`GeographyDisplayList::CITY_DIMENSION`](src/Domain/YandexMetrika/GeographyDisplayList.php).
-
-### БД
-
-Таблица `yandex_metrika_visits_geo` (`city`, `visits`, `visitors`, `goal_reaches`). Upsert через `upsertVisitsGeo` обновляет только выбранную метрику, не затирая вторую и `goal_reaches`.
-
-### Ночной съём
-
-Команда `metrika:sync-geo-visits` (расписание `06:00` в [`routes/console.php`](routes/console.php)):
-
-- условия: `is_enabled`, `reports.visits_geo`, токен, счётчик, `sync_enabled_at`;
-- период: с начала месяца `sync_enabled_at` по сегодня;
-- upsert по `(project_id, month, city)`.
+Ключ `reports.visits_geo` при сохранении принудительно `false`. Расписание `metrika:sync-geo-visits` отключено. Таблица `yandex_metrika_visits_geo`, сервис `fetchGeoVisitsStats` / `upsertVisitsGeo` и переменная отчёта `ym.table.visits_geo` пока остаются в коде (исторические данные / шаблоны), но новый съём из модалки недоступен.
 
 ## UI-шаблон: проверка работы интеграции
 

@@ -14,4 +14,4 @@ Schedule::command('metrika:sync-conversions-goals')->dailyAt('04:00');
 Schedule::command('metrika:sync-direct-summary-goals')->dailyAt('04:30');
 Schedule::command('metrika:sync-search-engines-visits')->dailyAt('05:00');
 Schedule::command('metrika:sync-search-queries-visits')->dailyAt('05:30');
-Schedule::command('metrika:sync-geo-visits')->dailyAt('06:00');
+// metrika:sync-geo-visits — отчёт «География» снят с UI интеграции (нестабильный API по городам без роботов).
