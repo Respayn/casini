@@ -159,13 +159,21 @@ class YandexMetrikaFiltersBuilder
     private function condition(string $dimension, string $value, bool $negated): string
     {
         $hasWildcard = str_contains($value, '*');
-        if ($negated) {
+        // Полный URL страницы входа в Метрике — точное сравнение (== / !=),
+        // а не «содержит»: иначе !https://site/ исключает весь домен → 0.
+        $isAbsoluteEntryUrl = $dimension === self::DIMENSION_ENTRY_PAGE
+            && ! $hasWildcard
+            && preg_match('#^https?://#i', $value) === 1;
+
+        if ($isAbsoluteEntryUrl) {
+            $operator = $negated ? '!=' : '==';
+        } elseif ($negated) {
             $operator = $hasWildcard ? '!*' : '!@';
         } else {
             $operator = $hasWildcard ? '=*' : '=@';
         }
 
-        return $dimension . $operator . "'" . $this->escapeValue($value) . "'";
+        return $dimension.$operator."'".$this->escapeValue($value)."'";
     }
 
     private function escapeValue(string $value): string

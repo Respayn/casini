@@ -42,6 +42,36 @@ class YandexMetrikaFiltersBuilderTest extends TestCase
     }
 
     #[Test]
+    public function test_negated_absolute_entry_url_uses_not_equals(): void
+    {
+        $filters = $this->builder->build([
+            'entry_page' => '!https://mmk-metiz.ru/',
+        ], YandexMetrikaFiltersBuilder::DATA_MODE_WITH_ROBOTS);
+
+        $this->assertSame("ym:s:startURL!='https://mmk-metiz.ru/'", $filters);
+    }
+
+    #[Test]
+    public function test_absolute_entry_url_without_negation_uses_equals(): void
+    {
+        $filters = $this->builder->build([
+            'entry_page' => 'https://mmk-metiz.ru/catalog',
+        ], YandexMetrikaFiltersBuilder::DATA_MODE_WITH_ROBOTS);
+
+        $this->assertSame("ym:s:startURL=='https://mmk-metiz.ru/catalog'", $filters);
+    }
+
+    #[Test]
+    public function test_negated_relative_entry_page_still_uses_not_contains(): void
+    {
+        $filters = $this->builder->build([
+            'entry_page' => '!catalog',
+        ], YandexMetrikaFiltersBuilder::DATA_MODE_WITH_ROBOTS);
+
+        $this->assertSame("ym:s:startURL!@'catalog'", $filters);
+    }
+
+    #[Test]
     public function test_negated_wildcard_uses_not_match_operator(): void
     {
         $filters = $this->builder->build([
