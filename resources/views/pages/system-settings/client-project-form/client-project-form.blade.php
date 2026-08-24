@@ -406,8 +406,7 @@
                             Чек клиента
                         </x-form.form-label>
                         <x-permissions.field-guard :enabled="$canEdit">
-                            <x-form.input-text
-                                type="number"
+                            <x-form.input-number
                                 wire:model="bonusGuaranteeForm.clientPayment"
                                 placeholder="Сумма в рублях"
                                 suffix="₽"
@@ -457,8 +456,7 @@
                             @foreach ($bonusGuaranteeForm->intervals as $index => $interval)
                                 <div class="bonus-interval-label text-secondary-text">От</div>
                                 <x-permissions.field-guard :enabled="$canEdit">
-                                    <x-form.input-text
-                                        type="number"
+                                    <x-form.input-number
                                         wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.fromPercentage"
                                         wire:blur="validateBonusIntervalField({{ $index }}, 'fromPercentage')"
                                         placeholder="От"
@@ -468,8 +466,7 @@
                                 </x-permissions.field-guard>
                                 <div class="bonus-interval-label text-secondary-text">До</div>
                                 <x-permissions.field-guard :enabled="$canEdit">
-                                    <x-form.input-text
-                                        type="number"
+                                    <x-form.input-number
                                         wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.toPercentage"
                                         wire:blur="validateBonusIntervalField({{ $index }}, 'toPercentage')"
                                         placeholder="До"
@@ -480,8 +477,7 @@
                                 <div class="bonus-interval-sep text-secondary-text">-</div>
                                 @if ($bonusGuaranteeForm->calculateInPercentage)
                                     <x-permissions.field-guard :enabled="$canEdit">
-                                        <x-form.input-text
-                                            type="number"
+                                        <x-form.input-number
                                             wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusPercentage"
                                             wire:blur="validateBonusIntervalField({{ $index }}, 'bonusPercentage')"
                                             placeholder="%"
@@ -492,8 +488,7 @@
                                     </x-permissions.field-guard>
                                 @else
                                     <x-permissions.field-guard :enabled="$canEdit">
-                                        <x-form.input-text
-                                            type="number"
+                                        <x-form.input-number
                                             wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
                                             wire:blur="validateBonusIntervalField({{ $index }}, 'bonusAmount')"
                                             placeholder="₽"
