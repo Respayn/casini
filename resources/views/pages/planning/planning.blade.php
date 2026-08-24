@@ -164,8 +164,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.1"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.1"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif
@@ -183,8 +185,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.2"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.2"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif
@@ -202,8 +206,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.3"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.3"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif
@@ -221,8 +227,10 @@
                                             @if ($this->canViewApprovals)
                                                 <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]])>
                                                     <div class="text-center">
-                                                        <x-form.checkbox wire:model.live="tableData.{{ $rowIndex }}.approvals.4"
-                                                            :disabled="!$this->canEditApprovals" />
+                                                        <x-planning.approval-checkbox
+                                                            wire:model.live="tableData.{{ $rowIndex }}.approvals.4"
+                                                            :can-edit="$this->canEditApprovals"
+                                                        />
                                                     </div>
                                                 </x-data.table-cell>
                                             @endif

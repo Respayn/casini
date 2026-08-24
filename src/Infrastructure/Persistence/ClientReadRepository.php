@@ -25,7 +25,8 @@ class ClientReadRepository implements ClientReadRepositoryInterface
                 'clients.initial_balance',
                 'projects.id as project_id',
                 'projects.name as project_name',
-                'projects.project_type'
+                'projects.project_type',
+                'projects.specialist_id',
             ])
             ->get();
 
@@ -38,7 +39,8 @@ class ClientReadRepository implements ClientReadRepositoryInterface
                 return new ClientProjectDto(
                     id: $row->project_id,
                     name: $row->project_name,
-                    projectType: ProjectType::from($row->project_type)->label()
+                    projectType: ProjectType::from($row->project_type)->label(),
+                    specialistId: $row->specialist_id !== null ? (int) $row->specialist_id : null,
                 );
             })->toArray();
 

@@ -2,4 +2,9 @@
 
 namespace Src\Application\Clients\GetClientsWithProjects;
 
-class GetClientsWithProjectsQuery {}
+class GetClientsWithProjectsQuery
+{
+    public function __construct(
+        public int $viewerUserId,
+    ) {}
+}

@@ -6,7 +6,7 @@
 ])
 
 @php
-    $message ??= 'Нет прав для изменения';
+    $message ??= __('permissions.denied');
 @endphp
 
 @if ($enabled)

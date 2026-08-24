@@ -9,10 +9,15 @@
             </x-overlay.modal>
         </div>
         <div class="flex items-center">
-            @canany(['read system settings', 'full system settings'])
-                <x-button.button href="{{ route('system-settings.dictionaries') }}" icon="icons.gear" variant="outlined"
+            @php
+                use App\Support\SystemSettingsSectionPermissions;
+
+                $settingsRoute = SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName();
+            @endphp
+            @if ($settingsRoute)
+                <x-button.button href="{{ route($settingsRoute) }}" icon="icons.gear" variant="outlined"
                     rounded />
-            @endcanany
+            @endif
             <x-notifications.bell-button />
 
             <div x-data="{ open: false }" class="ml-6 flex items-center relative">

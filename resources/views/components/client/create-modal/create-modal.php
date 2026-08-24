@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\UserService;
+use App\Support\ClientsAndProjectsPermissions;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -28,6 +29,8 @@ new class extends Component
     #[On('client-create')]
     public function onClientCreate()
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         $this->reset();
         $this->dispatch('modal-show', name: 'client-modal');
     }
@@ -35,12 +38,20 @@ new class extends Component
     #[On('client-edit')]
     public function onClientEdit($id, $name, $inn, $initialBalance, $managerId)
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         $this->id = $id;
         $this->name = $name;
         $this->inn = $inn;
         $this->initialBalance = $initialBalance;
         $this->managerId = $managerId;
         $this->dispatch('modal-show', name: 'client-modal');
+    }
+
+    #[Computed]
+    public function canEdit(): bool
+    {
+        return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
     }
 
     #[Computed]
@@ -78,6 +89,8 @@ new class extends Component
 
     public function saveClient(CreateClientCommandHandler $createCommand, UpdateClientCommandHandler $updateCommand)
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         $this->validate([
             'name' => 'required|string|max:255',
             'inn' => [

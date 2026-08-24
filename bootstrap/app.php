@@ -4,6 +4,8 @@ use App\Http\Middleware\DisableSessionAuthForApi;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Request;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -19,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(DisableSessionAuthForApi::class);
 
-        $middleware->redirectUsersTo(fn () => route('system-settings.dictionaries'));
+        $middleware->redirectUsersTo(fn () => route('channels', absolute: false));
 
         // Явно определите группы middleware
         $middleware->web([
@@ -39,8 +41,15 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'can.access.user.edit' => \App\Http\Middleware\EnsureCanAccessUserEdit::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->render(function (UnauthorizedException $e, Request $request) {
+            if ($request->expectsJson()) {
+                return response()->json(['message' => __('permissions.denied')], 403);
+            }
+
+            return response()->view('errors.no-permission', status: 403);
+        });
     })->create();

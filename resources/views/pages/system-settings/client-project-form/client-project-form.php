@@ -27,6 +27,7 @@ use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
+use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -41,6 +42,7 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
 
 new
@@ -107,8 +109,7 @@ class extends Component
     #[Computed]
     public function canEditClientsAndProjects(): bool
     {
-        // Временно: полные права редактирования до merge feature/roles-permissions.
-        return true;
+        return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
     }
 
     #[Computed]
@@ -178,7 +179,7 @@ class extends Component
 
     private function ensureCanEdit(): void
     {
-        // Временно no-op до merge feature/roles-permissions.
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
     }
 
     private function markPendingChanges(): void
@@ -205,6 +206,10 @@ class extends Component
 
     public function mount(Request $request, $projectId = null)
     {
+        if ($projectId === null) {
+            ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+        }
+
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
@@ -214,6 +219,9 @@ class extends Component
             // Получение данных
             $project = $this->projectService->getProjectDataById($projectId);
             $client = $this->clientRepository->findById($project->client_id);
+
+            app(ClientProjectAccessPolicy::class)
+                ->ensureUserCanViewProject(Auth::user(), $project, $client->getManagerId());
 
             $this->clientProjectForm->from($project);
             $this->clientProjectForm->manager = $client->getManagerId();
