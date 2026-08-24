@@ -105,7 +105,7 @@ class YandexMetrikaFiltersBuilderTest extends TestCase
 
         $this->assertSame(
             "ym:s:startURL=@'catalog'"
-            . " AND ym:s:lastsignSearchPhrase=@'кейс'"
+            . " AND ym:s:<attribution>SearchPhrase=='кейс'"
             . " AND (ym:s:regionCityName=@'Москва' OR ym:s:regionCountryName=@'Москва' OR ym:s:regionAreaName=@'Москва')",
             $filters
         );
@@ -150,7 +150,7 @@ class YandexMetrikaFiltersBuilderTest extends TestCase
             'last_search_phrase' => "foo'bar\\baz",
         ], YandexMetrikaFiltersBuilder::DATA_MODE_WITH_ROBOTS);
 
-        $this->assertSame("ym:s:lastsignSearchPhrase=@'foo\\'bar\\\\baz'", $filters);
+        $this->assertSame("ym:s:<attribution>SearchPhrase=='foo\\'bar\\\\baz'", $filters);
     }
 
     #[Test]
@@ -173,7 +173,17 @@ class YandexMetrikaFiltersBuilderTest extends TestCase
             'last_search_phrase' => '*кейс*',
         ], YandexMetrikaFiltersBuilder::DATA_MODE_WITH_ROBOTS);
 
-        $this->assertSame('ym:s:lastsignSearchPhrase=*' . "'*кейс*'", $filters);
+        $this->assertSame('ym:s:<attribution>SearchPhrase=*' . "'*кейс*'", $filters);
+    }
+
+    #[Test]
+    public function test_negated_search_phrase_without_wildcard_uses_not_equals(): void
+    {
+        $filters = $this->builder->build([
+            'last_search_phrase' => '!ммк метиз',
+        ], YandexMetrikaFiltersBuilder::DATA_MODE_WITH_ROBOTS);
+
+        $this->assertSame("ym:s:<attribution>SearchPhrase!='ммк метиз'", $filters);
     }
 
     #[Test]

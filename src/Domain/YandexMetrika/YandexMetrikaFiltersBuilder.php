@@ -10,7 +10,7 @@ class YandexMetrikaFiltersBuilder
 
     private const DIMENSION_ENTRY_PAGE = 'ym:s:startURL';
 
-    private const DIMENSION_SEARCH_PHRASE = 'ym:s:lastsignSearchPhrase';
+    private const DIMENSION_SEARCH_PHRASE = 'ym:s:<attribution>SearchPhrase';
 
     /**
      * @var list<string>
@@ -159,13 +159,14 @@ class YandexMetrikaFiltersBuilder
     private function condition(string $dimension, string $value, bool $negated): string
     {
         $hasWildcard = str_contains($value, '*');
-        // Полный URL страницы входа в Метрике — точное сравнение (== / !=),
-        // а не «содержит»: иначе !https://site/ исключает весь домен → 0.
+        // Полный URL страницы входа — точное сравнение, иначе !https://site/ исключает весь домен.
         $isAbsoluteEntryUrl = $dimension === self::DIMENSION_ENTRY_PAGE
             && ! $hasWildcard
             && preg_match('#^https?://#i', $value) === 1;
+        // Поисковая фраза без * — «совпадает / не совпадает», как сегмент в Метрике (не «содержит»).
+        $isExactSearchPhrase = $dimension === self::DIMENSION_SEARCH_PHRASE && ! $hasWildcard;
 
-        if ($isAbsoluteEntryUrl) {
+        if ($isAbsoluteEntryUrl || $isExactSearchPhrase) {
             $operator = $negated ? '!=' : '==';
         } elseif ($negated) {
             $operator = $hasWildcard ? '!*' : '!@';
