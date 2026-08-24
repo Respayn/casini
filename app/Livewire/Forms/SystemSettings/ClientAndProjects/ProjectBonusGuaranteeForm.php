@@ -42,7 +42,7 @@ class ProjectBonusGuaranteeForm extends Form
             'intervals.*.toPercentage' => 'required_if:bonusesEnabled,true|numeric|gte:intervals.*.fromPercentage',
         ];
 
-        if (!$this->calculateInPercentage) {
+        if (! $this->calculateInPercentage) {
             $rules['intervals.*.bonusAmount'] = 'required_if:bonusesEnabled,true|numeric';
         } else {
             $rules['intervals.*.bonusPercentage'] = 'required_if:bonusesEnabled,true|numeric';
@@ -114,12 +114,13 @@ class ProjectBonusGuaranteeForm extends Form
 
     /**
      * Метод для заполнения данных формы из модели бонусных условий.
-     *
-     * @param  BonusConditionData|ProjectBonusCondition  $bonusCondition
-     * @return void
      */
-    public function from(BonusConditionData|ProjectBonusCondition $bonusCondition)
+    public function from(BonusConditionData|ProjectBonusCondition|null $bonusCondition): void
     {
+        if ($bonusCondition === null) {
+            return;
+        }
+
         $this->bonusesEnabled = $bonusCondition->bonuses_enabled;
         $this->calculateInPercentage = $bonusCondition->calculate_in_percentage;
         $this->clientPayment = $bonusCondition->client_payment;
