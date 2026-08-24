@@ -351,6 +351,21 @@
                 <!-- Бонусы и гарантии -->
                 <h2>Бонусы и гарантии</h2>
 
+                <!-- Чек клиента — всегда, независимо от ползунка бонусов -->
+                <x-form.form-field>
+                    <x-form.form-label tooltip="Сколько клиент платит за ведение клиенто-проекта.">
+                        Чек клиента
+                    </x-form.form-label>
+                    <x-permissions.field-guard :enabled="$canEdit">
+                        <x-form.input-number
+                            wire:model="bonusGuaranteeForm.clientPayment"
+                            placeholder="Сумма в рублях"
+                            suffix="₽"
+                            :disabled="! $canEdit"
+                        />
+                    </x-permissions.field-guard>
+                </x-form.form-field>
+
                 <x-form.form-field>
                     <x-form.form-label
                         tooltip="Если за выполнение плана в договоре с клиентом предусмотрен бонус и/или прописаны гарантии - задайте логику расчета бонуса и/или гарантии"
@@ -398,21 +413,6 @@
                                 />
                             </x-permissions.field-guard>
                         </div>
-                    </x-form.form-field>
-
-                    <!-- Чек клиента -->
-                    <x-form.form-field>
-                        <x-form.form-label tooltip="Сколько клиент платит за ведение клиенто-проекта.">
-                            Чек клиента
-                        </x-form.form-label>
-                        <x-permissions.field-guard :enabled="$canEdit">
-                            <x-form.input-number
-                                wire:model="bonusGuaranteeForm.clientPayment"
-                                placeholder="Сумма в рублях"
-                                suffix="₽"
-                                :disabled="! $canEdit"
-                            />
-                        </x-permissions.field-guard>
                     </x-form.form-field>
 
                     <div class="mt-4 flex flex-col gap-4">

@@ -60,6 +60,22 @@ class ClientProjectFormInputNumberTest extends TestCase
     }
 
     #[Test]
+    public function test_client_payment_visible_without_bonuses_toggle(): void
+    {
+        $user = $this->actingEditor();
+        $project = $this->projectForUser($user);
+
+        $this->actingAs($user);
+
+        Livewire::test('pages::system-settings.client-project-form', ['projectId' => $project->id])
+            ->assertSet('bonusGuaranteeForm.bonusesEnabled', false)
+            ->assertSee('Чек клиента', false)
+            ->assertSee('inputmode="decimal"', false)
+            ->assertSee('₽', false)
+            ->assertDontSee('type="number"', false);
+    }
+
+    #[Test]
     public function test_bonus_fields_use_input_number_markup(): void
     {
         $user = $this->actingEditor();
