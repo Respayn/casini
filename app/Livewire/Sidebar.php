@@ -82,6 +82,7 @@ class Sidebar extends Component
     private function getEmployees()
     {
         $this->employees = $this->sidebarService->getEmployees($this->sortBy, $this->searchQuery);
+        $this->expandSelectedProjectPath();
 
         if ($this->searchQuery === '') {
             return;
@@ -104,6 +105,28 @@ class Sidebar extends Component
             }
         }
         unset($employee, $client);
+    }
+
+    private function expandSelectedProjectPath(): void
+    {
+        if ($this->selectedProjectId === null) {
+            return;
+        }
+
+        foreach ($this->employees as $employee) {
+            foreach ($employee->clients as $client) {
+                foreach ($client->projects as $project) {
+                    if ($project->id !== $this->selectedProjectId) {
+                        continue;
+                    }
+
+                    $employee->open = true;
+                    $client->open = true;
+
+                    return;
+                }
+            }
+        }
     }
 
     public function render()

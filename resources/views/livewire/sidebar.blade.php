@@ -19,7 +19,7 @@
 
         <x-form.input-text
             class="mb-5"
-            label="Поиск:"
+            label="Поиск по клиентам и клиенто-проектам"
             icon="icons.search"
             wire:model.live.debounce="searchQuery"
             placeholder="Начните вводить"
@@ -35,7 +35,7 @@
         </div>
 
         <x-form.select
-            label="Сортировать по:"
+            label="Собрать портфель клиенто-проектов по:"
             :options="$sortOptions"
             wire:model.live="sortBy"
         />
