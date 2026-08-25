@@ -29,7 +29,8 @@
     ></div>
 
     <x-panel.scroll-panel
-        class="mb-3 mt-4 max-h-[calc(100vh-300px)]"
+        class="mb-3 mt-4"
+        style="max-height: calc(100vh - 300px);"
     >
         <x-form.form
             :is-normalized="true"
