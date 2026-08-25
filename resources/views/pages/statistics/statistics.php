@@ -7,7 +7,6 @@ use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
 use App\Domain\Statistics\Services\StatisticsService;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
@@ -35,10 +34,7 @@ class extends Component
 
     public function mount()
     {
-        $this->queryData = $this->statisticsService->getUserSettings(
-            Auth::user()->id,
-        );
-        $this->queryData->clampPeriodToPresent();
+        $this->queryData = StatisticsReportQueryData::create();
     }
 
     protected function afterSidebarProjectFilterChanged(): void
@@ -66,14 +62,14 @@ class extends Component
         }
     }
 
-    public function updatedQueryDataDateFrom(): void
+    public function updated($property)
     {
-        $this->rebuildQueryDataForPeriod();
-    }
-
-    public function updatedQueryDataDateTo(): void
-    {
-        $this->rebuildQueryDataForPeriod();
+        if ($property === 'queryData.dateTo') {
+            $this->queryData = StatisticsReportQueryData::create(
+                $this->queryData->detailLevel,
+                $this->queryData->dateTo
+            );
+        }
     }
 
     /**
@@ -81,9 +77,11 @@ class extends Component
      */
     public function applySettingsSnapshot()
     {
-        if ($this->originalQueryData !== null
-            && $this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
-            $this->rebuildQueryDataForPeriod();
+        if ($this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
+            $this->queryData = StatisticsReportQueryData::create(
+                $this->queryData->detailLevel,
+                $this->queryData->dateTo
+            );
         }
 
         $this->originalQueryData = null;
@@ -93,7 +91,7 @@ class extends Component
     public function sortColumn($item, $position)
     {
         $column = $this->queryData->columns->first(
-            fn ($v) => $v->field === $item,
+            fn($v) => $v->field === $item,
         );
         $oldPosition = $column->order;
 
@@ -123,7 +121,7 @@ class extends Component
         });
 
         $this->queryData->columns = $this->queryData->columns->sortBy(
-            fn (TableReportColumnData $col) => $col->order,
+            fn(TableReportColumnData $col) => $col->order,
         );
     }
 
@@ -141,7 +139,7 @@ class extends Component
     #[Computed]
     public function sortableColumns()
     {
-        return $this->queryData->columns->filter(function (TableReportColumnData $col, $key) {
+        return $this->queryData->columns->filter(function(TableReportColumnData $col, $key) {
             return $col->isSortable;
         });
     }
@@ -149,33 +147,6 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
-        // Как в Каналах: сохраняем настройки пользователя при построении отчёта
-        $this->statisticsService->saveUserSettings(
-            Auth::user()->id,
-            $this->queryData,
-        );
-
         return $this->statisticsService->getReportData($this->queryData, $this->sidebarProjectId);
-    }
-
-    private function rebuildQueryDataForPeriod(): void
-    {
-        $this->queryData->clampPeriodToPresent();
-
-        $previous = $this->queryData;
-        $rebuilt = StatisticsReportQueryData::create(
-            $previous->detailLevel,
-            $previous->dateFrom,
-            $previous->dateTo,
-        );
-        $rebuilt->grouping = $previous->grouping;
-        $rebuilt->showInactive = $previous->showInactive;
-        $rebuilt->includeVat = $previous->includeVat;
-        $rebuilt->accumulateData = $previous->accumulateData;
-        $rebuilt->highlightUnmetKpi = $previous->highlightUnmetKpi;
-        $rebuilt->applySavedColumnPreferences($previous->columns);
-
-        $this->queryData = $rebuilt;
-        unset($this->reportData);
     }
 };

@@ -3,17 +3,7 @@
 
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
-        <div class="mb-7 flex items-center gap-2">
-            <h1>Статистика</h1>
-            <x-overlay.modal-trigger name="report-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button
-                    icon="icons.gear"
-                    variant="outlined"
-                    rounded
-                    title="Настроить отчет"
-                />
-            </x-overlay.modal-trigger>
-        </div>
+        <h1 class="mb-7">Статистика</h1>
         <div>
             <x-button.button href="{{ route('system-settings.clients-and-projects') }}" icon="icons.plus"
                 label="Добавить клиента" />
@@ -34,15 +24,18 @@
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
-            <x-form.month-picker wire:model.live="queryData.dateFrom" disable-future />
-            <span class="text-secondary-text">—</span>
-            <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
+        <div>
+            <x-form.month-picker wire:model.live="queryData.dateTo" />
         </div>
 
-        <div class="ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link" />
+        <div class="flex-end ml-auto">
+            <x-overlay.modal-trigger name="column-settings-modal">
+                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link"
+                    wire:click="saveSettingsSnapshot" />
+            </x-overlay.modal-trigger>
+            <x-overlay.modal-trigger name="report-settings-modal">
+                <x-button.button icon="icons.edit" label="Настроить отчет" variant="link"
+                    wire:click="saveSettingsSnapshot" />
             </x-overlay.modal-trigger>
         </div>
     </div>
@@ -73,47 +66,12 @@
                 <x-data.table>
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
-                            <x-data.table-column
-                                @class([
-                                    'whitespace-nowrap border',
-                                    '!p-0' => $column->component === 'fact',
-                                ])
-                                style="{{ $column->component === 'fact' ? 'border-color: var(--color-table-cell); min-width: 7.5rem' : 'border-color: var(--color-table-cell)' }}"
-                                :stacked="$column->component === 'fact'"
-                            >
-                                @if ($column->component === 'fact')
-                                    <div class="relative w-full">
-                                        <div class="px-2.5 pt-1.5 text-center leading-tight">{{ $column->label }}</div>
-                                        <div class="relative">
-                                            <div
-                                                aria-hidden="true"
-                                                class="pointer-events-none absolute"
-                                                style="top: 0; bottom: 0; left: 50%; width: 1px; margin-left: -0.5px; background-color: var(--color-table-cell);"
-                                            ></div>
-                                            <table
-                                                class="w-full border-collapse font-normal"
-                                                style="table-layout: fixed; font-size: 12px; line-height: 1.2; margin-top: 2px"
-                                            >
-                                                <tr>
-                                                    <td
-                                                        class="px-2.5 pb-1.5 text-center"
-                                                        style="width: 50%; color: #94a8c1"
-                                                    >План</td>
-                                                    <td
-                                                        class="px-2.5 pb-1.5 text-center font-normal"
-                                                        style="width: 50%"
-                                                    >Факт</td>
-                                                </tr>
-                                            </table>
-                                        </div>
-                                    </div>
-                                @else
-                                    <span>{{ $column->label }}</span>
-                                    @if ($column->tooltip !== null)
-                                        <x-overlay.tooltip>
-                                            {{ $column->tooltip }}
-                                        </x-overlay.tooltip>
-                                    @endif
+                            <x-data.table-column class="whitespace-nowrap">
+                                <span>{{ $column->label }}</span>
+                                @if ($column->tooltip !== null)
+                                    <x-overlay.tooltip>
+                                        {{ $column->tooltip }}
+                                    </x-overlay.tooltip>
                                 @endif
                             </x-data.table-column>
                         @endforeach
@@ -199,30 +157,24 @@
     <x-overlay.modal name="report-settings-modal" title="Настроить отчет">
         <x-slot:body>
             <div>
-                <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
-                    <x-form.form-field>
+                <x-form.form>
+                    <x-form.form-field class="w-[603px]">
                         <x-form.form-label>Выделять клиенто-проекты с невыполненными KPI</x-form.form-label>
                         <div>
-                            <x-form.select
-                                wire:model="queryData.highlightUnmetKpi"
-                                :options="[
-                                    ['label' => 'Да', 'value' => 'Y'],
-                                    ['label' => 'Нет', 'value' => 'N'],
-                                ]"
-                            />
+                            <x-form.select :options="[
+        ['label' => 'Да', 'value' => 'Y'],
+        ['label' => 'Нет', 'value' => 'N']
+    ]"></x-form.select>
                         </div>
                     </x-form.form-field>
 
                     <x-form.form-field>
                         <x-form.form-label>План и факт накапливаются в отчете</x-form.form-label>
                         <div>
-                            <x-form.select
-                                wire:model="queryData.accumulateData"
-                                :options="[
-                                    ['label' => 'Да', 'value' => 'Y'],
-                                    ['label' => 'Нет', 'value' => 'N'],
-                                ]"
-                            />
+                            <x-form.select :options="[
+        ['label' => 'Да', 'value' => 'Y'],
+        ['label' => 'Нет', 'value' => 'N']
+    ]"></x-form.select>
                         </div>
                     </x-form.form-field>
 
@@ -243,7 +195,8 @@
                             <x-form.select :options="[
         ['label' => 'Без группировки', 'value' => 'none'],
         ['label' => 'По клиентам', 'value' => 'clients'],
-        ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
+        ['label' => 'По отделам', 'value' => 'project_type'],
+        ['label' => 'По инструментам', 'value' => 'tools'],
     ]" wire:model="queryData.grouping"></x-form.select>
                         </div>
                     </x-form.form-field>

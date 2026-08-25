@@ -3,17 +3,7 @@
 
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
-        <div class="mb-7 flex items-center gap-2">
-            <h1>Каналы</h1>
-            <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button
-                    icon="icons.gear"
-                    variant="outlined"
-                    rounded
-                    title="Настроить отчет"
-                />
-            </x-overlay.modal-trigger>
-        </div>
+        <h1 class="mb-7">Каналы:</h1>
         <div>
             <x-button.button
                 href="{{ route('system-settings.clients-and-projects') }}"
@@ -30,24 +20,22 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex flex-wrap items-center gap-y-3">
-        <div class="mr-3.5 flex items-center gap-2">
+    <div class="flex items-center">
+        <div class="mr-3.5">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="queryData.showInactive" />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
+        <div class="mr-[26px]">
             <label>НДС</label>
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
-            <x-form.month-picker wire:model.live="queryData.dateFrom" disable-future />
-            <span class="text-secondary-text">—</span>
-            <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
+        <div>
+            <x-form.month-picker wire:model.live="queryData.dateTo" />
         </div>
 
-        <div class="ml-auto flex flex-wrap items-center gap-2">
+        <div class="flex-end ml-auto">
             <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
                 <x-button.button
                     icon="icons.edit"
@@ -55,32 +43,30 @@
                     variant="link"
                 />
             </x-overlay.modal-trigger>
+            <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
+                <x-button.button
+                    icon="icons.edit"
+                    label="Настроить отчет"
+                    variant="link"
+                />
+            </x-overlay.modal-trigger>
         </div>
     </div>
 
     @if (!empty($selectedProjects))
-        <div class="mt-3 flex gap-2">
+        <div class="flex gap-2">
             <div class="w-xs">
                 <x-form.select
                     wire:model="bulkAction"
-                    :options="collect(\App\Enums\ChannelBulkAction::cases())->map(fn ($action) => [
-                        'label' => $action->label(),
-                        'value' => $action->value,
-                    ])->all()"
+                    :options="[
+                        ['label' => 'Обновить расходы', 'value' => 'refresh_spendings'],
+                        ['label' => 'Обновить остаток бюджета', 'value' => 'refresh_budget_remains'],
+                    ]"
                     placeholder="Массовые действия"
                 />
             </div>
             <x-button.button wire:click="makeBulkAction" label="Выполнить" />
         </div>
-    @endif
-
-    @if ($actionMessage)
-        <x-feedback.notice
-            class="mt-3 mb-0"
-            :variant="$actionMessageType === 'error' ? 'error' : 'info'"
-        >
-            {{ $actionMessage }}
-        </x-feedback.notice>
     @endif
 
     @if ($this->reportData->groups->isEmpty())
@@ -106,10 +92,7 @@
                             <x-form.checkbox wire:model.live="selectAll" />
                         </x-data.table-column>
                         @foreach ($this->visibleColumns as $column)
-                            <x-data.table-column
-                                class="whitespace-nowrap border"
-                                style="border-color: var(--color-table-cell)"
-                            >
+                            <x-data.table-column class="whitespace-nowrap">
                                 <span>{{ $column->label }}</span>
                                 @if ($column->tooltip !== null)
                                     <x-overlay.tooltip>
@@ -127,7 +110,7 @@
                                     <x-data.table-cell colspan="100">
                                         <div
                                             class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
+                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']; console.log(expandedGroups)"
                                         >
                                             <span class="font-bold">{{ $group->groupLabel }}</span>
                                             <x-icons.accordion-arrow

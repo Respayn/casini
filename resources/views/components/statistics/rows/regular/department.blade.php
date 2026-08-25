@@ -1,5 +1,5 @@
 @props(['params'])
 
 <x-data.table-cell {{ $attributes }}>
-    {{ $params['name'] ?? '-' }}
+    <span class="underline">{{ $params['name'] }}</span>
 </x-data.table-cell>
