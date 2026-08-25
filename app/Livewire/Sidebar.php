@@ -5,6 +5,7 @@ namespace App\Livewire;
 use App\Data\Sidebar\EmployeeData;
 use App\Services\SidebarService;
 use App\Support\SidebarProjectContext;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
 use Str;
@@ -77,6 +78,23 @@ class Sidebar extends Component
         $this->projectContext->clear();
         $this->selectedProjectId = null;
         $this->dispatch('sidebar-project-cleared');
+    }
+
+    public function clearFilters(): void
+    {
+        $this->searchQuery = '';
+        $this->projectContext->clear();
+        $this->selectedProjectId = null;
+        $this->dispatch('sidebar-project-cleared');
+
+        // Пересобираем дерево, чтобы свернуть раскрытых менеджера/клиента.
+        $this->getEmployees();
+    }
+
+    #[Computed]
+    public function canClearFilters(): bool
+    {
+        return $this->selectedProjectId !== null || $this->searchQuery !== '';
     }
 
     #[On('sidebar-project-cleared')]

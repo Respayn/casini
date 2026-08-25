@@ -7,7 +7,7 @@
     {{ $attributes->merge([
         'role' => 'status',
         'aria-label' => 'Обновление портфеля клиенто-проектов',
-        'class' => 'flex h-full min-h-[200px] flex-col gap-2 pe-[15px]',
+        'class' => 'flex h-full min-h-[200px] flex-col gap-2 bg-white pe-[15px]',
     ]) }}
 >
     @foreach (range(1, (int) $rows) as $row)
