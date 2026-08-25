@@ -17,13 +17,18 @@
             </a>
         </div>
 
-        <x-form.input-text
+        <div
             class="mb-5"
-            label="Поиск по клиентам и клиенто-проектам"
-            icon="icons.search"
-            wire:model.live.debounce="searchQuery"
-            placeholder="Начните вводить"
-        />
+            wire:loading.class="pointer-events-none opacity-60"
+            wire:target="searchQuery,sortBy"
+        >
+            <x-form.input-text
+                label="Поиск по клиентам и клиенто-проектам"
+                icon="icons.search"
+                wire:model.live.debounce.200ms="searchQuery"
+                placeholder="Начните вводить"
+            />
+        </div>
 
         <div class="mb-4">
             <x-button.button
@@ -34,11 +39,16 @@
             />
         </div>
 
-        <x-form.select
-            label="Собрать портфель клиенто-проектов по:"
-            :options="$sortOptions"
-            wire:model.live="sortBy"
-        />
+        <div
+            wire:loading.class="pointer-events-none opacity-60"
+            wire:target="searchQuery,sortBy"
+        >
+            <x-form.select
+                label="Собрать портфель клиенто-проектов по:"
+                :options="$sortOptions"
+                wire:model.live="sortBy"
+            />
+        </div>
 
         @if ($sortOptions === [])
             <p class="text-secondary-text mt-4 text-sm">
@@ -46,14 +56,25 @@
             </p>
         @endif
 
-        {{-- Список сотрудников --}}
+        {{-- Список сотрудников: контент на месте, скелетон — оверлей как в Планировании --}}
         <div
-            class="pretty-scroll mt-5 mb-4 mr-[-25px] flex-1 overflow-y-auto"
-            style="scrollbar-gutter: stable"
+            class="pretty-scroll relative mt-5 mb-4 mr-[-25px] flex-1 overflow-y-auto"
+            style="scrollbar-gutter: stable; min-height: 200px"
         >
+            <div
+                class="absolute inset-0 z-10 overflow-hidden"
+                style="background-color: rgba(255, 255, 255, 0.85)"
+                wire:loading.block
+                wire:target="searchQuery,sortBy"
+            >
+                <x-sidebar.tree-skeleton class="h-full" />
+            </div>
+
             <ul
                 class="pr-[15px]"
                 x-cloak
+                wire:loading.class="pointer-events-none opacity-40"
+                wire:target="searchQuery,sortBy"
             >
                 @foreach ($employees as $employeeKey => $employee)
                     <li

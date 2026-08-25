@@ -11,6 +11,9 @@ use Str;
 
 class Sidebar extends Component
 {
+    /** Минимальное время показа скелетона при поиске / смене роли (мкс). */
+    private const TREE_LOADING_HOLD_MICROSECONDS = 550_000;
+
     /** @var array<int, EmployeeData> */
     public array $employees = [];
 
@@ -40,13 +43,16 @@ class Sidebar extends Component
         $this->getEmployees();
     }
 
-    public function updatedSortBy()
+    public function updatedSortBy(): void
     {
+        // Держим запрос чуть дольше, чтобы скелетон успел отрисоваться (поиск сам по себе слишком быстрый).
+        usleep(self::TREE_LOADING_HOLD_MICROSECONDS);
         $this->getEmployees();
     }
 
-    public function updatedSearchQuery()
+    public function updatedSearchQuery(): void
     {
+        usleep(self::TREE_LOADING_HOLD_MICROSECONDS);
         $this->getEmployees();
     }
 
@@ -98,6 +104,7 @@ class Sidebar extends Component
                 }
                 if (Str::contains(Str::lower($client->name), Str::lower($this->searchQuery))) {
                     $employee->open = true;
+                    $client->open = true;
                 }
             }
             if (Str::contains(Str::lower($employee->name), Str::lower($this->searchQuery))) {
