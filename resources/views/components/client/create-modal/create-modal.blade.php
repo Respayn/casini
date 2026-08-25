@@ -29,7 +29,7 @@
                     Начальная статистика взаиморасчетов
                 </x-form.form-label>
                 <div>
-                    <x-form.input-text type="number" wire:model="initialBalance"></x-form.input-text>
+                    <x-form.input-number wire:model="initialBalance" :allow-negative="true"></x-form.input-number>
                 </div>
             </x-form.form-field>
             <div class="flex justify-between">

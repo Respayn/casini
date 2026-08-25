@@ -11,7 +11,6 @@ use Src\Domain\ValueObjects\ProjectType;
 
 class ProjectData extends Data
 {
-    // TODO: Связь assistants
     public function __construct(
         public ?int $id,
         public string $name,
@@ -40,6 +39,8 @@ class ProjectData extends Data
         public ?DataCollection $promotionTopics = null,
         #[DataCollectionOf(ProjectUtmMappingData::class)]
         public ?DataCollection $utmMappings = null,
+        /** @var list<int> */
+        public array $assistantIds = [],
     ) {
     }
 }
