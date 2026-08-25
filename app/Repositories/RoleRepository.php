@@ -120,13 +120,10 @@ class RoleRepository
                 $role->use_in_project_filter = false;
                 $role->use_in_managers_list = false;
                 $role->use_in_specialist_list = false;
-            } elseif ($isAdmin) {
-                $role->display_name = RoleEnum::ADMIN->label();
-                $role->use_in_project_filter = $roleData['useInProjectFilter'];
-                $role->use_in_managers_list = $roleData['useInManagersList'];
-                $role->use_in_specialist_list = $roleData['useInSpecialistList'];
             } else {
-                $role->display_name = $roleData['name'];
+                $role->display_name = $isAdmin
+                    ? RoleEnum::ADMIN->label()
+                    : $roleData['name'];
                 $role->use_in_project_filter = $roleData['useInProjectFilter'];
                 $role->use_in_managers_list = $roleData['useInManagersList'];
                 $role->use_in_specialist_list = $roleData['useInSpecialistList'];

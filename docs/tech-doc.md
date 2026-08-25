@@ -184,6 +184,12 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 - Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`).
 - Пароли: в Eloquent передаётся plain-text; cast `password => hashed` в `User` хеширует при сохранении. Не вызывать `Hash::make` / `bcrypt` перед записью в модель.
 
+## Форма клиенто-проекта: помощники
+
+Несколько помощников проекта хранятся в pivot-таблице `project_assistant` (`project_id`, `user_id`, уникальная пара). Связь: `Project::assistants()` → `belongsToMany(User)`. Синхронизация при сохранении — `ProjectService::updateOrCreateProject` через `assistantIds` в `ProjectData`.
+
+Списки «Специалист» / «Помощник» в форме показывают всех пользователей агентства (`UserService::getByAgency`), подпись `Имя Фамилия (должность)`. Проверка прав редактирования формы временно всегда разрешена; полноценный read-only UI — после merge `feature/roles-permissions`.
+
 ## Интеграция Яндекс.Директ (настройки клиенто-проекта)
 
 ### Переменные окружения (OAuth)
