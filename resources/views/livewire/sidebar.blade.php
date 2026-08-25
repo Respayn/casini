@@ -20,7 +20,7 @@
         <div
             class="mb-5"
             wire:loading.class="pointer-events-none opacity-60"
-            wire:target="searchQuery,sortBy"
+            wire:target="searchQuery,sortBy,clearFilters"
         >
             <x-form.input-text
                 label="Поиск по клиентам и клиенто-проектам"
@@ -42,7 +42,7 @@
 
         <div
             wire:loading.class="pointer-events-none opacity-60"
-            wire:target="searchQuery,sortBy"
+            wire:target="searchQuery,sortBy,clearFilters"
         >
             <x-form.select
                 label="Собрать портфель клиенто-проектов по:"
@@ -59,20 +59,19 @@
 
         {{-- Список сотрудников: при загрузке прячем дерево целиком, сверху непрозрачный скелетон --}}
         <div
-            class="pretty-scroll relative mt-5 mb-4 mr-[-25px] flex-1 overflow-y-auto"
-            style="scrollbar-gutter: stable; min-height: 200px"
+            class="pretty-scroll sidebar-tree-scroll relative mt-5 mb-4 mr-[-25px] min-h-[200px] flex-1 overflow-y-auto"
         >
             <div
                 class="absolute inset-0 z-10 overflow-hidden bg-white"
                 wire:loading.block
-                wire:target="searchQuery,sortBy"
+                wire:target="searchQuery,sortBy,clearFilters"
             >
                 <x-sidebar.tree-skeleton class="h-full" />
             </div>
 
             <div
                 wire:loading.class="pointer-events-none invisible opacity-0"
-                wire:target="searchQuery,sortBy"
+                wire:target="searchQuery,sortBy,clearFilters"
             >
                 @if ($searchQuery !== '' && $employees === [])
                     <p class="text-caption-text pr-[15px] pt-2 text-sm">

@@ -112,6 +112,11 @@ html.sidebar-collapsed .sidebar-toggle-icon {
     max-width: 250px;
 }
 
+/* Сайдбар: стабильный gutter скролла, без прыжка ширины при появлении полосы */
+.sidebar-tree-scroll {
+    scrollbar-gutter: stable;
+}
+
 /* Scrollbar */
 /* width */
 .pretty-scroll::-webkit-scrollbar {

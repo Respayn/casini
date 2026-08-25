@@ -5,14 +5,18 @@ namespace App\Livewire;
 use App\Data\Sidebar\EmployeeData;
 use App\Services\SidebarService;
 use App\Support\SidebarProjectContext;
+use Illuminate\Support\Str;
+use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
-use Str;
 
 class Sidebar extends Component
 {
-    /** Минимальное время показа скелетона при поиске / смене роли (мкс). */
+    /**
+     * Минимальное время показа скелетона при поиске / смене роли (мкс).
+     * Без паузы запрос слишком быстрый — скелетон не успевает отрисоваться.
+     */
     private const TREE_LOADING_HOLD_MICROSECONDS = 550_000;
 
     /** @var array<int, EmployeeData> */
@@ -30,13 +34,13 @@ class Sidebar extends Component
 
     private SidebarProjectContext $projectContext;
 
-    public function boot(SidebarService $sidebarService, SidebarProjectContext $projectContext)
+    public function boot(SidebarService $sidebarService, SidebarProjectContext $projectContext): void
     {
         $this->sidebarService = $sidebarService;
         $this->projectContext = $projectContext;
     }
 
-    public function mount()
+    public function mount(): void
     {
         $this->sortOptions = $this->sidebarService->getRoleOptions();
         $this->sortBy = $this->sortOptions[0]['value'] ?? null;
@@ -103,7 +107,7 @@ class Sidebar extends Component
         $this->selectedProjectId = null;
     }
 
-    private function getEmployees()
+    private function getEmployees(): void
     {
         $this->employees = $this->sidebarService->getEmployees($this->sortBy, $this->searchQuery);
         $this->expandSelectedProjectPath();
@@ -154,7 +158,7 @@ class Sidebar extends Component
         }
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.sidebar');
     }
