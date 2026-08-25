@@ -469,6 +469,7 @@
                         <x-form.date-picker
                             class="w-full"
                             placeholder="Выберите дату"
+                            :max="now()->toDateString()"
                             x-model="testDate"
                         ></x-form.date-picker>
                         <div

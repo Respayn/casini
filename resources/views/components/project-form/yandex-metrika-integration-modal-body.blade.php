@@ -2106,6 +2106,7 @@
                     <x-form.date-picker
                         class="w-full"
                         placeholder="Выберите дату"
+                        :max="now()->toDateString()"
                         x-model="testDate"
                     ></x-form.date-picker>
                     <div
@@ -2390,6 +2391,7 @@
                     <x-form.date-picker
                         class="w-full"
                         placeholder="Выберите дату"
+                        :max="now()->toDateString()"
                         x-model="utmTestDate"
                     ></x-form.date-picker>
                     <div
@@ -2594,6 +2596,7 @@
                     <x-form.date-picker
                         class="w-full"
                         placeholder="Выберите дату"
+                        :max="now()->toDateString()"
                         x-model="conversionsTestDate"
                     ></x-form.date-picker>
                     <div
@@ -2798,6 +2801,7 @@
                     <x-form.date-picker
                         class="w-full"
                         placeholder="Выберите дату"
+                        :max="now()->toDateString()"
                         x-model="directSummaryTestDate"
                     ></x-form.date-picker>
                     <div
@@ -3003,6 +3007,7 @@
                     <x-form.date-picker
                         class="w-full"
                         placeholder="Выберите дату"
+                        :max="now()->toDateString()"
                         x-model="visitsSearchEnginesTestDate"
                     ></x-form.date-picker>
                     <div
@@ -3188,6 +3193,7 @@
                     <x-form.date-picker
                         class="w-full"
                         placeholder="Выберите дату"
+                        :max="now()->toDateString()"
                         x-model="visitsSearchQueriesTestDate"
                     ></x-form.date-picker>
                     <div
