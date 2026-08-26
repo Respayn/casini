@@ -50,6 +50,7 @@ class StatisticsClosingColumnsCalculator
 
         $summary = $this->buildSummary(
             $parameterCodes,
+            $parametersMeta,
             $planCell,
             $month,
             $spendByDay,
@@ -86,15 +87,17 @@ class StatisticsClosingColumnsCalculator
 
     /**
      * @param  list<string>  $parameterCodes
+     * @param  list<array{name: string, highlight: bool}>  $parametersMeta
      * @param  list<array{value: mixed, format: mixed}>  $planCell
      * @param  array<string, float>  $spendByDay
      * @param  array<string, int>  $leadsByDay
      * @param  array<string, float>  $topPercentsByDay
      * @param  array<string, float|int>  $visitsByDay
-     * @return list<array{value: mixed, format: mixed, plan_percent?: int|null}>
+     * @return list<array{value: mixed, format: mixed, plan_percent?: int|null, highlight?: bool}>
      */
     private function buildSummary(
         array $parameterCodes,
+        array $parametersMeta,
         array $planCell,
         Carbon $month,
         array $spendByDay,
@@ -112,6 +115,7 @@ class StatisticsClosingColumnsCalculator
 
         $slots = [];
         foreach ($parameterCodes as $index => $code) {
+            $isPrimary = ! empty($parametersMeta[$index]['highlight']);
             $hasLastDay = $this->hasLastDaySlice(
                 $code,
                 $lastDayKey,
@@ -122,7 +126,12 @@ class StatisticsClosingColumnsCalculator
             );
 
             if (! $hasLastDay) {
-                $slots[] = ['value' => null, 'format' => null, 'plan_percent' => null];
+                $slots[] = [
+                    'value' => null,
+                    'format' => null,
+                    'plan_percent' => null,
+                    'highlight' => $isPrimary,
+                ];
 
                 continue;
             }
@@ -166,6 +175,7 @@ class StatisticsClosingColumnsCalculator
                 $slot['value'] ?? null,
                 $planCell[$index]['value'] ?? null,
             );
+            $slot['highlight'] = $isPrimary;
             $slots[] = $slot;
         }
 

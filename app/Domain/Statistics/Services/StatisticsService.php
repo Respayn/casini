@@ -40,6 +40,8 @@ class StatisticsService
 
     private StatisticsMonthlyBonusSnapshotService $bonusSnapshotService;
 
+    private StatisticsClosingColumnsAggregator $closingColumnsAggregator;
+
     public function __construct(
         ProjectRepository $projectRepository,
         ClientRepository $clientRepository,
@@ -48,6 +50,7 @@ class StatisticsService
         ProjectPlanService $projectPlanService,
         StatisticsClosingColumnsCalculator $closingColumnsCalculator,
         StatisticsMonthlyBonusSnapshotService $bonusSnapshotService,
+        StatisticsClosingColumnsAggregator $closingColumnsAggregator,
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
@@ -56,6 +59,7 @@ class StatisticsService
         $this->projectPlanService = $projectPlanService;
         $this->closingColumnsCalculator = $closingColumnsCalculator;
         $this->bonusSnapshotService = $bonusSnapshotService;
+        $this->closingColumnsAggregator = $closingColumnsAggregator;
     }
 
     public function getUserSettings(int $userId): StatisticsReportQueryData
@@ -224,16 +228,11 @@ class StatisticsService
         $group->rows = $rows;
         $report->groups->push($group);
 
-        $report->summary = new Collection([
-            'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count(),
-            ],
-            'client-project' => [
-                'count' => $projects->count(),
-            ],
-            'service' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]);
+        $report->summary = $this->buildReportSummary(
+            $projects,
+            $integrations,
+            $rows,
+        );
 
         return $report;
     }
@@ -343,40 +342,25 @@ class StatisticsService
             return $contextProjects->pluck('id')->contains($projectId);
         });
 
-        $seoGroup->summary = new Collection([
-            'client' => [
-                'count' => $seoProjects->pluck('client_id')->unique()->count(),
-            ],
-            'client-project' => [
-                'count' => $seoProjects->count(),
-            ],
-            'service' => $seoIntegrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]);
+        $seoGroup->summary = $this->buildGroupSummary(
+            $seoProjects,
+            $seoIntegrations,
+            $seoRows,
+        );
 
-        $contextGroup->summary = new Collection([
-            'client' => [
-                'count' => $contextProjects->pluck('client_id')->unique()->count(),
-            ],
-            'client-project' => [
-                'count' => $contextProjects->count(),
-            ],
-            'service' => $contextIntegrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]);
+        $contextGroup->summary = $this->buildGroupSummary(
+            $contextProjects,
+            $contextIntegrations,
+            $contextRows,
+        );
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
 
-        $report->summary = new Collection([
-            'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count(),
-            ],
-            'client-project' => [
-                'count' => $projects->count(),
-            ],
-            'service' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]);
+        $report->summary = $this->buildReportSummary(
+            $projects,
+            $integrations,
+            $seoRows->concat($contextRows)->values(),
+        );
 
         return $report;
     }
@@ -474,30 +458,21 @@ class StatisticsService
                 return $clientProjects->pluck('id')->contains($projectId);
             });
 
-            $group->summary = new Collection([
-                'client' => [
-                    'count' => $clientProjects->pluck('client_id')->unique()->count(),
-                ],
-                'client-project' => [
-                    'count' => $clientProjects->count(),
-                ],
-                'service' => $clientIntegrations->flatten()
-                    ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-            ]);
+            $group->summary = $this->buildGroupSummary(
+                $clientProjects,
+                $clientIntegrations,
+                $rows,
+            );
 
             $report->groups->push($group);
         }
 
-        $report->summary = new Collection([
-            'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count(),
-            ],
-            'client-project' => [
-                'count' => $projects->count(),
-            ],
-            'service' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]);
+        $allRows = $report->groups->flatMap(fn ($group) => $group->rows)->values();
+        $report->summary = $this->buildReportSummary(
+            $projects,
+            $integrations,
+            $allRows,
+        );
 
         return $report;
     }
@@ -602,7 +577,7 @@ class StatisticsService
 
             $group->rows = $rows;
 
-            $group->summary = new Collection([
+            $group->summary = (new Collection([
                 'client' => [
                     'count' => $projectsByIntegration->pluck('client_id')->unique()->count(),
                 ],
@@ -610,7 +585,7 @@ class StatisticsService
                     'count' => $projectsByIntegration->count(),
                 ],
                 'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()],
-            ]);
+            ]))->merge($this->closingColumnsAggregator->aggregate($rows));
 
             $report->groups->push($group);
         }
@@ -689,7 +664,7 @@ class StatisticsService
 
         $group->rows = $rows;
 
-        $group->summary = new Collection([
+        $group->summary = (new Collection([
             'client' => [
                 'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count(),
             ],
@@ -697,20 +672,16 @@ class StatisticsService
                 'count' => $projectsWithoutIntegration->count(),
             ],
             'service' => [],
-        ]);
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
 
         $report->groups->push($group);
 
-        $report->summary = new Collection([
-            'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count(),
-            ],
-            'client-project' => [
-                'count' => $projects->count(),
-            ],
-            'service' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]);
+        $allRows = $report->groups->flatMap(fn ($group) => $group->rows)->values();
+        $report->summary = $this->buildReportSummary(
+            $projects,
+            $integrations,
+            $allRows,
+        );
 
         return $report;
     }
@@ -1196,6 +1167,44 @@ class StatisticsService
         }
 
         return round(array_sum($values) / count($values), 1);
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $projects
+     * @param  Collection<int|string, mixed>  $integrations
+     * @param  Collection<int, TableReportRowData>  $rows
+     */
+    private function buildGroupSummary(Collection $projects, Collection $integrations, Collection $rows): Collection
+    {
+        return (new Collection([
+            'client' => [
+                'count' => $projects->pluck('client_id')->unique()->count(),
+            ],
+            'client-project' => [
+                'count' => $projects->count(),
+            ],
+            'service' => $integrations->flatten()
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $projects
+     * @param  Collection<int|string, mixed>  $integrations
+     * @param  Collection<int, TableReportRowData>  $rows
+     */
+    private function buildReportSummary(Collection $projects, Collection $integrations, Collection $rows): Collection
+    {
+        return (new Collection([
+            'client' => [
+                'count' => $projects->pluck('client_id')->unique()->count(),
+            ],
+            'client-project' => [
+                'count' => $projects->count(),
+            ],
+            'service' => $integrations->flatten()
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
     }
 
     /**

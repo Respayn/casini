@@ -27,11 +27,12 @@
     @else
         <div class="grid h-full auto-rows-fr divide-y divide-table-cell">
             @foreach ($slots as $slot)
-                <div class="flex items-center grow px-2.5 py-2 whitespace-nowrap gap-1">
+                @php $isPrimary = ! empty($slot['highlight']); @endphp
+                <div class="flex items-center grow px-2.5 py-2 whitespace-nowrap gap-1 {{ $isPrimary ? 'font-bold' : '' }}">
                     @if (isset($slot['value']) && $slot['value'] !== null && $slot['value'] !== '')
                         <span>{{ $formatValue($slot) }}</span>
                         @if (isset($slot['plan_percent']) && is_numeric($slot['plan_percent']))
-                            <span class="text-secondary-text">({{ $slot['plan_percent'] }}%)</span>
+                            <span @class(['text-secondary-text' => ! $isPrimary])>({{ $slot['plan_percent'] }}%)</span>
                         @endif
                     @else
                         -
