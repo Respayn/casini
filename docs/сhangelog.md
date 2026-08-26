@@ -51,6 +51,20 @@
 
 
 # Releases
+## [v0.2.33] - 2026-08-26
+### 🚀 Новое
+- Статусы учётки при входе: `UserAccountStatus` (активен / неактивен / подтвердить email), middleware `EnsureUserIsActive`, повторная отправка письма подтверждения с формы входа
+
+### 🛠 Исправления
+- Поля пароля на auth-экранах: `wire:model` вместо `wire:model.live`
+- Сброс пароля: plain password + cast `hashed` (без двойного `Hash::make`)
+- `SmartCaptchaAuthTest`: `DatabaseTransactions` вместо `RefreshDatabase`
+
+### 🔧 Улучшения
+- Вход через `LoginService` (case-insensitive login/email), игнор intended URL с лендинга
+- Переводы auth в `lang/ru/auth.php`; `REGISTRATION_ENABLED` в `.env.example`
+- В `bootstrap/app.php` сохранены schedule ночного съёма и alias `can.access.user.edit`
+
 ## [v0.2.32] - 2026-07-28
 ### 🚀 Новое
 - Раздельные права настроек системы: Настройки агентства, Справочники, Пользователи и роли, Продукты и права, Клиенты и клиенто-проекты (уровни read / edit / full)
