@@ -13,11 +13,12 @@ class ProjectRepository
 {
     public function all()
     {
-        return Project::with('bonusCondition')->get();
+        return Project::with(['bonusCondition.intervals'])->get();
     }
 
     /**
      * Находит проект по данным компании
+     *
      * @throws ProjectNotFoundException
      */
     public function findProjectByCompanyData(CompanyData $company): Project
@@ -37,7 +38,7 @@ class ProjectRepository
             })
             ->first();
 
-        if (!$project) {
+        if (! $project) {
             throw new ProjectNotFoundException(
                 $company->inn,
                 $company->contractNumber,

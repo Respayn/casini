@@ -200,6 +200,22 @@ class extends Component
         return false;
     }
 
+    /**
+     * @param  list<int>  $projectIds
+     */
+    protected function afterSuccessfulReportDataRefresh(array $projectIds): void
+    {
+        if (! $this->queryData->isSingleMonthPeriod()) {
+            return;
+        }
+
+        $this->statisticsService->recalculateMonthlyBonuses(
+            $projectIds,
+            $this->queryData->dateFrom->copy()->startOfMonth()->startOfDay(),
+            $this->queryData->includeVat,
+        );
+    }
+
     protected function setActionMessage(string $message, string $type): void
     {
         $this->actionMessage = $message;

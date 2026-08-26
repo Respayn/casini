@@ -71,7 +71,17 @@ trait WithReportDataRefresh
             ),
             $stats['failed'] > 0 ? 'error' : 'success',
         );
+
+        $this->afterSuccessfulReportDataRefresh($projectIds);
     }
+
+    /**
+     * Хук после успешного обновления данных отчёта (метрики API).
+     * Статистика — пересчёт снимков бонусов; Каналы — no-op.
+     *
+     * @param  list<int>  $projectIds
+     */
+    protected function afterSuccessfulReportDataRefresh(array $projectIds): void {}
 
     /**
      * @return list<int>

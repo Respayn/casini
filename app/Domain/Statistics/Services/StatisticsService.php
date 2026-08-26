@@ -20,30 +20,42 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Src\Planning\Application\ProjectPlanService;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
+use Src\Planning\Application\ProjectPlanService;
 
 class StatisticsService
 {
     private ClientRepository $clientRepository;
+
     private ProjectRepository $projectRepository;
+
     private UserRepository $userRepository;
+
     private IntegrationRepository $integrationRepository;
+
     private ProjectPlanService $projectPlanService;
+
+    private StatisticsClosingColumnsCalculator $closingColumnsCalculator;
+
+    private StatisticsMonthlyBonusSnapshotService $bonusSnapshotService;
 
     public function __construct(
         ProjectRepository $projectRepository,
         ClientRepository $clientRepository,
         UserRepository $userRepository,
         IntegrationRepository $integrationRepository,
-        ProjectPlanService $projectPlanService
+        ProjectPlanService $projectPlanService,
+        StatisticsClosingColumnsCalculator $closingColumnsCalculator,
+        StatisticsMonthlyBonusSnapshotService $bonusSnapshotService,
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
         $this->userRepository = $userRepository;
         $this->integrationRepository = $integrationRepository;
         $this->projectPlanService = $projectPlanService;
+        $this->closingColumnsCalculator = $closingColumnsCalculator;
+        $this->bonusSnapshotService = $bonusSnapshotService;
     }
 
     public function getUserSettings(int $userId): StatisticsReportQueryData
@@ -73,14 +85,14 @@ class StatisticsService
         $user = Auth::user();
 
         $clients = $this->clientRepository->all();
-        if ($user->isManager() && !$user->hasAnyPermission(['read statistics', 'all statistics'])) {
-            $clients = $clients->filter(fn($client) => $client->manager_id === $user->id);
+        if ($user->isManager() && ! $user->hasAnyPermission(['read statistics', 'all statistics'])) {
+            $clients = $clients->filter(fn ($client) => $client->manager_id === $user->id);
         }
 
         $projects = $this->projectRepository->all();
-        $projects = $projects->filter(fn($project) => $clients->pluck('id')->contains($project->client_id));
-        if ($user->isSpecialist() && !$user->hasAnyPermission(['read statistics', 'full statistics'])) {
-            $projects = $projects->filter(fn($project) => $project->specialist_id === $user->id);
+        $projects = $projects->filter(fn ($project) => $clients->pluck('id')->contains($project->client_id));
+        if ($user->isSpecialist() && ! $user->hasAnyPermission(['read statistics', 'full statistics'])) {
+            $projects = $projects->filter(fn ($project) => $project->specialist_id === $user->id);
         }
 
         $users = $this->userRepository->all();
@@ -139,48 +151,58 @@ class StatisticsService
         array $leadsByProject,
         array $topPercentsByProject = []
     ): TableReportData {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
-        $group = new TableReportGroupData();
+        $group = new TableReportGroupData;
 
-        $rows = new Collection();
+        $rows = new Collection;
 
         foreach ($projects as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
 
             $client = $clients->firstWhere('id', $project->client_id);
 
             $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+            $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
-            $projectIntegrations = $integrations->get($project->id, new Collection());
+            $projectIntegrations = $integrations->get($project->id, new Collection);
 
             $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
+            $closing = $this->resolveClosingColumns(
+                $project,
+                $gridMonth,
+                $periodFrom,
+                $periodTo,
+                $plan,
+                $spendingsByProject[$project->id] ?? [],
+                $leadsByProject[$project->id] ?? [],
+                $topPercentsByProject[$project->id] ?? [],
+            );
 
             $row->data = new Collection(array_merge(
                 [
                     'manager' => [
                         'id' => $manager->id,
-                        'name' => $managerName
+                        'name' => $managerName,
                     ],
                     'client' => [
-                        'name' => $client->name
+                        'name' => $client->name,
                     ],
                     'client-project' => [
                         'id' => $project->id,
-                        'name' => $project->name
+                        'name' => $project->name,
                     ],
                     'client-project-id' => [
-                        'id' => $project->id
+                        'id' => $project->id,
                     ],
                     'project-type' => $project->project_type->label(),
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
-                    'summary' => [],
-                    'prediction' => [],
-                    'bonuses' => null
+                    'summary' => $closing['summary'],
+                    'prediction' => $closing['prediction'],
+                    'bonuses' => $closing['bonuses'],
                 ],
                 $this->createIntegrationData($projectIntegrations),
                 $this->createFactData(
@@ -204,13 +226,13 @@ class StatisticsService
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -230,52 +252,61 @@ class StatisticsService
         array $leadsByProject,
         array $topPercentsByProject = []
     ): TableReportData {
-        $report = new TableReportData();
-        $seoGroup = new TableReportGroupData();
+        $report = new TableReportData;
+        $seoGroup = new TableReportGroupData;
         $seoGroup->groupLabel = ProjectType::SEO_PROMOTION->label();
-        $contextGroup = new TableReportGroupData();
+        $contextGroup = new TableReportGroupData;
         $contextGroup->groupLabel = ProjectType::CONTEXT_AD->label();
 
-        $seoRows = new Collection();
-        $contextRows = new Collection();
+        $seoRows = new Collection;
+        $contextRows = new Collection;
 
         foreach ($projects as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
-
 
             $client = $clients->firstWhere('id', $project->client_id);
 
             $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+            $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
-            $projectIntegrations = $integrations->get($project->id, new Collection());
+            $projectIntegrations = $integrations->get($project->id, new Collection);
 
             $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
+            $closing = $this->resolveClosingColumns(
+                $project,
+                $gridMonth,
+                $periodFrom,
+                $periodTo,
+                $plan,
+                $spendingsByProject[$project->id] ?? [],
+                $leadsByProject[$project->id] ?? [],
+                $topPercentsByProject[$project->id] ?? [],
+            );
 
             $row->data = new Collection(array_merge(
                 [
                     'manager' => [
                         'id' => $manager->id,
-                        'name' => $managerName
+                        'name' => $managerName,
                     ],
                     'client' => [
-                        'name' => $client->name
+                        'name' => $client->name,
                     ],
                     'client-project' => [
                         'id' => $project->id,
-                        'name' => $project->name
+                        'name' => $project->name,
                     ],
                     'client-project-id' => [
-                        'id' => $project->id
+                        'id' => $project->id,
                     ],
                     'project-type' => $project->project_type->label(),
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
-                    'summary' => [],
-                    'prediction' => [],
-                    'bonuses' => null
+                    'summary' => $closing['summary'],
+                    'prediction' => $closing['prediction'],
+                    'bonuses' => $closing['bonuses'],
                 ],
                 $this->createIntegrationData($projectIntegrations),
                 $this->createFactData(
@@ -302,8 +333,8 @@ class StatisticsService
         $seoGroup->rows = $seoRows;
         $contextGroup->rows = $contextRows;
 
-        $seoProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION);
-        $contextProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD);
+        $seoProjects = $projects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION);
+        $contextProjects = $projects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD);
 
         $seoIntegrations = $integrations->filter(function ($integrations, $projectId) use ($seoProjects) {
             return $seoProjects->pluck('id')->contains($projectId);
@@ -314,37 +345,37 @@ class StatisticsService
 
         $seoGroup->summary = new Collection([
             'client' => [
-                'count' => $seoProjects->pluck('client_id')->unique()->count()
+                'count' => $seoProjects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $seoProjects->count()
+                'count' => $seoProjects->count(),
             ],
             'service' => $seoIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         $contextGroup->summary = new Collection([
             'client' => [
-                'count' => $contextProjects->pluck('client_id')->unique()->count()
+                'count' => $contextProjects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $contextProjects->count()
+                'count' => $contextProjects->count(),
             ],
             'service' => $contextIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -364,65 +395,74 @@ class StatisticsService
         array $leadsByProject,
         array $topPercentsByProject = []
     ): TableReportData {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
         foreach ($clients as $client) {
-            $group = new TableReportGroupData();
+            $group = new TableReportGroupData;
             $group->groupLabel = $client->name;
 
-            $rows = new Collection();
-            $clientProjects = $projects->filter(fn($project) => $project->client_id === $client->id);
+            $rows = new Collection;
+            $clientProjects = $projects->filter(fn ($project) => $project->client_id === $client->id);
             foreach ($clientProjects as $project) {
-                $row = new TableReportRowData();
+                $row = new TableReportRowData;
                 $row->id = $project->id;
-
 
                 $client = $clients->firstWhere('id', $project->client_id);
 
                 $manager = $users->firstWhere('id', $client->manager_id);
-                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+                $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
                 $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
+                $closing = $this->resolveClosingColumns(
+                    $project,
+                    $gridMonth,
+                    $periodFrom,
+                    $periodTo,
+                    $plan,
+                    $spendingsByProject[$project->id] ?? [],
+                    $leadsByProject[$project->id] ?? [],
+                    $topPercentsByProject[$project->id] ?? [],
+                );
 
                 $row->data = new Collection(array_merge(
                     [
                         'manager' => [
                             'id' => $manager->id,
-                            'name' => $managerName
+                            'name' => $managerName,
                         ],
                         'client' => [
-                            'name' => $client->name
+                            'name' => $client->name,
                         ],
                         'client-project' => [
                             'id' => $project->id,
-                            'name' => $project->name
+                            'name' => $project->name,
                         ],
                         'client-project-id' => [
-                            'id' => $project->id
+                            'id' => $project->id,
                         ],
                         'project-type' => $project->project_type->label(),
                         'kpi' => $project->kpi->label(),
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
-                        'summary' => [],
-                        'prediction' => [],
-                        'bonuses' => null
+                        'summary' => $closing['summary'],
+                        'prediction' => $closing['prediction'],
+                        'bonuses' => $closing['bonuses'],
                     ],
                     $this->createIntegrationData($projectIntegrations),
                     $this->createFactData(
-                    $project->project_type,
-                    $project->kpi,
-                    $detailLevel,
-                    $gridMonth,
-                    $periodFrom,
-                    $periodTo,
-                    $spendingsByProject[$project->id] ?? [],
-                    $leadsByProject[$project->id] ?? [],
-                    $plan,
-                    $topPercentsByProject[$project->id] ?? [],
-                )
+                        $project->project_type,
+                        $project->kpi,
+                        $detailLevel,
+                        $gridMonth,
+                        $periodFrom,
+                        $periodTo,
+                        $spendingsByProject[$project->id] ?? [],
+                        $leadsByProject[$project->id] ?? [],
+                        $plan,
+                        $topPercentsByProject[$project->id] ?? [],
+                    )
                 ));
 
                 $rows->push($row);
@@ -436,13 +476,13 @@ class StatisticsService
 
             $group->summary = new Collection([
                 'client' => [
-                    'count' => $clientProjects->pluck('client_id')->unique()->count()
+                    'count' => $clientProjects->pluck('client_id')->unique()->count(),
                 ],
                 'client-project' => [
-                    'count' => $clientProjects->count()
+                    'count' => $clientProjects->count(),
                 ],
                 'service' => $clientIntegrations->flatten()
-                    ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                    ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             ]);
 
             $report->groups->push($group);
@@ -450,13 +490,13 @@ class StatisticsService
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -476,76 +516,85 @@ class StatisticsService
         array $leadsByProject,
         array $topPercentsByProject = []
     ): TableReportData {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
         $integrationsGroupList = $integrations->flatten()->unique('integration.code');
 
         foreach ($integrationsGroupList as $integrationGroup) {
-            $group = new TableReportGroupData();
+            $group = new TableReportGroupData;
             $group->groupLabel = $integrationGroup->integration->name;
 
-            $rows = new Collection();
+            $rows = new Collection;
             $projectIds = $integrations
                 ->filter(
-                    fn($integrationsByProject) => $integrationsByProject->contains(
-                        fn($integration) => $integration->integration->code === $integrationGroup->integration->code
+                    fn ($integrationsByProject) => $integrationsByProject->contains(
+                        fn ($integration) => $integration->integration->code === $integrationGroup->integration->code
                     )
                 )
                 ->keys();
 
-            $projectsByIntegration = $projects->filter(fn($project) => $projectIds->contains($project->id));
+            $projectsByIntegration = $projects->filter(fn ($project) => $projectIds->contains($project->id));
 
             foreach ($projectsByIntegration as $project) {
-                $row = new TableReportRowData();
+                $row = new TableReportRowData;
                 $row->id = $project->id;
-
 
                 $client = $clients->firstWhere('id', $project->client_id);
 
                 $manager = $users->firstWhere('id', $client->manager_id);
-                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+                $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
                 $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
+                $closing = $this->resolveClosingColumns(
+                    $project,
+                    $gridMonth,
+                    $periodFrom,
+                    $periodTo,
+                    $plan,
+                    $spendingsByProject[$project->id] ?? [],
+                    $leadsByProject[$project->id] ?? [],
+                    $topPercentsByProject[$project->id] ?? [],
+                );
 
                 $row->data = new Collection(array_merge(
                     [
                         'manager' => [
                             'id' => $manager->id,
-                            'name' => $managerName
+                            'name' => $managerName,
                         ],
                         'client' => [
-                            'name' => $client->name
+                            'name' => $client->name,
                         ],
                         'client-project' => [
                             'id' => $project->id,
-                            'name' => $project->name
+                            'name' => $project->name,
                         ],
                         'client-project-id' => [
-                            'id' => $project->id
+                            'id' => $project->id,
                         ],
                         'project-type' => $project->project_type->label(),
                         'kpi' => $project->kpi->label(),
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
-                        'summary' => [],
-                        'prediction' => [],
-                        'bonuses' => null
+                        'summary' => $closing['summary'],
+                        'prediction' => $closing['prediction'],
+                        'bonuses' => $closing['bonuses'],
                     ],
                     $this->createIntegrationData($projectIntegrations),
                     $this->createFactData(
-                    $project->project_type,
-                    $project->kpi,
-                    $detailLevel,
-                    $gridMonth,
-                    $periodFrom,
-                    $periodTo,
-                    $spendingsByProject[$project->id] ?? [],
-                    $leadsByProject[$project->id] ?? [],
-                    $plan,
-                    $topPercentsByProject[$project->id] ?? [],
-                )
+                        $project->project_type,
+                        $project->kpi,
+                        $detailLevel,
+                        $gridMonth,
+                        $periodFrom,
+                        $periodTo,
+                        $spendingsByProject[$project->id] ?? [],
+                        $leadsByProject[$project->id] ?? [],
+                        $plan,
+                        $topPercentsByProject[$project->id] ?? [],
+                    )
                 ));
 
                 $rows->push($row);
@@ -555,61 +604,70 @@ class StatisticsService
 
             $group->summary = new Collection([
                 'client' => [
-                    'count' => $projectsByIntegration->pluck('client_id')->unique()->count()
+                    'count' => $projectsByIntegration->pluck('client_id')->unique()->count(),
                 ],
                 'client-project' => [
-                    'count' => $projectsByIntegration->count()
+                    'count' => $projectsByIntegration->count(),
                 ],
-                'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()]
+                'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()],
             ]);
 
             $report->groups->push($group);
         }
 
         // Группа с проектами без интеграций
-        $projectsWithoutIntegration = $projects->filter(fn($project) => !$integrations->keys()->contains($project->id));
-        $group = new TableReportGroupData();
+        $projectsWithoutIntegration = $projects->filter(fn ($project) => ! $integrations->keys()->contains($project->id));
+        $group = new TableReportGroupData;
         $group->groupLabel = 'Без настроенных инструментов';
 
-        $rows = new Collection();
+        $rows = new Collection;
 
         foreach ($projectsWithoutIntegration as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
-
 
             $client = $clients->firstWhere('id', $project->client_id);
 
             $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+            $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
             $projectIntegrations = $integrations->get($project->id, []);
 
             $plan = $this->resolvePlanCell($plans, $project->id, $project->project_type, $project->kpi);
+            $closing = $this->resolveClosingColumns(
+                $project,
+                $gridMonth,
+                $periodFrom,
+                $periodTo,
+                $plan,
+                $spendingsByProject[$project->id] ?? [],
+                $leadsByProject[$project->id] ?? [],
+                $topPercentsByProject[$project->id] ?? [],
+            );
 
             $row->data = new Collection(array_merge(
                 [
                     'manager' => [
                         'id' => $manager->id,
-                        'name' => $managerName
+                        'name' => $managerName,
                     ],
                     'client' => [
-                        'name' => $client->name
+                        'name' => $client->name,
                     ],
                     'client-project' => [
                         'id' => $project->id,
-                        'name' => $project->name
+                        'name' => $project->name,
                     ],
                     'client-project-id' => [
-                        'id' => $project->id
+                        'id' => $project->id,
                     ],
                     'project-type' => $project->project_type->label(),
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
-                    'summary' => [],
-                    'prediction' => [],
-                    'bonuses' => null
+                    'summary' => $closing['summary'],
+                    'prediction' => $closing['prediction'],
+                    'bonuses' => $closing['bonuses'],
                 ],
                 $this->createIntegrationData($projectIntegrations),
                 $this->createFactData(
@@ -633,25 +691,25 @@ class StatisticsService
 
         $group->summary = new Collection([
             'client' => [
-                'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count()
+                'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projectsWithoutIntegration->count()
+                'count' => $projectsWithoutIntegration->count(),
             ],
-            'service' => []
+            'service' => [],
         ]);
 
         $report->groups->push($group);
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -666,22 +724,22 @@ class StatisticsService
                 Kpi::TRAFFIC => [
                     ['value' => 45, 'format' => 'currency'],
                     ['value' => 90000, 'format' => 'currency'],
-                    ['value' => 1670, 'format' => null]
+                    ['value' => 1670, 'format' => null],
                 ],
                 Kpi::LEADS => [
                     ['value' => 3392, 'format' => 'currency'],
                     ['value' => 190000, 'format' => 'currency'],
-                    ['value' => 56, 'format' => null]
+                    ['value' => 56, 'format' => null],
                 ],
             },
             ProjectType::SEO_PROMOTION => match ($kpi) {
                 Kpi::TRAFFIC => [
                     ['value' => 5130, 'format' => null],
-                    ['value' => null, 'format' => null]
+                    ['value' => null, 'format' => null],
                 ],
                 Kpi::POSITIONS => [
                     ['value' => 50, 'format' => 'percent'],
-                    ['value' => null, 'format' => null]
+                    ['value' => null, 'format' => null],
                 ]
             }
         };
@@ -696,7 +754,7 @@ class StatisticsService
         // ключ service - идентификатор столбца, в котором будут рендериться данные
         $initialColumnsData = [
             'service' => [],
-            'login' => null
+            'login' => null,
         ];
 
         $columnsData = $integrations->reduce(function ($carry, $integration) {
@@ -1138,6 +1196,106 @@ class StatisticsService
         }
 
         return round(array_sum($values) / count($values), 1);
+    }
+
+    /**
+     * Принудительно пересчитать и сохранить снимки бонусов за месяц (кнопка «Обновить данные»).
+     *
+     * @param  list<int>  $projectIds
+     */
+    public function recalculateMonthlyBonuses(
+        array $projectIds,
+        Carbon $month,
+        bool $includeVat = false,
+    ): void {
+        if ($projectIds === []) {
+            return;
+        }
+
+        $month = $month->copy()->startOfMonth()->startOfDay();
+        $projects = $this->projectRepository->all()
+            ->filter(fn ($project) => in_array((int) $project->id, $projectIds, true))
+            ->values();
+
+        if ($projects->isEmpty()) {
+            return;
+        }
+
+        $plans = $this->projectPlanService->getMonthlyPlansForStatistics(
+            (int) $month->format('Y'),
+            (int) $month->format('n'),
+        );
+        $spendFrom = $month->copy()->startOfMonth()->startOfDay();
+        $spendTo = $month->copy()->endOfMonth()->startOfDay();
+        $spendingsByProject = $this->loadDirectDailySpendings($projects, $spendFrom, $spendTo, $includeVat);
+        $leadsByProject = $this->loadCallibriLeadCounts($projects, $spendFrom, $spendTo);
+        $topPercentsByProject = $this->loadSearchApiDailyTopPercents($projects, $spendFrom, $spendTo);
+
+        foreach ($projects as $project) {
+            $plan = $this->resolvePlanCell($plans, (int) $project->id, $project->project_type, $project->kpi);
+            $closing = $this->closingColumnsCalculator->calculate(
+                $project,
+                $month,
+                $plan,
+                $spendingsByProject[$project->id] ?? [],
+                $leadsByProject[$project->id] ?? [],
+                $topPercentsByProject[$project->id] ?? [],
+            );
+            $this->bonusSnapshotService->resolve(
+                (int) $project->id,
+                $month,
+                $closing['bonuses'],
+                forceRecalculate: true,
+            );
+        }
+    }
+
+    /**
+     * @param  list<array{value: mixed, format: mixed}>  $plan
+     * @param  array<string, float>  $spendByDay
+     * @param  array<string, int>  $leadsByDay
+     * @param  array<string, float>  $topPercentsByDay
+     * @return array{summary: array, prediction: array, bonuses: array|null}
+     */
+    private function resolveClosingColumns(
+        mixed $project,
+        Carbon $gridMonth,
+        Carbon $periodFrom,
+        Carbon $periodTo,
+        array $plan,
+        array $spendByDay,
+        array $leadsByDay,
+        array $topPercentsByDay,
+    ): array {
+        $isSingleMonth = $periodFrom->year === $periodTo->year
+            && $periodFrom->month === $periodTo->month;
+
+        if (! $isSingleMonth) {
+            return [
+                'summary' => [],
+                'prediction' => [],
+                'bonuses' => ['kind' => 'dash'],
+            ];
+        }
+
+        $month = $gridMonth->copy()->startOfMonth()->startOfDay();
+        $closing = $this->closingColumnsCalculator->calculate(
+            $project,
+            $month,
+            $plan,
+            $spendByDay,
+            $leadsByDay,
+            $topPercentsByDay,
+        );
+
+        $closing['bonuses'] = $this->bonusSnapshotService->resolve(
+            (int) $project->id,
+            $month,
+            $closing['bonuses'],
+            forceRecalculate: false,
+        );
+
+        return $closing;
     }
 
     /**
