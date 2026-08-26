@@ -32,7 +32,7 @@
                     @if (isset($slot['value']) && $slot['value'] !== null && $slot['value'] !== '')
                         <span>{{ $formatValue($slot) }}</span>
                         @if (isset($slot['plan_percent']) && is_numeric($slot['plan_percent']))
-                            <span @class(['text-secondary-text' => ! $isPrimary])>({{ $slot['plan_percent'] }}%)</span>
+                            <span class="text-xs font-normal text-secondary-text">({{ $slot['plan_percent'] }}%)</span>
                         @endif
                     @else
                         -

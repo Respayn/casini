@@ -27,7 +27,7 @@
     @else
         <div class="grid h-full auto-rows-fr divide-y divide-table-cell">
             @foreach ($slots as $slot)
-                <div class="flex items-center grow px-2.5 py-2 whitespace-nowrap gap-1 font-bold">
+                <div class="flex h-full items-center justify-end grow px-2.5 py-2 whitespace-nowrap gap-1 font-bold">
                     @if (isset($slot['value']) && $slot['value'] !== null && $slot['value'] !== '')
                         <span>{{ $formatValue($slot) }}</span>
                         @if (($slot['format'] ?? null) === 'percent')

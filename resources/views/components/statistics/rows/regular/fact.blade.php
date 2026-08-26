@@ -29,7 +29,18 @@
         $factText = is_numeric($parameter['fact']['value'] ?? null)
             ? $formatValue($parameter['fact'])
             : '-';
-        $sizerText = mb_strlen($factText) >= mb_strlen($planText) ? $factText : $planText;
+
+        $planPercent = null;
+        $planValue = $parameter['plan']['value'] ?? null;
+        $factValue = $parameter['fact']['value'] ?? null;
+        if (is_numeric($factValue) && is_numeric($planValue) && (float) $planValue != 0.0) {
+            $planPercent = (int) round(((float) $factValue / (float) $planValue) * 100);
+        }
+
+        $factWithPercent = $planPercent !== null
+            ? $factText.' ('.$planPercent.'%)'
+            : $factText;
+        $sizerText = mb_strlen($factWithPercent) >= mb_strlen($planText) ? $factWithPercent : $planText;
 
         if (mb_strlen($sizerText) > mb_strlen($maxSizer)) {
             $maxSizer = $sizerText;
@@ -38,6 +49,7 @@
         $rows[] = [
             'planText' => $planText,
             'factText' => $factText,
+            'planPercent' => $planPercent,
             'hasFact' => is_numeric($parameter['fact']['value'] ?? null),
         ];
     }
@@ -77,9 +89,12 @@
                         class="flex items-center whitespace-nowrap px-2.5 py-2"
                         style="color: #A0B5D2"
                     >{{ $row['planText'] }}</div>
-                    <div class="flex items-center whitespace-nowrap px-2.5 py-2 font-bold">
+                    <div class="flex items-center whitespace-nowrap px-2.5 py-2 font-bold gap-1">
                         @if ($row['hasFact'])
-                            {{ $row['factText'] }}
+                            <span>{{ $row['factText'] }}</span>
+                            @if ($row['planPercent'] !== null)
+                                <span class="text-xs font-normal text-secondary-text">({{ $row['planPercent'] }}%)</span>
+                            @endif
                         @else
                             -
                         @endif
