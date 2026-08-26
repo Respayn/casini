@@ -136,8 +136,18 @@
                                 </x-data.table-row>
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
                                     @foreach ($this->visibleColumns as $column)
-                                        <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
-                                            :params="$group->summary->get($column->field)" />
+                                        @if (in_array($column->component, ['fact', 'summary'], true))
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$group->summary->get($column->field)"
+                                                :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                            />
+                                        @else
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$group->summary->get($column->field)"
+                                            />
+                                        @endif
                                     @endforeach
                                 </x-data.table-row>
                             @endunless
@@ -153,8 +163,18 @@
                                         :bg-color="$rowBgColor"
                                     >
                                         @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)" />
+                                            @if (in_array($column->component, ['fact', 'summary'], true))
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                    :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                                />
+                                            @else
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endif
                                         @endforeach
                                     </x-data.table-row>
                                 @else
@@ -164,8 +184,18 @@
                                         :bg-color="$rowBgColor"
                                     >
                                         @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)" />
+                                            @if (in_array($column->component, ['fact', 'summary'], true))
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                    :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                                />
+                                            @else
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endif
                                         @endforeach
                                     </x-data.table-row>
                                 @endif
@@ -174,8 +204,18 @@
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
                             @foreach ($this->visibleColumns as $column)
-                                <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
-                                    :params="$this->reportData->summary->get($column->field)" />
+                                @if (in_array($column->component, ['fact', 'summary'], true))
+                                    <x-dynamic-component
+                                        :component="'statistics.rows.summary.' . $column->component"
+                                        :params="$this->reportData->summary->get($column->field)"
+                                        :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                    />
+                                @else
+                                    <x-dynamic-component
+                                        :component="'statistics.rows.summary.' . $column->component"
+                                        :params="$this->reportData->summary->get($column->field)"
+                                    />
+                                @endif
                             @endforeach
                         </x-data.table-row>
                     </x-data.table-rows>
@@ -215,7 +255,9 @@
             <div>
                 <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
                     <x-form.form-field>
-                        <x-form.form-label>Выделять клиенто-проекты с невыполненными KPI</x-form.form-label>
+                        <x-form.form-label
+                            tooltip="При значении «Да» в колонках факта (срезы) и «Итог» ячейки окрашиваются по % выполнения плана (в том числе в строках Итого по группировке): от 90% и выше — зелёным, ниже 90% — красным."
+                        >Выделять клиенто-проекты с невыполненными KPI</x-form.form-label>
                         <div>
                             <x-form.select
                                 wire:model="queryData.highlightUnmetKpi"

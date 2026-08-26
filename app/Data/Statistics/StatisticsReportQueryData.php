@@ -47,7 +47,7 @@ class StatisticsReportQueryData extends Data implements Wireable
     /**
      * Выделять клиенто-проекты с невыполненными KPI (UI настроек отчёта).
      */
-    public string $highlightUnmetKpi = 'Y';
+    public string $highlightUnmetKpi = 'N';
 
     public function __construct() {}
 
@@ -166,7 +166,7 @@ class StatisticsReportQueryData extends Data implements Wireable
         $rebuilt->showInactive = $saved->showInactive;
         $rebuilt->includeVat = $saved->includeVat;
         $rebuilt->accumulateData = $saved->accumulateData;
-        $rebuilt->highlightUnmetKpi = $saved->highlightUnmetKpi ?: 'Y';
+        $rebuilt->highlightUnmetKpi = $saved->highlightUnmetKpi ?: 'N';
         $rebuilt->applySavedColumnPreferences($saved->columns);
 
         return $rebuilt;

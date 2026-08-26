@@ -824,6 +824,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         // ? Возможно стоит использовать enum?
         return match ($code) {
             'yandex_direct' => 'yandex-direct',
+            'yandex_metrika' => 'yandex-metrika',
             'callibri' => 'callibri',
             'yandex_search_api' => 'yandex-search-api',
             default => 'default'

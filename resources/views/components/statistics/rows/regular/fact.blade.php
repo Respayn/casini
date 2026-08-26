@@ -1,6 +1,9 @@
 @blaze
 
-@props(['params'])
+@props([
+    'params',
+    'highlightUnmetKpi' => false,
+])
 
 @php
     $formatValue = static function (array $slot): string {
@@ -18,6 +21,18 @@
             'percent' => $slot['value'].'%',
             default => (string) $slot['value'],
         };
+    };
+
+    $kpiHighlightBg = static function (?int $planPercent): ?string {
+        if ($planPercent === null) {
+            return null;
+        }
+
+        if ($planPercent >= 90) {
+            return '#EBFCF0';
+        }
+
+        return '#FCEBEB';
     };
 
     $rows = [];
@@ -51,6 +66,7 @@
             'factText' => $factText,
             'planPercent' => $planPercent,
             'hasFact' => is_numeric($parameter['fact']['value'] ?? null),
+            'factBg' => $highlightUnmetKpi ? $kpiHighlightBg($planPercent) : null,
         ];
     }
 @endphp
@@ -89,7 +105,10 @@
                         class="flex items-center whitespace-nowrap px-2.5 py-2"
                         style="color: #A0B5D2"
                     >{{ $row['planText'] }}</div>
-                    <div class="flex items-center whitespace-nowrap px-2.5 py-2 font-bold gap-1">
+                    <div
+                        class="flex items-center whitespace-nowrap px-2.5 py-2 font-bold gap-1"
+                        @if ($row['factBg'] !== null) style="background-color: {{ $row['factBg'] }}" @endif
+                    >
                         @if ($row['hasFact'])
                             <span>{{ $row['factText'] }}</span>
                             @if ($row['planPercent'] !== null)

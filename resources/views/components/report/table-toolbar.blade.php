@@ -46,7 +46,7 @@
     >
         <button
             type="button"
-            class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-primary-text transition hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-primary-text transition hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
             wire:click="refreshAllData"
             wire:loading.attr="disabled"
             wire:target="refreshAllData"
