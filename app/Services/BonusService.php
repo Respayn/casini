@@ -10,9 +10,6 @@ class BonusService
 {
     /**
      * Сохраняет или обновляет бонусные условие
-     *
-     * @param Project $project
-     * @param BonusConditionData $bonusData
      */
     public function saveBonusSettings(Project $project, BonusConditionData $bonusData): void
     {
@@ -43,14 +40,10 @@ class BonusService
 
     /**
      * Рассчитывает сумму бонусов для проекта
-     *
-     * @param ProjectBonusCondition $bonusCondition
-     * @param float $performancePercentage
-     * @return float
      */
     public function calculateBonuses(ProjectBonusCondition $bonusCondition, float $performancePercentage): float
     {
-        if (!$bonusCondition->bonuses_enabled) {
+        if (! $bonusCondition->bonuses_enabled) {
             return 0.0; // Бонусы не включены
         }
 
@@ -74,5 +67,48 @@ class BonusService
         }
 
         return $totalBonus;
+    }
+
+    /**
+     * Максимальный доступный бонус по настройкам клиенто-проекта (₽).
+     * Берётся наибольшее значение среди интервалов; при выключенных бонусах или пустых условиях — null.
+     */
+    public function resolveMaxBonusAmount(?ProjectBonusCondition $bonusCondition): ?float
+    {
+        if ($bonusCondition === null || ! $bonusCondition->bonuses_enabled) {
+            return null;
+        }
+
+        if ($bonusCondition->relationLoaded('intervals') === false) {
+            $bonusCondition->load('intervals');
+        }
+
+        $intervals = $bonusCondition->intervals;
+        if ($intervals === null || $intervals->isEmpty()) {
+            return null;
+        }
+
+        $amounts = [];
+        foreach ($intervals as $interval) {
+            if ($bonusCondition->calculate_in_percentage) {
+                if (! is_numeric($bonusCondition->client_payment) || ! is_numeric($interval->bonus_percentage)) {
+                    continue;
+                }
+
+                $amounts[] = (float) $bonusCondition->client_payment * ((float) $interval->bonus_percentage / 100);
+            } else {
+                if (! is_numeric($interval->bonus_amount)) {
+                    continue;
+                }
+
+                $amounts[] = (float) $interval->bonus_amount;
+            }
+        }
+
+        if ($amounts === []) {
+            return null;
+        }
+
+        return round(max($amounts), 2);
     }
 }

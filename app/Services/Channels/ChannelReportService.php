@@ -13,21 +13,30 @@ use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
 use App\Repositories\UserRepository;
+use App\Services\BonusService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Src\Planning\Application\ProjectPlanService;
 use Src\Domain\ValueObjects\ProjectType;
+use Src\Planning\Application\ProjectPlanService;
 
 class ChannelReportService implements ChannelReportServiceInterface
 {
     private ClientRepository $clientRepository;
+
     private ProjectRepository $projectRepository;
+
     private UserRepository $userRepository;
+
     private IntegrationRepository $integrationRepository;
+
     private RateRepository $rateRepository;
+
     private ProjectPlanService $projectPlanService;
+
     private ChannelDirectMetricsService $directMetricsService;
+
+    private BonusService $bonusService;
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -36,7 +45,8 @@ class ChannelReportService implements ChannelReportServiceInterface
         IntegrationRepository $integrationRepository,
         RateRepository $rateRepository,
         ProjectPlanService $projectPlanService,
-        ChannelDirectMetricsService $directMetricsService
+        ChannelDirectMetricsService $directMetricsService,
+        BonusService $bonusService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
@@ -45,6 +55,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->rateRepository = $rateRepository;
         $this->projectPlanService = $projectPlanService;
         $this->directMetricsService = $directMetricsService;
+        $this->bonusService = $bonusService;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
@@ -78,14 +89,14 @@ class ChannelReportService implements ChannelReportServiceInterface
         $user = Auth::user();
 
         $clients = $this->clientRepository->all();
-        if ($user->isManager() && !$user->hasAnyPermission(['read clients and projects all', 'full clients and projects all'])) {
-            $clients = $clients->filter(fn($client) => $client->manager_id === $user->id);
+        if ($user->isManager() && ! $user->hasAnyPermission(['read clients and projects all', 'full clients and projects all'])) {
+            $clients = $clients->filter(fn ($client) => $client->manager_id === $user->id);
         }
 
         $projects = $this->projectRepository->all();
-        $projects = $projects->filter(fn($project) => $clients->pluck('id')->contains($project->client_id));
-        if ($user->isSpecialist() && !$user->hasAnyPermission(['read clients and projects all', 'full clients and projects all'])) {
-            $projects = $projects->filter(fn($project) => $project->specialist_id === $user->id);
+        $projects = $projects->filter(fn ($project) => $clients->pluck('id')->contains($project->client_id));
+        if ($user->isSpecialist() && ! $user->hasAnyPermission(['read clients and projects all', 'full clients and projects all'])) {
+            $projects = $projects->filter(fn ($project) => $project->specialist_id === $user->id);
         }
 
         $users = $this->userRepository->all();
@@ -96,11 +107,11 @@ class ChannelReportService implements ChannelReportServiceInterface
             : [];
 
         if ($projectId !== null) {
-            $projects = $projects->filter(fn($project) => $project->id === $projectId);
+            $projects = $projects->filter(fn ($project) => $project->id === $projectId);
             $clientIds = $projects->pluck('client_id');
-            $clients = $clients->filter(fn($client) => $clientIds->contains($client->id));
+            $clients = $clients->filter(fn ($client) => $clientIds->contains($client->id));
         } elseif (! $query->showInactive) {
-            $projects = $projects->filter(fn($project) => $project->is_active);
+            $projects = $projects->filter(fn ($project) => $project->is_active);
         }
 
         // TODO: разнести логику по соответствующим классам
@@ -117,8 +128,59 @@ class ChannelReportService implements ChannelReportServiceInterface
         }
 
         $this->enrichWithDirectMetrics($report, $query, $integrations);
+        $this->enrichWithFinancialTotals($report);
 
         return $report;
+    }
+
+    /**
+     * Суммы «Чек клиента» и «Макс. бонусы» по строкам группы и по всему отчёту.
+     */
+    private function enrichWithFinancialTotals(TableReportData $report): void
+    {
+        $reportClientReceipt = null;
+        $reportMaxBonuses = null;
+
+        foreach ($report->groups as $group) {
+            $groupClientReceipt = null;
+            $groupMaxBonuses = null;
+
+            foreach ($group->rows as $row) {
+                $clientReceipt = $row->data->get('client-receipt');
+                if (is_numeric($clientReceipt)) {
+                    $groupClientReceipt = ($groupClientReceipt ?? 0.0) + (float) $clientReceipt;
+                    $reportClientReceipt = ($reportClientReceipt ?? 0.0) + (float) $clientReceipt;
+                }
+
+                $maxBonuses = $row->data->get('max-bonuses');
+                if (is_numeric($maxBonuses)) {
+                    $groupMaxBonuses = ($groupMaxBonuses ?? 0.0) + (float) $maxBonuses;
+                    $reportMaxBonuses = ($reportMaxBonuses ?? 0.0) + (float) $maxBonuses;
+                }
+            }
+
+            if ($group->summary instanceof Collection) {
+                $group->summary->put(
+                    'client-receipt',
+                    $groupClientReceipt === null ? null : round($groupClientReceipt, 2),
+                );
+                $group->summary->put(
+                    'max-bonuses',
+                    $groupMaxBonuses === null ? null : round($groupMaxBonuses, 2),
+                );
+            }
+        }
+
+        if ($report->summary instanceof Collection) {
+            $report->summary->put(
+                'client-receipt',
+                $reportClientReceipt === null ? null : round($reportClientReceipt, 2),
+            );
+            $report->summary->put(
+                'max-bonuses',
+                $reportMaxBonuses === null ? null : round($reportMaxBonuses, 2),
+            );
+        }
     }
 
     private function enrichWithDirectMetrics(
@@ -176,13 +238,13 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     public function createFlatReport($clients, $projects, $users, Collection $integrations, array $plans): TableReportData
     {
-        $report = new TableReportData();
-        $group = new TableReportGroupData();
+        $report = new TableReportData;
+        $group = new TableReportGroupData;
 
-        $rows = new Collection();
+        $rows = new Collection;
 
         foreach ($projects as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
 
             $projectTypeLabel = $project->project_type->label();
@@ -206,7 +268,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row->data = new Collection(array_merge(
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -219,17 +281,17 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'status' => [
-                'active' => $projects->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
+                'active' => $projects->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -270,17 +332,17 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     public function createReportGroupedByProjectType($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
-        $report = new TableReportData();
-        $seoGroup = new TableReportGroupData();
+        $report = new TableReportData;
+        $seoGroup = new TableReportGroupData;
         $seoGroup->groupLabel = ProjectType::SEO_PROMOTION->label();
-        $contextGroup = new TableReportGroupData();
+        $contextGroup = new TableReportGroupData;
         $contextGroup->groupLabel = ProjectType::CONTEXT_AD->label();
 
-        $seoRows = new Collection();
-        $contextRows = new Collection();
+        $seoRows = new Collection;
+        $contextRows = new Collection;
 
         foreach ($projects as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
 
             $projectTypeLabel = $project->project_type->label();
@@ -304,7 +366,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row->data = new Collection(array_merge(
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -319,8 +381,8 @@ class ChannelReportService implements ChannelReportServiceInterface
         $seoGroup->rows = $seoRows;
         $contextGroup->rows = $contextRows;
 
-        $seoProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION);
-        $contextProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD);
+        $seoProjects = $projects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION);
+        $contextProjects = $projects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD);
 
         $seoIntegrations = $integrations->filter(function ($integrations, $projectId) use ($seoProjects) {
             return $seoProjects->pluck('id')->contains($projectId);
@@ -331,49 +393,49 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $seoGroup->summary = new Collection([
             'client' => [
-                'count' => $seoProjects->pluck('client_id')->unique()->count()
+                'count' => $seoProjects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $seoProjects->count()
+                'count' => $seoProjects->count(),
             ],
             'status' => [
-                'active' => $seoProjects->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $seoProjects->filter(fn($project) => !$project->is_active)->count()
+                'active' => $seoProjects->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $seoProjects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $seoIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         $contextGroup->summary = new Collection([
             'client' => [
-                'count' => $contextProjects->pluck('client_id')->unique()->count()
+                'count' => $contextProjects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $contextProjects->count()
+                'count' => $contextProjects->count(),
             ],
             'status' => [
-                'active' => $contextProjects->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $contextProjects->filter(fn($project) => !$project->is_active)->count()
+                'active' => $contextProjects->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $contextProjects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $contextIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'status' => [
-                'active' => $projects->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
+                'active' => $projects->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -381,16 +443,16 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     public function createReportGroupedByClients($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
         foreach ($clients as $client) {
-            $group = new TableReportGroupData();
+            $group = new TableReportGroupData;
             $group->groupLabel = $client->name;
 
-            $rows = new Collection();
-            $clientProjects = $projects->filter(fn($project) => $project->client_id === $client->id);
+            $rows = new Collection;
+            $clientProjects = $projects->filter(fn ($project) => $project->client_id === $client->id);
             foreach ($clientProjects as $project) {
-                $row = new TableReportRowData();
+                $row = new TableReportRowData;
                 $row->id = $project->id;
 
                 $projectTypeLabel = $project->project_type->label();
@@ -414,7 +476,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row->data = new Collection(array_merge(
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -429,17 +491,17 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $group->summary = new Collection([
                 'client' => [
-                    'count' => $clientProjects->pluck('client_id')->unique()->count()
+                    'count' => $clientProjects->pluck('client_id')->unique()->count(),
                 ],
                 'client-project' => [
-                    'count' => $clientProjects->count()
+                    'count' => $clientProjects->count(),
                 ],
                 'status' => [
-                    'active' => $clientProjects->filter(fn($project) => $project->is_active)->count(),
-                    'inactive' => $clientProjects->filter(fn($project) => !$project->is_active)->count()
+                    'active' => $clientProjects->filter(fn ($project) => $project->is_active)->count(),
+                    'inactive' => $clientProjects->filter(fn ($project) => ! $project->is_active)->count(),
                 ],
                 'tool' => $clientIntegrations->flatten()
-                    ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                    ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             ]);
 
             $report->groups->push($group);
@@ -447,17 +509,17 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'status' => [
-                'active' => $projects->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
+                'active' => $projects->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -465,27 +527,27 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     public function createReportGroupedByTools($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
         $integrationsGroupList = $integrations->flatten()->unique('integration.code');
 
         foreach ($integrationsGroupList as $integrationGroup) {
-            $group = new TableReportGroupData();
+            $group = new TableReportGroupData;
             $group->groupLabel = $integrationGroup->integration->name;
 
-            $rows = new Collection();
+            $rows = new Collection;
             $projectIds = $integrations
                 ->filter(
-                    fn($integrationsByProject) => $integrationsByProject->contains(
-                        fn($integration) => $integration->integration->code === $integrationGroup->integration->code
+                    fn ($integrationsByProject) => $integrationsByProject->contains(
+                        fn ($integration) => $integration->integration->code === $integrationGroup->integration->code
                     )
                 )
                 ->keys();
 
-            $projectsByIntegration = $projects->filter(fn($project) => $projectIds->contains($project->id));
+            $projectsByIntegration = $projects->filter(fn ($project) => $projectIds->contains($project->id));
 
             foreach ($projectsByIntegration as $project) {
-                $row = new TableReportRowData();
+                $row = new TableReportRowData;
                 $row->id = $project->id;
 
                 $projectTypeLabel = $project->project_type->label();
@@ -509,7 +571,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row->data = new Collection(array_merge(
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -521,32 +583,32 @@ class ChannelReportService implements ChannelReportServiceInterface
 
             $group->summary = new Collection([
                 'client' => [
-                    'count' => $projectsByIntegration->pluck('client_id')->unique()->count()
+                    'count' => $projectsByIntegration->pluck('client_id')->unique()->count(),
                 ],
                 'client-project' => [
-                    'count' => $projectsByIntegration->count()
+                    'count' => $projectsByIntegration->count(),
                 ],
                 'status' => [
-                    'active' => $projectsByIntegration->filter(fn($project) => $project->is_active)->count(),
-                    'inactive' => $projectsByIntegration->filter(fn($project) => !$project->is_active)->count()
+                    'active' => $projectsByIntegration->filter(fn ($project) => $project->is_active)->count(),
+                    'inactive' => $projectsByIntegration->filter(fn ($project) => ! $project->is_active)->count(),
                 ],
                 'tool' => [
-                    $this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()
-                ]
+                    $this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count(),
+                ],
             ]);
 
             $report->groups->push($group);
         }
 
         // Группа с проектами без интеграций
-        $projectsWithoutIntegration = $projects->filter(fn($project) => !$integrations->keys()->contains($project->id));
-        $group = new TableReportGroupData();
+        $projectsWithoutIntegration = $projects->filter(fn ($project) => ! $integrations->keys()->contains($project->id));
+        $group = new TableReportGroupData;
         $group->groupLabel = 'Без настроенных инструментов';
 
-        $rows = new Collection();
+        $rows = new Collection;
 
         foreach ($projectsWithoutIntegration as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
 
             $projectTypeLabel = $project->project_type->label();
@@ -570,7 +632,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row->data = new Collection(array_merge(
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
                 $this->createSpendingsData(null, null, null, []),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -582,33 +644,33 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $group->summary = new Collection([
             'client' => [
-                'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count()
+                'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projectsWithoutIntegration->count()
+                'count' => $projectsWithoutIntegration->count(),
             ],
             'status' => [
-                'active' => $projectsWithoutIntegration->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $projectsWithoutIntegration->filter(fn($project) => !$project->is_active)->count()
+                'active' => $projectsWithoutIntegration->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $projectsWithoutIntegration->filter(fn ($project) => ! $project->is_active)->count(),
             ],
-            'tool' => []
+            'tool' => [],
         ]);
 
         $report->groups->push($group);
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'status' => [
-                'active' => $projects->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
+                'active' => $projects->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -616,15 +678,15 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     public function createReportGroupedByRoles($clients, $projects, $users, $integrations, array $plans): TableReportData
     {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
         $roles = $users->pluck('roles')->flatten()->unique('id');
 
         foreach ($roles as $role) {
-            $group = new TableReportGroupData();
+            $group = new TableReportGroupData;
             $group->groupLabel = $role->display_name;
 
-            $rows = new Collection();
+            $rows = new Collection;
 
             $projectsWithRole = $projects->filter(function ($project) use ($clients, $users, $role) {
                 $team = $this->resolveProjectTeam($clients, $users, $project);
@@ -636,7 +698,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             });
 
             foreach ($projectsWithRole as $project) {
-                $row = new TableReportRowData();
+                $row = new TableReportRowData;
                 $row->id = $project->id;
 
                 $projectTypeLabel = $project->project_type->label();
@@ -660,7 +722,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row->data = new Collection(array_merge(
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
                     $this->createSpendingsData(null, null, null, []),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -677,17 +739,17 @@ class ChannelReportService implements ChannelReportServiceInterface
 
                 $group->summary = new Collection([
                     'client' => [
-                        'count' => $projectsWithRole->pluck('client_id')->unique()->count()
+                        'count' => $projectsWithRole->pluck('client_id')->unique()->count(),
                     ],
                     'client-project' => [
-                        'count' => $projectsWithRole->count()
+                        'count' => $projectsWithRole->count(),
                     ],
                     'status' => [
-                        'active' => $projectsWithRole->filter(fn($project) => $project->is_active)->count(),
-                        'inactive' => $projectsWithRole->filter(fn($project) => !$project->is_active)->count()
+                        'active' => $projectsWithRole->filter(fn ($project) => $project->is_active)->count(),
+                        'inactive' => $projectsWithRole->filter(fn ($project) => ! $project->is_active)->count(),
                     ],
                     'tool' => $roleIntegrations->flatten()
-                        ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                        ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
 
                 ]);
 
@@ -697,17 +759,17 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'status' => [
-                'active' => $projects->filter(fn($project) => $project->is_active)->count(),
-                'inactive' => $projects->filter(fn($project) => !$project->is_active)->count()
+                'active' => $projects->filter(fn ($project) => $project->is_active)->count(),
+                'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code))
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
         ]);
 
         return $report;
@@ -720,10 +782,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             'client' => ['name' => $clientName],
             'client-project' => [
                 'name' => $projectName,
-                'id' => $projectId
+                'id' => $projectId,
             ],
             'client-project-id' => ['id' => $projectId],
-            'status' => $status
+            'status' => $status,
         ];
     }
 
@@ -732,23 +794,23 @@ class ChannelReportService implements ChannelReportServiceInterface
         return [
             'manager' => [
                 'name' => $managerName,
-                'id' => $managerId
+                'id' => $managerId,
             ],
             'specialist' => [
                 'name' => $specialistName,
-                'id' => $specialistId
-            ]
+                'id' => $specialistId,
+            ],
         ];
     }
 
-    public function createFinancialData(string $kpi, int|string|null $plan, ?int $clientReceipt, ?int $maxBonuses, ?int $acts): array
+    public function createFinancialData(string $kpi, int|string|null $plan, int|float|null $clientReceipt, int|float|null $maxBonuses, ?int $acts): array
     {
         return [
             'kpi' => $kpi,
             'plan' => $plan,
             'client-receipt' => $clientReceipt,
             'max-bonuses' => $maxBonuses,
-            'acts' => $acts
+            'acts' => $acts,
         ];
     }
 
@@ -757,7 +819,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $spendings = [
             'programming' => $programming,
             'copyrighting' => $copyrighting,
-            'seo-links' => ['sum' => $seoLinksSum]
+            'seo-links' => ['sum' => $seoLinksSum],
         ];
 
         foreach ($positions as $key => $position) {
@@ -790,7 +852,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         // ключ tool - идентификатор столбца, в котором будут рендериться данные
         $initialColumnsData = [
             'tool' => [],
-            'login' => null
+            'login' => null,
         ];
 
         $columnsData = $integrations->reduce(function ($carry, $integration) {

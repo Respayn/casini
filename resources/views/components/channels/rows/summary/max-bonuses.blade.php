@@ -1,5 +1,5 @@
 @props(['params'])
 
 <x-data.table-cell class="bg-table-summary-bg" {{ $attributes }}>
-    {{ $params ? Number::currency($params, in: 'RUB', locale: 'ru') : '-' }}
+    {{ is_numeric($params) ? Number::currency($params, in: 'RUB', locale: 'ru', precision: abs((float) $params - round((float) $params)) < 0.001 ? 0 : 2) : '-' }}
 </x-data.table-cell>
