@@ -9,8 +9,8 @@
     </x-data.table-cell>
 @else
     @php
-        $hours = isset($params['hours']) ? $params['hours'] : 0;
-        $sum = isset($params['sum']) ? Number::currency($params['sum'], in: 'RUB', locale: 'ru') : 0;
+        $hours = $params['hours'] ?? 0;
+        $sum = Number::currency($params['sum'] ?? 0, in: 'RUB', locale: 'ru');
     @endphp
 
     <x-data.table-cell

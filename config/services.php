@@ -60,7 +60,6 @@ return [
         // API параметры
         'api_url' => env('YANDEX_METRIKA_API_URL', 'https://api-metrika.yandex.net/'),
 
-
         'test_token' => env('YANDEX_METRIKA_TEST_TOKEN'),
         'test_client_login' => env('YANDEX_METRIKA_TEST_CLIENT_LOGIN'),
         'test_counter_id' => env('YANDEX_METRIKA_TEST_COUNTER_ID'),
@@ -85,14 +84,20 @@ return [
         'test_site_id' => env('CALLIBRI_API_TEST_SITE_ID'),
 
         'retries' => 3,
-        'timeout' => 15
+        'timeout' => 15,
+    ],
+
+    'google_sheets' => [
+        'client_id' => env('GOOGLE_SHEETS_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_SHEETS_CLIENT_SECRET'),
+        'redirect_uri' => env('GOOGLE_SHEETS_REDIRECT_URI', 'http://localhost:8000/google-sheets/callback'),
     ],
 
     'yandex' => [
         'smartcaptcha' => [
             'enabled' => (bool) env('YANDEX_SMARTCAPTCHA_ENABLED', false),
             'client_key' => env('YANDEX_SMARTCAPTCHA_CLIENT_KEY'),
-            'server_key' => env('YANDEX_SMARTCAPTCHA_SERVER_KEY')
-        ]
-    ]
+            'server_key' => env('YANDEX_SMARTCAPTCHA_SERVER_KEY'),
+        ],
+    ],
 ];

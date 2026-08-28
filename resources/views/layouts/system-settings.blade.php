@@ -117,6 +117,7 @@
 
     <x-scripts.yandex-direct-oauth-coordinator />
     <x-scripts.yandex-metrika-oauth-coordinator />
+    <x-scripts.google-sheets-oauth-coordinator />
 </body>
 
 </html>

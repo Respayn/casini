@@ -33,7 +33,15 @@
             <x-form.month-picker wire:model.live="queryData.dateTo" />
         </div>
 
-        <div class="flex-end ml-auto">
+        <div class="flex-end ml-auto flex items-center gap-3">
+            <x-button.button
+                variant="link"
+                icon="icons.refresh"
+                label="Обновить данные"
+                wire:click="refreshGoogleSheetsSpendings"
+                wire:loading.attr="disabled"
+                wire:target="refreshGoogleSheetsSpendings"
+            />
             <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
                 <x-button.button
                     icon="icons.edit"
