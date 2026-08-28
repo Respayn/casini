@@ -63,7 +63,7 @@
 ### 🔧 Улучшения
 - Вход через `LoginService` (case-insensitive login/email), игнор intended URL с лендинга
 - Переводы auth / permissions / validation в `lang/ru/`; каталог `resources/lang` удалён (иначе Laravel его предпочитает и не видит `lang/`)
-- `.env.example` убран из git и добавлен в `.gitignore` (шаблон окружения не коммитим)
+- В `.env.example` добавлен `REGISTRATION_ENABLED=false`
 - В `bootstrap/app.php` сохранены schedule ночного съёма и alias `can.access.user.edit`
 
 ## [v0.2.32] - 2026-07-28

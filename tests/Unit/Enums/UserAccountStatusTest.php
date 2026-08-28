@@ -45,4 +45,16 @@ class UserAccountStatusTest extends TestCase
         $this->assertFalse($data['is_active']);
         $this->assertNull($data['email_verified_at']);
     }
+
+    #[Test]
+    public function user_account_status_delegates_to_from_flags(): void
+    {
+        $pending = new User(['is_active' => false, 'email_verified_at' => null]);
+        $inactive = new User(['is_active' => false, 'email_verified_at' => now()]);
+        $active = new User(['is_active' => true, 'email_verified_at' => null]);
+
+        $this->assertSame(UserAccountStatus::PendingEmail, $pending->accountStatus());
+        $this->assertSame(UserAccountStatus::Inactive, $inactive->accountStatus());
+        $this->assertSame(UserAccountStatus::Active, $active->accountStatus());
+    }
 }
