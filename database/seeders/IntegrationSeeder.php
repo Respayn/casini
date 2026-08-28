@@ -35,7 +35,7 @@ class IntegrationSeeder extends Seeder
             ],
             [
                 'name' => 'Google Таблицы',
-                'category' => 'analytics',
+                'category' => 'money',
                 'code' => 'google_sheets',
             ],
             [

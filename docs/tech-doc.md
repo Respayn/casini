@@ -126,7 +126,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 ## Справочники staging (reference data)
 
-Список типов интеграций в UI клиенто-проекта читается из таблицы `integrations` (`IntegrationService::getIntegrations()`), не из blade-файлов. Ожидается ≥ 9 записей (`IntegrationSeeder`: 1С ×3, Yandex Search API, Google Sheets, Мегаплан, Яндекс.Директ, Яндекс.Метрика, Callibri).
+Список типов интеграций в UI клиенто-проекта читается из таблицы `integrations` (`IntegrationService::getIntegrations()`), не из blade-файлов. Ожидается ≥ 9 записей (`IntegrationSeeder`: Деньги — 1С ×3 и Google Таблицы; Аналитика — Yandex Search API, Мегаплан, Яндекс.Метрика, Callibri; Инструменты — Яндекс.Директ).
 
 Другие обязательные справочники: `products`, `product_notifications`, `rates`, `tooltips`, `search_engines`, агентство (`AgencySettingsTableSeeder`).
 
