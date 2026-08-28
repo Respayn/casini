@@ -540,6 +540,38 @@
             this.oauthNavigateCompleted = false;
             $dispatch('modal-hide', { name: 'integration-settings-modal' });
         },
+
+        normalizeDocumentId(value) {
+            const trimmed = String(value ?? '').trim();
+
+            if (trimmed === '') {
+                return '';
+            }
+
+            const editMatch = trimmed.match(/\/d\/([a-zA-Z0-9\-_]+)\/edit/i);
+
+            if (editMatch) {
+                return editMatch[1];
+            }
+
+            const spreadsheetsMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9\-_]+)/i);
+
+            if (spreadsheetsMatch) {
+                return spreadsheetsMatch[1];
+            }
+
+            return trimmed;
+        },
+
+        onDocumentIdPaste() {
+            this.$nextTick(() => {
+                this.settings.document_id = this.normalizeDocumentId(this.settings.document_id);
+            });
+        },
+
+        onDocumentIdBlur() {
+            this.settings.document_id = this.normalizeDocumentId(this.settings.document_id);
+        },
     }"
 >
     <x-form.form class="mb-7 lg:min-w-[580px]">
@@ -620,9 +652,18 @@
         </x-form.form-field>
 
         <x-form.form-field>
-            <x-form.form-label required>ID Google таблицы</x-form.form-label>
+            <x-form.form-label
+                required
+                tooltip="Вставьте полный URL-адрес Google Таблицы, мы самостоятельно определим её ID"
+            >
+                ID Google таблицы
+            </x-form.form-label>
             <div class="w-[305px]">
-                <x-form.input-text x-model="settings.document_id"></x-form.input-text>
+                <x-form.input-text
+                    x-model="settings.document_id"
+                    x-on:paste="onDocumentIdPaste()"
+                    x-on:blur="onDocumentIdBlur()"
+                ></x-form.input-text>
             </div>
         </x-form.form-field>
     </x-form.form>
