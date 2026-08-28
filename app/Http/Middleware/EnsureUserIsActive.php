@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\UserAccountStatus;
 use App\Services\Auth\LoginService;
 use Closure;
 use Illuminate\Http\Request;
@@ -23,10 +22,7 @@ class EnsureUserIsActive
             return $next($request);
         }
 
-        $status = UserAccountStatus::fromUser($user);
-        $flashKey = $status === UserAccountStatus::PendingEmail
-            ? 'pending_email'
-            : 'inactive';
+        $status = $user->accountStatus();
         $message = $this->loginService->inactiveMessage($user);
 
         Auth::logout();
@@ -36,6 +32,6 @@ class EnsureUserIsActive
 
         return redirect()
             ->route('login')
-            ->with($flashKey, $message);
+            ->with($status->value, $message);
     }
 }

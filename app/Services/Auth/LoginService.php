@@ -27,13 +27,10 @@ class LoginService
         }
 
         if (! $user->is_active) {
-            $status = UserAccountStatus::fromUser($user);
-            $key = $status === UserAccountStatus::PendingEmail
-                ? 'pending_email'
-                : 'inactive';
+            $status = $user->accountStatus();
 
             throw ValidationException::withMessages([
-                $key => $this->inactiveMessage($user),
+                $status->value => $this->inactiveMessage($user),
             ]);
         }
 
@@ -44,7 +41,7 @@ class LoginService
 
     public function inactiveMessage(User $user): string
     {
-        return UserAccountStatus::fromUser($user) === UserAccountStatus::PendingEmail
+        return $user->accountStatus() === UserAccountStatus::PendingEmail
             ? __('auth.pending_email')
             : __('auth.inactive');
     }
@@ -79,7 +76,7 @@ class LoginService
             return false;
         }
 
-        if (UserAccountStatus::fromUser($user) !== UserAccountStatus::PendingEmail) {
+        if ($user->accountStatus() !== UserAccountStatus::PendingEmail) {
             return false;
         }
 

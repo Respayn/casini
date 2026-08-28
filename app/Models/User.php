@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UserAccountStatus;
 use App\Services\RoleHierarchyService;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
@@ -65,6 +66,11 @@ class User extends Authenticatable implements CanResetPasswordContract
     public function agencies(): BelongsToMany
     {
         return $this->belongsToMany(Agency::class);
+    }
+
+    public function accountStatus(): UserAccountStatus
+    {
+        return UserAccountStatus::fromFlags((bool) $this->is_active, $this->email_verified_at);
     }
 
     public function rateUser()

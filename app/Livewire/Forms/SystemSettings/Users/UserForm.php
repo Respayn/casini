@@ -166,7 +166,7 @@ class UserForm extends Form
         $this->phone = $user->phone ?? '';
         $this->image_path = $user->image_path ?? '';
         $this->megaplan_id = $user->megaplan_id ?? '';
-        $this->account_status = UserAccountStatus::fromUser($user)->value;
+        $this->account_status = $user->accountStatus()->value;
         $this->rate_id = $user->latestRate?->rateValue->rate_id ?? null;
         $this->role_id = isset($user->roles) && count($user->roles) ? ($user->roles[0]['id'] ?? null) : null;
         $this->enable_important_notifications = $user->enable_important_notifications ?? true;
