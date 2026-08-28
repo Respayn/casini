@@ -57,31 +57,24 @@
             </p>
         @endif
 
-        {{-- Список сотрудников: при загрузке прячем дерево целиком, сверху непрозрачный скелетон --}}
+        {{-- Скелетон: hidden по умолчанию (Tailwind), снимается только на время wire:loading --}}
         <div
             class="pretty-scroll sidebar-tree-scroll relative mt-5 mb-4 mr-[-25px] min-h-[200px] flex-1 overflow-y-auto"
         >
             <div
                 class="absolute inset-0 z-10 overflow-hidden bg-white"
-                wire:loading.delay.long.block
+                wire:loading.delay.long
                 wire:target="searchQuery,sortBy,clearFilters"
             >
                 <x-sidebar.tree-skeleton class="h-full" />
             </div>
 
-            <div
-                wire:loading.delay.long.class="pointer-events-none invisible opacity-0"
-                wire:target="searchQuery,sortBy,clearFilters"
-            >
-                @if ($searchQuery !== '' && $employees === [])
-                    <p class="text-caption-text pr-[15px] pt-2 text-sm">
-                        Нет результатов
-                    </p>
-                @else
-                    <ul
-                        class="pr-[15px]"
-                        x-cloak
-                    >
+            @if ($searchQuery !== '' && $employees === [])
+                <p class="text-caption-text pr-[15px] pt-2 text-sm">
+                    Нет результатов
+                </p>
+            @else
+                <ul class="pr-[15px]">
                         @foreach ($employees as $employeeKey => $employee)
                             <li
                                 class="flex flex-col pb-2"
@@ -175,7 +168,6 @@
                         @endforeach
                     </ul>
                 @endif
-            </div>
         </div>
     </aside>
 
