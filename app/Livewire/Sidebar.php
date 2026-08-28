@@ -4,21 +4,16 @@ namespace App\Livewire;
 
 use App\Data\Sidebar\EmployeeData;
 use App\Services\SidebarService;
-use App\Support\SidebarProjectContext;
+use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Session;
 use Livewire\Component;
 
 class Sidebar extends Component
 {
-    /**
-     * Минимальное время показа скелетона при поиске / смене роли (мкс).
-     * Без паузы запрос слишком быстрый — скелетон не успевает отрисоваться.
-     */
-    private const TREE_LOADING_HOLD_MICROSECONDS = 550_000;
-
     /** @var array<int, EmployeeData> */
     public array $employees = [];
 
@@ -28,36 +23,31 @@ class Sidebar extends Component
 
     public string $searchQuery = '';
 
+    #[Session(key: SidebarProjectAccess::SESSION_KEY)]
     public ?int $selectedProjectId = null;
 
     private SidebarService $sidebarService;
 
-    private SidebarProjectContext $projectContext;
-
-    public function boot(SidebarService $sidebarService, SidebarProjectContext $projectContext): void
+    public function boot(SidebarService $sidebarService): void
     {
         $this->sidebarService = $sidebarService;
-        $this->projectContext = $projectContext;
     }
 
     public function mount(): void
     {
+        $this->sanitizeSelectedProjectFromSession();
         $this->sortOptions = $this->sidebarService->getRoleOptions();
         $this->sortBy = $this->sortOptions[0]['value'] ?? null;
-        $this->selectedProjectId = $this->projectContext->get();
         $this->getEmployees();
     }
 
     public function updatedSortBy(): void
     {
-        // Держим запрос чуть дольше, чтобы скелетон успел отрисоваться (поиск сам по себе слишком быстрый).
-        usleep(self::TREE_LOADING_HOLD_MICROSECONDS);
         $this->getEmployees();
     }
 
     public function updatedSearchQuery(): void
     {
-        usleep(self::TREE_LOADING_HOLD_MICROSECONDS);
         $this->getEmployees();
     }
 
@@ -69,7 +59,7 @@ class Sidebar extends Component
             return;
         }
 
-        if (! $this->projectContext->set($projectId)) {
+        if (! SidebarProjectAccess::userCanAccessProject($projectId)) {
             return;
         }
 
@@ -79,7 +69,6 @@ class Sidebar extends Component
 
     public function resetSelectedProject(): void
     {
-        $this->projectContext->clear();
         $this->selectedProjectId = null;
         $this->dispatch('sidebar-project-cleared');
     }
@@ -87,7 +76,6 @@ class Sidebar extends Component
     public function clearFilters(): void
     {
         $this->searchQuery = '';
-        $this->projectContext->clear();
         $this->selectedProjectId = null;
         $this->dispatch('sidebar-project-cleared');
 
@@ -105,6 +93,17 @@ class Sidebar extends Component
     public function syncClearedSelection(): void
     {
         $this->selectedProjectId = null;
+    }
+
+    private function sanitizeSelectedProjectFromSession(): void
+    {
+        if ($this->selectedProjectId === null) {
+            return;
+        }
+
+        if (! SidebarProjectAccess::userCanAccessProject($this->selectedProjectId)) {
+            $this->selectedProjectId = null;
+        }
     }
 
     private function getEmployees(): void

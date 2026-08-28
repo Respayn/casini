@@ -5,7 +5,7 @@ namespace Tests\Unit\Support;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
-use App\Support\SidebarProjectContext;
+use App\Support\SidebarProjectAccess;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -14,11 +14,9 @@ use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
 use Tests\TestCase;
 
-class SidebarProjectContextTest extends TestCase
+class SidebarProjectAccessTest extends TestCase
 {
     use DatabaseTransactions;
-
-    private SidebarProjectContext $context;
 
     protected function setUp(): void
     {
@@ -26,32 +24,17 @@ class SidebarProjectContextTest extends TestCase
 
         $this->seed(RolesTableSeeder::class);
         $this->seed(PermissionSeeder::class);
-
-        $this->context = app(SidebarProjectContext::class);
-        $this->context->clear();
     }
 
-    public function test_set_and_get_for_user_with_all_permission(): void
+    public function test_user_with_all_permission_can_access_any_project(): void
     {
         $this->actingAsUserWithPermission('read clients and projects all');
         $project = $this->createProject();
 
-        $this->assertTrue($this->context->set($project->id));
-        $this->assertSame($project->id, $this->context->get());
+        $this->assertTrue(SidebarProjectAccess::userCanAccessProject($project->id));
     }
 
-    public function test_clear_removes_selection(): void
-    {
-        $this->actingAsUserWithPermission('read clients and projects all');
-        $project = $this->createProject();
-
-        $this->context->set($project->id);
-        $this->context->clear();
-
-        $this->assertNull($this->context->get());
-    }
-
-    public function test_set_rejects_inaccessible_project_for_self_user(): void
+    public function test_inaccessible_project_for_self_user(): void
     {
         $viewer = User::factory()->create(['is_active' => true]);
         $role = Role::findByName('seo');
@@ -61,11 +44,10 @@ class SidebarProjectContextTest extends TestCase
 
         $otherProject = $this->createProject();
 
-        $this->assertFalse($this->context->set($otherProject->id));
-        $this->assertNull($this->context->get());
+        $this->assertFalse(SidebarProjectAccess::userCanAccessProject($otherProject->id));
     }
 
-    public function test_self_user_can_select_own_specialist_project(): void
+    public function test_self_user_can_access_own_specialist_project(): void
     {
         $viewer = User::factory()->create(['is_active' => true]);
         $role = Role::findByName('seo');
@@ -84,15 +66,13 @@ class SidebarProjectContextTest extends TestCase
             'kpi' => Kpi::TRAFFIC,
         ]);
 
-        $this->assertTrue($this->context->set($project->id));
-        $this->assertSame($project->id, $this->context->get());
+        $this->assertTrue(SidebarProjectAccess::userCanAccessProject($project->id));
     }
 
-    public function test_get_clears_stale_inaccessible_id(): void
+    public function test_user_without_clients_permission_cannot_access_project(): void
     {
         $this->actingAsUserWithPermission('read clients and projects all');
         $project = $this->createProject();
-        $this->context->set($project->id);
 
         $viewer = User::factory()->create(['is_active' => true]);
         $role = Role::findByName('office_manager');
@@ -100,7 +80,7 @@ class SidebarProjectContextTest extends TestCase
         $viewer->assignRole($role);
         $this->actingAs($viewer);
 
-        $this->assertNull($this->context->get());
+        $this->assertFalse(SidebarProjectAccess::userCanAccessProject($project->id));
     }
 
     private function createProject(): Project

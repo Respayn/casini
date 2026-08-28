@@ -1,12 +1,12 @@
 <?php
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
-use Livewire\Attributes\Title;
-use Livewire\Component;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Component;
 use Src\Planning\Application\ProjectPlanService;
 
 new
@@ -16,8 +16,11 @@ new
         use WithSidebarProjectFilter;
 
         public int $year;
+
         public array $tableData = [];
+
         public bool $hasChanges = false;
+
         public array $modifiedProjectIds = [];
 
         private ProjectPlanService $projectPlanService;
@@ -27,9 +30,8 @@ new
             $this->projectPlanService = $projectPlanService;
         }
 
-        public function mount(\App\Support\SidebarProjectContext $context): void
+        public function mount(): void
         {
-            $this->sidebarProjectId = $context->get();
             $this->year = Carbon::now()->year;
             $this->loadTableData();
         }
@@ -99,7 +101,7 @@ new
                 return isset($this->modifiedProjectIds[$plan['project_id']]);
             });
 
-            if (!empty($plansToSave)) {
+            if (! empty($plansToSave)) {
                 $this->projectPlanService->savePlansForYear($this->year, $plansToSave);
             }
 
@@ -112,7 +114,7 @@ new
         {
             return Auth::user()->hasAnyPermission([
                 'edit planning',
-                'full planning'
+                'full planning',
             ]);
         }
 
@@ -122,7 +124,7 @@ new
             return Auth::user()->hasAnyPermission([
                 'read planning approval',
                 'edit planning approval',
-                'full planning approval'
+                'full planning approval',
             ]);
         }
 
@@ -131,7 +133,7 @@ new
         {
             return Auth::user()->hasAnyPermission([
                 'edit planning approval',
-                'full planning approval'
+                'full planning approval',
             ]);
         }
     };

@@ -16,16 +16,20 @@ use App\Repositories\UserRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Src\Planning\Application\ProjectPlanService;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
+use Src\Planning\Application\ProjectPlanService;
 
 class StatisticsService
 {
     private ClientRepository $clientRepository;
+
     private ProjectRepository $projectRepository;
+
     private UserRepository $userRepository;
+
     private IntegrationRepository $integrationRepository;
+
     private ProjectPlanService $projectPlanService;
 
     public function __construct(
@@ -42,30 +46,31 @@ class StatisticsService
         $this->projectPlanService = $projectPlanService;
     }
 
-    public function getReportData(StatisticsReportQueryData $query, ?int $projectId = null): TableReportData
+    public function getReportData(StatisticsReportQueryData $query): TableReportData
     {
+        $projectId = $query->projectId;
         $user = Auth::user();
 
         $clients = $this->clientRepository->all();
-        if ($user->isManager() && !$user->hasAnyPermission(['read statistics', 'all statistics'])) {
-            $clients = $clients->filter(fn($client) => $client->manager_id === $user->id);
+        if ($user->isManager() && ! $user->hasAnyPermission(['read statistics', 'all statistics'])) {
+            $clients = $clients->filter(fn ($client) => $client->manager_id === $user->id);
         }
 
         $projects = $this->projectRepository->all();
-        $projects = $projects->filter(fn($project) => $clients->pluck('id')->contains($project->client_id));
-        if ($user->isSpecialist() && !$user->hasAnyPermission(['read statistics', 'full statistics'])) {
-            $projects = $projects->filter(fn($project) => $project->specialist_id === $user->id);
+        $projects = $projects->filter(fn ($project) => $clients->pluck('id')->contains($project->client_id));
+        if ($user->isSpecialist() && ! $user->hasAnyPermission(['read statistics', 'full statistics'])) {
+            $projects = $projects->filter(fn ($project) => $project->specialist_id === $user->id);
         }
 
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
         if ($projectId !== null) {
-            $projects = $projects->filter(fn($project) => $project->id === $projectId);
+            $projects = $projects->filter(fn ($project) => $project->id === $projectId);
             $clientIds = $projects->pluck('client_id');
-            $clients = $clients->filter(fn($client) => $clientIds->contains($client->id));
-        } elseif (!$query->showInactive) {
-            $projects = $projects->filter(fn($project) => $project->is_active);
+            $clients = $clients->filter(fn ($client) => $clientIds->contains($client->id));
+        } elseif (! $query->showInactive) {
+            $projects = $projects->filter(fn ($project) => $project->is_active);
         }
 
         $plans = $this->projectPlanService->getMonthlyPlansForStatistics($query->dateTo->year, $query->dateTo->month);
@@ -95,14 +100,14 @@ class StatisticsService
         Carbon $dateTo,
         array $plans
     ): TableReportData {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
-        $group = new TableReportGroupData();
+        $group = new TableReportGroupData;
 
-        $rows = new Collection();
+        $rows = new Collection;
 
         foreach ($projects as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
 
             $department = match ($project->project_type) {
                 ProjectType::CONTEXT_AD => 'Контекст',
@@ -112,9 +117,9 @@ class StatisticsService
             $client = $clients->firstWhere('id', $project->client_id);
 
             $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+            $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
-            $projectIntegrations = $integrations->get($project->id, new Collection());
+            $projectIntegrations = $integrations->get($project->id, new Collection);
 
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
@@ -122,30 +127,30 @@ class StatisticsService
                 [
                     'manager' => [
                         'id' => $manager->id,
-                        'name' => $managerName
+                        'name' => $managerName,
                     ],
                     'client' => [
-                        'name' => $client->name
+                        'name' => $client->name,
                     ],
                     'client-project' => [
                         'id' => $project->id,
-                        'name' => $project->name
+                        'name' => $project->name,
                     ],
                     'client-project-id' => [
-                        'id' => $project->id
+                        'id' => $project->id,
                     ],
                     'department' => [
-                        'name' => $department
+                        'name' => $department,
                     ],
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
                     'summary' => [],
                     'perdiction' => [],
-                    'bonuses' => 0
+                    'bonuses' => 0,
                 ],
                 $this->createIntegrationData($projectIntegrations),
-                $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                $this->createFactData($project->project_type, $project->kpi, new Collection, $detailLevel, $dateTo)
             ));
             $rows->push($row);
         }
@@ -155,17 +160,17 @@ class StatisticsService
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ProjectType::CONTEXT_AD->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+            ],
         ]);
 
         return $report;
@@ -180,17 +185,17 @@ class StatisticsService
         Carbon $dateTo,
         array $plans
     ): TableReportData {
-        $report = new TableReportData();
-        $seoGroup = new TableReportGroupData();
+        $report = new TableReportData;
+        $seoGroup = new TableReportGroupData;
         $seoGroup->groupLabel = 'SEO';
-        $contextGroup = new TableReportGroupData();
+        $contextGroup = new TableReportGroupData;
         $contextGroup->groupLabel = 'Контекст';
 
-        $seoRows = new Collection();
-        $contextRows = new Collection();
+        $seoRows = new Collection;
+        $contextRows = new Collection;
 
         foreach ($projects as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
 
             $department = match ($project->project_type) {
@@ -201,9 +206,9 @@ class StatisticsService
             $client = $clients->firstWhere('id', $project->client_id);
 
             $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+            $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
-            $projectIntegrations = $integrations->get($project->id, new Collection());
+            $projectIntegrations = $integrations->get($project->id, new Collection);
 
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
@@ -211,30 +216,30 @@ class StatisticsService
                 [
                     'manager' => [
                         'id' => $manager->id,
-                        'name' => $managerName
+                        'name' => $managerName,
                     ],
                     'client' => [
-                        'name' => $client->name
+                        'name' => $client->name,
                     ],
                     'client-project' => [
                         'id' => $project->id,
-                        'name' => $project->name
+                        'name' => $project->name,
                     ],
                     'client-project-id' => [
-                        'id' => $project->id
+                        'id' => $project->id,
                     ],
                     'department' => [
-                        'name' => $department
+                        'name' => $department,
                     ],
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
                     'summary' => [],
                     'perdiction' => [],
-                    'bonuses' => 0
+                    'bonuses' => 0,
                 ],
                 $this->createIntegrationData($projectIntegrations),
-                $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                $this->createFactData($project->project_type, $project->kpi, new Collection, $detailLevel, $dateTo)
             ));
 
             if ($project->project_type === ProjectType::SEO_PROMOTION) {
@@ -247,8 +252,8 @@ class StatisticsService
         $seoGroup->rows = $seoRows;
         $contextGroup->rows = $contextRows;
 
-        $seoProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION);
-        $contextProjects = $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD);
+        $seoProjects = $projects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION);
+        $contextProjects = $projects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD);
 
         $seoIntegrations = $integrations->filter(function ($integrations, $projectId) use ($seoProjects) {
             return $seoProjects->pluck('id')->contains($projectId);
@@ -259,49 +264,49 @@ class StatisticsService
 
         $seoGroup->summary = new Collection([
             'client' => [
-                'count' => $seoProjects->pluck('client_id')->unique()->count()
+                'count' => $seoProjects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $seoProjects->count()
+                'count' => $seoProjects->count(),
             ],
             'service' => $seoIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             'department' => [
-                ProjectType::CONTEXT_AD->value => $seoProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $seoProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ProjectType::CONTEXT_AD->value => $seoProjects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $seoProjects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+            ],
         ]);
 
         $contextGroup->summary = new Collection([
             'client' => [
-                'count' => $contextProjects->pluck('client_id')->unique()->count()
+                'count' => $contextProjects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $contextProjects->count()
+                'count' => $contextProjects->count(),
             ],
             'service' => $contextIntegrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             'department' => [
-                ProjectType::CONTEXT_AD->value => $contextProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $contextProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ProjectType::CONTEXT_AD->value => $contextProjects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $contextProjects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+            ],
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ProjectType::CONTEXT_AD->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+            ],
         ]);
 
         return $report;
@@ -316,16 +321,16 @@ class StatisticsService
         Carbon $dateTo,
         array $plans
     ): TableReportData {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
         foreach ($clients as $client) {
-            $group = new TableReportGroupData();
+            $group = new TableReportGroupData;
             $group->groupLabel = $client->name;
 
-            $rows = new Collection();
-            $clientProjects = $projects->filter(fn($project) => $project->client_id === $client->id);
+            $rows = new Collection;
+            $clientProjects = $projects->filter(fn ($project) => $project->client_id === $client->id);
             foreach ($clientProjects as $project) {
-                $row = new TableReportRowData();
+                $row = new TableReportRowData;
                 $row->id = $project->id;
 
                 $department = match ($project->project_type) {
@@ -336,7 +341,7 @@ class StatisticsService
                 $client = $clients->firstWhere('id', $project->client_id);
 
                 $manager = $users->firstWhere('id', $client->manager_id);
-                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+                $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
@@ -346,30 +351,30 @@ class StatisticsService
                     [
                         'manager' => [
                             'id' => $manager->id,
-                            'name' => $managerName
+                            'name' => $managerName,
                         ],
                         'client' => [
-                            'name' => $client->name
+                            'name' => $client->name,
                         ],
                         'client-project' => [
                             'id' => $project->id,
-                            'name' => $project->name
+                            'name' => $project->name,
                         ],
                         'client-project-id' => [
-                            'id' => $project->id
+                            'id' => $project->id,
                         ],
                         'department' => [
-                            'name' => $department
+                            'name' => $department,
                         ],
                         'kpi' => $project->kpi->label(),
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
                         'summary' => [],
                         'perdiction' => [],
-                        'bonuses' => 0
+                        'bonuses' => 0,
                     ],
                     $this->createIntegrationData($projectIntegrations),
-                    $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                    $this->createFactData($project->project_type, $project->kpi, new Collection, $detailLevel, $dateTo)
                 ));
 
                 $rows->push($row);
@@ -383,17 +388,17 @@ class StatisticsService
 
             $group->summary = new Collection([
                 'client' => [
-                    'count' => $clientProjects->pluck('client_id')->unique()->count()
+                    'count' => $clientProjects->pluck('client_id')->unique()->count(),
                 ],
                 'client-project' => [
-                    'count' => $clientProjects->count()
+                    'count' => $clientProjects->count(),
                 ],
                 'service' => $clientIntegrations->flatten()
-                    ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                    ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
                 'department' => [
-                    ProjectType::CONTEXT_AD->value => $clientProjects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                    ProjectType::SEO_PROMOTION->value => $clientProjects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-                ]
+                    ProjectType::CONTEXT_AD->value => $clientProjects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                    ProjectType::SEO_PROMOTION->value => $clientProjects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+                ],
             ]);
 
             $report->groups->push($group);
@@ -401,17 +406,17 @@ class StatisticsService
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ProjectType::CONTEXT_AD->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+            ],
         ]);
 
         return $report;
@@ -426,27 +431,27 @@ class StatisticsService
         Carbon $dateTo,
         array $plans
     ): TableReportData {
-        $report = new TableReportData();
+        $report = new TableReportData;
 
         $integrationsGroupList = $integrations->flatten()->unique('integration.code');
 
         foreach ($integrationsGroupList as $integrationGroup) {
-            $group = new TableReportGroupData();
+            $group = new TableReportGroupData;
             $group->groupLabel = $integrationGroup->integration->name;
 
-            $rows = new Collection();
+            $rows = new Collection;
             $projectIds = $integrations
                 ->filter(
-                    fn($integrationsByProject) => $integrationsByProject->contains(
-                        fn($integration) => $integration->integration->code === $integrationGroup->integration->code
+                    fn ($integrationsByProject) => $integrationsByProject->contains(
+                        fn ($integration) => $integration->integration->code === $integrationGroup->integration->code
                     )
                 )
                 ->keys();
 
-            $projectsByIntegration = $projects->filter(fn($project) => $projectIds->contains($project->id));
+            $projectsByIntegration = $projects->filter(fn ($project) => $projectIds->contains($project->id));
 
             foreach ($projectsByIntegration as $project) {
-                $row = new TableReportRowData();
+                $row = new TableReportRowData;
                 $row->id = $project->id;
 
                 $department = match ($project->project_type) {
@@ -457,7 +462,7 @@ class StatisticsService
                 $client = $clients->firstWhere('id', $project->client_id);
 
                 $manager = $users->firstWhere('id', $client->manager_id);
-                $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+                $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
                 $projectIntegrations = $integrations->get($project->id, []);
 
@@ -467,30 +472,30 @@ class StatisticsService
                     [
                         'manager' => [
                             'id' => $manager->id,
-                            'name' => $managerName
+                            'name' => $managerName,
                         ],
                         'client' => [
-                            'name' => $client->name
+                            'name' => $client->name,
                         ],
                         'client-project' => [
                             'id' => $project->id,
-                            'name' => $project->name
+                            'name' => $project->name,
                         ],
                         'client-project-id' => [
-                            'id' => $project->id
+                            'id' => $project->id,
                         ],
                         'department' => [
-                            'name' => $department
+                            'name' => $department,
                         ],
                         'kpi' => $project->kpi->label(),
                         'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                         'plan' => $plan,
                         'summary' => [],
                         'perdiction' => [],
-                        'bonuses' => 0
+                        'bonuses' => 0,
                     ],
                     $this->createIntegrationData($projectIntegrations),
-                    $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                    $this->createFactData($project->project_type, $project->kpi, new Collection, $detailLevel, $dateTo)
                 ));
 
                 $rows->push($row);
@@ -500,30 +505,30 @@ class StatisticsService
 
             $group->summary = new Collection([
                 'client' => [
-                    'count' => $projectsByIntegration->pluck('client_id')->unique()->count()
+                    'count' => $projectsByIntegration->pluck('client_id')->unique()->count(),
                 ],
                 'client-project' => [
-                    'count' => $projectsByIntegration->count()
+                    'count' => $projectsByIntegration->count(),
                 ],
                 'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()],
                 'department' => [
-                    ProjectType::CONTEXT_AD->value => $projectsByIntegration->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                    ProjectType::SEO_PROMOTION->value => $projectsByIntegration->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-                ]
+                    ProjectType::CONTEXT_AD->value => $projectsByIntegration->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                    ProjectType::SEO_PROMOTION->value => $projectsByIntegration->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+                ],
             ]);
 
             $report->groups->push($group);
         }
 
         // Группа с проектами без интеграций
-        $projectsWithoutIntegration = $projects->filter(fn($project) => !$integrations->keys()->contains($project->id));
-        $group = new TableReportGroupData();
+        $projectsWithoutIntegration = $projects->filter(fn ($project) => ! $integrations->keys()->contains($project->id));
+        $group = new TableReportGroupData;
         $group->groupLabel = 'Без настроенных инструментов';
 
-        $rows = new Collection();
+        $rows = new Collection;
 
         foreach ($projectsWithoutIntegration as $project) {
-            $row = new TableReportRowData();
+            $row = new TableReportRowData;
             $row->id = $project->id;
 
             $department = match ($project->project_type) {
@@ -534,7 +539,7 @@ class StatisticsService
             $client = $clients->firstWhere('id', $project->client_id);
 
             $manager = $users->firstWhere('id', $client->manager_id);
-            $managerName = $manager->first_name . ' ' . mb_substr($manager->last_name, 0, 1) . '.';
+            $managerName = $manager->first_name.' '.mb_substr($manager->last_name, 0, 1).'.';
 
             $projectIntegrations = $integrations->get($project->id, []);
 
@@ -544,30 +549,30 @@ class StatisticsService
                 [
                     'manager' => [
                         'id' => $manager->id,
-                        'name' => $managerName
+                        'name' => $managerName,
                     ],
                     'client' => [
-                        'name' => $client->name
+                        'name' => $client->name,
                     ],
                     'client-project' => [
                         'id' => $project->id,
-                        'name' => $project->name
+                        'name' => $project->name,
                     ],
                     'client-project-id' => [
-                        'id' => $project->id
+                        'id' => $project->id,
                     ],
                     'department' => [
-                        'name' => $department
+                        'name' => $department,
                     ],
                     'kpi' => $project->kpi->label(),
                     'parameter' => $this->projectPlanService->getKpiParametersSchemaForStatistics($project->project_type, $project->kpi),
                     'plan' => $plan,
                     'summary' => [],
                     'perdiction' => [],
-                    'bonuses' => 0
+                    'bonuses' => 0,
                 ],
                 $this->createIntegrationData($projectIntegrations),
-                $this->createFactData($project->project_type, $project->kpi, new Collection(), $detailLevel, $dateTo)
+                $this->createFactData($project->project_type, $project->kpi, new Collection, $detailLevel, $dateTo)
             ));
 
             $rows->push($row);
@@ -577,33 +582,33 @@ class StatisticsService
 
         $group->summary = new Collection([
             'client' => [
-                'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count()
+                'count' => $projectsWithoutIntegration->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projectsWithoutIntegration->count()
+                'count' => $projectsWithoutIntegration->count(),
             ],
             'service' => [],
             'department' => [
-                ProjectType::CONTEXT_AD->value => $projectsWithoutIntegration->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projectsWithoutIntegration->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ProjectType::CONTEXT_AD->value => $projectsWithoutIntegration->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projectsWithoutIntegration->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+            ],
         ]);
 
         $report->groups->push($group);
 
         $report->summary = new Collection([
             'client' => [
-                'count' => $projects->pluck('client_id')->unique()->count()
+                'count' => $projects->pluck('client_id')->unique()->count(),
             ],
             'client-project' => [
-                'count' => $projects->count()
+                'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
             'department' => [
-                ProjectType::CONTEXT_AD->value => $projects->filter(fn($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
-                ProjectType::SEO_PROMOTION->value => $projects->filter(fn($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count()
-            ]
+                ProjectType::CONTEXT_AD->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::CONTEXT_AD)->count(),
+                ProjectType::SEO_PROMOTION->value => $projects->filter(fn ($project) => $project->project_type === ProjectType::SEO_PROMOTION)->count(),
+            ],
         ]);
 
         return $report;
@@ -618,22 +623,22 @@ class StatisticsService
                 Kpi::TRAFFIC => [
                     ['value' => 45, 'format' => 'currency'],
                     ['value' => 90000, 'format' => 'currency'],
-                    ['value' => 1670, 'format' => null]
+                    ['value' => 1670, 'format' => null],
                 ],
                 Kpi::LEADS => [
                     ['value' => 3392, 'format' => 'currency'],
                     ['value' => 190000, 'format' => 'currency'],
-                    ['value' => 56, 'format' => null]
+                    ['value' => 56, 'format' => null],
                 ],
             },
             ProjectType::SEO_PROMOTION => match ($kpi) {
                 Kpi::TRAFFIC => [
                     ['value' => 5130, 'format' => null],
-                    ['value' => null, 'format' => null]
+                    ['value' => null, 'format' => null],
                 ],
                 Kpi::POSITIONS => [
                     ['value' => 50, 'format' => 'percent'],
-                    ['value' => null, 'format' => null]
+                    ['value' => null, 'format' => null],
                 ]
             }
         };
@@ -646,22 +651,22 @@ class StatisticsService
                 Kpi::TRAFFIC => [
                     ['value' => 45, 'format' => 'currency'],
                     ['value' => 90000, 'format' => 'currency'],
-                    ['value' => 1670, 'format' => null]
+                    ['value' => 1670, 'format' => null],
                 ],
                 Kpi::LEADS => [
                     ['value' => 3392, 'format' => 'currency'],
                     ['value' => 190000, 'format' => 'currency'],
-                    ['value' => 56, 'format' => null]
+                    ['value' => 56, 'format' => null],
                 ],
             },
             ProjectType::SEO_PROMOTION => match ($kpi) {
                 Kpi::TRAFFIC => [
                     ['value' => 5130, 'format' => null],
-                    ['value' => null, 'format' => null]
+                    ['value' => null, 'format' => null],
                 ],
                 Kpi::POSITIONS => [
                     ['value' => 50, 'format' => 'percent'],
-                    ['value' => null, 'format' => null]
+                    ['value' => null, 'format' => null],
                 ]
             }
         };
@@ -676,7 +681,7 @@ class StatisticsService
         // ключ service - идентификатор столбца, в котором будут рендериться данные
         $initialColumnsData = [
             'service' => [],
-            'login' => null
+            'login' => null,
         ];
 
         $columnsData = $integrations->reduce(function ($carry, $integration) {
@@ -721,7 +726,7 @@ class StatisticsService
             $daysCount = $dateTo->daysInMonth();
 
             for ($i = 1; $i <= $daysCount; $i++) {
-                $key = 'day_' . $i;
+                $key = 'day_'.$i;
 
                 if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::TRAFFIC) {
                     $result[$key] = [
@@ -729,35 +734,35 @@ class StatisticsService
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 59,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Рекламный бюджет
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 8300,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Визитов
                         [
                             'plan' => [
                                 'value' => 161,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 140,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
 
@@ -767,35 +772,35 @@ class StatisticsService
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 9554,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Рекламный бюджет
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 19109,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Лидов
                         [
                             'plan' => [
                                 'value' => 6,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 2,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
 
@@ -805,24 +810,24 @@ class StatisticsService
                         [
                             'plan' => [
                                 'value' => 495,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 310,
-                                'format' => null
-                            ]
+                                'format' => null,
+                            ],
                         ],
                         // Конверсии
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 5,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
 
@@ -832,24 +837,24 @@ class StatisticsService
                         [
                             'plan' => [
                                 'value' => 50,
-                                'format' => 'percent'
+                                'format' => 'percent',
                             ],
                             'fact' => [
                                 'value' => 50,
-                                'format' => 'percent'
-                            ]
+                                'format' => 'percent',
+                            ],
                         ],
                         // Конверсии
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 9,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
             }
@@ -859,42 +864,42 @@ class StatisticsService
             $intervals = DateTimeHelper::getMonthWeekIntervals($dateTo);
 
             foreach ($intervals as $i => $interval) {
-                $key = 'week_' . $i;
+                $key = 'week_'.$i;
                 if ($projectType === ProjectType::CONTEXT_AD && $kpi === Kpi::TRAFFIC) {
                     $result[$key] = [
                         // CPC
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 59,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Рекламный бюджет
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 8300,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Визитов
                         [
                             'plan' => [
                                 'value' => 161,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 140,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
 
@@ -904,35 +909,35 @@ class StatisticsService
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 9554,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Рекламный бюджет
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 19109,
-                                'format' => 'currency'
-                            ]
+                                'format' => 'currency',
+                            ],
                         ],
                         // Лидов
                         [
                             'plan' => [
                                 'value' => 6,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 2,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
 
@@ -942,24 +947,24 @@ class StatisticsService
                         [
                             'plan' => [
                                 'value' => 495,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 310,
-                                'format' => null
-                            ]
+                                'format' => null,
+                            ],
                         ],
                         // Конверсии
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 5,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
 
@@ -969,24 +974,24 @@ class StatisticsService
                         [
                             'plan' => [
                                 'value' => 50,
-                                'format' => 'percent'
+                                'format' => 'percent',
                             ],
                             'fact' => [
                                 'value' => 50,
-                                'format' => 'percent'
-                            ]
+                                'format' => 'percent',
+                            ],
                         ],
                         // Конверсии
                         [
                             'plan' => [
                                 'value' => null,
-                                'format' => null
+                                'format' => null,
                             ],
                             'fact' => [
                                 'value' => 9,
-                                'format' => null
-                            ]
-                        ]
+                                'format' => null,
+                            ],
+                        ],
                     ];
                 }
             }
@@ -999,35 +1004,35 @@ class StatisticsService
                     [
                         'plan' => [
                             'value' => null,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 59,
-                            'format' => 'currency'
-                        ]
+                            'format' => 'currency',
+                        ],
                     ],
                     // Рекламный бюджет
                     [
                         'plan' => [
                             'value' => null,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 8300,
-                            'format' => 'currency'
-                        ]
+                            'format' => 'currency',
+                        ],
                     ],
                     // Визитов
                     [
                         'plan' => [
                             'value' => 161,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 140,
-                            'format' => null
-                        ]
-                    ]
+                            'format' => null,
+                        ],
+                    ],
                 ];
             }
 
@@ -1037,35 +1042,35 @@ class StatisticsService
                     [
                         'plan' => [
                             'value' => null,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 9554,
-                            'format' => 'currency'
-                        ]
+                            'format' => 'currency',
+                        ],
                     ],
                     // Рекламный бюджет
                     [
                         'plan' => [
                             'value' => null,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 19109,
-                            'format' => 'currency'
-                        ]
+                            'format' => 'currency',
+                        ],
                     ],
                     // Лидов
                     [
                         'plan' => [
                             'value' => 6,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 2,
-                            'format' => null
-                        ]
-                    ]
+                            'format' => null,
+                        ],
+                    ],
                 ];
             }
 
@@ -1075,24 +1080,24 @@ class StatisticsService
                     [
                         'plan' => [
                             'value' => 495,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 310,
-                            'format' => null
-                        ]
+                            'format' => null,
+                        ],
                     ],
                     // Конверсии
                     [
                         'plan' => [
                             'value' => null,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 5,
-                            'format' => null
-                        ]
-                    ]
+                            'format' => null,
+                        ],
+                    ],
                 ];
             }
 
@@ -1102,24 +1107,24 @@ class StatisticsService
                     [
                         'plan' => [
                             'value' => 50,
-                            'format' => 'percent'
+                            'format' => 'percent',
                         ],
                         'fact' => [
                             'value' => 50,
-                            'format' => 'percent'
-                        ]
+                            'format' => 'percent',
+                        ],
                     ],
                     // Конверсии
                     [
                         'plan' => [
                             'value' => null,
-                            'format' => null
+                            'format' => null,
                         ],
                         'fact' => [
                             'value' => 9,
-                            'format' => null
-                        ]
-                    ]
+                            'format' => null,
+                        ],
+                    ],
                 ];
             }
         }

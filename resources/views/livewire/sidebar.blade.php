@@ -19,7 +19,7 @@
 
         <div
             class="mb-5"
-            wire:loading.class="pointer-events-none opacity-60"
+            wire:loading.delay.long.class="pointer-events-none opacity-60"
             wire:target="searchQuery,sortBy,clearFilters"
         >
             <x-form.input-text
@@ -41,7 +41,7 @@
         </div>
 
         <div
-            wire:loading.class="pointer-events-none opacity-60"
+            wire:loading.delay.long.class="pointer-events-none opacity-60"
             wire:target="searchQuery,sortBy,clearFilters"
         >
             <x-form.select
@@ -63,14 +63,14 @@
         >
             <div
                 class="absolute inset-0 z-10 overflow-hidden bg-white"
-                wire:loading.block
+                wire:loading.delay.long.block
                 wire:target="searchQuery,sortBy,clearFilters"
             >
                 <x-sidebar.tree-skeleton class="h-full" />
             </div>
 
             <div
-                wire:loading.class="pointer-events-none invisible opacity-0"
+                wire:loading.delay.long.class="pointer-events-none invisible opacity-0"
                 wire:target="searchQuery,sortBy,clearFilters"
             >
                 @if ($searchQuery !== '' && $employees === [])

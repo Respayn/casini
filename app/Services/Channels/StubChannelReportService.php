@@ -20,15 +20,17 @@ class StubChannelReportService implements ChannelReportServiceInterface
         //
     }
 
-    public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
+    public function getReportData(ChannelReportQueryData $query): TableReportData
     {
+        $projectId = $query->projectId;
+
         return $this->flatReport();
     }
 
     public function flatReport(): TableReportData
     {
-        $report = new TableReportData();
-        $group = new TableReportGroupData();
+        $report = new TableReportData;
+        $group = new TableReportGroupData;
 
         $group->rows = new Collection([
             new Collection(array_merge(
@@ -38,30 +40,30 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 $this->createSpendingsData(
                     [
                         'hours' => 0,
-                        'sum' => 1217
+                        'sum' => 1217,
                     ],
                     [
                         'hours' => 1,
-                        'sum' => 180
+                        'sum' => 180,
                     ],
                     786,
                     [
                         'position_1' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_2' => [
                             'hours' => 19.25,
-                            'sum' => 41101
+                            'sum' => 41101,
                         ],
                         'position_3' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_4' => [
                             'hours' => 0,
-                            'sum' => 0
-                        ]
+                            'sum' => 0,
+                        ],
                     ]
                 )
             )),
@@ -72,30 +74,30 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 $this->createSpendingsData(
                     [
                         'hours' => 1,
-                        'sum' => 1800
+                        'sum' => 1800,
                     ],
                     [
                         'hours' => 0,
-                        'sum' => 0
+                        'sum' => 0,
                     ],
                     482,
                     [
                         'position_1' => [
                             'hours' => 4.5,
-                            'sum' => 7470
+                            'sum' => 7470,
                         ],
                         'position_2' => [
                             'hours' => 14.92,
-                            'sum' => 31849
+                            'sum' => 31849,
                         ],
                         'position_3' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_4' => [
                             'hours' => 0,
-                            'sum' => 0
-                        ]
+                            'sum' => 0,
+                        ],
                     ]
                 )
             )),
@@ -106,30 +108,30 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 $this->createSpendingsData(
                     [
                         'hours' => 0,
-                        'sum' => 0
+                        'sum' => 0,
                     ],
                     [
                         'hours' => 0,
-                        'sum' => 0
+                        'sum' => 0,
                     ],
                     0,
                     [
                         'position_1' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_2' => [
                             'hours' => 18.41,
-                            'sum' => 39322
+                            'sum' => 39322,
                         ],
                         'position_3' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_4' => [
                             'hours' => 1.33,
-                            'sum' => 3144
-                        ]
+                            'sum' => 3144,
+                        ],
                     ]
                 )
             )),
@@ -140,30 +142,30 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 $this->createSpendingsData(
                     [
                         'hours' => 0,
-                        'sum' => 0
+                        'sum' => 0,
                     ],
                     [
                         'hours' => 0,
-                        'sum' => 0
+                        'sum' => 0,
                     ],
                     1134,
                     [
                         'position_1' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_2' => [
                             'hours' => 13.34,
-                            'sum' => 28467
+                            'sum' => 28467,
                         ],
                         'position_3' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_4' => [
                             'hours' => 0.25,
-                            'sum' => 590
-                        ]
+                            'sum' => 590,
+                        ],
                     ]
                 )
             )),
@@ -174,48 +176,48 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 $this->createSpendingsData(
                     [
                         'hours' => 0,
-                        'sum' => 0
+                        'sum' => 0,
                     ],
                     [
                         'hours' => 0,
-                        'sum' => 0
+                        'sum' => 0,
                     ],
                     0,
                     [
                         'position_1' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_2' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_3' => [
                             'hours' => 0,
-                            'sum' => 0
+                            'sum' => 0,
                         ],
                         'position_4' => [
                             'hours' => 0,
-                            'sum' => 0
-                        ]
+                            'sum' => 0,
+                        ],
                     ]
                 )
-            ))
+            )),
         ]);
 
         $report->groups = new Collection([$group]);
 
         $report->summary = new Collection([
             'client' => [
-                'count' => 8
+                'count' => 8,
             ],
             'client_project' => [
-                'count' => 9
+                'count' => 9,
             ],
             'status' => [
                 'active' => 7,
-                'inactive' => 1
-            ]
+                'inactive' => 1,
+            ],
         ]);
 
         return $report;
@@ -228,10 +230,10 @@ class StubChannelReportService implements ChannelReportServiceInterface
             'client' => ['name' => $clientName],
             'client_project' => [
                 'name' => $projectName,
-                'id' => $projectId
+                'id' => $projectId,
             ],
             'client_project_id' => ['id' => $projectId],
-            'status' => $status
+            'status' => $status,
         ];
     }
 
@@ -240,12 +242,12 @@ class StubChannelReportService implements ChannelReportServiceInterface
         return [
             'manager' => [
                 'name' => $managerName,
-                'id' => $managerId
+                'id' => $managerId,
             ],
             'specialist' => [
                 'name' => $specialistName,
-                'id' => $specialistId
-            ]
+                'id' => $specialistId,
+            ],
         ];
     }
 
@@ -256,7 +258,7 @@ class StubChannelReportService implements ChannelReportServiceInterface
             'plan' => $plan,
             'client_receipt' => $clientReceipt,
             'max_bonuses' => $maxBonuses,
-            'acts' => $acts
+            'acts' => $acts,
         ];
     }
 
@@ -265,7 +267,7 @@ class StubChannelReportService implements ChannelReportServiceInterface
         $spendings = [
             'programming' => $programming,
             'copyrighting' => $copyrighting,
-            'seo_links' => ['sum' => $seoLinksSum]
+            'seo_links' => ['sum' => $seoLinksSum],
         ];
 
         foreach ($positions as $key => $position) {

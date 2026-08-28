@@ -16,7 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new
-#[Title("Каналы")]
+#[Title('Каналы')]
 class extends Component
 {
     use WithSidebarProjectFilter;
@@ -29,6 +29,7 @@ class extends Component
     public ?ChannelReportQueryData $originalQueryData = null;
 
     public array $selectedProjects = [];
+
     public array $selectedGroups = [];
 
     public bool $selectAll = false;
@@ -36,9 +37,8 @@ class extends Component
     /**
      * Выбранное действие для массовых операций
      * TODO: перевести на Backed Enum
-     * @var string
      */
-    public string $bulkAction = "";
+    public string $bulkAction = '';
 
     private ChannelReportServiceInterface $channelReportService;
 
@@ -67,7 +67,7 @@ class extends Component
         if ($value) {
             $this->selectedProjects = $this->reportData->groups
                 ->flatMap(function ($group) {
-                    return $group->rows->pluck("id");
+                    return $group->rows->pluck('id');
                 })
                 ->toArray();
 
@@ -86,7 +86,7 @@ class extends Component
             $group = $this->reportData->groups->get($key);
 
             if ($group) {
-                $projectIds = $group->rows->pluck("id")->toArray();
+                $projectIds = $group->rows->pluck('id')->toArray();
 
                 if (in_array($key, $this->selectedGroups)) {
                     $this->selectedProjects = array_unique(
@@ -117,10 +117,10 @@ class extends Component
         $newSelectedGroups = [];
 
         foreach ($this->reportData->groups as $groupIndex => $group) {
-            $projectIds = $group->rows->pluck("id")->toArray();
+            $projectIds = $group->rows->pluck('id')->toArray();
 
             if (
-                !empty($projectIds) &&
+                ! empty($projectIds) &&
                 count(array_intersect($projectIds, $this->selectedProjects)) ===
                 count($projectIds)
             ) {
@@ -135,13 +135,13 @@ class extends Component
     {
         $allProjectIds = $this->reportData->groups
             ->flatMap(function ($group) {
-                return $group->rows->pluck("id");
+                return $group->rows->pluck('id');
             })
             ->toArray();
 
         // Если все проекты выбраны, то selectAll = true
         $this->selectAll =
-            !empty($allProjectIds) &&
+            ! empty($allProjectIds) &&
             count($this->selectedProjects) === count($allProjectIds) &&
             empty(array_diff($allProjectIds, $this->selectedProjects));
     }
@@ -178,7 +178,7 @@ class extends Component
     public function sortColumn($item, $position)
     {
         $column = $this->queryData->columns->first(
-            fn($v) => $v->field === $item,
+            fn ($v) => $v->field === $item,
         );
         $oldPosition = $column->order;
 
@@ -208,7 +208,7 @@ class extends Component
         });
 
         $this->queryData->columns = $this->queryData->columns->sortBy(
-            fn(TableReportColumnData $col) => $col->order,
+            fn (TableReportColumnData $col) => $col->order,
         );
     }
 
@@ -226,13 +226,17 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
+        $this->queryData->projectId = $this->sidebarProjectId;
+
         // TODO: продумать более подходящее место для сохранения настроек
+        $settingsToSave = clone $this->queryData;
+        $settingsToSave->projectId = null;
         $this->channelReportService->saveUserSettings(
             Auth::user()->id,
-            $this->queryData,
+            $settingsToSave,
         );
 
-        return $this->channelReportService->getReportData($this->queryData, $this->sidebarProjectId);
+        return $this->channelReportService->getReportData($this->queryData);
     }
 
     #[On('group-settings-applied')]
@@ -246,7 +250,7 @@ class extends Component
 
     public function makeBulkAction()
     {
-        if ($this->bulkAction === "") {
+        if ($this->bulkAction === '') {
             // select action
         } else {
             // success

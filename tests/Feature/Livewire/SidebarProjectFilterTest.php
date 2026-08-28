@@ -6,7 +6,7 @@ use App\Livewire\Sidebar;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
-use App\Support\SidebarProjectContext;
+use App\Support\SidebarProjectAccess;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -27,7 +27,7 @@ class SidebarProjectFilterTest extends TestCase
         $this->seed(RolesTableSeeder::class);
         $this->seed(PermissionSeeder::class);
 
-        app(SidebarProjectContext::class)->clear();
+        session()->forget(SidebarProjectAccess::SESSION_KEY);
     }
 
     public function test_select_project_stores_in_session_and_dispatches_event(): void
@@ -40,7 +40,7 @@ class SidebarProjectFilterTest extends TestCase
             ->assertSet('selectedProjectId', $project->id)
             ->assertDispatched('sidebar-project-selected', projectId: $project->id);
 
-        $this->assertSame($project->id, app(SidebarProjectContext::class)->get());
+        $this->assertSame($project->id, session(SidebarProjectAccess::SESSION_KEY));
     }
 
     public function test_second_click_on_same_project_clears_filter(): void
@@ -54,7 +54,7 @@ class SidebarProjectFilterTest extends TestCase
             ->assertSet('selectedProjectId', null)
             ->assertDispatched('sidebar-project-cleared');
 
-        $this->assertNull(app(SidebarProjectContext::class)->get());
+        $this->assertNull(session(SidebarProjectAccess::SESSION_KEY));
     }
 
     public function test_reset_selected_project_clears_filter(): void
@@ -68,7 +68,7 @@ class SidebarProjectFilterTest extends TestCase
             ->assertSet('selectedProjectId', null)
             ->assertDispatched('sidebar-project-cleared');
 
-        $this->assertNull(app(SidebarProjectContext::class)->get());
+        $this->assertNull(session(SidebarProjectAccess::SESSION_KEY));
     }
 
     public function test_clear_filters_clears_search_and_selected_project(): void
@@ -89,14 +89,14 @@ class SidebarProjectFilterTest extends TestCase
             ->assertDispatched('sidebar-project-cleared');
 
         $this->assertFalse($component->instance()->canClearFilters);
-        $this->assertNull(app(SidebarProjectContext::class)->get());
+        $this->assertNull(session(SidebarProjectAccess::SESSION_KEY));
     }
 
     public function test_mount_restores_selection_from_session(): void
     {
         $this->actingAsUserWithPermission('read clients and projects all');
         $project = $this->createProject();
-        app(SidebarProjectContext::class)->set($project->id);
+        session([SidebarProjectAccess::SESSION_KEY => $project->id]);
 
         Livewire::test(Sidebar::class)
             ->assertSet('selectedProjectId', $project->id);

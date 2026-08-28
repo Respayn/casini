@@ -91,7 +91,7 @@ class extends Component
     public function sortColumn($item, $position)
     {
         $column = $this->queryData->columns->first(
-            fn($v) => $v->field === $item,
+            fn ($v) => $v->field === $item,
         );
         $oldPosition = $column->order;
 
@@ -121,7 +121,7 @@ class extends Component
         });
 
         $this->queryData->columns = $this->queryData->columns->sortBy(
-            fn(TableReportColumnData $col) => $col->order,
+            fn (TableReportColumnData $col) => $col->order,
         );
     }
 
@@ -139,7 +139,7 @@ class extends Component
     #[Computed]
     public function sortableColumns()
     {
-        return $this->queryData->columns->filter(function(TableReportColumnData $col, $key) {
+        return $this->queryData->columns->filter(function (TableReportColumnData $col, $key) {
             return $col->isSortable;
         });
     }
@@ -147,6 +147,8 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
-        return $this->statisticsService->getReportData($this->queryData, $this->sidebarProjectId);
+        $this->queryData->projectId = $this->sidebarProjectId;
+
+        return $this->statisticsService->getReportData($this->queryData);
     }
 };

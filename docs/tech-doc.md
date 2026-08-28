@@ -134,7 +134,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 | Часть | Роль |
 |-------|------|
-| Session | `App\Support\SidebarProjectContext` (`sidebar_selected_project_id`) |
+| Session | `#[Session(key: 'sidebar_selected_project_id')]` на свойствах сайдбара и trait страниц; проверка доступа — `App\Support\SidebarProjectAccess` |
 | События | `sidebar-project-selected` / `sidebar-project-cleared` |
 | Trait страниц | `App\Livewire\Concerns\WithSidebarProjectFilter` |
 | UI-подсказка | `x-layout.sidebar-filter-hint` (стиль info-блока Callibri) |
@@ -146,7 +146,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 Если в дереве **ровно один** сотрудник (менеджер/специалист) — его узел и все клиенты сразу раскрыты (`open = true`), чтобы сразу были видны клиенто-проекты. При нескольких сотрудниках ветки по умолчанию свёрнуты (поиск по-прежнему раскрывает совпадения).
 
-При поиске и смене роли фильтра — loading state как в Планировании при смене года: непрозрачный оверлей + скелетон дерева (`x-sidebar.tree-skeleton`), реальное дерево скрыто (`invisible`), поля поиска/фильтра приглушаются (`opacity-60`) (`wire:target="searchQuery,sortBy"`). Поиск/смена роли удерживают ответ ~0.55 с, чтобы скелетон успел отрисоваться.
+При поиске и смене роли фильтра — loading state как в Планировании при смене года: непрозрачный оверлей + скелетон дерева (`x-sidebar.tree-skeleton`), реальное дерево скрыто (`invisible`), поля поиска/фильтра приглушаются (`opacity-60`) (`wire:target="searchQuery,sortBy,clearFilters"`). Скелетон показывается с задержкой через `wire:loading.delay.long`, без искусственной паузы на сервере.
 
 Сворачивание: кнопка-«пилюля» на правом краю панели; состояние в `Alpine.store('sidebar')` + `localStorage` (`casini.sidebarOpen`). Класс `html.sidebar-collapsed` выставляется до отрисовки (`sidebar-boot`) и восстанавливается после `livewire:navigated`. В свёрнутом виде остаётся полоска ~18px панели; анимация (`sidebar-animating`) только при клике по кнопке.
 
