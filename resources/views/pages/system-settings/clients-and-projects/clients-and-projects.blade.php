@@ -1,4 +1,6 @@
 <div class="flex flex-col gap-3">
+    <x-layout.sidebar-filter-hint />
+
     <div class="flex items-center justify-between">
         <h1 class="text-primary-text text-xl font-semibold">Клиенты и Клиенто-проекты</h1>
 
