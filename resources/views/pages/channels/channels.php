@@ -226,8 +226,6 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
-        $this->queryData->projectId = $this->sidebarProjectId;
-
         // TODO: продумать более подходящее место для сохранения настроек
         $settingsToSave = clone $this->queryData;
         $settingsToSave->projectId = null;
@@ -235,6 +233,8 @@ class extends Component
             Auth::user()->id,
             $settingsToSave,
         );
+
+        $this->queryData->projectId = $this->sidebarProjectId;
 
         return $this->channelReportService->getReportData($this->queryData);
     }
