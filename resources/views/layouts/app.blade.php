@@ -23,12 +23,16 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
     <x-form.checkbox-styles />
+    <x-layout.sidebar-boot />
 </head>
 
-<body class="bg-body text-primary-text flex gap-5 font-sans">
+<body
+    class="bg-body text-primary-text flex gap-5 font-sans"
+    x-data
+>
     <livewire:sidebar />
 
-    <div class="flex w-full flex-col gap-[25px] pl-[375px] h-screen">
+    <div class="app-main flex h-screen w-full flex-col gap-[25px]">
         <livewire:header />
 
         <x-menu.navbar :items="collect([

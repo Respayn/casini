@@ -16,12 +16,12 @@ class ChannelReportQueryData extends Data implements Wireable
 
     /**
      * Выбранная группировка
-     * @var ChannelReportGrouping
      */
     public ChannelReportGrouping $grouping = ChannelReportGrouping::NONE;
 
     /**
      * Summary of columns
+     *
      * @var Collection<int, TableReportColumnData>
      */
     public Collection $columns;
@@ -32,12 +32,12 @@ class ChannelReportQueryData extends Data implements Wireable
 
     public bool $includeVat = false;
 
+    public ?int $projectId = null;
+
     public function __construct() {}
 
     /**
      * Summary of create
-     * @param array|\Illuminate\Support\Collection $rates
-     * @return ChannelReportQueryData
      */
     public static function create(array|Collection $rates = []): ChannelReportQueryData
     {
@@ -45,7 +45,7 @@ class ChannelReportQueryData extends Data implements Wireable
             $rates = new Collection($rates);
         }
 
-        $instance = new self();
+        $instance = new self;
 
         $instance->dateTo = Carbon::now();
 
@@ -74,7 +74,7 @@ class ChannelReportQueryData extends Data implements Wireable
         // Добавляем столбцы для ставок с включенным параметром "Собирать статистику по отработанному времени?"
         if ($rates->isNotEmpty()) {
             foreach ($rates as $rate) {
-                $field = 'position_' . $rate->id;
+                $field = 'position_'.$rate->id;
                 $instance->columns->add(new TableReportColumnData($field, $rate->name, $colOrder++, component: 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'));
             }
         }
@@ -83,7 +83,7 @@ class ChannelReportQueryData extends Data implements Wireable
         $instance->columns->add(new TableReportColumnData('summary-spendings', 'Расходы итого (₽)', $colOrder++));
         $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток бюджета нельзя посмотреть за предыдущий период, только на текущее время, если нужно обновить баланс сейчас - кликните на ячейку и данные обновятся'));
         $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++));
-            
+
         return $instance;
     }
 }

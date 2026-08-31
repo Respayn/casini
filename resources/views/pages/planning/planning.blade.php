@@ -1,4 +1,6 @@
 <div>
+    <x-layout.sidebar-filter-hint />
+
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <h1 class="mb-7">Планирование</h1>
