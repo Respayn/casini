@@ -70,7 +70,13 @@ class User extends Authenticatable implements CanResetPasswordContract
 
     public function accountStatus(): UserAccountStatus
     {
-        return UserAccountStatus::fromFlags((bool) $this->is_active, $this->email_verified_at);
+        if ((bool) $this->is_active) {
+            return UserAccountStatus::Active;
+        }
+
+        return $this->email_verified_at === null
+            ? UserAccountStatus::PendingEmail
+            : UserAccountStatus::Inactive;
     }
 
     public function rateUser()

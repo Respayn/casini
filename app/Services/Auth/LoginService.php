@@ -29,6 +29,7 @@ class LoginService
         if (! $user->is_active) {
             $status = $user->accountStatus();
 
+            // Ключ error bag / session для баннера на login.blade.php (inactive | pending_email), не поле userLogin.
             throw ValidationException::withMessages([
                 $status->value => $this->inactiveMessage($user),
             ]);

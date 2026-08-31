@@ -83,6 +83,68 @@ class LoginTest extends TestCase
     }
 
     #[Test]
+    public function test_login_succeeds_when_active_without_verified_email(): void
+    {
+        $user = User::factory()->unverified()->create([
+            'login' => 'auth_active_unverified',
+            'email' => 'auth_active_unverified@example.com',
+            'password' => 'secret123',
+            'is_active' => true,
+        ]);
+
+        Livewire::test('pages::auth.login')
+            ->set('userLogin', 'auth_active_unverified')
+            ->set('password', 'secret123')
+            ->call('login')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('channels', absolute: false));
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    #[Test]
+    public function test_pending_email_error_is_not_attached_to_user_login_field(): void
+    {
+        User::factory()->unverified()->create([
+            'login' => 'auth_pending_field',
+            'email' => 'auth_pending_field@example.com',
+            'password' => 'secret123',
+            'is_active' => false,
+        ]);
+
+        Livewire::test('pages::auth.login')
+            ->set('userLogin', 'auth_pending_field')
+            ->set('password', 'secret123')
+            ->call('login')
+            ->assertHasErrors(['pending_email' => __('auth.pending_email')])
+            ->assertHasNoErrors('userLogin');
+
+        $this->assertGuest();
+    }
+
+    #[Test]
+    public function test_wrong_password_for_inactive_user_does_not_reveal_account_status(): void
+    {
+        User::factory()->create([
+            'login' => 'auth_inactive_wrong_pass',
+            'email' => 'auth_inactive_wrong_pass@example.com',
+            'password' => 'secret123',
+            'is_active' => false,
+            'email_verified_at' => now(),
+        ]);
+
+        Livewire::test('pages::auth.login')
+            ->set('userLogin', 'auth_inactive_wrong_pass')
+            ->set('password', 'bad-password')
+            ->call('login')
+            ->assertHasErrors(['userLogin' => __('auth.failed')])
+            ->assertHasNoErrors('inactive')
+            ->assertHasNoErrors('pending_email');
+
+        $this->assertGuest();
+    }
+
+    #[Test]
     public function test_login_fails_when_user_is_inactive(): void
     {
         User::factory()->create([

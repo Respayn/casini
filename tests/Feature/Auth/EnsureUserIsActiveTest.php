@@ -53,6 +53,21 @@ class EnsureUserIsActiveTest extends TestCase
     }
 
     #[Test]
+    public function active_unverified_authenticated_user_is_not_blocked(): void
+    {
+        $user = User::factory()->unverified()->create([
+            'login' => 'mw_active_unverified',
+            'email' => 'mw_active_unverified@example.com',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('notifications.index'));
+
+        $response->assertOk();
+        $this->assertAuthenticatedAs($user);
+    }
+
+    #[Test]
     public function active_authenticated_user_is_not_blocked(): void
     {
         $user = User::factory()->create([
