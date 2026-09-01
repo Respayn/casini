@@ -1309,22 +1309,30 @@ class StatisticsService
     }
 
     /**
-     * Ячейка «План»: массив слотов {value, format}. При отсутствии плана — плейсхолдеры для «-».
+     * Ячейка «План»: массив слотов {value, format, highlight, code}. При отсутствии плана — плейсхолдеры для «-».
      *
      * @param  array<int|string, mixed>  $plans
-     * @return list<array{value: mixed, format: mixed}>
+     * @return list<array{value: mixed, format: mixed, highlight: bool, code: ?string}>
      */
     private function resolvePlanCell(array $plans, int $projectId, ProjectType $projectType, Kpi $kpi): array
     {
-        if (isset($plans[$projectId]) && is_array($plans[$projectId])) {
-            return $plans[$projectId];
+        $schema = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
+        $codes = $this->projectPlanService->getParameterCodes($projectType, $kpi);
+        $raw = isset($plans[$projectId]) && is_array($plans[$projectId])
+            ? $plans[$projectId]
+            : [];
+
+        $result = [];
+        foreach ($schema as $index => $meta) {
+            $slot = $raw[$index] ?? ['value' => null, 'format' => null];
+            $result[] = [
+                'value' => $slot['value'] ?? null,
+                'format' => $slot['format'] ?? null,
+                'highlight' => ! empty($meta['highlight']),
+                'code' => $codes[$index] ?? null,
+            ];
         }
 
-        $schema = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
-
-        return array_map(
-            static fn () => ['value' => null, 'format' => null],
-            $schema
-        );
+        return $result;
     }
 }

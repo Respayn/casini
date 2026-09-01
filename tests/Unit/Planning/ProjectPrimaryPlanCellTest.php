@@ -24,7 +24,7 @@ class ProjectPrimaryPlanCellTest extends TestCase
         );
 
         $this->assertSame(
-            ['value' => 50.0, 'format' => 'percent'],
+            ['value' => 50.0, 'format' => 'percent', 'code' => 'top_percent'],
             $project->getPrimaryPlanCell(2026, 9),
         );
     }
@@ -43,7 +43,7 @@ class ProjectPrimaryPlanCellTest extends TestCase
         );
 
         $this->assertSame(
-            ['value' => 5130.0, 'format' => null],
+            ['value' => 5130.0, 'format' => null, 'code' => 'visits'],
             $project->getPrimaryPlanCell(2026, 9),
         );
     }

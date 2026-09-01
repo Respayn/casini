@@ -198,7 +198,7 @@ class Project
     /**
      * Основной параметр плана на месяц для отчёта «Каналы».
      *
-     * @return array{value: ?float, format: ?string}|null
+     * @return array{value: ?float, format: ?string, code: string}|null
      */
     public function getPrimaryPlanCell(int $year, int $month): ?array
     {
@@ -210,6 +210,7 @@ class Project
             return [
                 'value' => $this->getPlanValue($parameter->getId(), $year, $month),
                 'format' => $parameter->getFormat(),
+                'code' => $parameter->getId(),
             ];
         }
 
