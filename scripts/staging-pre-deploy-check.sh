@@ -4,6 +4,8 @@ set -euo pipefail
 # Pre-deploy проверка перед scp/rsync на staging.
 # Блокирует деплой, если локальные файлы «срезают» merged-код с сервера.
 #
+# «Горячие» файлы (staging-hot-zones.conf): сначала merge со staging, потом деплой.
+#
 # Использование:
 #   STAGING_HOST=root@HOST bash scripts/staging-pre-deploy-check.sh file1 [file2 ...]
 #   bash scripts/staging-pre-deploy-check.sh --force file1   # осознанный обход (WARN)
@@ -42,6 +44,9 @@ usage() {
 Usage: staging-pre-deploy-check.sh [--force] <file> [file ...]
 
   Сравнивает локальные файлы с staging и блокирует деплой при регрессии.
+
+  «Горячие» файлы (scripts/staging-hot-zones.conf): перед деплоем — merge со staging,
+  затем свои правки. Не выкладывать feature-ветку напрямую.
 
 Переменные окружения:
   STAGING_HOST      обязателен (например root@193.107.239.233)

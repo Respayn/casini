@@ -20,6 +20,9 @@ set -euo pipefail
 #   - теряет маркеры из scripts/staging-hot-zones.conf (есть на staging, нет локально);
 #   - заметно короче версии на staging (GENERAL_SHRINK=1 по умолчанию).
 #
+# «Горячие» файлы (staging-hot-zones.conf): перед деплоем обязателен merge со staging —
+# не выкладывать урезанную копию с feature-ветки (см. .cursor/rules/casini-project-workflow.mdc).
+#
 # Переменные: STAGING_HOST, STAGING_APP_DIR, SSH_OPTS (как в staging-pre-deploy-check.sh)
 #             GENERAL_SHRINK, SHRINK_RATIO, HOT_ZONES_CONF
 #             STAGING_QUEUE_SUPERVISOR (по умолчанию casini-queue)
@@ -55,6 +58,8 @@ Env:
   SSH_OPTS                  опции ssh
   STAGING_QUEUE_SUPERVISOR  имя процесса supervisor (по умолчанию casini-queue)
   GENERAL_SHRINK            см. staging-pre-deploy-check.sh
+
+Горячие файлы (staging-hot-zones.conf): деплой только после merge со staging.
 EOF
 }
 

@@ -2,14 +2,20 @@
 
 namespace App\Services;
 
+use App\Events\Notifications\ChannelsInstrumentStopped;
+use App\Models\Agency;
 use App\Models\GoogleSheetsMonthlySpending;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
+use App\Models\Project;
+use App\Services\GoogleSheets\Exceptions\GoogleSheetsParseException;
 use App\Services\GoogleSheets\GoogleSheetsSpendingsParser;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Throwable;
 
 class GoogleSheetsService
 {
@@ -49,60 +55,115 @@ class GoogleSheetsService
 
     /**
      * @param  array<int>  $projectIds
-     * @return array{synced: int, failed: int}
+     * @return array{synced: int, failed: int, skipped: int}
      */
-    public function syncProjects(array $projectIds, ?Carbon $month = null): array
+    public function syncProjects(array $projectIds, ?Carbon $month = null, bool $manual = true): array
     {
         $month ??= Carbon::now()->startOfMonth();
         $synced = 0;
         $failed = 0;
+        $skipped = 0;
 
         $integration = Integration::query()->where('code', 'google_sheets')->first();
 
         if ($integration === null) {
-            return ['synced' => 0, 'failed' => count($projectIds)];
+            return ['synced' => 0, 'failed' => count($projectIds), 'skipped' => 0];
         }
 
         $settings = IntegrationProject::query()
+            ->with(['project.specialist.agencies', 'integration'])
             ->where('integration_id', $integration->id)
             ->where('is_enabled', true)
             ->whereIn('project_id', $projectIds)
             ->get();
 
         foreach ($settings as $projectIntegration) {
-            try {
-                $this->syncProjectIntegration($projectIntegration, $month);
-                $synced++;
-            } catch (\Throwable $e) {
-                report($e);
-                $failed++;
+            if ($manual) {
+                try {
+                    $this->syncProjectIntegration($projectIntegration, $month, manual: true);
+                    $synced++;
+                } catch (Throwable $e) {
+                    report($e);
+                    $failed++;
+                }
+
+                continue;
             }
+
+            $result = $this->syncProjectIntegrationIfOpenMonth($projectIntegration, $month);
+
+            match ($result) {
+                'synced' => $synced++,
+                'failed' => $failed++,
+                'skipped' => $skipped++,
+            };
         }
 
-        return ['synced' => $synced, 'failed' => $failed];
+        return ['synced' => $synced, 'failed' => $failed, 'skipped' => $skipped];
     }
 
-    public function syncAllEnabledProjects(?Carbon $month = null): array
+    /**
+     * @return array{synced: int, failed: int, skipped: int}
+     */
+    public function syncOpenMonthForAllEnabledProjects(): array
     {
-        $month ??= Carbon::now()->startOfMonth();
-
         $integration = Integration::query()->where('code', 'google_sheets')->first();
 
         if ($integration === null) {
-            return ['synced' => 0, 'failed' => 0];
+            return ['synced' => 0, 'failed' => 0, 'skipped' => 0];
         }
 
-        $projectIds = IntegrationProject::query()
+        $settings = IntegrationProject::query()
+            ->with(['project.specialist.agencies', 'integration'])
             ->where('integration_id', $integration->id)
             ->where('is_enabled', true)
-            ->pluck('project_id')
-            ->all();
+            ->get();
 
-        return $this->syncProjects($projectIds, $month);
+        $synced = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        foreach ($settings as $projectIntegration) {
+            $timezone = $this->resolveAgencyTimezone($projectIntegration);
+            $month = Carbon::now($timezone)->startOfMonth();
+
+            $result = $this->syncProjectIntegrationIfOpenMonth($projectIntegration, $month);
+
+            match ($result) {
+                'synced' => $synced++,
+                'failed' => $failed++,
+                'skipped' => $skipped++,
+            };
+        }
+
+        return ['synced' => $synced, 'failed' => $failed, 'skipped' => $skipped];
     }
 
-    public function syncProjectIntegration(IntegrationProject $projectIntegration, Carbon $month): GoogleSheetsMonthlySpending
+    public function isClosedMonth(Carbon $month, ?string $timezone = null): bool
     {
+        $timezone ??= (string) config('app.timezone', 'UTC');
+        $currentMonth = Carbon::now($timezone)->startOfMonth();
+
+        return $month->copy()->startOfMonth()->lt($currentMonth);
+    }
+
+    public function syncProjectIntegration(
+        IntegrationProject $projectIntegration,
+        Carbon $month,
+        bool $manual = false,
+    ): GoogleSheetsMonthlySpending {
+        $projectIntegration->loadMissing('project.specialist.agencies');
+
+        $project = $projectIntegration->project;
+
+        if ($project === null) {
+            throw new \RuntimeException('Project is not configured for Google Sheets integration.');
+        }
+
+        if (! $manual && $this->isClosedMonth($month, $this->resolveAgencyTimezone($projectIntegration))) {
+            throw new \RuntimeException('Closed month cannot be updated by nightly sync.');
+        }
+
         $settings = is_array($projectIntegration->settings)
             ? $projectIntegration->settings
             : json_decode((string) $projectIntegration->settings, true) ?? [];
@@ -113,17 +174,34 @@ class GoogleSheetsService
             throw new \RuntimeException('Google spreadsheet ID is not configured.');
         }
 
+        $yearMonth = $month->copy()->startOfMonth()->toDateString();
+        $existing = GoogleSheetsMonthlySpending::query()->firstOrNew([
+            'project_id' => $projectIntegration->project_id,
+            'year_month' => $yearMonth,
+        ]);
+
+        $projectUrl = (string) ($project->domain ?? '');
         $accessToken = $this->resolveAccessToken($settings, $projectIntegration);
 
-        $programmingRows = $this->fetchSheetValues($accessToken, $documentId, 'Программинг');
-        $copyrightingRows = $this->fetchSheetValues($accessToken, $documentId, 'Копирайтинг');
-        $seoRows = $this->fetchSheetValues($accessToken, $documentId, 'SEO-ссылки');
+        $programming = $this->resolveProgrammingSpendings(
+            $accessToken,
+            $documentId,
+            $month,
+            $projectUrl,
+            $project,
+            $existing,
+            $manual,
+        );
 
-        $programming = $this->parser->parseProgrammingSheet($programmingRows, $month);
-        $copyrighting = $this->parser->parseCopyrightingSheet($copyrightingRows, $month);
-        $seoSum = $this->parser->parseSeoLinksSheet($seoRows, $month);
-
-        $yearMonth = $month->copy()->startOfMonth()->toDateString();
+        $copyrighting = $this->resolveCopyrightingSpendings(
+            $accessToken,
+            $documentId,
+            $month,
+            $projectUrl,
+            $project,
+            $existing,
+            $manual,
+        );
 
         return GoogleSheetsMonthlySpending::query()->updateOrCreate(
             [
@@ -135,10 +213,131 @@ class GoogleSheetsService
                 'programming_sum' => $programming['sum'],
                 'copyrighting_units' => $copyrighting['hours'],
                 'copyrighting_sum' => $copyrighting['sum'],
-                'seo_links_sum' => $seoSum,
+                'seo_links_sum' => 0,
                 'synced_at' => now(),
             ]
         );
+    }
+
+    /**
+     * @return array{hours: float, sum: float}
+     */
+    private function resolveProgrammingSpendings(
+        string $accessToken,
+        string $documentId,
+        Carbon $month,
+        string $projectUrl,
+        Project $project,
+        GoogleSheetsMonthlySpending $existing,
+        bool $manual,
+    ): array {
+        $fallback = [
+            'hours' => (float) ($existing->programming_hours ?? 0),
+            'sum' => (float) ($existing->programming_sum ?? 0),
+        ];
+
+        try {
+            $rows = $this->fetchSheetValues($accessToken, $documentId, 'Программинг');
+
+            return $this->parser->parseProgrammingSheet($rows, $month, $projectUrl);
+        } catch (Throwable $e) {
+            $this->handleSheetSyncError($project, 'Программинг', $e);
+
+            return $fallback;
+        }
+    }
+
+    /**
+     * @return array{hours: float, sum: float}
+     */
+    private function resolveCopyrightingSpendings(
+        string $accessToken,
+        string $documentId,
+        Carbon $month,
+        string $projectUrl,
+        Project $project,
+        GoogleSheetsMonthlySpending $existing,
+        bool $manual,
+    ): array {
+        $fallback = [
+            'hours' => (float) ($existing->copyrighting_units ?? 0),
+            'sum' => (float) ($existing->copyrighting_sum ?? 0),
+        ];
+
+        try {
+            $rows = $this->fetchSheetValues($accessToken, $documentId, 'Копирайтинг');
+
+            return $this->parser->parseCopyrightingSheet($rows, $month, $projectUrl);
+        } catch (Throwable $e) {
+            $this->handleSheetSyncError($project, 'Копирайтинг', $e);
+
+            return $fallback;
+        }
+    }
+
+    private function syncProjectIntegrationIfOpenMonth(
+        IntegrationProject $projectIntegration,
+        Carbon $month,
+    ): string {
+        if ($this->isClosedMonth($month, $this->resolveAgencyTimezone($projectIntegration))) {
+            return 'skipped';
+        }
+
+        try {
+            $this->syncProjectIntegration($projectIntegration, $month, manual: false);
+
+            return 'synced';
+        } catch (Throwable $e) {
+            report($e);
+
+            return 'failed';
+        }
+    }
+
+    private function handleSheetSyncError(Project $project, string $sheetTitle, Throwable $e): void
+    {
+        Log::warning('Google Sheets spendings sync sheet failed', [
+            'project_id' => $project->id,
+            'sheet' => $sheetTitle,
+            'exception' => $e->getMessage(),
+        ]);
+
+        $specialistId = (int) ($project->specialist_id ?? 0);
+
+        if ($specialistId <= 0) {
+            return;
+        }
+
+        $message = $e instanceof GoogleSheetsParseException
+            ? $e->getMessage()
+            : 'Не удалось получить данные из Google Таблицы.';
+
+        $lastSyncedAt = GoogleSheetsMonthlySpending::query()
+            ->where('project_id', $project->id)
+            ->orderByDesc('synced_at')
+            ->value('synced_at');
+
+        event(new ChannelsInstrumentStopped(
+            userId: $specialistId,
+            projectId: $project->id,
+            projectName: $project->name,
+            channelId: $project->id,
+            channelName: $project->name,
+            instrument: 'Google Таблицы ('.$sheetTitle.'): '.$message,
+            lastSeenAt: $lastSyncedAt ? Carbon::parse($lastSyncedAt) : null,
+        ));
+    }
+
+    private function resolveAgencyTimezone(IntegrationProject $projectIntegration): string
+    {
+        $timezone = $projectIntegration->project?->specialist?->agencies->first()?->time_zone;
+
+        if (filled($timezone)) {
+            return (string) $timezone;
+        }
+
+        return Agency::query()->value('time_zone')
+            ?? (string) config('app.timezone', 'UTC');
     }
 
     /**

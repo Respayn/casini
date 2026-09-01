@@ -2,6 +2,7 @@
 
 namespace App\Services\GoogleSheets;
 
+use App\Services\GoogleSheets\Exceptions\GoogleSheetsParseException;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 
@@ -11,22 +12,20 @@ class GoogleSheetsSpendingsParser
      * @param  array<int, array<int, mixed>>  $rows
      * @return array{hours: float, sum: float}
      */
-    public function parseProgrammingSheet(array $rows, Carbon $month): array
+    public function parseProgrammingSheet(array $rows, Carbon $month, string $projectUrl): array
     {
         return $this->parseQuantityAndSumSheet(
             $rows,
             $month,
+            $projectUrl,
+            sheetTitle: 'Программинг',
             unitsColumnMatchers: [
+                'объем итого',
                 'объем итого, час',
                 'объем итого час',
-                'час',
-                'часы',
             ],
             sumColumnMatchers: [
                 'итоговый ценник',
-                'ценник',
-                'сумма',
-                'итого',
             ],
         );
     }
@@ -35,11 +34,13 @@ class GoogleSheetsSpendingsParser
      * @param  array<int, array<int, mixed>>  $rows
      * @return array{hours: float, sum: float}
      */
-    public function parseCopyrightingSheet(array $rows, Carbon $month): array
+    public function parseCopyrightingSheet(array $rows, Carbon $month, string $projectUrl): array
     {
         return $this->parseQuantityAndSumSheet(
             $rows,
             $month,
+            $projectUrl,
+            sheetTitle: 'Копирайтинг',
             unitsColumnMatchers: [
                 'объем итого, знак',
                 'объем итого знак',
@@ -50,30 +51,28 @@ class GoogleSheetsSpendingsParser
         );
     }
 
-    /**
-     * @param  array<int, array<int, mixed>>  $rows
-     */
-    public function parseSeoLinksSheet(array $rows, Carbon $month): float
+    public function normalizeProjectUrl(string $url): string
     {
-        if ($rows === []) {
-            return 0.0;
+        $url = trim(mb_strtolower($url));
+        $url = preg_replace('#^https?://#', '', $url) ?? $url;
+        $url = preg_replace('#^www\.#', '', $url) ?? $url;
+        $url = rtrim($url, '/');
+
+        return $url;
+    }
+
+    public function projectUrlsMatch(string $projectUrl, string $cellValue): bool
+    {
+        $project = $this->normalizeProjectUrl($projectUrl);
+        $cell = $this->normalizeProjectUrl($cellValue);
+
+        if ($project === '' || $cell === '') {
+            return false;
         }
 
-        $headerRowIndex = $this->findHeaderRowIndex($rows);
-        $headers = $rows[$headerRowIndex] ?? [];
-        $monthColumnIndex = $this->findMonthColumnIndex($headers, $month);
-
-        if ($monthColumnIndex === null) {
-            return 0.0;
-        }
-
-        $totalRowIndex = $this->findRowIndexByLabel($rows, 'итого', $headerRowIndex + 1);
-
-        if ($totalRowIndex === null) {
-            return 0.0;
-        }
-
-        return $this->parseNumber($rows[$totalRowIndex][$monthColumnIndex] ?? null);
+        return $project === $cell
+            || str_contains($cell, $project)
+            || str_contains($project, $cell);
     }
 
     /**
@@ -85,6 +84,8 @@ class GoogleSheetsSpendingsParser
     private function parseQuantityAndSumSheet(
         array $rows,
         Carbon $month,
+        string $projectUrl,
+        string $sheetTitle,
         array $unitsColumnMatchers,
         array $sumColumnMatchers,
     ): array {
@@ -95,12 +96,25 @@ class GoogleSheetsSpendingsParser
         $headerRowIndex = $this->findHeaderRowIndex($rows);
         $headers = $rows[$headerRowIndex] ?? [];
 
+        $projectColumnIndex = $this->findColumnIndex($headers, ['проект']);
         $dateColumnIndex = $this->findColumnIndex($headers, ['статус оплаты']);
         $unitsColumnIndex = $this->findColumnIndex($headers, $unitsColumnMatchers);
         $sumColumnIndex = $this->findColumnIndex($headers, $sumColumnMatchers);
 
-        if ($dateColumnIndex === null || $unitsColumnIndex === null || $sumColumnIndex === null) {
-            return ['hours' => 0.0, 'sum' => 0.0];
+        if ($projectColumnIndex === null) {
+            throw new GoogleSheetsParseException($sheetTitle, 'Колонка «Проект» не найдена.');
+        }
+
+        if ($dateColumnIndex === null) {
+            throw new GoogleSheetsParseException($sheetTitle, 'Колонка «Статус оплаты» не найдена.');
+        }
+
+        if ($unitsColumnIndex === null) {
+            throw new GoogleSheetsParseException($sheetTitle, 'Колонка объёма не найдена.');
+        }
+
+        if ($sumColumnIndex === null) {
+            throw new GoogleSheetsParseException($sheetTitle, 'Колонка «Итоговый ценник» не найдена.');
         }
 
         $hours = 0.0;
@@ -108,6 +122,10 @@ class GoogleSheetsSpendingsParser
 
         for ($i = $headerRowIndex + 1; $i < count($rows); $i++) {
             $row = $rows[$i] ?? [];
+
+            if ($projectUrl !== '' && ! $this->projectUrlsMatch($projectUrl, (string) ($row[$projectColumnIndex] ?? ''))) {
+                continue;
+            }
 
             if (! $this->rowDateMatchesMonth($row[$dateColumnIndex] ?? null, $month)) {
                 continue;
@@ -152,6 +170,7 @@ class GoogleSheetsSpendingsParser
     private function normalizeLabel(string $value): string
     {
         $value = trim(mb_strtolower($value));
+        $value = str_replace('ё', 'е', $value);
 
         return preg_replace('/\s+/u', ' ', $value) ?? $value;
     }
@@ -171,67 +190,6 @@ class GoogleSheetsSpendingsParser
                 if ($header === $needle || str_contains($header, $needle)) {
                     return $index;
                 }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param  array<int, mixed>  $headers
-     */
-    private function findMonthColumnIndex(array $headers, Carbon $month): ?int
-    {
-        $monthNames = $this->monthNameVariants($month);
-
-        foreach ($headers as $index => $header) {
-            $normalized = $this->normalizeLabel((string) $header);
-
-            if ($normalized === '') {
-                continue;
-            }
-
-            foreach ($monthNames as $variant) {
-                if ($normalized === $variant || str_contains($normalized, $variant)) {
-                    return $index;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function monthNameVariants(Carbon $month): array
-    {
-        $full = mb_strtolower($month->locale('ru')->translatedFormat('F'));
-        $short = mb_strtolower($month->locale('ru')->translatedFormat('M'));
-
-        return array_values(array_unique(array_filter([
-            $full,
-            $short,
-            $month->format('m.Y'),
-            $month->format('m.y'),
-            $month->format('Y-m'),
-            $month->format('n'),
-            $month->format('m'),
-        ])));
-    }
-
-    /**
-     * @param  array<int, array<int, mixed>>  $rows
-     */
-    private function findRowIndexByLabel(array $rows, string $label, int $startIndex = 0): ?int
-    {
-        $label = $this->normalizeLabel($label);
-
-        for ($i = $startIndex; $i < count($rows); $i++) {
-            $firstCell = $this->normalizeLabel((string) ($rows[$i][0] ?? ''));
-
-            if ($firstCell === $label || str_contains($firstCell, $label)) {
-                return $i;
             }
         }
 
@@ -306,7 +264,7 @@ class GoogleSheetsSpendingsParser
         }
 
         $normalized = Str::of((string) $value)
-            ->replace([' ', "\xc2\xa0"], '')
+            ->replace([' ', "\xc2\xa0", "\u{202f}"], '')
             ->replace(',', '.')
             ->replaceMatches('/[^\d.\-]/u', '')
             ->toString();

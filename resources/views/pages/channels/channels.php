@@ -7,6 +7,8 @@ use App\Data\Channels\ChannelReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
 use App\Enums\ChannelReportGrouping;
+use App\Livewire\Concerns\WithReportDataRefresh;
+use App\Livewire\Concerns\WithSidebarProjectFilter;
 use App\Services\GoogleSheetsService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -19,6 +21,9 @@ new
 #[Title('Каналы')]
 class extends Component
 {
+    use WithReportDataRefresh;
+    use WithSidebarProjectFilter;
+
     public ChannelReportQueryData $queryData;
 
     /**
@@ -26,19 +31,9 @@ class extends Component
      */
     public ?ChannelReportQueryData $originalQueryData = null;
 
-    public array $selectedProjects = [];
+    public ?string $actionMessage = null;
 
-    public array $selectedGroups = [];
-
-    public bool $selectAll = false;
-
-    /**
-     * Выбранное действие для массовых операций
-     * TODO: перевести на Backed Enum
-     */
-    public string $bulkAction = '';
-
-    public bool $refreshingSpendings = false;
+    public string $actionMessageType = 'success';
 
     private ChannelReportServiceInterface $channelReportService;
 
@@ -52,90 +47,24 @@ class extends Component
         $this->queryData = $this->channelReportService->getUserSettings(
             Auth::user()->id,
         );
+        $this->queryData->clampPeriodToPresent();
     }
 
-    public function updatedSelectAll($value)
+    protected function afterSidebarProjectFilterChanged(): void
     {
-        if ($value) {
-            $this->selectedProjects = $this->reportData->groups
-                ->flatMap(function ($group) {
-                    return $group->rows->pluck('id');
-                })
-                ->toArray();
-
-            $this->selectedGroups = $this->reportData->groups
-                ->keys()
-                ->toArray();
-        } else {
-            $this->selectedProjects = [];
-            $this->selectedGroups = [];
-        }
+        unset($this->reportData);
     }
 
-    public function updatedSelectedGroups($value, $key)
+    public function updatedQueryDataDateFrom(): void
     {
-        if ($key !== null) {
-            $group = $this->reportData->groups->get($key);
-
-            if ($group) {
-                $projectIds = $group->rows->pluck('id')->toArray();
-
-                if (in_array($key, $this->selectedGroups)) {
-                    $this->selectedProjects = array_unique(
-                        array_merge($this->selectedProjects, $projectIds),
-                    );
-                } else {
-                    $this->selectedProjects = array_diff(
-                        $this->selectedProjects,
-                        $projectIds,
-                    );
-                }
-            }
-        }
-
-        $this->checkSelectAll();
+        $this->queryData->clampPeriodToPresent();
+        unset($this->reportData);
     }
 
-    public function updatedSelectedProjects($value, $key)
+    public function updatedQueryDataDateTo(): void
     {
-        if ($key !== null) {
-            $this->updateGroupCheckboxes();
-            $this->checkSelectAll();
-        }
-    }
-
-    private function updateGroupCheckboxes()
-    {
-        $newSelectedGroups = [];
-
-        foreach ($this->reportData->groups as $groupIndex => $group) {
-            $projectIds = $group->rows->pluck('id')->toArray();
-
-            if (
-                ! empty($projectIds) &&
-                count(array_intersect($projectIds, $this->selectedProjects)) ===
-                count($projectIds)
-            ) {
-                $newSelectedGroups[] = $groupIndex;
-            }
-        }
-
-        $this->selectedGroups = $newSelectedGroups;
-    }
-
-    private function checkSelectAll()
-    {
-        $allProjectIds = $this->reportData->groups
-            ->flatMap(function ($group) {
-                return $group->rows->pluck('id');
-            })
-            ->toArray();
-
-        // Если все проекты выбраны, то selectAll = true
-        $this->selectAll =
-            ! empty($allProjectIds) &&
-            count($this->selectedProjects) === count($allProjectIds) &&
-            empty(array_diff($allProjectIds, $this->selectedProjects));
+        $this->queryData->clampPeriodToPresent();
+        unset($this->reportData);
     }
 
     /**
@@ -164,6 +93,8 @@ class extends Component
     public function applySettingsSnapshot()
     {
         $this->originalQueryData = null;
+        $this->persistUserSettings();
+        unset($this->reportData);
     }
 
     #[Renderless]
@@ -218,54 +149,55 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
-        // TODO: продумать более подходящее место для сохранения настроек
-        $this->channelReportService->saveUserSettings(
-            Auth::user()->id,
-            $this->queryData,
-        );
+        $this->persistUserSettings();
 
-        return $this->channelReportService->getReportData($this->queryData);
+        return $this->channelReportService->getReportData($this->queryData, $this->sidebarProjectId);
     }
 
     #[On('group-settings-applied')]
     public function applyGrouping($grouping)
     {
         $this->queryData->grouping = ChannelReportGrouping::from($grouping);
-        $this->selectedProjects = [];
-        $this->selectedGroups = [];
-        $this->selectAll = false;
+        $this->persistUserSettings();
+        unset($this->reportData);
     }
 
-    public function makeBulkAction()
+    private function persistUserSettings(): void
     {
-        if ($this->bulkAction === 'refresh_spendings') {
-            $this->refreshGoogleSheetsSpendings($this->selectedProjects);
+        $this->channelReportService->saveUserSettings(
+            Auth::user()->id,
+            $this->queryData,
+        );
+    }
 
+    protected function reportRefreshProductKey(): string
+    {
+        return 'channels';
+    }
+
+    protected function shouldRefreshDirectBudget(): bool
+    {
+        return true;
+    }
+
+    protected function setActionMessage(string $message, string $type): void
+    {
+        $this->actionMessage = $message;
+        $this->actionMessageType = $type;
+    }
+
+    protected function afterSuccessfulReportDataRefresh(array $projectIds): void
+    {
+        if ($projectIds === []) {
             return;
         }
-    }
 
-    public function refreshGoogleSheetsSpendings(?array $projectIds = null): void
-    {
-        $this->refreshingSpendings = true;
+        app(GoogleSheetsService::class)->syncProjects(
+            $projectIds,
+            $this->queryData->dateTo->copy()->startOfMonth(),
+            manual: true,
+        );
 
-        try {
-            $ids = $projectIds ?? $this->reportData->groups
-                ->flatMap(fn ($group) => $group->rows->pluck('id'))
-                ->unique()
-                ->values()
-                ->all();
-
-            if ($ids === []) {
-                return;
-            }
-
-            app(GoogleSheetsService::class)->syncProjects(
-                $ids,
-                $this->queryData->dateTo->copy()->startOfMonth()
-            );
-        } finally {
-            $this->refreshingSpendings = false;
-        }
+        unset($this->reportData);
     }
 };
