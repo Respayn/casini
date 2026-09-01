@@ -11,6 +11,8 @@ trait WithReportDataRefresh
 {
     public ?string $lastDataRefreshLabel = null;
 
+    public bool $isReportDataRefreshing = false;
+
     public function mountWithReportDataRefresh(IntegrationManualRefreshTimestamp $timestamps): void
     {
         $userId = Auth::id();
@@ -33,46 +35,59 @@ trait WithReportDataRefresh
 
         if ($projectIds === []) {
             $this->setActionMessage('Нет клиенто-проектов для обновления', 'error');
+            $this->dispatch('report-data-refresh-finished');
 
             return;
         }
 
-        $stats = $metricsRefreshService->refreshReportData(
-            $projectIds,
-            $this->queryData->dateFrom,
-            $this->queryData->dateTo,
-            $this->queryData->includeVat,
-            $this->shouldRefreshDirectBudget(),
-        );
+        $this->isReportDataRefreshing = true;
 
-        unset($this->reportData);
-
-        if (! empty($stats['error'])) {
-            $this->setActionMessage($stats['error'], 'error');
-
-            return;
-        }
-
-        $userId = Auth::id();
-        if ($userId !== null) {
-            $timestamps->record((int) $userId, $this->reportRefreshProductKey());
-            $this->lastDataRefreshLabel = $timestamps->formattedLabel(
-                (int) $userId,
-                $this->reportRefreshProductKey(),
+        try {
+            $stats = $metricsRefreshService->refreshReportData(
+                $projectIds,
+                $this->queryData->dateFrom,
+                $this->queryData->dateTo,
+                $this->queryData->includeVat,
+                $this->shouldRefreshDirectBudget(),
             );
+
+            unset($this->reportData);
+
+            if (! empty($stats['error'])) {
+                $this->setActionMessage($stats['error'], 'error');
+
+                return;
+            }
+
+            $userId = Auth::id();
+            if ($userId !== null) {
+                $timestamps->record((int) $userId, $this->reportRefreshProductKey());
+                $this->lastDataRefreshLabel = $timestamps->formattedLabel(
+                    (int) $userId,
+                    $this->reportRefreshProductKey(),
+                );
+            }
+
+            $this->setActionMessage(
+                sprintf(
+                    'Обновлено: %d, ошибок: %d, пропущено: %d',
+                    $stats['updated'],
+                    $stats['failed'],
+                    $stats['skipped'],
+                ),
+                $stats['failed'] > 0 ? 'error' : 'success',
+            );
+
+            $this->afterSuccessfulReportDataRefresh($projectIds);
+        } finally {
+            $this->isReportDataRefreshing = false;
+            $this->dispatch('report-data-refresh-finished');
         }
+    }
 
-        $this->setActionMessage(
-            sprintf(
-                'Обновлено: %d, ошибок: %d, пропущено: %d',
-                $stats['updated'],
-                $stats['failed'],
-                $stats['skipped'],
-            ),
-            $stats['failed'] > 0 ? 'error' : 'success',
-        );
-
-        $this->afterSuccessfulReportDataRefresh($projectIds);
+    public function cancelReportDataRefresh(): void
+    {
+        $this->isReportDataRefreshing = false;
     }
 
     /**

@@ -50,6 +50,7 @@
             wire:click="refreshAllData"
             wire:loading.attr="disabled"
             wire:target="refreshAllData"
+            x-on:click="window.dispatchEvent(new CustomEvent('report-data-refresh-started'))"
             aria-label="Обновить данные"
         >
             <x-icons.refresh-data

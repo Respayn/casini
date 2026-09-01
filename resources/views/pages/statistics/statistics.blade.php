@@ -1,4 +1,4 @@
-<div>
+<x-report.refresh-navigation-guard>
     <x-layout.sidebar-filter-hint />
 
     {{-- Шапка компонента --}}
@@ -314,4 +314,4 @@
             </div>
             </x-slot>
     </x-overlay.modal>
-</div>
+</x-report.refresh-navigation-guard>

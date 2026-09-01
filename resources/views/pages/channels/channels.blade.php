@@ -1,4 +1,4 @@
-<div>
+<x-report.refresh-navigation-guard>
     <x-layout.sidebar-filter-hint />
 
     {{-- Шапка компонента --}}
@@ -218,4 +218,4 @@
     </x-overlay.modal>
 
     <livewire:channels.group-settings-modal :initial-grouping="$queryData->grouping" />
-</div>
+</x-report.refresh-navigation-guard>
