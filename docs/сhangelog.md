@@ -51,6 +51,23 @@
 
 
 # Releases
+## [v0.2.34] - 2026-08-31
+### 🚀 Новое
+- Статусы учётки при входе: `UserAccountStatus` (активен / неактивен / подтвердить email), middleware `EnsureUserIsActive`, повторная отправка письма подтверждения с формы входа
+
+### 🛠 Исправления
+- Поля пароля на auth-экранах: `wire:model` вместо `wire:model.live`
+- Сброс пароля: plain password + cast `hashed` (без двойного `Hash::make`)
+- `SmartCaptchaAuthTest`: `DatabaseTransactions` вместо `RefreshDatabase`
+
+### 🔧 Улучшения
+- Вход через `LoginService` (case-insensitive login/email), игнор intended URL с лендинга
+- Переводы auth / permissions / validation в `lang/ru/`; каталог `resources/lang` удалён (иначе Laravel его предпочитает и не видит `lang/`)
+- В `.env.example` добавлен `REGISTRATION_ENABLED=false`
+- В `bootstrap/app.php` сохранены schedule ночного съёма и alias `can.access.user.edit`
+- Статус учётки считается в `User::accountStatus()`; enum auth — только backed cases (UI-методы — в PR формы пользователя)
+- `User::is_active` приведён к boolean через `casts()` (как у `Project` / `SerpTask`)
+
 ## [v0.2.33] - 2026-08-25
 ### 🚀 Новое
 - Виджет сайдбара: дерево портфеля по ролям (менеджеры / специалисты), поиск по клиентам и клиенто-проектам, сворачивание панели с сохранением состояния

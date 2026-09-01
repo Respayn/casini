@@ -12,8 +12,39 @@
             @endif
         </div>
 
-        @if (session('status'))
-            <p class="mb-4 text-sm text-green-600">{{ session('status') }}</p>
+        @if (session('status') || $resendStatus)
+            <div class="border-primary text-primary-text mb-4 break-words rounded-lg border bg-blue-50 p-4 text-sm">
+                {{ $resendStatus ?: session('status') }}
+            </div>
+        @endif
+
+        @php
+            $pendingNotice = $errors->first('pending_email') ?: session('pending_email');
+            $inactiveNotice = $errors->first('inactive') ?: session('inactive');
+        @endphp
+
+        @if ($pendingNotice && ! $resendStatus)
+            <div
+                class="border-warning-red text-warning-red mb-4 break-words rounded-lg border bg-red-50 p-4 text-sm"
+                role="alert"
+            >
+                <p>{{ $pendingNotice }}</p>
+                <button
+                    type="button"
+                    wire:click="resendVerificationEmail"
+                    wire:loading.attr="disabled"
+                    class="text-primary mt-2 font-medium underline hover:no-underline disabled:opacity-60"
+                >
+                    Повторно выслать письмо
+                </button>
+            </div>
+        @elseif ($inactiveNotice)
+            <div
+                class="border-warning-red text-warning-red mb-4 break-words rounded-lg border bg-red-50 p-4 text-sm"
+                role="alert"
+            >
+                {{ $inactiveNotice }}
+            </div>
         @endif
 
         <x-auth.captcha-form captcha-id="login-captcha" wire-method="login">
@@ -34,7 +65,7 @@
                         Пароль
                     </x-form.form-label>
                     <x-form.input-text
-                        wire:model.live="password"
+                        wire:model="password"
                         wire:blur="validateField('password')"
                         icon="icons.lock"
                         type="password"
