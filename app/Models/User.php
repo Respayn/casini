@@ -60,6 +60,7 @@ class User extends Authenticatable implements CanResetPasswordContract
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -70,7 +71,7 @@ class User extends Authenticatable implements CanResetPasswordContract
 
     public function accountStatus(): UserAccountStatus
     {
-        if ((bool) $this->is_active) {
+        if ($this->is_active) {
             return UserAccountStatus::Active;
         }
 

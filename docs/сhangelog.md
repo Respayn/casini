@@ -66,6 +66,7 @@
 - В `.env.example` добавлен `REGISTRATION_ENABLED=false`
 - В `bootstrap/app.php` сохранены schedule ночного съёма и alias `can.access.user.edit`
 - Статус учётки считается в `User::accountStatus()`; enum auth — только backed cases (UI-методы — в PR формы пользователя)
+- `User::is_active` приведён к boolean через `casts()` (как у `Project` / `SerpTask`)
 
 ## [v0.2.33] - 2026-08-25
 ### 🚀 Новое
