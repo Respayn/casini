@@ -1,8 +1,6 @@
-@props(['params'])
+@props(['params', 'bold' => false])
 
-<x-data.table-cell
-    class="bg-table-summary-bg"
-    {{ $attributes }}
->
-    <span class="font-bold">Итого: {{ $params['count'] }}</span>
+<x-data.table-cell {{ $attributes->class(['bg-table-summary-bg', 'font-bold' => $bold]) }}>
+
+    <span>Итого: {{ $params['count'] }}</span>
 </x-data.table-cell>

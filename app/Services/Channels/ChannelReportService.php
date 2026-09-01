@@ -8,12 +8,14 @@ use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Enums\ChannelReportGrouping;
+use App\Models\GoogleSheetsMonthlySpending;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
 use App\Repositories\UserRepository;
 use App\Services\BonusService;
+use App\Services\GoogleSheetsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -38,6 +40,11 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     private BonusService $bonusService;
 
+    private GoogleSheetsService $googleSheetsService;
+
+    /** @var Collection<int, GoogleSheetsMonthlySpending>|null */
+    private ?Collection $googleSpendingsForReport = null;
+
     public function __construct(
         ClientRepository $clientRepository,
         ProjectRepository $projectRepository,
@@ -47,6 +54,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ProjectPlanService $projectPlanService,
         ChannelDirectMetricsService $directMetricsService,
         BonusService $bonusService,
+        GoogleSheetsService $googleSheetsService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
@@ -56,6 +64,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->projectPlanService = $projectPlanService;
         $this->directMetricsService = $directMetricsService;
         $this->bonusService = $bonusService;
+        $this->googleSheetsService = $googleSheetsService;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
@@ -114,6 +123,11 @@ class ChannelReportService implements ChannelReportServiceInterface
             $projects = $projects->filter(fn ($project) => $project->is_active);
         }
 
+        $this->googleSpendingsForReport = $this->googleSheetsService->getSpendingsForProjects(
+            $projects->pluck('id'),
+            $query->dateTo,
+        );
+
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
             $report = $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $plans);
@@ -129,6 +143,9 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $this->enrichWithDirectMetrics($report, $query, $integrations);
         $this->enrichWithFinancialTotals($report);
+        $this->enrichWithSpendingsTotals($report);
+
+        $this->googleSpendingsForReport = null;
 
         return $report;
     }
@@ -179,6 +196,110 @@ class ChannelReportService implements ChannelReportServiceInterface
             $report->summary->put(
                 'max-bonuses',
                 $reportMaxBonuses === null ? null : round($reportMaxBonuses, 2),
+            );
+        }
+    }
+
+    /**
+     * Суммы «Программинг», «Копирайтер», «SEO-ссылки» и «Расход итого» по строкам группы и по всему отчёту.
+     */
+    private function enrichWithSpendingsTotals(TableReportData $report): void
+    {
+        $reportProgrammingHours = null;
+        $reportProgrammingSum = null;
+        $reportCopyrightingUnits = null;
+        $reportCopyrightingSum = null;
+        $reportSeoLinksSum = null;
+        $reportSummarySpendings = null;
+
+        foreach ($report->groups as $group) {
+            $groupProgrammingHours = null;
+            $groupProgrammingSum = null;
+            $groupCopyrightingUnits = null;
+            $groupCopyrightingSum = null;
+            $groupSeoLinksSum = null;
+            $groupSummarySpendings = null;
+
+            foreach ($group->rows as $row) {
+                $programming = $row->data->get('programming');
+                if (is_array($programming)) {
+                    $groupProgrammingHours = ($groupProgrammingHours ?? 0.0) + (float) ($programming['hours'] ?? 0);
+                    $groupProgrammingSum = ($groupProgrammingSum ?? 0.0) + (float) ($programming['sum'] ?? 0);
+                    $reportProgrammingHours = ($reportProgrammingHours ?? 0.0) + (float) ($programming['hours'] ?? 0);
+                    $reportProgrammingSum = ($reportProgrammingSum ?? 0.0) + (float) ($programming['sum'] ?? 0);
+                }
+
+                $copyrighting = $row->data->get('copyrighting');
+                if (is_array($copyrighting)) {
+                    $groupCopyrightingUnits = ($groupCopyrightingUnits ?? 0.0) + (float) ($copyrighting['hours'] ?? 0);
+                    $groupCopyrightingSum = ($groupCopyrightingSum ?? 0.0) + (float) ($copyrighting['sum'] ?? 0);
+                    $reportCopyrightingUnits = ($reportCopyrightingUnits ?? 0.0) + (float) ($copyrighting['hours'] ?? 0);
+                    $reportCopyrightingSum = ($reportCopyrightingSum ?? 0.0) + (float) ($copyrighting['sum'] ?? 0);
+                }
+
+                $seoLinks = $row->data->get('seo-links');
+                $seoLinksSum = is_array($seoLinks) ? $seoLinks['sum'] ?? null : null;
+                if ($seoLinksSum !== null) {
+                    $groupSeoLinksSum = ($groupSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
+                    $reportSeoLinksSum = ($reportSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
+                }
+
+                $summarySpendings = $row->data->get('summary-spendings');
+                $summarySpendingsSum = is_array($summarySpendings) ? $summarySpendings['sum'] ?? null : null;
+                if ($summarySpendingsSum !== null) {
+                    $groupSummarySpendings = ($groupSummarySpendings ?? 0.0) + (float) $summarySpendingsSum;
+                    $reportSummarySpendings = ($reportSummarySpendings ?? 0.0) + (float) $summarySpendingsSum;
+                }
+            }
+
+            if ($group->summary instanceof Collection) {
+                $group->summary->put(
+                    'programming',
+                    $groupProgrammingSum === null ? null : [
+                        'hours' => $groupProgrammingHours ?? 0.0,
+                        'sum' => round($groupProgrammingSum, 2),
+                    ],
+                );
+                $group->summary->put(
+                    'copyrighting',
+                    $groupCopyrightingSum === null ? null : [
+                        'hours' => $groupCopyrightingUnits ?? 0.0,
+                        'sum' => round($groupCopyrightingSum, 2),
+                    ],
+                );
+                $group->summary->put(
+                    'seo-links',
+                    $groupSeoLinksSum === null ? null : ['sum' => round($groupSeoLinksSum, 2)],
+                );
+                $group->summary->put(
+                    'summary-spendings',
+                    $groupSummarySpendings === null ? null : ['sum' => round($groupSummarySpendings, 2)],
+                );
+            }
+        }
+
+        if ($report->summary instanceof Collection) {
+            $report->summary->put(
+                'programming',
+                $reportProgrammingSum === null ? null : [
+                    'hours' => $reportProgrammingHours ?? 0.0,
+                    'sum' => round($reportProgrammingSum, 2),
+                ],
+            );
+            $report->summary->put(
+                'copyrighting',
+                $reportCopyrightingSum === null ? null : [
+                    'hours' => $reportCopyrightingUnits ?? 0.0,
+                    'sum' => round($reportCopyrightingSum, 2),
+                ],
+            );
+            $report->summary->put(
+                'seo-links',
+                $reportSeoLinksSum === null ? null : ['sum' => round($reportSeoLinksSum, 2)],
+            );
+            $report->summary->put(
+                'summary-spendings',
+                $reportSummarySpendings === null ? null : ['sum' => round($reportSummarySpendings, 2)],
             );
         }
     }
@@ -269,7 +390,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                 $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
-                $this->createSpendingsData(null, null, null, []),
+                $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
 
@@ -367,7 +488,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                 $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
-                $this->createSpendingsData(null, null, null, []),
+                $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
 
@@ -477,7 +598,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                     $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
-                    $this->createSpendingsData(null, null, null, []),
+                    $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
 
@@ -572,7 +693,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                     $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
-                    $this->createSpendingsData(null, null, null, []),
+                    $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
 
@@ -633,7 +754,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                 $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
-                $this->createSpendingsData(null, null, null, []),
+                $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
 
@@ -723,7 +844,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
                     $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
-                    $this->createSpendingsData(null, null, null, []),
+                    $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
 
@@ -803,7 +924,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createFinancialData(string $kpi, int|string|null $plan, int|float|null $clientReceipt, int|float|null $maxBonuses, ?int $acts): array
+    public function createFinancialData(string $kpi, array|int|string|null $plan, int|float|null $clientReceipt, int|float|null $maxBonuses, ?int $acts): array
     {
         return [
             'kpi' => $kpi,
@@ -832,7 +953,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         if ($programming === null && $copyrighting === null && $seoLinksSum === null && $positions === null) {
             $totalSum = null;
         } else {
-            $totalSum = $programmingSum + $copyrightingSum + $seoLinksSum;
+            $totalSum = $programmingSum + $copyrightingSum + ($seoLinksSum ?? 0);
             foreach ($positions as $position) {
                 $totalSum += $position['sum'];
             }
@@ -841,6 +962,48 @@ class ChannelReportService implements ChannelReportServiceInterface
         $spendings['summary-spendings'] = ['sum' => $totalSum];
 
         return $spendings;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildProjectSpendingsData(int $projectId, mixed $projectIntegrations): array
+    {
+        if (! $this->projectHasGoogleSheetsIntegration($projectIntegrations)) {
+            return $this->createSpendingsData(null, null, null, []);
+        }
+
+        $record = $this->googleSpendingsForReport?->get($projectId);
+
+        return $this->createSpendingsData(
+            [
+                'hours' => (float) ($record?->programming_hours ?? 0),
+                'sum' => (float) ($record?->programming_sum ?? 0),
+            ],
+            [
+                'hours' => (float) ($record?->copyrighting_units ?? 0),
+                'sum' => (float) ($record?->copyrighting_sum ?? 0),
+            ],
+            null,
+            [],
+        );
+    }
+
+    private function projectHasGoogleSheetsIntegration(mixed $projectIntegrations): bool
+    {
+        $items = $projectIntegrations instanceof Collection
+            ? $projectIntegrations
+            : collect($projectIntegrations);
+
+        return $items->contains(function ($integration) {
+            $settings = is_array($integration->settings)
+                ? $integration->settings
+                : json_decode((string) $integration->settings, true) ?? [];
+
+            return $integration->integration->code === 'google_sheets'
+                && $integration->isEnabled
+                && filled($settings['document_id'] ?? '');
+        });
     }
 
     public function createIntegrationData(array|Collection $integrations): array
@@ -889,6 +1052,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'yandex_metrika' => 'yandex-metrika',
             'callibri' => 'callibri',
             'yandex_search_api' => 'yandex-search-api',
+            'google_sheets' => 'google-sheets',
             default => 'default'
         };
     }

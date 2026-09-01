@@ -86,7 +86,10 @@
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column
-                                class="whitespace-nowrap border"
+                                @class([
+                                    'whitespace-nowrap border',
+                                    'min-w-28' => $column->field === 'tool',
+                                ])
                                 style="border-color: var(--color-table-cell)"
                             >
                                 <span>{{ $column->label }}</span>
@@ -117,11 +120,12 @@
                                         </div>
                                     </x-data.table-cell>
                                 </x-data.table-row>
-                                <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
+                                <x-data.table-row wire:key="group.{{ $groupIndex }}.summary" data-channels-group-summary>
                                     @foreach ($this->visibleColumns as $column)
                                         <x-dynamic-component
                                             :component="'channels.rows.summary.' . $column->component"
                                             :params="$group->summary->get($column->field)"
+                                            :bold="true"
                                         />
                                     @endforeach
                                 </x-data.table-row>
@@ -166,6 +170,7 @@
                                 <x-dynamic-component
                                     :component="'channels.rows.summary.' . $column->component"
                                     :params="$this->reportData->summary->get($column->field)"
+                                    :bold="true"
                                 />
                             @endforeach
                         </x-data.table-row>

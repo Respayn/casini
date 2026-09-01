@@ -2,22 +2,28 @@
 
 namespace Src\Planning\Domain;
 
-use Src\Planning\Domain\ValueObjects\KpiParametersSchema;
 use DateTimeImmutable;
-use Src\Planning\Application\Services\KpiParametersSchemaService;
-use Src\Planning\Domain\ValueObjects\PlanValue;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
+use Src\Planning\Application\Services\KpiParametersSchemaService;
+use Src\Planning\Domain\ValueObjects\KpiParametersSchema;
+use Src\Planning\Domain\ValueObjects\PlanValue;
 use Symfony\Component\ExpressionLanguage\ExpressionLanguage;
 
 class Project
 {
     private int $id;
+
     private string $name;
+
     private DateTimeImmutable $createdAt;
+
     private ProjectType $type;
+
     private Kpi $kpi;
+
     private ?Client $client;
+
     private KpiParametersSchema $parametersSchema;
 
     /** @var PlanValue[] */
@@ -40,7 +46,7 @@ class Project
         $this->client = $client;
         $this->planValues = $planValues;
 
-        $schemaService = new KpiParametersSchemaService();
+        $schemaService = new KpiParametersSchemaService;
         $this->parametersSchema = $schemaService->createSchema($type, $kpi);
     }
 
@@ -94,6 +100,7 @@ class Project
                 break;
             }
         }
+
         return $result;
     }
 
@@ -102,6 +109,7 @@ class Project
         foreach ($this->planValues as $planValue) {
             if ($planValue->getParameterCode() === $parameterCode && $planValue->getYear() === $year && $planValue->getMonth() === $month) {
                 $planValue->setValue($value);
+
                 return;
             }
         }
@@ -112,7 +120,6 @@ class Project
     /**
      * Получить целевое значение плана. Некоторые планы расчитываются по
      * нескольким параметрам.
-     * @return ?float
      */
     public function getPlanValue(string $parameterCode, int $year, int $month): ?float
     {
@@ -139,7 +146,7 @@ class Project
                 $dependenciesValues[$dependency] = $this->getRawPlanValue($dependency, $year, $month);
             }
 
-            $expressionLanguage = new ExpressionLanguage();
+            $expressionLanguage = new ExpressionLanguage;
 
             $result = $expressionLanguage->evaluate($formula, $dependenciesValues);
         } else {
@@ -152,7 +159,6 @@ class Project
     /**
      * Получить целевое значение плана. Некоторые планы расчитываются по
      * нескольким параметрам.
-     * @return ?float
      */
     public function getPrimaryPlanValue(int $year, int $month): ?float
     {
@@ -179,7 +185,7 @@ class Project
                 $dependenciesValues[$dependency] = $this->getRawPlanValue($dependency, $year, $month);
             }
 
-            $expressionLanguage = new ExpressionLanguage();
+            $expressionLanguage = new ExpressionLanguage;
 
             $result = $expressionLanguage->evaluate($formula, $dependenciesValues);
         } else {
@@ -187,5 +193,26 @@ class Project
         }
 
         return $result;
+    }
+
+    /**
+     * Основной параметр плана на месяц для отчёта «Каналы».
+     *
+     * @return array{value: ?float, format: ?string}|null
+     */
+    public function getPrimaryPlanCell(int $year, int $month): ?array
+    {
+        foreach ($this->getParametersSchema()->getParameters() as $parameter) {
+            if (! $parameter->isPrimary()) {
+                continue;
+            }
+
+            return [
+                'value' => $this->getPlanValue($parameter->getId(), $year, $month),
+                'format' => $parameter->getFormat(),
+            ];
+        }
+
+        return null;
     }
 }

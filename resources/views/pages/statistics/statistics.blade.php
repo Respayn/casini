@@ -77,6 +77,7 @@
                             <x-data.table-column
                                 @class([
                                     'whitespace-nowrap border',
+                                    'min-w-28' => $column->field === 'service',
                                     '!p-0' => $column->component === 'fact',
                                 ])
                                 style="{{ $column->component === 'fact' ? 'border-color: var(--color-table-cell); min-width: 7.5rem' : 'border-color: var(--color-table-cell)' }}"

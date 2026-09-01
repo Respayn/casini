@@ -6,6 +6,8 @@
 ])
 
 @php
+    use App\Helpers\PlanValueHelper;
+
     $formatValue = static function (array $slot): string {
         if (! array_key_exists('value', $slot) || $slot['value'] === null || $slot['value'] === '') {
             return '-';
@@ -40,7 +42,10 @@
     $maxSizer = 'План';
 
     foreach ($params as $parameter) {
-        $planText = $formatValue($parameter['plan']);
+        $planText = PlanValueHelper::format(
+            $parameter['plan']['value'] ?? null,
+            $parameter['plan']['format'] ?? null,
+        );
         $factText = is_numeric($parameter['fact']['value'] ?? null)
             ? $formatValue($parameter['fact'])
             : '-';
