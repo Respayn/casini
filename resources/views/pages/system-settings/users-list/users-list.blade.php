@@ -12,9 +12,25 @@
         </div>
 
         <div class="flex gap-2 items-center">
-            <a href="{{ route('system-settings.users.create') }}">
-                <x-button.button label="+ Добавить пользователя" variant="primary" />
-            </a>
+            @php
+                $canCreate = $this->canCreateUsers;
+            @endphp
+
+            <x-permissions.field-guard :enabled="$canCreate">
+                @if ($canCreate)
+                    <x-button.button
+                        href="{{ route('system-settings.users.create') }}"
+                        label="+ Добавить пользователя"
+                        variant="primary"
+                    />
+                @else
+                    <x-button.button
+                        label="+ Добавить пользователя"
+                        variant="primary"
+                        disabled
+                    />
+                @endif
+            </x-permissions.field-guard>
         </div>
     </div>
 

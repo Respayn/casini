@@ -10,17 +10,6 @@ enum UserAccountStatus: string
     case Inactive = 'inactive';
     case PendingEmail = 'pending_email';
 
-    public static function fromFlags(bool $isActive, mixed $emailVerifiedAt): self
-    {
-        if ($isActive) {
-            return self::Active;
-        }
-
-        return $emailVerifiedAt === null
-            ? self::PendingEmail
-            : self::Inactive;
-    }
-
     public function label(): string
     {
         return match ($this) {

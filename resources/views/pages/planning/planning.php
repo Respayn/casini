@@ -1,20 +1,26 @@
 <?php
 
-use Livewire\Attributes\Title;
-use Livewire\Component;
+use App\Livewire\Concerns\WithSidebarProjectFilter;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Component;
 use Src\Planning\Application\ProjectPlanService;
 
 new
     #[Title('Casini - Планирование')]
     class extends Component
     {
+        use WithSidebarProjectFilter;
+
         public int $year;
+
         public array $tableData = [];
+
         public bool $hasChanges = false;
+
         public array $modifiedProjectIds = [];
 
         private ProjectPlanService $projectPlanService;
@@ -32,7 +38,17 @@ new
 
         public function loadTableData()
         {
-            $this->tableData = $this->projectPlanService->getPlansForYear($this->year);
+            $this->tableData = $this->projectPlanService->getPlansForYear(
+                $this->year,
+                $this->sidebarProjectId,
+            );
+        }
+
+        protected function afterSidebarProjectFilterChanged(): void
+        {
+            $this->modifiedProjectIds = [];
+            $this->hasChanges = false;
+            $this->loadTableData();
         }
 
         public function updatedYear()
@@ -85,7 +101,7 @@ new
                 return isset($this->modifiedProjectIds[$plan['project_id']]);
             });
 
-            if (!empty($plansToSave)) {
+            if (! empty($plansToSave)) {
                 $this->projectPlanService->savePlansForYear($this->year, $plansToSave);
             }
 
@@ -98,7 +114,7 @@ new
         {
             return Auth::user()->hasAnyPermission([
                 'edit planning',
-                'full planning'
+                'full planning',
             ]);
         }
 
@@ -107,7 +123,8 @@ new
         {
             return Auth::user()->hasAnyPermission([
                 'read planning approval',
-                'full planning approval'
+                'edit planning approval',
+                'full planning approval',
             ]);
         }
 
@@ -116,7 +133,7 @@ new
         {
             return Auth::user()->hasAnyPermission([
                 'edit planning approval',
-                'full planning approval'
+                'full planning approval',
             ]);
         }
     };

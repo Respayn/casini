@@ -1,6 +1,7 @@
 <?php
 
 use App\Services\UserService;
+use App\Support\ClientsAndProjectsPermissions;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -13,9 +14,13 @@ use Src\Application\Clients\Update\UpdateClientCommandHandler;
 new class extends Component
 {
     public ?int $id = null;
+
     public string $name;
+
     public string $inn;
+
     public int $managerId;
+
     public float $initialBalance;
 
     private UserService $userService;
@@ -28,6 +33,8 @@ new class extends Component
     #[On('client-create')]
     public function onClientCreate()
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         $this->reset();
         $this->dispatch('modal-show', name: 'client-modal');
     }
@@ -35,12 +42,20 @@ new class extends Component
     #[On('client-edit')]
     public function onClientEdit($id, $name, $inn, $initialBalance, $managerId)
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         $this->id = $id;
         $this->name = $name;
         $this->inn = $inn;
         $this->initialBalance = $initialBalance;
         $this->managerId = $managerId;
         $this->dispatch('modal-show', name: 'client-modal');
+    }
+
+    #[Computed]
+    public function canEdit(): bool
+    {
+        return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
     }
 
     #[Computed]
@@ -62,9 +77,9 @@ new class extends Component
 
         return $this->userService
             ->getManagers($currentAgencyId)
-            ->map(fn($manager) => [
+            ->map(fn ($manager) => [
                 'label' => $this->formatManagerName($manager),
-                'value' => $manager->id
+                'value' => $manager->id,
             ])
             ->values()
             ->all();
@@ -73,17 +88,20 @@ new class extends Component
     private function formatManagerName($manager): string
     {
         $fullName = trim("{$manager->first_name} {$manager->last_name}");
+
         return $fullName !== '' ? $fullName : $manager->login;
     }
 
     public function saveClient(CreateClientCommandHandler $createCommand, UpdateClientCommandHandler $updateCommand)
     {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+
         $this->validate([
             'name' => 'required|string|max:255',
             'inn' => [
                 'required',
                 'regex:/^\d{10,12}$/',
-                'unique:clients,inn,' . ($this->id ?: 'null')
+                'unique:clients,inn,'.($this->id ?: 'null'),
             ],
             'managerId' => 'required|exists:users,id',
             'initialBalance' => 'required|numeric',

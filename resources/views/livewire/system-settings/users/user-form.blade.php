@@ -1,11 +1,26 @@
+@php
+    $canEditUserAdminFields = $canEditUserAdminFields ?? true;
+    $isOwnProfile = $isOwnProfile ?? false;
+@endphp
+
 <x-form.form :is-normalized="true" wire:submit.prevent="save" class="mt-4">
     <div class="flex flex-col gap-4">
         <h1 class="text-xl font-semibold">
-            {{ isset($form->id) ? 'Редактировать пользователя' : 'Добавить пользователя' }}
+            @if (! isset($form->id))
+                Добавить пользователя
+            @elseif ($isOwnProfile)
+                Настройки профиля
+            @else
+                Редактировать пользователя
+            @endif
         </h1>
 
         @if (session('password_updated'))
             <x-feedback.notice>{{ session('password_updated') }}</x-feedback.notice>
+        @endif
+
+        @if (session('success'))
+            <x-feedback.notice>{{ session('success') }}</x-feedback.notice>
         @endif
 
         {{-- Основная информация --}}
@@ -20,7 +35,13 @@
 
             <x-form.form-field>
                 <x-form.form-label required tooltip="Уникальный логин для входа в систему">Логин</x-form.form-label>
-                <x-form.input-text wire:model="form.login" placeholder="Логин" />
+                <x-permissions.field-guard :enabled="$canEditUserAdminFields">
+                    <x-form.input-text
+                        wire:model="form.login"
+                        placeholder="Логин"
+                        :disabled="! $canEditUserAdminFields"
+                    />
+                </x-permissions.field-guard>
             </x-form.form-field>
 
             @if(!isset($form->id))
@@ -36,29 +57,38 @@
 
             <x-form.form-field>
                 <x-form.form-label required tooltip="Пользователь сможет войти только если активен">Статус</x-form.form-label>
-                <x-form.select
-                    wire:model="form.account_status"
-                    :options="\App\Enums\UserAccountStatus::selectOptions()"
-                    placeholder="Выберите значение"
-                />
+                <x-permissions.field-guard :enabled="$canEditUserAdminFields">
+                    <x-form.select
+                        wire:model="form.account_status"
+                        :options="\App\Enums\UserAccountStatus::selectOptions()"
+                        placeholder="Выберите значение"
+                        :disabled="! $canEditUserAdminFields"
+                    />
+                </x-permissions.field-guard>
             </x-form.form-field>
 
             <x-form.form-field>
                 <x-form.form-label required tooltip="Определяет уровень доступа">Роль</x-form.form-label>
-                <x-form.select
-                    wire:model="form.role_id"
-                    :options="$roles"
-                    placeholder="Выберите роль"
-                />
+                <x-permissions.field-guard :enabled="$canEditUserAdminFields">
+                    <x-form.select
+                        wire:model="form.role_id"
+                        :options="$roles"
+                        placeholder="Выберите роль"
+                        :disabled="! $canEditUserAdminFields"
+                    />
+                </x-permissions.field-guard>
             </x-form.form-field>
 
             <x-form.form-field>
                 <x-form.form-label tooltip="По умолчанию базовая ставка">Ставка</x-form.form-label>
-                <x-form.select
-                    wire:model="form.rate_id"
-                    :options="collect($rates)->map(fn($r) => ['label' => $r->name, 'value' => $r->id])->values()->all()"
-                    placeholder="Выберите ставку"
-                />
+                <x-permissions.field-guard :enabled="$canEditUserAdminFields">
+                    <x-form.select
+                        wire:model="form.rate_id"
+                        :options="collect($rates)->map(fn($r) => ['label' => $r->name, 'value' => $r->id])->values()->all()"
+                        placeholder="Выберите ставку"
+                        :disabled="! $canEditUserAdminFields"
+                    />
+                </x-permissions.field-guard>
             </x-form.form-field>
         </div>
 

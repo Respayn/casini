@@ -11,7 +11,7 @@ use Src\Domain\ValueObjects\ProjectType;
 class ClientReadRepository implements ClientReadRepositoryInterface
 {
     /**
-     * @inheritdoc
+     * {@inheritdoc}
      */
     public function getClientsWithProjects(): array
     {
@@ -25,7 +25,8 @@ class ClientReadRepository implements ClientReadRepositoryInterface
                 'clients.initial_balance',
                 'projects.id as project_id',
                 'projects.name as project_name',
-                'projects.project_type'
+                'projects.project_type',
+                'projects.specialist_id',
             ])
             ->get();
 
@@ -33,12 +34,13 @@ class ClientReadRepository implements ClientReadRepositoryInterface
 
         return $grouped->map(function ($clientRows) {
             $first = $clientRows->first();
-            
+
             $projects = $clientRows->whereNotNull('project_id')->map(function ($row) {
                 return new ClientProjectDto(
                     id: $row->project_id,
                     name: $row->project_name,
-                    projectType: ProjectType::from($row->project_type)->label()
+                    projectType: ProjectType::from($row->project_type)->label(),
+                    specialistId: $row->specialist_id !== null ? (int) $row->specialist_id : null,
                 );
             })->toArray();
 

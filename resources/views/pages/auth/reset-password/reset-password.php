@@ -5,7 +5,6 @@ use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
 use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -15,7 +14,8 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
-new #[Layout('layouts::auth')] class extends Component {
+new #[Layout('layouts::auth')] class extends Component
+{
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
@@ -73,7 +73,7 @@ new #[Layout('layouts::auth')] class extends Component {
             ],
             function (User $user, string $password): void {
                 $user->forceFill([
-                    'password' => Hash::make($password),
+                    'password' => $password,
                     'remember_token' => Str::random(60),
                 ])->save();
 

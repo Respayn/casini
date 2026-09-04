@@ -126,8 +126,8 @@ new class extends Component {
                 x-bind:class="{'cursor-pointer hover:bg-gray-50': canEdit && !parameter.is_calculated}">
                 <template x-if="isEditing">
                     <div>
-                        <x-form.input-text x-ref="input" x-model="localValue" x-on:keydown.enter="commit()"
-                            x-on:blur="commit()" x-on:keydown.escape="cancel()" type="number"
+                        <x-form.input-number x-ref="input" x-model="localValue" x-on:keydown.enter="commit()"
+                            x-on:blur="commit()" x-on:keydown.escape="cancel()"
                             class="w-full h-full px-1 py-0 bg-white border-none focus:ring-0" />
                     </div>
                 </template>

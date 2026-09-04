@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role as SpatieRole;
-use App\Enums\Role as RoleEnum;
 
 class RolesTableSeeder extends Seeder
 {
@@ -17,42 +16,47 @@ class RolesTableSeeder extends Seeder
             'admin' => [
                 'displayName' => 'Администратор',
                 'useInManagersList' => false,
-                'useInSpecialistList' => false
+                'useInSpecialistList' => false,
+            ],
+            'default' => [
+                'displayName' => 'Роль по умолчанию',
+                'useInManagersList' => false,
+                'useInSpecialistList' => false,
             ],
             'manager' => [
                 'displayName' => 'Менеджер',
                 'useInManagersList' => true,
-                'useInSpecialistList' => false
+                'useInSpecialistList' => false,
             ],
             'kr' => [
                 'displayName' => 'Специалист (директолог)',
                 'useInManagersList' => false,
-                'useInSpecialistList' => true
+                'useInSpecialistList' => true,
             ],
             'seo' => [
                 'displayName' => 'Специалист (SEO)',
                 'useInManagersList' => false,
-                'useInSpecialistList' => true
+                'useInSpecialistList' => true,
             ],
             'rucovotdelseo' => [
                 'displayName' => 'Руководитель SEO отдела',
                 'useInManagersList' => false,
-                'useInSpecialistList' => true
+                'useInSpecialistList' => true,
             ],
             'rucovotdelkp' => [
                 'displayName' => 'Руководитель KP отдела',
                 'useInManagersList' => false,
-                'useInSpecialistList' => true
+                'useInSpecialistList' => true,
             ],
             'rucovotdelmanager' => [
                 'displayName' => 'Руководитель отдела менеджеров',
                 'useInManagersList' => true,
-                'useInSpecialistList' => false
+                'useInSpecialistList' => false,
             ],
             'office_manager' => [
                 'displayName' => 'Офис-менеджер',
                 'useInManagersList' => false,
-                'useInSpecialistList' => false
+                'useInSpecialistList' => false,
             ],
         ];
 

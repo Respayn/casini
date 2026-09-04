@@ -4,12 +4,16 @@ namespace App\Repositories;
 
 use App\Data\PermissionData;
 use App\Data\RoleData;
+use App\Enums\PermissionGroup;
+use App\Enums\Role as RoleEnum;
 use App\Models\Role;
 use App\OperationResult;
+use App\Support\DefaultRole;
 use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 
 class RoleRepository
 {
@@ -22,11 +26,11 @@ class RoleRepository
                 $role->id,
                 $role->name,
                 $role->display_name,
-                new Collection(),
+                new Collection,
                 $role->use_in_project_filter,
                 $role->use_in_managers_list,
                 $role->use_in_specialist_list,
-                new Collection(),
+                new Collection,
                 ($role->users_count ?? 0) > 0
             );
         });
@@ -56,6 +60,7 @@ class RoleRepository
     public function getPermissions()
     {
         $permissions = Permission::all();
+
         return $permissions->map(function ($permission) {
             return new PermissionData(
                 $permission->id,
@@ -78,20 +83,22 @@ class RoleRepository
 
             foreach ($roleData['permissions'] as $permission) {
                 if ($permission['canRead']) {
-                    $role->givePermissionTo('read ' . $permission['name']);
+                    $role->givePermissionTo('read '.$permission['name']);
                 }
 
                 if ($permission['canEdit']) {
-                    $role->givePermissionTo('edit ' . $permission['name']);
+                    $role->givePermissionTo('edit '.$permission['name']);
                 }
 
                 if ($permission['haveFullAccess']) {
-                    $role->givePermissionTo('full ' . $permission['name']);
+                    $role->givePermissionTo('full '.$permission['name']);
                 }
             }
 
-            if ($roleData['hasChildRoles']) {
-                $childIds = array_filter(array_column($roleData['childRoles'], 'id'));
+            $this->revokeDirectProductPermissionsForRoleUsers($role->fresh(['users']));
+
+            if ($roleData['hasChildRoles'] ?? false) {
+                $childIds = array_filter(array_column($roleData['childRoles'] ?? [], 'id'));
                 $role->childRoles()->sync($childIds);
             } else {
                 $role->childRoles()->detach();
@@ -107,33 +114,56 @@ class RoleRepository
     {
         try {
             $role = Role::findById($roleData['id']);
-            $role->display_name = $roleData['name'];
-            $role->use_in_project_filter = $roleData['useInProjectFilter'];
-            $role->use_in_managers_list = $roleData['useInManagersList'];
-            $role->use_in_specialist_list = $roleData['useInSpecialistList'];
+            $isDefault = DefaultRole::isDefault($role->name);
+            $isAdmin = $role->name === RoleEnum::ADMIN->value;
+
+            if ($isDefault) {
+                $role->display_name = RoleEnum::DEFAULT->label();
+                $role->use_in_project_filter = false;
+                $role->use_in_managers_list = false;
+                $role->use_in_specialist_list = false;
+            } else {
+                $role->display_name = $isAdmin
+                    ? RoleEnum::ADMIN->label()
+                    : $roleData['name'];
+                $role->use_in_project_filter = $roleData['useInProjectFilter'];
+                $role->use_in_managers_list = $roleData['useInManagersList'];
+                $role->use_in_specialist_list = $roleData['useInSpecialistList'];
+            }
             $role->save();
 
             $permissions = [];
             foreach ($roleData['permissions'] as $permission) {
                 if ($permission['canRead']) {
-                    $permissions[] = 'read ' . $permission['name'];
+                    $permissions[] = 'read '.$permission['name'];
                 }
 
                 if ($permission['canEdit']) {
-                    $permissions[] = 'edit ' . $permission['name'];
+                    $permissions[] = 'edit '.$permission['name'];
                 }
 
                 if ($permission['haveFullAccess']) {
-                    $permissions[] = 'full ' . $permission['name'];
+                    $permissions[] = 'full '.$permission['name'];
                 }
             }
-            $role->syncPermissions($permissions);
 
-            if ($roleData['hasChildRoles']) {
+            if ($isDefault) {
+                $permissions = DefaultRole::grantedPermissionNames();
+            } else {
+                $permissions = array_values(array_unique(array_merge(
+                    $permissions,
+                    $this->hiddenGroupPermissionNames($role)
+                )));
+            }
+
+            $role->syncPermissions($permissions);
+            $this->revokeDirectProductPermissionsForRoleUsers($role);
+
+            if ($isDefault || empty($roleData['hasChildRoles'])) {
+                $role->childRoles()->detach();
+            } else {
                 $childIds = array_filter(array_column($roleData['childRoles'], 'id'));
                 $role->childRoles()->sync($childIds);
-            } else {
-                $role->childRoles()->detach();
             }
 
             return OperationResult::success();
@@ -142,9 +172,18 @@ class RoleRepository
         }
     }
 
-    public function deleteRole(int $roleId)
+    public function deleteRole(int $roleId): void
     {
         $role = Role::findById($roleId);
+
+        if ($role->name === RoleEnum::ADMIN->value) {
+            throw new Exception('Нельзя удалить роль администратор');
+        }
+
+        if (DefaultRole::isDefault($role->name)) {
+            throw new Exception(__('permissions.default_role_undeletable'));
+        }
+
         $role->syncPermissions([]);
         $role->delete();
     }
@@ -160,13 +199,52 @@ class RoleRepository
                 $role->id,
                 $role->name,
                 $role->display_name,
-                new Collection(),
+                new Collection,
                 $role->use_in_project_filter,
                 $role->use_in_managers_list,
                 $role->use_in_specialist_list,
-                new Collection(),
+                new Collection,
                 ($role->users_count ?? 0) > 0
             );
         });
+    }
+
+    /**
+     * Права скрытых на UI групп (например media planning), которые нельзя затирать при sync.
+     *
+     * @return list<string>
+     */
+    private function hiddenGroupPermissionNames(Role $role): array
+    {
+        $hiddenGroups = PermissionGroup::hiddenOnSettingsPageGroupNames();
+
+        return $role->permissions
+            ->filter(fn ($permission) => in_array($permission->group, $hiddenGroups, true))
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Права продуктов задаются через роли. Прямые назначения на пользователя
+     * иначе переживают снятие галочки в «Продукты и права».
+     */
+    private function revokeDirectProductPermissionsForRoleUsers(Role $role): void
+    {
+        $productGroups = PermissionGroup::flatValues();
+        $role->loadMissing('users');
+
+        foreach ($role->users as $user) {
+            $directProductPermissions = $user->getDirectPermissions()
+                ->filter(fn (Permission $permission) => in_array($permission->group, $productGroups, true));
+
+            if ($directProductPermissions->isEmpty()) {
+                continue;
+            }
+
+            $user->revokePermissionTo($directProductPermissions);
+        }
+
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }

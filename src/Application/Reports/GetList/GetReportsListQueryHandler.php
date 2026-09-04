@@ -21,6 +21,11 @@ class GetReportsListQueryHandler
             DateTimeImmutable::createFromInterface($query->periodTo)
         );
 
-        return $this->dataProvider->getList($query->showInactiveProjects, $period, $query->userId);
+        return $this->dataProvider->getList(
+            $query->showInactiveProjects,
+            $period,
+            $query->userId,
+            $query->projectId,
+        );
     }
 }

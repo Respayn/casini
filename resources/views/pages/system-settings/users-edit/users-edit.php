@@ -7,6 +7,8 @@ use App\Models\User;
 use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
+use App\Support\SystemSettingsSectionPermissions;
+use App\Support\UserProfileAccess;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -16,6 +18,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 
 new
 #[Layout('layouts::system-settings')]
@@ -49,6 +52,18 @@ class extends Component
                 ? 'Настройки профиля'
                 : 'Редактировать пользователя'
         );
+    }
+
+    #[Computed]
+    public function isOwnProfile(): bool
+    {
+        return UserProfileAccess::isOwnProfile($this->user);
+    }
+
+    #[Computed]
+    public function canEditUserAdminFields(): bool
+    {
+        return UserProfileAccess::canEditAdminFields();
     }
 
     #[Computed]
@@ -89,6 +104,14 @@ class extends Component
 
     public function save(UserService $userService)
     {
+        if (! UserProfileAccess::canSaveUser($this->user)) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::editPermissionNames(
+                    SystemSettingsSectionPermissions::users()
+                )
+            );
+        }
+
         $this->form->validate();
 
         $passwordChanged = $this->form->hasPasswordChange();
@@ -142,7 +165,13 @@ class extends Component
             unset($data['password']);
         }
 
-        $data = $this->form->applyAccountStatus($data, $this->user);
+        $data = UserProfileAccess::mergeSavePayload($this->user, $data);
+
+        if ($this->canEditUserAdminFields) {
+            $data = $this->form->applyAccountStatus($data, $this->user);
+        } else {
+            unset($data['account_status']);
+        }
 
         $userService->update($this->form->id, $data);
 
@@ -153,7 +182,12 @@ class extends Component
         if ($passwordChanged) {
             session()->flash('password_updated', 'Пароль успешно обновлен');
         } else {
-            session()->flash('success', 'Изменения сохранены');
+            session()->flash(
+                'success',
+                UserProfileAccess::isOwnProfile($this->user)
+                    ? 'Профиль успешно обновлен!'
+                    : 'Пользователь успешно обновлен!'
+            );
         }
 
         return $this->redirect(

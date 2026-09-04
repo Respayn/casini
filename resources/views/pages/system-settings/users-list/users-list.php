@@ -5,6 +5,8 @@ namespace App\Livewire\Users;
 use App\Enums\UserAccountStatus;
 use App\Services\AgencySettingsService;
 use App\Services\UserService;
+use App\Support\SystemSettingsSectionPermissions;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -24,6 +26,14 @@ class extends Component
     {
         $this->agencyId = $agencySettingsService->getActualAgencyId();
         $this->loadUsers($userService);
+    }
+
+    #[Computed]
+    public function canCreateUsers(): bool
+    {
+        return SystemSettingsSectionPermissions::userCanEdit(
+            SystemSettingsSectionPermissions::users()
+        );
     }
 
     public function updatedOnlyActive(UserService $userService)

@@ -10,15 +10,6 @@ use Tests\TestCase;
 class UserAccountStatusTest extends TestCase
 {
     #[Test]
-    public function from_flags_maps_statuses(): void
-    {
-        $this->assertSame(UserAccountStatus::Active, UserAccountStatus::fromFlags(true, null));
-        $this->assertSame(UserAccountStatus::Active, UserAccountStatus::fromFlags(true, now()));
-        $this->assertSame(UserAccountStatus::PendingEmail, UserAccountStatus::fromFlags(false, null));
-        $this->assertSame(UserAccountStatus::Inactive, UserAccountStatus::fromFlags(false, now()));
-    }
-
-    #[Test]
     public function inactive_persistence_stamps_verified_at_when_missing(): void
     {
         $data = UserAccountStatus::Inactive->toPersistence(null);
@@ -47,7 +38,7 @@ class UserAccountStatusTest extends TestCase
     }
 
     #[Test]
-    public function user_account_status_delegates_to_from_flags(): void
+    public function user_account_status_maps_flags_correctly(): void
     {
         $pending = new User(['is_active' => false, 'email_verified_at' => null]);
         $inactive = new User(['is_active' => false, 'email_verified_at' => now()]);

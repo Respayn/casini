@@ -27,6 +27,8 @@
             @include('livewire.system-settings.users.user-form', [
                 'saveDisabled' => ! $this->isSaveReady,
                 'showInlineActions' => false,
+                'isOwnProfile' => $this->isOwnProfile,
+                'canEditUserAdminFields' => $this->canEditUserAdminFields,
             ])
         </div>
     </x-panel.scroll-panel>

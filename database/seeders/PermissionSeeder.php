@@ -3,7 +3,7 @@
 namespace Database\Seeders;
 
 use App\Enums\PermissionGroup;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use App\Support\DefaultRole;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -18,7 +18,7 @@ class PermissionSeeder extends Seeder
         $accessLevels = [
             'read',
             'edit',
-            'full'
+            'full',
         ];
 
         $adminRole = Role::findByName('admin');
@@ -26,12 +26,15 @@ class PermissionSeeder extends Seeder
         foreach (PermissionGroup::flatValues() as $group) {
             foreach ($accessLevels as $level) {
                 $permission = Permission::updateOrCreate(
-                    ['name' => $level . ' ' . $group],
+                    ['name' => $level.' '.$group],
                     ['group' => $group]
                 );
 
                 $adminRole->givePermissionTo($permission);
             }
         }
+
+        $defaultRole = Role::findByName(DefaultRole::systemName());
+        $defaultRole->syncPermissions(DefaultRole::grantedPermissionNames());
     }
 }

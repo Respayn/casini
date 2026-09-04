@@ -22,8 +22,12 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/.cursor/*.log
+/.cursor/rules/casini-project-workflow.mdc
+/.cursor/rules/staging-deploy.mdc
+/.cursor/rules/integration-data-sync.mdc
 
-# Локальные pre-deploy проверки staging (не для GitHub)
-/scripts/staging-pre-deploy-check.sh
+# Локальные скрипты точечного деплоя на staging (не в remote)
 /scripts/staging-deploy-files.sh
 /scripts/staging-hot-zones.conf
+/scripts/staging-pre-deploy-check.sh

@@ -17,7 +17,8 @@ use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Spatie\Permission\Models\Role as RoleModel;
 
-new #[Layout('layouts::auth')] class extends Component {
+new #[Layout('layouts::auth')] class extends Component
+{
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
@@ -138,7 +139,7 @@ new #[Layout('layouts::auth')] class extends Component {
             ->firstOrFail();
 
         $role = RoleModel::query()
-            ->where('name', Role::MANAGER->value)
+            ->where('name', Role::DEFAULT->value)
             ->firstOrFail();
 
         $login = $this->generateUniqueLogin($this->email);
@@ -162,7 +163,6 @@ new #[Layout('layouts::auth')] class extends Component {
         ]);
 
         $user = User::query()->findOrFail($userData->id);
-        $this->grantRegistrationChannelsAccess($user);
 
         $verifyUrl = URL::temporarySignedRoute(
             'register.verify',

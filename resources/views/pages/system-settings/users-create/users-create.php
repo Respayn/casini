@@ -6,13 +6,14 @@ use App\Livewire\Forms\SystemSettings\Users\UserForm;
 use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
+use App\Support\SystemSettingsSectionPermissions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 
 new
 #[Layout('layouts::system-settings')]
@@ -22,7 +23,9 @@ class extends Component
     use WithFileUploads;
 
     public UserForm $form;
+
     public Collection $rates;
+
     public array $roles = [];
 
     public bool $buttonDisabled = true;
@@ -30,8 +33,7 @@ class extends Component
     public function boot(
         RateService $ratesService,
         RoleService $roleService
-    )
-    {
+    ) {
         $this->rates = $ratesService->getRates(); // Получить список ставок для селекта
         // Получение ролей для выпадающего списка, если нужно
         $this->roles = $roleService->getRoleOptions();
@@ -44,6 +46,16 @@ class extends Component
 
     public function save(UserService $userService)
     {
+        if (! SystemSettingsSectionPermissions::userCanEdit(
+            SystemSettingsSectionPermissions::users()
+        )) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::editPermissionNames(
+                    SystemSettingsSectionPermissions::users()
+                )
+            );
+        }
+
         $this->validate();
 
         // TODO: Вынести в репозиторий
@@ -54,18 +66,18 @@ class extends Component
         $currentAgencyId = session('current_agency_id') ?? (Auth::user()->agency_id ?? null);
 
         $userData = [
-            'login'      => $this->form->login,
+            'login' => $this->form->login,
             'first_name' => $this->form->first_name,
-            'last_name'  => $this->form->last_name,
-            'email'      => $this->form->email,
-            'phone'      => $this->form->phone,
+            'last_name' => $this->form->last_name,
+            'email' => $this->form->email,
+            'phone' => $this->form->phone,
             'image_path' => $this->form->image_path,
-            'megaplan_id'=> $this->form->megaplan_id,
-            'rate_id'    => $this->form->rate_id,
-            'role_id'    => $this->form->role_id,
+            'megaplan_id' => $this->form->megaplan_id,
+            'rate_id' => $this->form->rate_id,
+            'role_id' => $this->form->role_id,
             'enable_important_notifications' => $this->form->enable_important_notifications,
             'enable_notifications' => $this->form->enable_notifications,
-            'password'   => $this->form->password,
+            'password' => $this->form->password,
             'agency_id' => $currentAgencyId,
         ];
 

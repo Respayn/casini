@@ -74,6 +74,82 @@ Controller -> QueryHandler -> Repository -> Data Source
 3. **Infrastructure Layer**:
    - Создать реализацию репозитория в `src/Infrastructure/Persistence/{Entity}Repository.php`
 
+## Права разделов настроек системы
+
+Продукт «Настройки» разделён на независимые группы Spatie Permission:
+
+| Группа (value) | Раздел UI / URL |
+|----------------|-----------------|
+| `system settings` | Настройки агентства `/system-settings/agency` |
+| `system settings dictionaries` | Справочники |
+| `system settings users` | Пользователи и роли |
+| `system settings roles and permissions` | Продукты и права |
+
+Уровни: `read` / `edit` / `full` + имя группы.
+
+**Миграция ролей со старого единого права:** после `PermissionSeeder` на стенде с уже выданными `* system settings` выполнить:
+
+```bash
+php artisan db:seed --class=PermissionSeeder --force
+php artisan db:seed --class=MigrateSystemSettingsPermissionsSeeder --force
+```
+
+Seeder копирует read/edit/full с `system settings` на три новых группы; право на агентство не снимает. Admin получает новые permissions через `PermissionSeeder`. Seeder **не** в `DatabaseSeeder` — одноразовый перенос.
+
+**Свой профиль:** маршрут `system-settings.users.edit` для `user.id === auth()->id()` доступен любому авторизованному (middleware `EnsureCanAccessUserEdit`). Список пользователей — с `read|edit|full system settings users`; создание (`/users/create`) — только с `edit|full system settings users` (кнопка «+ Добавить пользователя» disabled без edit). Поля логин / статус / роль / ставка / Мегаплан редактируются только при `edit|full system settings users`; без этого права — disabled в UI и отсекаются в `UserProfileAccess::mergeSavePayload`.
+
+**Продукты и права:** `read` открывает страницу; `edit|full` — изменение. Без edit UI в режиме read-only: кнопки, ссылки, чекбоксы и переключатели disabled, при наведении — `permissions.denied` (`field-guard` / Alpine-тултип). `save()` без edit бросает `UnauthorizedException`.
+
+**Роль по умолчанию** (`default`): системная роль для регистрации / приглашений. Seed: `read channels`, `read statistics`, `read reports`, `read planning`, `read clients and projects self`. Удаление запрещено (UI + `RoleRepository`). На «Продукты и права» у этой роли и у **Администратора** скрыты блоки «Собрать портфель…» и «Подчинённые»; у default все чекбоксы locked (пять read всегда включены и disabled, остальные выкл.) с `permissions.default_role_locked`. При save права всегда восстанавливаются в `DefaultRole::grantedPermissionNames()`. Переименование **Администратора** тоже запрещено (`permissions.admin_role_name_locked`).
+
+**Шестерёнка в header:** показывается, если есть чтение хотя бы одного из пяти продуктов (Продукты и права, Пользователи и роли, Клиенты и клиенто-проекты, Справочники, Настройки агентства). Ссылка — первый доступный раздел в том же порядке (`SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName`).
+
+## Клиенты и клиенто-проекты (доступ)
+
+Маршруты списка и формы проекта: middleware `ClientsAndProjectsPermissions` — любое из read|edit|full для родителя `clients and projects`, `… self`, `… all`.
+
+- Список фильтруется `ClientListVisibilityFilter` (self: менеджер клиента / specialist проекта; all: всё).
+- Создание и сохранение клиента/проекта — `ensureUserCanEdit` (edit|full self|all).
+- Открытие существующего проекта — `ClientProjectAccessPolicy` (all или self с привязкой).
+
+## Сайдбар (виджет портфеля)
+
+Левая панель: «Поиск по клиентам и клиенто-проектам», «Удалить фильтры», «Собрать портфель клиенто-проектов по», дерево сотрудник → клиент → клиенто-проект.
+
+| Часть | Роль |
+|-------|------|
+| UI | `resources/views/livewire/sidebar.blade.php`, Livewire `App\Livewire\Sidebar` |
+| Данные | `App\Services\SidebarService` |
+| Опции сортировки | роли с `use_in_project_filter` (`RoleRepository::getRolesForFilter`) |
+
+Логика портфеля по выбранной роли:
+- `use_in_managers_list` → подпись «По менеджерам»; клиенты с `manager_id = user.id` и их **активные** проекты;
+- иначе → «По роли {display_name}»; проекты с `specialist_id = user.id`, сгруппированные по клиенту.
+
+Права просматривающего: `clients and projects all` — все пользователи роли; только `self` — только свой узел; без прав — пусто.
+
+### Фильтрация продуктов по клиенто-проекту
+
+Выбор клиенто-проекта в сайдбаре фильтрует продуктовые страницы: **Каналы**, **Статистика**, **Планирование**, **Отчёты**, **Клиенты и клиенто-проекты**.
+
+| Часть | Роль |
+|-------|------|
+| Session | `#[Session(key: 'sidebar_selected_project_id')]` на свойствах сайдбара и trait страниц; проверка доступа — `App\Support\SidebarProjectAccess` |
+| События | `sidebar-project-selected` / `sidebar-project-cleared` |
+| Trait страниц | `App\Livewire\Concerns\WithSidebarProjectFilter` |
+| UI-подсказка | `x-layout.sidebar-filter-hint` (стиль info-блока Callibri) |
+
+Поведение:
+- клик по проекту → сохранение в session + событие; страницы показывают только этот клиенто-проект (в т.ч. неактивный);
+- повторный клик по тому же проекту, «Удалить фильтры» в сайдбаре (активна при выбранном проекте или непустом поиске) или «Сбросить фильтр» в подсказке → сброс; поиск тоже очищается через «Удалить фильтры»;
+- выбор сохраняется при переходе между продуктами до явного сброса.
+
+Если в дереве **ровно один** сотрудник (менеджер/специалист) — его узел и все клиенты сразу раскрыты (`open = true`), чтобы сразу были видны клиенто-проекты. При нескольких сотрудниках ветки по умолчанию свёрнуты (поиск по-прежнему раскрывает совпадения).
+
+При поиске и смене роли фильтра — loading state: оверлей + скелетон (`wire:loading.delay.long` без `.block`), дерево всегда в DOM; поля поиска/селекта приглушаются (`opacity-60`).
+
+Сворачивание: кнопка-«пилюля» на правом краю панели; состояние в `Alpine.store('sidebar')` + `localStorage` (`casini.sidebarOpen`). Класс `html.sidebar-collapsed` выставляется до отрисовки (`sidebar-boot`) и восстанавливается после `livewire:navigated`. В свёрнутом виде остаётся полоска ~18px панели; анимация (`sidebar-animating`) только при клике по кнопке.
+
 ## Тестирование
 
 - **Unit-тесты** для доменной логики в `tests/Unit/Domain/`
@@ -116,6 +192,12 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 - Middleware `App\Http\Middleware\EnsureUserIsActive` в группе `web`: если сессия есть, а `is_active=false` — logout, invalidate session, redirect на login с flash `inactive` или `pending_email`.
 - Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`, `pending_email`, `verification_resent`, `verification_resend_throttle`).
 - Пароли: в Eloquent передаётся plain-text; cast `password => hashed` в `User` хеширует при сохранении. Не вызывать `Hash::make` / `bcrypt` перед записью в модель.
+
+## Форма клиенто-проекта: помощники
+
+Несколько помощников проекта хранятся в pivot-таблице `project_assistant` (`project_id`, `user_id`, уникальная пара). Связь: `Project::assistants()` → `belongsToMany(User)`. Синхронизация при сохранении — `ProjectService::updateOrCreateProject` через `assistantIds` в `ProjectData`.
+
+Списки «Специалист» / «Помощник» в форме показывают всех пользователей агентства (`UserService::getByAgency`), подпись `Имя Фамилия (должность)`. Проверка прав редактирования формы временно всегда разрешена; полноценный read-only UI — после merge `feature/roles-permissions`.
 
 ## Интеграция Яндекс.Директ (настройки клиенто-проекта)
 

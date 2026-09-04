@@ -11,7 +11,8 @@ use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 new #[Layout('layouts::auth')]
-class extends Component {
+class extends Component
+{
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 

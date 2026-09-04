@@ -4,12 +4,20 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Config;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class EnsureUserIsActiveTest extends TestCase
 {
     use DatabaseTransactions;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Config::set('app.locale', 'ru');
+    }
 
     #[Test]
     public function inactive_authenticated_user_is_logged_out_and_redirected_to_login(): void
@@ -42,6 +50,21 @@ class EnsureUserIsActiveTest extends TestCase
         $response->assertRedirect(route('login'));
         $response->assertSessionHas('pending_email', __('auth.pending_email'));
         $this->assertGuest();
+    }
+
+    #[Test]
+    public function active_unverified_authenticated_user_is_not_blocked(): void
+    {
+        $user = User::factory()->unverified()->create([
+            'login' => 'mw_active_unverified',
+            'email' => 'mw_active_unverified@example.com',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($user)->get(route('notifications.index'));
+
+        $response->assertOk();
+        $this->assertAuthenticatedAs($user);
     }
 
     #[Test]
