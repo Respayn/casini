@@ -66,18 +66,24 @@
                     </x-data.table-cell>
                     <x-data.table-cell>
                         <div class="flex justify-center">
+                            @php
+                                $status = $user['account_status'] ?? ($user['is_active'] ? 'active' : 'inactive');
+                            @endphp
                             <span
-                                class="inline-flex items-center gap-1 px-2 py-1 rounded-full font-medium
-                            {{ $user['is_active'] ? 'bg-green-50 text-green-700' : 'bg-red-100 text-red-700' }}"
+                                @class([
+                                    'inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium',
+                                    'bg-green-50 text-green-700' => $status === 'active',
+                                    'bg-red-100 text-red-700' => $status === 'inactive',
+                                    'bg-amber-50 text-amber-800' => $status === 'pending_email',
+                                ])
                             >
-                            @if($user['is_active'])
-                                    <x-icons.play class="w-4 h-4 mr-1 text-green-500" />
-                                    Активный
-                                @else
-                                    <x-icons.pause class="w-4 h-4 mr-1 text-red-500" />
-                                    Неактивный
+                                @if ($status === 'active')
+                                    <x-icons.play class="mr-1 h-4 w-4 text-green-500" />
+                                @elseif ($status === 'inactive')
+                                    <x-icons.pause class="mr-1 h-4 w-4 text-red-500" />
                                 @endif
-                        </span>
+                                {{ $user['account_status_label'] ?? ($user['is_active'] ? 'Активный' : 'Неактивный') }}
+                            </span>
                         </div>
                     </x-data.table-cell>
                     <x-data.table-cell>

@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 class UserRepository extends EloquentRepository
 {
@@ -21,6 +22,7 @@ class UserRepository extends EloquentRepository
     protected function queryWith(array $with = [])
     {
         $with = array_unique(array_merge($this->defaultWith, $with));
+
         return parent::queryWith($with);
     }
 
@@ -42,9 +44,9 @@ class UserRepository extends EloquentRepository
         $with = array_merge($with, ['latestRate.rate']); // Жадная загрузка!
 
         $query = $this->queryWith($with)
-            ->whereHas('agencies', fn($q) => $q->where('agency_id', $agencyId));
+            ->whereHas('agencies', fn ($q) => $q->where('agency_id', $agencyId));
 
-        if (!empty($onlyActive)) {
+        if (! empty($onlyActive)) {
             $query->where('is_active', $onlyActive);
         }
 
@@ -59,6 +61,7 @@ class UserRepository extends EloquentRepository
                 is_active: $user->is_active,
                 rate_name: optional($user->latestRate?->rate)->name,
                 rate_value: $user->latestRate?->rateValue->value,
+                email_verified_at: $user->email_verified_at,
             );
         });
     }
@@ -69,6 +72,7 @@ class UserRepository extends EloquentRepository
     public function find(int $id, array $with = []): ?UserData
     {
         $user = $this->queryWith($with)->find($id);
+
         return $user ? UserData::fromLivewire($user) : null;
     }
 
@@ -78,6 +82,7 @@ class UserRepository extends EloquentRepository
     public function findByLogin(string $login, array $with = []): ?UserData
     {
         $user = $this->queryWith($with)->where('login', $login)->first();
+
         return $user ? UserData::fromLivewire($user) : null;
     }
 
@@ -96,37 +101,34 @@ class UserRepository extends EloquentRepository
 
     /**
      * Создать пользователя и сохранить ставку (история в rate_user)
-     *
-     * @param array $data
-     * @return User
      */
     public function createWithRate(array $data): User
     {
         return DB::transaction(function () use ($data) {
             // 1. Создаем пользователя
             $user = User::create([
-                'login'   => $data['login'],
+                'login' => $data['login'],
                 'first_name' => $data['first_name'],
-                'last_name'  => $data['last_name'],
-                'is_active'  => !empty($data['is_active']),
-                'email'      => $data['email'],
-                'phone'      => $data['phone'],
+                'last_name' => $data['last_name'],
+                'is_active' => ! empty($data['is_active']),
+                'email' => $data['email'],
+                'phone' => $data['phone'],
                 'image_path' => $data['image_path'] ?? null,
                 'megaplan_id' => $data['megaplan_id'] ?? null,
-                'enable_important_notifications' => !empty($data['enable_important_notifications']),
-                'enable_notifications' => !empty($data['enable_notifications']),
+                'enable_important_notifications' => ! empty($data['enable_important_notifications']),
+                'enable_notifications' => ! empty($data['enable_notifications']),
                 'email_verified_at' => $data['email_verified_at'] ?? null,
                 'password' => $data['password'] ?? Str::random(12),
             ]);
 
             // 2. Привязка к агентству (если нужно, иначе убери этот блок)
-            if (!empty($data['agency_id'])) {
+            if (! empty($data['agency_id'])) {
                 // Если связь через "agencies"
                 $user->agencies()->attach($data['agency_id']);
             }
 
             // 3. Сохраняем ставку (rate_user) — история!
-            if (!empty($data['rate_id'])) {
+            if (! empty($data['rate_id'])) {
                 RateUser::create([
                     'user_id' => $user->id,
                     'rate_id' => $data['rate_id'],
@@ -134,9 +136,9 @@ class UserRepository extends EloquentRepository
             }
 
             // 4. Назначаем роль
-            if (!empty($data['role_id'])) {
+            if (! empty($data['role_id'])) {
                 // Если тебе приходит role_id, найди имя роли
-                $roleName = \Spatie\Permission\Models\Role::find($data['role_id'])?->name;
+                $roleName = Role::find($data['role_id'])?->name;
                 if ($roleName) {
                     $user->assignRole($roleName);
                 }
@@ -148,10 +150,6 @@ class UserRepository extends EloquentRepository
 
     /**
      * Обновить пользователя и сохранить историю ставок (rate_user)
-     *
-     * @param int $userId
-     * @param array $data
-     * @return User
      */
     public function updateWithRate(int $userId, array $data): User
     {
@@ -172,6 +170,10 @@ class UserRepository extends EloquentRepository
                 if (array_key_exists($field, $data)) {
                     $updateData[$field] = ! empty($data[$field]);
                 }
+            }
+
+            if (array_key_exists('email_verified_at', $data)) {
+                $updateData['email_verified_at'] = $data['email_verified_at'];
             }
 
             // Обновлять пароль, только если он был явно передан

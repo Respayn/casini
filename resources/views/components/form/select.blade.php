@@ -38,8 +38,13 @@
             this.$dispatch('change', { value: value });
         },
 
+        hasSelectedValue() {
+            // false/0 — валидный выбор (напр. «Неактивен»), пусто только null/undefined/''
+            return this.selected !== null && this.selected !== undefined && this.selected !== '';
+        },
+
         getDisplayText() {
-            if (this.selected) {
+            if (this.hasSelectedValue()) {
                 const option = this.options.find(o => o[this.valueKey] == this.selected);
 
                 if (option) {
@@ -89,7 +94,7 @@
                     x-text="getDisplayText()"
                     class="overflow-hidden"
                     x-bind:class="{
-                        'opacity-50': !selected && hasOptions,
+                        'opacity-50': !hasSelectedValue() && hasOptions,
                         'text-gray-400 italic': !hasOptions
                     }"
                 ></span>

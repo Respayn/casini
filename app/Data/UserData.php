@@ -17,11 +17,12 @@ class UserData extends Data implements Wireable
         public string $login,
         public string $email,
         /** @var Collection<int, Role> */
-        public Collection|array $roles = new Collection(),
+        public Collection|array $roles = new Collection,
         public ?string $first_name = null,
         public ?string $last_name = null,
         public ?bool $is_active = null,
         public ?string $rate_name = null,
         public ?int $rate_value = null,
+        public mixed $email_verified_at = null,
     ) {}
 }

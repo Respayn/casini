@@ -177,11 +177,20 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 
 Исправление: `bash scripts/staging-fix-permissions.sh --clear`. Профилактика: runtime-artisan только как `sudo -u www-data php artisan ...`.
 
+Фото пользователей и логотипы агентства отдаются по URL `/storage/...` через симлинк `public/storage` → `storage/app/public`. Без `php artisan storage:link` браузер получает 403/битую картинку при живом файле на диске. Smoke: `scripts/staging-smoke.sh` проверяет наличие симлинка.
+
+Загрузка фото (Livewire temporary upload): PHP-FPM `upload_max_filesize` должен быть не меньше лимита в форме (сейчас подсказка «До 2 Мб», правило `max:2048`). На staging выставлено `upload_max_filesize=8M` при `post_max_size=8M`. При заниженном лимите PHP пользователь видит `validation.uploaded` («Не удалось загрузить файл…»), а не сообщение о размере.
+
 ## Авторизация
 
 - Livewire-страница: `resources/views/pages/auth/login/`.
-- Логика входа: `App\Services\Auth\LoginService` — поиск по `login` или `email` (case-insensitive), проверка пароля, проверка `is_active`, затем `Auth::login`.
-- Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`).
+- Логика входа: `App\Services\Auth\LoginService` — поиск по `login` или `email` (case-insensitive), проверка пароля, проверка статуса, затем `Auth::login`.
+- Статусы учётки (`App\Enums\UserAccountStatus`) на базе `is_active` + `email_verified_at`:
+  - **Активен** (`is_active=true`) — вход разрешён;
+  - **Неактивен** (`is_active=false`, `email_verified_at` задан) — вход запрещён, сообщение `auth.inactive`;
+  - **Подтвердить email** (`is_active=false`, `email_verified_at=null`) — вход запрещён, сообщение `auth.pending_email`, на форме входа ссылка «Повторно выслать письмо» (`LoginService::resendVerificationEmail`, письмо `VerifyRegistrationMail`, throttle 3/10 мин).
+- Middleware `App\Http\Middleware\EnsureUserIsActive` в группе `web`: если сессия есть, а `is_active=false` — logout, invalidate session, redirect на login с flash `inactive` или `pending_email`.
+- Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`, `pending_email`, `verification_resent`, `verification_resend_throttle`).
 - Пароли: в Eloquent передаётся plain-text; cast `password => hashed` в `User` хеширует при сохранении. Не вызывать `Hash::make` / `bcrypt` перед записью в модель.
 
 ## Форма клиенто-проекта: помощники
