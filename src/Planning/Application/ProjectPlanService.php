@@ -3,23 +3,20 @@
 namespace Src\Planning\Application;
 
 use Illuminate\Support\Arr;
-use Src\Domain\ValueObjects\Kpi;
-use Src\Domain\ValueObjects\ProjectType;
-use Src\Domain\ValueObjects\Quarter;
 use Src\Planning\Application\Repositories\ProjectPlanRepositoryInterface;
 use Src\Planning\Application\Repositories\ProjectRepositoryInterface;
 use Src\Planning\Application\Services\KpiParametersSchemaService;
 use Src\Planning\Application\Services\PlanCalculator;
 use Src\Planning\Domain\ProjectPlan;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Quarter;
 
 class ProjectPlanService
 {
     private ProjectPlanRepositoryInterface $repository;
-
     private ProjectRepositoryInterface $projectRepository;
-
     private PlanCalculator $planCalculator;
-
     private KpiParametersSchemaService $schemaService;
 
     public function __construct(
@@ -36,7 +33,8 @@ class ProjectPlanService
 
     /**
      * Получение планов на год для всех проектов
-     *
+     * @param int $year
+     * @param int|null $projectId
      * @return array[]
      */
     public function getPlansForYear(int $year, ?int $projectId = null): array
@@ -46,7 +44,7 @@ class ProjectPlanService
         if ($projectId !== null) {
             $domainPlans = array_values(array_filter(
                 $domainPlans,
-                fn (ProjectPlan $plan) => $plan->getProject()->getId() === $projectId
+                fn(ProjectPlan $plan) => $plan->getProject()->getId() === $projectId
             ));
         }
 
@@ -56,11 +54,14 @@ class ProjectPlanService
             $this->planCalculator->recalculate($plan, $projectType, $kpi);
         }
 
-        return array_map(fn (ProjectPlan $plan) => $this->mapToViewDto($plan), $domainPlans);
+        return array_map(fn(ProjectPlan $plan) => $this->mapToViewDto($plan), $domainPlans);
     }
 
     /**
      * Сохранение планов на год
+     * @param int $year
+     * @param array $plansData
+     * @return void
      */
     public function savePlansForYear(int $year, array $plansData): void
     {
@@ -75,13 +76,13 @@ class ProjectPlanService
         foreach ($plansData as $planData) {
             $projectId = $planData['project_id'];
 
-            $plan = Arr::first($plans, fn ($existingPlan) => $existingPlan->getProject()->getId() === $projectId);
+            $plan = Arr::first($plans, fn($existingPlan) => $existingPlan->getProject()->getId() === $projectId);
 
             foreach ($planData['parameters'] as $paramData) {
-                if (! $paramData['is_calculated']) {
+                if (!$paramData['is_calculated']) {
                     foreach ($paramData['plans'] as $month => $value) {
                         if ($value !== '') {
-                            $valueToSave = $value !== null ? (float) $value : null;
+                            $valueToSave = $value !== null ? (float)$value : null;
                             $plan->setMonthlyValue($paramData['key'], $month, $valueToSave);
                         }
                     }
@@ -102,6 +103,9 @@ class ProjectPlanService
 
     /**
      * Получение схемы параметров для страницы "статистика"
+     * @param ProjectType $projectType
+     * @param Kpi $kpi
+     * @return array
      */
     public function getKpiParametersSchemaForStatistics(ProjectType $projectType, Kpi $kpi): array
     {
@@ -110,16 +114,17 @@ class ProjectPlanService
         return array_map(function ($parameter) {
             return [
                 'name' => $parameter->getLabel(),
-                'highlight' => false,
+                'highlight' => false
             ];
         }, $parametersSchema->getParameters());
     }
 
     /**
      * Получение планов на месяц для всех проектов для страницы "Каналы"
-     *
+     * @param int $year
+     * @param int $month
      * @return array[]
-     */
+    */
     public function getMonthlyPlansForChannels(int $year, int $month): array
     {
         return $this->repository->getMonthlyPlansForChannels($year, $month);
@@ -127,7 +132,8 @@ class ProjectPlanService
 
     /**
      * Получение планов на месяц для всех проектов для страницы "статистика"
-     *
+     * @param int $year
+     * @param int $month
      * @return array[]
      */
     public function getMonthlyPlansForStatistics(int $year, int $month): array
@@ -137,6 +143,10 @@ class ProjectPlanService
 
     /**
      * Summary of recalculateRow
+     * @param array $rowData
+     * @param int $year
+     * @param int $month
+     * @return array
      */
     public function recalculateRow(array $rowData, int $year, int $month): array
     {
@@ -163,6 +173,8 @@ class ProjectPlanService
 
     /**
      * Создание DTO для страницы "планирование"
+     * @param ProjectPlan $plan
+     * @return array
      */
     public function mapToViewDto(ProjectPlan $plan): array
     {
@@ -192,7 +204,7 @@ class ProjectPlanService
                 'is_calculated' => $paramEnum->isCalculated(),
                 'formula' => $paramEnum->getFormula(),
                 'dependencies' => $paramEnum->getDependencies(),
-                'plans' => $paramPlans,
+                'plans' => $paramPlans
             ];
         }
 
@@ -211,7 +223,7 @@ class ProjectPlanService
             'department' => $projectType->shortLabel(),
             'kpi' => $kpi->label(),
             'parameters' => $parameters,
-            'approvals' => $approvals,
+            'approvals' => $approvals
         ];
     }
 }

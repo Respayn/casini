@@ -30,7 +30,7 @@ class RoleService
             ->map(function ($role) {
                 return [
                     'value' => $role->id,
-                    'label' => $role->display_name,
+                    'label' => $role->display_name
                 ];
             })->toArray();
     }
@@ -46,7 +46,7 @@ class RoleService
      * - RoleRepository::getPermissions() — полный список прав для определения групп
      *
      * @return array
-     *               Коллекция DTO для отображения/редактирования прав на UI.
+     * Коллекция DTO для отображения/редактирования прав на UI.
      */
     public function getRolesAndPermissionsForSettingsPage()
     {
@@ -63,9 +63,9 @@ class RoleService
                 return new PermissionEditData(
                     $groupName,
                     PermissionGroup::from($groupName)->label(),
-                    $role->permissions->contains(fn ($perm) => $perm->name === ('read '.$groupName)),
-                    $role->permissions->contains(fn ($perm) => $perm->name === ('edit '.$groupName)),
-                    $role->permissions->contains(fn ($perm) => $perm->name === ('full '.$groupName)),
+                    $role->permissions->contains(fn ($perm) => $perm->name === ('read ' . $groupName)),
+                    $role->permissions->contains(fn ($perm) => $perm->name === ('edit ' . $groupName)),
+                    $role->permissions->contains(fn ($perm) => $perm->name === ('full ' . $groupName)),
                     PermissionGroup::from($groupName)->isSecondary()
                 );
             })->values()->all();
@@ -97,7 +97,7 @@ class RoleService
      * после чего преобразуются в массив DTO PermissionEditData.
      *
      * @return PermissionEditData[]
-     *                              Массив DTO с группами прав и флагами по умолчанию.
+     * Массив DTO с группами прав и флагами по умолчанию.
      */
     public function getPermissionsWithDefaultValuesForSettingsPage()
     {

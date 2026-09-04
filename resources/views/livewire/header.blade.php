@@ -1,22 +1,44 @@
 <div class="w-full rounded-bl-2xl bg-white py-[10px] pe-[20px] ps-[15px]">
     <div class="flex items-center justify-between">
-        <div>
+        @php
+            use App\Support\SystemSettingsSectionPermissions;
+
+            $settingsRoute = SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName();
+            $isOnSystemSettings = request()->is('system-settings', 'system-settings/*');
+            $canOpenReports = auth()->user()?->can('read reports')
+                || auth()->user()?->can('full reports');
+            $showBackToReports = $canOpenReports && $isOnSystemSettings;
+        @endphp
+        <div class="flex items-center gap-4">
             <livewire:system-settings.agency.agency-switcher-component />
             <x-overlay.modal name="agency-modal" title="Создать агентство">
                 <x-slot:body>
                     <livewire:system-settings.agency.create-agency-form :key="'create-agency-modal'" />
                 </x-slot:body>
             </x-overlay.modal>
+            @if ($showBackToReports)
+                <x-button.button
+                    href="{{ route('reports') }}"
+                    label="Вернуться к отчетам"
+                    icon="icons.arrow-left"
+                    size="none"
+                    variant="link"
+                    class="text-secondary-text inline-flex max-h-[26px] items-center gap-3 text-[18px]"
+                />
+            @endif
         </div>
         <div class="flex items-center">
-            @php
-                use App\Support\SystemSettingsSectionPermissions;
-
-                $settingsRoute = SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName();
-            @endphp
             @if ($settingsRoute)
-                <x-button.button href="{{ route($settingsRoute) }}" icon="icons.gear" variant="outlined"
-                    rounded />
+                <x-button.button
+                    href="{{ route($settingsRoute) }}"
+                    icon="icons.gear"
+                    :variant="$isOnSystemSettings ? 'primary' : 'outlined'"
+                    rounded
+                    @class([
+                        'hover:bg-primary hover:text-white' => ! $isOnSystemSettings,
+                        'hover:!bg-primary hover:!text-white' => $isOnSystemSettings,
+                    ])
+                />
             @endif
             <x-notifications.bell-button />
 

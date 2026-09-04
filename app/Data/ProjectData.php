@@ -2,6 +2,7 @@
 
 namespace App\Data;
 
+use App\Models\Project;
 use Spatie\LaravelData\Attributes\DataCollectionOf;
 use Spatie\LaravelData\Data;
 use Spatie\LaravelData\DataCollection;
@@ -40,5 +41,6 @@ class ProjectData extends Data
         public ?DataCollection $utmMappings = null,
         /** @var list<int> */
         public array $assistantIds = [],
-    ) {}
+    ) {
+    }
 }

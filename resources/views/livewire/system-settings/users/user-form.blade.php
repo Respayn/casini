@@ -15,12 +15,14 @@
             @endif
         </h1>
 
-        @if (session('password_updated'))
-            <x-feedback.notice>{{ session('password_updated') }}</x-feedback.notice>
-        @endif
+        @if ($showInlineActions ?? true)
+            @if (session('password_updated'))
+                <x-feedback.notice>{{ session('password_updated') }}</x-feedback.notice>
+            @endif
 
-        @if (session('success'))
-            <x-feedback.notice>{{ session('success') }}</x-feedback.notice>
+            @if (session('success'))
+                <x-feedback.notice>{{ session('success') }}</x-feedback.notice>
+            @endif
         @endif
 
         {{-- Основная информация --}}

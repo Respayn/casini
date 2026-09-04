@@ -25,7 +25,7 @@ class ClientListVisibilityFilterTest extends TestCase
         $this->seed(RolesTableSeeder::class);
         $this->seed(PermissionSeeder::class);
 
-        $this->filter = new ClientListVisibilityFilter;
+        $this->filter = new ClientListVisibilityFilter();
     }
 
     public function test_returns_empty_list_without_self_or_all_permissions(): void

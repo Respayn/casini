@@ -35,6 +35,7 @@ use Src\Domain\ValueObjects\ProjectType;
  * @property $inn
  * @property $created_at
  * @property $updated_at
+ *
  * @property Client $client
  * @property User $specialist
  * @property User $manager
@@ -78,6 +79,8 @@ class Project extends Model
 
     /**
      * Связанный клиент.
+     *
+     * @return BelongsTo
      */
     public function client(): BelongsTo
     {
@@ -86,6 +89,8 @@ class Project extends Model
 
     /**
      * Связанные помощники.
+     *
+     * @return BelongsToMany
      */
     public function assistants(): BelongsToMany
     {
@@ -105,7 +110,7 @@ class Project extends Model
     /**
      * Связанные записи об изменении полей.
      *
-     * @return HasMany
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function fieldHistories()
     {
@@ -114,6 +119,8 @@ class Project extends Model
 
     /**
      * Связанные регионы продвижения.
+     *
+     * @return BelongsToMany
      */
     public function promotionRegions(): BelongsToMany
     {
@@ -122,6 +129,8 @@ class Project extends Model
 
     /**
      * Связанные тематики продвижения.
+     *
+     * @return BelongsToMany
      */
     public function promotionTopics(): BelongsToMany
     {
@@ -130,6 +139,8 @@ class Project extends Model
 
     /**
      * Связанное условие.
+     *
+     * @return HasOne
      */
     public function bonusCondition(): HasOne
     {
@@ -139,7 +150,7 @@ class Project extends Model
     /**
      * Связанные UTM-метки.
      *
-     * @return HasMany
+     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function utmMappings()
     {
@@ -149,7 +160,7 @@ class Project extends Model
     /**
      * Связанные настройки интеграций
      *
-     * @return Project|HasMany
+     * @return Project|\Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function integrations(): BelongsToMany
     {

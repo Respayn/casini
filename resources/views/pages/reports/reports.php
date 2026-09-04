@@ -52,11 +52,8 @@ new
         }
 
         public ?int $pendingDownloadId = null;
-
         public bool $showInactiveProjects = false;
-
         public Carbon $periodFrom;
-
         public Carbon $periodTo;
 
         public array $columnSettings = [];

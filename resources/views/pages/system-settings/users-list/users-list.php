@@ -45,10 +45,12 @@ class extends Component
     {
         $collection = $this->agencyId ? $userService->getByAgency($this->agencyId, $this->onlyActive) : collect([]);
         $this->users = $collection->map(function ($user) {
-            $status = UserAccountStatus::fromFlags(
-                (bool) $user->is_active,
-                $user->email_verified_at,
-            );
+            $isActive = (bool) $user->is_active;
+            $status = $isActive
+                ? UserAccountStatus::Active
+                : ($user->email_verified_at === null
+                    ? UserAccountStatus::PendingEmail
+                    : UserAccountStatus::Inactive);
 
             return [
                 'id' => $user->id,

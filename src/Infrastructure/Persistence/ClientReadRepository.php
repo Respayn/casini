@@ -11,7 +11,7 @@ use Src\Domain\ValueObjects\ProjectType;
 class ClientReadRepository implements ClientReadRepositoryInterface
 {
     /**
-     * {@inheritdoc}
+     * @inheritdoc
      */
     public function getClientsWithProjects(): array
     {
@@ -34,7 +34,7 @@ class ClientReadRepository implements ClientReadRepositoryInterface
 
         return $grouped->map(function ($clientRows) {
             $first = $clientRows->first();
-
+            
             $projects = $clientRows->whereNotNull('project_id')->map(function ($row) {
                 return new ClientProjectDto(
                     id: $row->project_id,

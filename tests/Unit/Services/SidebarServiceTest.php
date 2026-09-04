@@ -61,7 +61,7 @@ class SidebarServiceTest extends TestCase
         $manager->assignRole($managerRole);
 
         $client = Client::factory()->create([
-            'name' => 'ИП Пахомчик Н. В.',
+            'name' => "ИП Пахомчик Н. В.",
             'manager_id' => $manager->id,
         ]);
 

@@ -7,7 +7,6 @@ use App\Enums\Role as RoleEnum;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Копирует уровни доступа «system settings» на три новых раздела настроек.
@@ -56,6 +55,6 @@ class MigrateSystemSettingsPermissionsSeeder extends Seeder
             }
         }
 
-        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }

@@ -1,7 +1,7 @@
 <div
     x-data="{
         hasPendingChanges: false,
-        successMessage: @js(session('success')),
+        successMessage: @js(session('success') ?: session('password_updated')),
         markDirty() {
             this.hasPendingChanges = true;
             this.successMessage = null;

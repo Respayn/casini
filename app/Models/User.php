@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\UserAccountStatus;
 use App\Services\RoleHierarchyService;
-use Database\Factories\UserFactory;
 use Illuminate\Auth\Passwords\CanResetPassword;
 use Illuminate\Contracts\Auth\CanResetPassword as CanResetPasswordContract;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,7 +14,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements CanResetPasswordContract
 {
-    /** @use HasFactory<UserFactory> */
+    /** @use HasFactory<\Database\Factories\UserFactory> */
     use CanResetPassword, HasFactory, HasRoles, Notifiable;
 
     /**
@@ -94,14 +93,12 @@ class User extends Authenticatable implements CanResetPasswordContract
     public function hasPermissionTo($permission, $guardName = null): bool
     {
         $roleHierarchyService = app(RoleHierarchyService::class);
-
         return $roleHierarchyService->userHasPermission($this, $permission);
     }
 
     public function can($abilities, $arguments = []): bool
     {
         $roleHierarchyService = app(RoleHierarchyService::class);
-
         return $roleHierarchyService->userHasPermission($this, $abilities);
     }
 

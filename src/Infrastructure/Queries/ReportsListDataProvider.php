@@ -19,7 +19,8 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
         DateTimeRange $period,
         ?int $userId,
         ?int $projectId = null,
-    ): array {
+    ): array
+    {
         $query = DB::table('reports')
             ->join('templates', 'templates.id', '=', 'reports.template_id')
             ->join('clients', 'clients.id', '=', 'reports.client_id')
@@ -28,7 +29,7 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
 
         if ($projectId !== null) {
             $query = $query->where('projects.id', '=', $projectId);
-        } elseif (! $showInactiveProjects) {
+        } elseif (!$showInactiveProjects) {
             $query = $query->where('projects.is_active', '=', true);
         }
 
@@ -55,12 +56,12 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
                 'projects.name as project_name',
                 'projects.project_type as project_type',
                 'specialists.first_name as specialist_first_name',
-                'specialists.last_name as specialist_last_name',
+                'specialists.last_name as specialist_last_name'
             ])
             ->orderBy('reports.created_at', 'desc')
             ->get();
 
-        return $results->map(fn (object $row) => new ReportListItemDto(
+        return $results->map(fn(object $row) => new ReportListItemDto(
             new DateTimeImmutable($row->created_at),
             $row->template_name,
             $row->client_id,
@@ -71,7 +72,7 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
             $row->project_name,
             new DateTimeImmutable($row->period_start),
             new DateTimeImmutable($row->period_end),
-            $row->specialist_last_name.' '.mb_substr($row->specialist_first_name, 0, 1).'.',
+            $row->specialist_last_name . ' ' . mb_substr($row->specialist_first_name, 0, 1) . '.',
             ReportFormat::from($row->format)->value,
             $row->is_ready,
             $row->is_accepted,
@@ -91,7 +92,7 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
 
         $user = User::with('roles')->find($userId);
 
-        if (! $user) {
+        if (!$user) {
             return $query->whereRaw('1 = 0'); // Пользователь не найден - нет доступа
         }
 

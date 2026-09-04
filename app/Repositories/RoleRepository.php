@@ -13,7 +13,6 @@ use Exception;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Permission;
-use Spatie\Permission\PermissionRegistrar;
 
 class RoleRepository
 {
@@ -26,11 +25,11 @@ class RoleRepository
                 $role->id,
                 $role->name,
                 $role->display_name,
-                new Collection,
+                new Collection(),
                 $role->use_in_project_filter,
                 $role->use_in_managers_list,
                 $role->use_in_specialist_list,
-                new Collection,
+                new Collection(),
                 ($role->users_count ?? 0) > 0
             );
         });
@@ -60,7 +59,6 @@ class RoleRepository
     public function getPermissions()
     {
         $permissions = Permission::all();
-
         return $permissions->map(function ($permission) {
             return new PermissionData(
                 $permission->id,
@@ -83,15 +81,15 @@ class RoleRepository
 
             foreach ($roleData['permissions'] as $permission) {
                 if ($permission['canRead']) {
-                    $role->givePermissionTo('read '.$permission['name']);
+                    $role->givePermissionTo('read ' . $permission['name']);
                 }
 
                 if ($permission['canEdit']) {
-                    $role->givePermissionTo('edit '.$permission['name']);
+                    $role->givePermissionTo('edit ' . $permission['name']);
                 }
 
                 if ($permission['haveFullAccess']) {
-                    $role->givePermissionTo('full '.$permission['name']);
+                    $role->givePermissionTo('full ' . $permission['name']);
                 }
             }
 
@@ -199,11 +197,11 @@ class RoleRepository
                 $role->id,
                 $role->name,
                 $role->display_name,
-                new Collection,
+                new Collection(),
                 $role->use_in_project_filter,
                 $role->use_in_managers_list,
                 $role->use_in_specialist_list,
-                new Collection,
+                new Collection(),
                 ($role->users_count ?? 0) > 0
             );
         });
@@ -245,6 +243,6 @@ class RoleRepository
             $user->revokePermissionTo($directProductPermissions);
         }
 
-        app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
     }
 }

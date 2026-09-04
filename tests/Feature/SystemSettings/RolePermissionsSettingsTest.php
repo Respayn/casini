@@ -5,7 +5,6 @@ namespace Tests\Feature\SystemSettings;
 use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
 use App\Models\Role;
-use App\Repositories\RoleRepository;
 use App\Services\RoleService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
@@ -295,7 +294,7 @@ class RolePermissionsSettingsTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Нельзя удалить роль администратор');
 
-        app(RoleRepository::class)->deleteRole($admin->id);
+        app(\App\Repositories\RoleRepository::class)->deleteRole($admin->id);
     }
 
     public function test_load_normalizes_read_and_edit_when_only_full_in_db(): void
@@ -397,7 +396,7 @@ class RolePermissionsSettingsTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage(__('permissions.default_role_undeletable'));
 
-        app(RoleRepository::class)->deleteRole($default->id);
+        app(\App\Repositories\RoleRepository::class)->deleteRole($default->id);
     }
 
     public function test_default_role_cannot_be_deleted_when_missing_from_payload(): void

@@ -14,13 +14,9 @@ use Src\Application\Clients\Update\UpdateClientCommandHandler;
 new class extends Component
 {
     public ?int $id = null;
-
     public string $name;
-
     public string $inn;
-
     public int $managerId;
-
     public float $initialBalance;
 
     private UserService $userService;
@@ -77,9 +73,9 @@ new class extends Component
 
         return $this->userService
             ->getManagers($currentAgencyId)
-            ->map(fn ($manager) => [
+            ->map(fn($manager) => [
                 'label' => $this->formatManagerName($manager),
-                'value' => $manager->id,
+                'value' => $manager->id
             ])
             ->values()
             ->all();
@@ -88,7 +84,6 @@ new class extends Component
     private function formatManagerName($manager): string
     {
         $fullName = trim("{$manager->first_name} {$manager->last_name}");
-
         return $fullName !== '' ? $fullName : $manager->login;
     }
 
@@ -101,7 +96,7 @@ new class extends Component
             'inn' => [
                 'required',
                 'regex:/^\d{10,12}$/',
-                'unique:clients,inn,'.($this->id ?: 'null'),
+                'unique:clients,inn,' . ($this->id ?: 'null')
             ],
             'managerId' => 'required|exists:users,id',
             'initialBalance' => 'required|numeric',

@@ -15,10 +15,14 @@ class ProjectService
 {
     public function __construct(
         public ProjectUtmMappingRepositoryInterface $utmMappingRepository,
-    ) {}
+    ) {
+    }
 
     /**
      * Получает данные проекта по его ID.
+     *
+     * @param int $projectId
+     * @return ProjectData
      */
     public function getProjectDataById(int $projectId): ProjectData
     {
@@ -42,6 +46,9 @@ class ProjectService
 
     /**
      * Создает или обновляет проект.
+     *
+     * @param ProjectData $data
+     * @return ProjectData
      */
     public function updateOrCreateProject(ProjectData $data): ProjectData
     {
@@ -102,6 +109,10 @@ class ProjectService
 
     /**
      * Сохраняет бонусные настройки проекта.
+     *
+     * @param ProjectData $project
+     * @param BonusData $bonusData
+     * @return void
      */
     public function saveBonusSettings(ProjectData $project, BonusData $bonusData): void
     {
@@ -123,7 +134,7 @@ class ProjectService
             $bonusCondition->intervals()->create([
                 'from_percentage' => $interval->from_percentage,
                 'to_percentage' => $interval->to_percentage,
-                'bonus_amount' => ! $bonusData->calculate_in_percentage ? $interval->bonus_amount : null,
+                'bonus_amount' => !$bonusData->calculate_in_percentage ? $interval->bonus_amount : null,
                 'bonus_percentage' => $bonusData->calculate_in_percentage ? $interval->bonus_percentage : null,
             ]);
         }
@@ -132,6 +143,8 @@ class ProjectService
     /**
      * Сохраняет ProjectUtmMapping.
      *
+     * @param array $data
+     * @param $projectId
      * @return array
      */
     public function saveProjectUtmMapping(array $data, $projectId): void
