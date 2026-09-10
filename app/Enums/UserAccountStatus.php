@@ -2,8 +2,6 @@
 
 namespace App\Enums;
 
-use App\Models\User;
-
 enum UserAccountStatus: string
 {
     case Active = 'active';
@@ -25,29 +23,6 @@ enum UserAccountStatus: string
             self::Active => 'Активный',
             self::Inactive => 'Неактивный',
             self::PendingEmail => 'Подтвердить email',
-        };
-    }
-
-    /**
-     * @return array{is_active: bool, email_verified_at?: mixed}
-     */
-    public function toPersistence(?User $existing = null): array
-    {
-        return match ($this) {
-            self::Active => [
-                'is_active' => true,
-            ],
-            self::Inactive => [
-                'is_active' => false,
-                // Иначе при null verified_at статус неотличим от «Подтвердить email»
-                ...(($existing === null || $existing->email_verified_at === null)
-                    ? ['email_verified_at' => now()]
-                    : []),
-            ],
-            self::PendingEmail => [
-                'is_active' => false,
-                'email_verified_at' => null,
-            ],
         };
     }
 

@@ -3,49 +3,29 @@
 namespace Tests\Unit\Enums;
 
 use App\Enums\UserAccountStatus;
-use App\Models\User;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
 
 class UserAccountStatusTest extends TestCase
 {
     #[Test]
-    public function inactive_persistence_stamps_verified_at_when_missing(): void
+    public function select_options_use_form_labels(): void
     {
-        $data = UserAccountStatus::Inactive->toPersistence(null);
-
-        $this->assertFalse($data['is_active']);
-        $this->assertNotNull($data['email_verified_at']);
+        $this->assertSame(
+            [
+                ['label' => 'Активен', 'value' => 'active'],
+                ['label' => 'Неактивен', 'value' => 'inactive'],
+                ['label' => 'Подтвердить email', 'value' => 'pending_email'],
+            ],
+            UserAccountStatus::selectOptions(),
+        );
     }
 
     #[Test]
-    public function inactive_persistence_keeps_existing_verified_at(): void
+    public function list_label_differs_from_form_label_for_active_inactive(): void
     {
-        $user = new User(['email_verified_at' => now()->subDay()]);
-        $data = UserAccountStatus::Inactive->toPersistence($user);
-
-        $this->assertFalse($data['is_active']);
-        $this->assertArrayNotHasKey('email_verified_at', $data);
-    }
-
-    #[Test]
-    public function pending_email_clears_verified_at(): void
-    {
-        $data = UserAccountStatus::PendingEmail->toPersistence(null);
-
-        $this->assertFalse($data['is_active']);
-        $this->assertNull($data['email_verified_at']);
-    }
-
-    #[Test]
-    public function user_account_status_maps_flags_correctly(): void
-    {
-        $pending = new User(['is_active' => false, 'email_verified_at' => null]);
-        $inactive = new User(['is_active' => false, 'email_verified_at' => now()]);
-        $active = new User(['is_active' => true, 'email_verified_at' => null]);
-
-        $this->assertSame(UserAccountStatus::PendingEmail, $pending->accountStatus());
-        $this->assertSame(UserAccountStatus::Inactive, $inactive->accountStatus());
-        $this->assertSame(UserAccountStatus::Active, $active->accountStatus());
+        $this->assertSame('Активный', UserAccountStatus::Active->listLabel());
+        $this->assertSame('Неактивный', UserAccountStatus::Inactive->listLabel());
+        $this->assertSame('Подтвердить email', UserAccountStatus::PendingEmail->listLabel());
     }
 }

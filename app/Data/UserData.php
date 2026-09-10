@@ -2,6 +2,8 @@
 
 namespace App\Data;
 
+use App\Enums\UserAccountStatus;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;
@@ -25,4 +27,9 @@ class UserData extends Data implements Wireable
         public ?int $rate_value = null,
         public mixed $email_verified_at = null,
     ) {}
+
+    public function accountStatus(): UserAccountStatus
+    {
+        return User::statusFromFlags((bool) $this->is_active, $this->email_verified_at);
+    }
 }

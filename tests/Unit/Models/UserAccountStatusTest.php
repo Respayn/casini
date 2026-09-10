@@ -76,4 +76,49 @@ class UserAccountStatusTest extends TestCase
 
         $this->assertSame(UserAccountStatus::Inactive, $user->accountStatus());
     }
+
+    #[Test]
+    public function inactive_persistence_stamps_verified_at_when_missing(): void
+    {
+        $data = User::persistenceForAccountStatus(UserAccountStatus::Inactive, null);
+
+        $this->assertFalse($data['is_active']);
+        $this->assertNotNull($data['email_verified_at']);
+    }
+
+    #[Test]
+    public function inactive_persistence_keeps_existing_verified_at(): void
+    {
+        $user = new User(['email_verified_at' => now()->subDay()]);
+        $data = User::persistenceForAccountStatus(UserAccountStatus::Inactive, $user);
+
+        $this->assertFalse($data['is_active']);
+        $this->assertArrayNotHasKey('email_verified_at', $data);
+    }
+
+    #[Test]
+    public function pending_email_persistence_clears_verified_at(): void
+    {
+        $data = User::persistenceForAccountStatus(UserAccountStatus::PendingEmail, null);
+
+        $this->assertFalse($data['is_active']);
+        $this->assertNull($data['email_verified_at']);
+    }
+
+    #[Test]
+    public function status_from_flags_matches_account_status(): void
+    {
+        $this->assertSame(
+            UserAccountStatus::PendingEmail,
+            User::statusFromFlags(false, null)
+        );
+        $this->assertSame(
+            UserAccountStatus::Inactive,
+            User::statusFromFlags(false, now())
+        );
+        $this->assertSame(
+            UserAccountStatus::Active,
+            User::statusFromFlags(true, null)
+        );
+    }
 }

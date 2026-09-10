@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Users;
 
-use App\Enums\UserAccountStatus;
 use App\Services\AgencySettingsService;
 use App\Services\UserService;
 use App\Support\SystemSettingsSectionPermissions;
@@ -45,12 +44,7 @@ class extends Component
     {
         $collection = $this->agencyId ? $userService->getByAgency($this->agencyId, $this->onlyActive) : collect([]);
         $this->users = $collection->map(function ($user) {
-            $isActive = (bool) $user->is_active;
-            $status = $isActive
-                ? UserAccountStatus::Active
-                : ($user->email_verified_at === null
-                    ? UserAccountStatus::PendingEmail
-                    : UserAccountStatus::Inactive);
+            $status = $user->accountStatus();
 
             return [
                 'id' => $user->id,

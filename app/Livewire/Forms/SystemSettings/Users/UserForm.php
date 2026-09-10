@@ -186,6 +186,6 @@ class UserForm extends Form
 
         $status = UserAccountStatus::tryFrom($this->account_status) ?? UserAccountStatus::Active;
 
-        return array_merge($data, $status->toPersistence($existing));
+        return array_merge($data, User::persistenceForAccountStatus($status, $existing));
     }
 }
