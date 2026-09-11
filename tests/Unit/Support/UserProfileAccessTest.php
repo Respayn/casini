@@ -35,7 +35,7 @@ class UserProfileAccessTest extends TestCase
             'first_name' => 'Пётр',
             'email' => 'petr@example.com',
             'login' => 'hacked',
-            'is_active' => false,
+            'account_status' => 'inactive',
             'role_id' => 1,
             'rate_id' => 2,
             'megaplan_id' => '999',
@@ -62,7 +62,7 @@ class UserProfileAccessTest extends TestCase
         $payload = [
             'first_name' => 'Пётр',
             'login' => 'new_login',
-            'is_active' => false,
+            'account_status' => 'inactive',
             'megaplan_id' => '999',
         ];
 

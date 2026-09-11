@@ -15,12 +15,14 @@
             @endif
         </h1>
 
-        @if (session('password_updated'))
-            <x-feedback.notice>{{ session('password_updated') }}</x-feedback.notice>
-        @endif
+        @if ($showInlineActions ?? true)
+            @if (session('password_updated'))
+                <x-feedback.notice>{{ session('password_updated') }}</x-feedback.notice>
+            @endif
 
-        @if (session('success'))
-            <x-feedback.notice>{{ session('success') }}</x-feedback.notice>
+            @if (session('success'))
+                <x-feedback.notice>{{ session('success') }}</x-feedback.notice>
+            @endif
         @endif
 
         {{-- Основная информация --}}
@@ -59,8 +61,8 @@
                 <x-form.form-label required tooltip="Пользователь сможет войти только если активен">Статус</x-form.form-label>
                 <x-permissions.field-guard :enabled="$canEditUserAdminFields">
                     <x-form.select
-                        wire:model="form.is_active"
-                        :options="[['label'=>'Активен','value'=>true],['label'=>'Неактивен','value'=>false]]"
+                        wire:model="form.account_status"
+                        :options="\App\Enums\UserAccountStatus::selectOptions()"
                         placeholder="Выберите значение"
                         :disabled="! $canEditUserAdminFields"
                     />
@@ -148,7 +150,12 @@
 
             <x-form.form-field>
                 <x-form.form-label required tooltip="Email для авторизации и уведомлений">Email</x-form.form-label>
-                <x-form.input-text wire:model="form.email" type="email" placeholder="email@siteactiv.ru" />
+                <x-form.input-text
+                    wire:model.live="form.email"
+                    wire:blur="validateFormField('email')"
+                    type="email"
+                    placeholder="email@siteactiv.ru"
+                />
             </x-form.form-field>
 
             <x-form.form-field>
@@ -158,41 +165,80 @@
 
             <x-form.form-field>
                 <x-form.form-label tooltip="Можно загружать только jpg, jpeg, png. До 2 Мб">Фото пользователя</x-form.form-label>
-                <div class="flex flex-col gap-1 items-start max-w-[305px]">
+                <div class="flex w-[305px] max-w-[305px] flex-col items-stretch gap-1">
                     @if($form->photo)
-                        {{-- Превью до сохранения --}}
-                        <img src="{{ $form->photo->temporaryUrl() }}" alt="Фото профиля"
-                             class="w-full min-h-[200px] object-contain rounded border border-secondary-text" />
+                        {{-- Превью до сохранения: клик по фото — выбрать другое --}}
+                        <div
+                            data-photo-wrap
+                            class="relative w-full cursor-pointer"
+                            x-data
+                            @click="$refs.photoInput.click()"
+                        >
+                            <img src="{{ $form->photo->temporaryUrl() }}" alt="Фото профиля"
+                                 class="w-full min-h-[200px] object-contain rounded border border-secondary-text" />
+                            <input
+                                x-ref="photoInput"
+                                type="file"
+                                accept=".jpg,.jpeg,.png"
+                                class="sr-only"
+                                wire:model="form.photo"
+                                @click.stop
+                            />
+                        </div>
                         <x-button.button
                             type="button"
                             wire:click="deletePhoto"
-                            variant="link"
-                            class="!py-1 !px-3 text-sm w-full text-secondary-text"
-                        >
-                            <x-slot:label>Удалить</x-slot:label>
-                        </x-button.button>
+                            x-on:click="typeof markDirty === 'function' && markDirty()"
+                            icon="icons.delete"
+                            class="w-full"
+                            label="Удалить фото пользователя"
+                        />
                     @elseif(!$form->delete_photo && $form->image_path)
-                        {{-- Уже сохранённое фото --}}
-                        <img src="{{ Storage::url($form->image_path) }}" alt="Фото профиля"
-                             class="w-full min-h-[200px] object-contain rounded border border-secondary-text" />
+                        {{-- Уже сохранённое фото: клик по фото — выбрать другое --}}
+                        <div
+                            data-photo-wrap
+                            class="relative w-full cursor-pointer"
+                            x-data
+                            @click="$refs.photoInput.click()"
+                        >
+                            <img src="{{ Storage::url($form->image_path) }}" alt="Фото профиля"
+                                 class="w-full min-h-[200px] object-contain rounded border border-secondary-text" />
+                            <input
+                                x-ref="photoInput"
+                                type="file"
+                                accept=".jpg,.jpeg,.png"
+                                class="sr-only"
+                                wire:model="form.photo"
+                                @click.stop
+                            />
+                        </div>
                         <x-button.button
                             type="button"
                             wire:click="$set('form.delete_photo', true)"
-                            variant="link"
-                            class="!py-1 !px-3 text-sm w-full text-secondary-text"
-                        >
-                            <x-slot:label>Удалить</x-slot:label>
-                        </x-button.button>
+                            x-on:click="typeof markDirty === 'function' && markDirty()"
+                            icon="icons.delete"
+                            class="w-full"
+                            label="Удалить фото пользователя"
+                        />
                     @else
-                        <label class="flex flex-col justify-center items-center w-full min-h-[305px] object-contain rounded border border-secondary-text cursor-pointer hover:bg-gray-50 transition">
-                            <x-icons.camera class="w-10 h-10 text-secondary-text mb-2"/>
-
-                            <x-form.input-file wire:model="form.photo" accept=".jpg,.jpeg,.png" class="hidden"/>
-                            <span class="block w-full text-center text-secondary-text text-sm mt-2">Загрузить фото</span>
-                        </label>
+                        <div
+                            data-photo-wrap
+                            class="relative flex w-full min-h-[305px] cursor-pointer flex-col items-center justify-center rounded border border-secondary-text object-contain transition hover:bg-gray-50"
+                            x-data
+                            @click="$refs.photoInput.click()"
+                        >
+                            <x-icons.camera class="mb-2 h-10 w-10 text-secondary-text"/>
+                            <input
+                                x-ref="photoInput"
+                                type="file"
+                                accept=".jpg,.jpeg,.png"
+                                class="sr-only"
+                                wire:model="form.photo"
+                                @click.stop
+                            />
+                            <span class="mt-2 block w-full text-center text-sm text-secondary-text">Загрузить фото</span>
+                        </div>
                     @endif
-
-                    <span class="block w-full text-center text-secondary-text">Загрузить фото</span>
 
                     @error('form.photo')
                     <span class="text-warning-red text-[12px]">{{ $message }}</span>
@@ -205,41 +251,35 @@
         <h2 class="font-semibold mt-6 mb-1">Прочее</h2>
 
         <x-form.form-field>
-            <x-form.form-label tooltip="ID из интеграции Мегаплан">ID пользователя в Мегаплан</x-form.form-label>
-            <x-permissions.field-guard :enabled="$canEditUserAdminFields">
-                <x-form.input-text
-                    wire:model="form.megaplan_id"
-                    placeholder="1000272"
-                    :disabled="! $canEditUserAdminFields"
-                />
-            </x-permissions.field-guard>
-        </x-form.form-field>
-
-        <x-form.form-field>
             <x-form.form-label>Важные уведомления</x-form.form-label>
             <x-form.toggle-switch wire:model="form.enable_important_notifications" />
         </x-form.form-field>
 
         <x-form.form-field>
             <x-form.form-label>Обновление сервиса</x-form.form-label>
-            <x-form.toggle-switch wire:model="form.enable_notifications" />
+            <x-form.toggle-switch
+                wire:model="form.enable_notifications"
+                :disabled="true"
+            />
         </x-form.form-field>
 
-        {{-- Кнопки --}}
-        <div class="flex gap-3 mt-8">
-            <x-button.button
-                type="submit"
-                variant="primary"
-                :disabled="$saveDisabled ?? false"
-            >
-                <x-slot:label>
-                    {{ isset($form->id) ? 'Сохранить изменения' : 'Создать пользователя' }}
-                </x-slot:label>
-            </x-button.button>
-            <x-button.button type="button" variant="secondary" onclick="window.history.back()">
-                <x-slot:label>Отменить</x-slot:label>
-            </x-button.button>
-        </div>
+        @if ($showInlineActions ?? true)
+            {{-- Кнопки --}}
+            <div class="mt-8 flex gap-3">
+                <x-button.button
+                    type="submit"
+                    variant="primary"
+                    :disabled="$saveDisabled ?? false"
+                >
+                    <x-slot:label>
+                        {{ isset($form->id) ? 'Сохранить изменения' : 'Создать пользователя' }}
+                    </x-slot:label>
+                </x-button.button>
+                <x-button.button type="button" variant="secondary" onclick="window.history.back()">
+                    <x-slot:label>Отменить</x-slot:label>
+                </x-button.button>
+            </div>
+        @endif
 
     </div>
 </x-form.form>
