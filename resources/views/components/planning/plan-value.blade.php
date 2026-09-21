@@ -2,6 +2,7 @@
 
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Src\Planning\Domain\ValueObjects\VatRate;
 
 new class extends Component
 {
@@ -71,31 +72,89 @@ new class extends Component
         month: {{ $month }},
         rowIndex: {{ (int) $rowIndex }},
         canEdit: @js($canEdit),
+        includeVat: false,
+        vatKeys: @js(VatRate::AFFECTED_KEYS),
+        vatMultiplier: {{ VatRate::multiplier() }},
         _syncHandler: null,
+        _vatHandler: null,
 
         init() {
-            this._syncHandler = (event) => {
-                const parent = window.Livewire
-                    ? window.Livewire.all().find((component) => component.name === 'pages::planning')
-                    : null;
+            this.includeVat = this.readIncludeVat();
+
+            this._syncHandler = () => {
+                const parent = this.planningParent();
                 const tableData = parent && parent.$wire ? parent.$wire.tableData : null;
                 const row = tableData ? tableData[this.rowIndex] : null;
                 if (row && row.parameters) {
                     this.parameters = JSON.parse(JSON.stringify(row.parameters));
                 }
+                this.includeVat = this.readIncludeVat();
             };
+
+            this._vatHandler = () => {
+                this.includeVat = this.readIncludeVat();
+            };
+
             window.addEventListener('planning-table-sync', this._syncHandler);
+            window.addEventListener('planning-vat-sync', this._vatHandler);
         },
 
         destroy() {
             if (this._syncHandler) {
                 window.removeEventListener('planning-table-sync', this._syncHandler);
             }
+            if (this._vatHandler) {
+                window.removeEventListener('planning-vat-sync', this._vatHandler);
+            }
         },
 
+        planningParent() {
+            return window.Livewire
+                ? window.Livewire.all().find((component) => component.name === 'pages::planning')
+                : null;
+        },
+
+        readIncludeVat() {
+            const parent = this.planningParent();
+            return !!(parent && parent.$wire && parent.$wire.includeVat);
+        },
+
+        isVatKey(key) {
+            return this.vatKeys.includes(key);
+        },
+
+        /** Сырое значение из базы (без НДС). */
         findParamValue(key) {
             const found = this.parameters.find(p => p.key === key);
             return found ? parseFloat(found.plans?.[this.month] || 0) : 0;
+        },
+
+        toDisplay(netValue, key) {
+            if (netValue === null || netValue === '' || Number.isNaN(netValue)) {
+                return null;
+            }
+            const num = parseFloat(netValue);
+            if (Number.isNaN(num)) {
+                return null;
+            }
+            if (this.isVatKey(key) && this.includeVat) {
+                return Math.round(num * this.vatMultiplier * 100) / 100;
+            }
+            return num;
+        },
+
+        toStorage(displayValue, key) {
+            if (displayValue === null || displayValue === '' || Number.isNaN(displayValue)) {
+                return null;
+            }
+            const num = parseFloat(displayValue);
+            if (Number.isNaN(num)) {
+                return null;
+            }
+            if (this.isVatKey(key) && this.includeVat) {
+                return Math.round(num / this.vatMultiplier * 100) / 100;
+            }
+            return num;
         },
 
         calculateValue(parameter) {
@@ -114,7 +173,7 @@ new class extends Component
                 const formula = parameter.formula;
                 const args = parameter.dependencies || [];
                 const argv = args.map(argKey => this.findParamValue(argKey));
-                
+
                 const func = new Function(...args, 'return ' + formula);
                 let result = func(...argv);
 
@@ -126,14 +185,22 @@ new class extends Component
                 if (parameter.format === 'integer' || parameter.format === 'percent') {
                     result = Math.round(result);
                 }
-                
-                parameter.plans[this.month] = result; 
-                
+
+                parameter.plans[this.month] = result;
+
                 return result;
             } catch (e) {
                 console.error('Formula error', e);
                 return 'Err';
             }
+        },
+
+        displayValue(parameter) {
+            const net = this.calculateValue(parameter);
+            if (net === null || net === 'Err') {
+                return net;
+            }
+            return this.toDisplay(net, parameter.key);
         },
 
         formatValue(value, format) {
@@ -142,7 +209,7 @@ new class extends Component
 
             switch (format) {
                 case 'currency':
-                    return new Intl.NumberFormat('ru-RU', { 
+                    return new Intl.NumberFormat('ru-RU', {
                         style: 'currency',
                         currency: 'RUB',
                         maximumFractionDigits: 2
@@ -175,7 +242,9 @@ new class extends Component
                         startEdit() {
                             if (!canEdit || parameter.is_calculated || this.isEditing) return;
                             this.isEditing = true;
-                            this.localValue = parameters[index].plans[month];
+                            const net = parameters[index].plans[month];
+                            const shown = toDisplay(net, parameter.key);
+                            this.localValue = shown;
                             this.$nextTick(() => $refs.input.focus());
                         },
 
@@ -196,6 +265,9 @@ new class extends Component
                                 }
                             }
 
+                            // Экранное число → без НДС для базы
+                            const storageValue = value === null ? null : toStorage(value, parameter.key);
+
                             let prev = parameters[index].plans[month];
                             if (prev === '' || prev === undefined) {
                                 prev = null;
@@ -210,17 +282,17 @@ new class extends Component
                                 }
                             }
 
-                            if (prev === null && value === null) {
+                            if (prev === null && storageValue === null) {
                                 return;
                             }
-                            if (prev !== null && value !== null && prev === value) {
+                            if (prev !== null && storageValue !== null && Math.abs(prev - storageValue) < 0.0000001) {
                                 return;
                             }
 
-                            parameters[index].plans[month] = value;
+                            parameters[index].plans[month] = storageValue;
                             this.localValue = value;
 
-                            $wire.save(index, value);
+                            $wire.save(index, storageValue);
                         },
 
                         cancel() {
@@ -240,7 +312,7 @@ new class extends Component
             >
                 <span
                     x-show="!isEditing"
-                    x-text="formatValue(calculateValue(parameter), parameter.format)"
+                    x-text="formatValue(displayValue(parameter), parameter.format)"
                 ></span>
                 <input
                     x-show="isEditing"
@@ -265,6 +337,16 @@ new class extends Component
                     >
                         Рассчитывается автоматически
                     </div>
+                </template>
+                <template x-teleport="body">
+                    <div
+                        class="rounded-md bg-gray-700 p-2 text-sm italic text-white whitespace-nowrap"
+                        style="z-index: 1000"
+                        x-show="isEditing && isVatKey(parameter.key)"
+                        x-cloak
+                        x-anchor.top="$refs.valueCell"
+                        x-text="includeVat ? 'учитывая НДС' : 'НДС не учитывается'"
+                    ></div>
                 </template>
             </div>
         </template>

@@ -71,23 +71,23 @@
         </div>
     </div>
 
-    {{-- Фильтры: как на Каналах/Статистике + год.
+    {{-- Фильтры: разметка как на Каналах/Статистике + год.
          На year-picker не вешаем wire:loading.class — иначе Alpine-цифра года затирается. --}}
-    <div class="flex flex-wrap items-center gap-y-3">
-        <div class="mr-3.5 flex items-center gap-2">
+    <div class="flex items-center">
+        <div class="mr-3.5">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="showInactive" />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
+        <div class="mr-[26px]">
             <label>НДС</label>
             <x-form.checkbox wire:model.live="includeVat" />
         </div>
 
-        <div class="relative w-48">
+        <div class="relative">
             <div
                 wire:loading
-                wire:target="year,showInactive"
+                wire:target="year,showInactive,includeVat"
                 class="absolute inset-0 z-10"
                 style="cursor: wait"
             ></div>
@@ -95,11 +95,11 @@
         </div>
     </div>
 
-    {{-- Оверлей без второго верхнего отступа — year-picker уже даёт 12px --}}
-    <div class="relative" style="min-height: 240px">
+    {{-- Отступ до таблицы: раньше давал year-picker (margin-bottom 12px), теперь у ряда фильтров --}}
+    <div class="relative mt-3" style="min-height: 240px">
         <div
             wire:loading
-            wire:target="year,showInactive"
+            wire:target="year,showInactive,includeVat"
             class="absolute inset-0 z-10 overflow-hidden"
             style="background-color: rgba(255, 255, 255, 0.75)"
         >
@@ -108,7 +108,7 @@
 
         <div
             wire:loading.class="pointer-events-none opacity-40"
-            wire:target="year,showInactive"
+            wire:target="year,showInactive,includeVat"
         >
             @if (empty($tableData))
                 <div class="mt-20 flex flex-col items-center gap-4">

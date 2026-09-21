@@ -11,6 +11,7 @@ use Src\Planning\Application\Services\PlanCalculator;
 use Src\Planning\Domain\Project;
 use Src\Planning\Domain\ProjectPlan;
 use Src\Planning\Domain\ValueObjects\QuarterApproval;
+use Src\Planning\Domain\ValueObjects\VatRate;
 use Tests\TestCase;
 
 class PlanningTableEnhancementsTest extends TestCase
@@ -103,5 +104,23 @@ class PlanningTableEnhancementsTest extends TestCase
 
         $this->assertSame(333.0, $project->getPlanValue('visits', 2026, 1));
         $this->assertSame(333.0, $project->getPrimaryPlanValue(2026, 1));
+    }
+
+    public function test_vat_rate_round_trip_with_22_percent(): void
+    {
+        $this->assertSame(22, VatRate::PERCENT);
+        $this->assertSame(1.22, VatRate::multiplier());
+        $this->assertTrue(VatRate::affects('budget'));
+        $this->assertTrue(VatRate::affects('cpl'));
+        $this->assertTrue(VatRate::affects('cpc'));
+        $this->assertFalse(VatRate::affects('visits'));
+
+        $this->assertNull(VatRate::toDisplay(null, true));
+        $this->assertNull(VatRate::toStorage(null, true));
+
+        $this->assertSame(1000.0, VatRate::toDisplay(1000.0, false));
+        $this->assertSame(1220.0, VatRate::toDisplay(1000.0, true));
+        $this->assertSame(1000.0, VatRate::toStorage(1220.0, true));
+        $this->assertSame(1220.0, VatRate::toStorage(1220.0, false));
     }
 }

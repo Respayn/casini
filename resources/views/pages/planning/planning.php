@@ -24,8 +24,7 @@ new
         public bool $showInactive = false;
 
         /**
-         * Как на Каналах/Статистике: флаг «НДС» в фильтрах.
-         * Пересчёт сумм пока не подключен (на Каналах/Статистике галочка тоже только UI).
+         * Галочка «НДС»: показ/ввод бюджета, CPL, CPC с НДС 22% (в базе всегда без НДС).
          */
         public bool $includeVat = false;
 
@@ -71,6 +70,16 @@ new
         public function updatedShowInactive(): void
         {
             $this->reloadTableAfterFilterChange();
+        }
+
+        /**
+         * Смена режима НДС не трогает tableData и не ставит hasChanges —
+         * ячейки пересчитывают показ на клиенте.
+         */
+        public function updatedIncludeVat(): void
+        {
+            $this->js('window.dispatchEvent(new CustomEvent("planning-vat-sync"))');
+            $this->skipRender();
         }
 
         private function reloadTableAfterFilterChange(): void

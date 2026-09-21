@@ -13,7 +13,8 @@
         .yearpicker-year-selector {
             display: flex;
             gap: 5px;
-            margin-bottom: 12px;
+            align-items: center;
+            margin-bottom: 0;
         }
 
         .yearpicker-selector-button {
@@ -40,7 +41,11 @@
             justify-content: center;
             align-items: center;
             flex: 1;
-            font-weight: 700;
+            height: 2rem;
+            min-width: 4.5rem;
+            padding: 0 12px;
+            box-sizing: border-box;
+            font-weight: 400;
         }
     </style>
 @endonce
