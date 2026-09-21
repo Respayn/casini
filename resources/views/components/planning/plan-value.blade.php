@@ -3,11 +3,14 @@
 use Livewire\Attributes\On;
 use Livewire\Component;
 
-new class extends Component {
+new class extends Component
+{
     public $parameters;
 
     public $month;
+
     public $rowIndex;
+
     public $canEdit = false;
 
     #[On('row-{rowIndex}-updated')]
@@ -18,11 +21,11 @@ new class extends Component {
 
     public function save($index, $value)
     {
-        if (!$this->canEdit) {
+        if (! $this->canEdit) {
             return;
         }
 
-        if (!empty($this->parameters[$index]['is_calculated'])) {
+        if (! empty($this->parameters[$index]['is_calculated'])) {
             return;
         }
 
@@ -51,14 +54,12 @@ new class extends Component {
             return;
         }
 
-        $updatedParameters = $this->parameters;
-        $updatedParameters[$index]['plans'][$this->month] = $castedValue;
-
         $this->dispatch(
-            'project-plan-updated',
+            'project-plan-cell-updated',
             rowIndex: $this->rowIndex,
-            parameters: $updatedParameters,
-            month: $this->month
+            month: $this->month,
+            index: $index,
+            value: $castedValue
         );
     }
 };
@@ -68,7 +69,29 @@ new class extends Component {
     <div class="grid auto-rows-fr h-full divide-y divide-table-cell" x-data="{
         parameters: @js($parameters),
         month: {{ $month }},
+        rowIndex: {{ (int) $rowIndex }},
         canEdit: @js($canEdit),
+        _syncHandler: null,
+
+        init() {
+            this._syncHandler = (event) => {
+                const parent = window.Livewire
+                    ? window.Livewire.all().find((component) => component.name === 'pages::planning')
+                    : null;
+                const tableData = parent && parent.$wire ? parent.$wire.tableData : null;
+                const row = tableData ? tableData[this.rowIndex] : null;
+                if (row && row.parameters) {
+                    this.parameters = JSON.parse(JSON.stringify(row.parameters));
+                }
+            };
+            window.addEventListener('planning-table-sync', this._syncHandler);
+        },
+
+        destroy() {
+            if (this._syncHandler) {
+                window.removeEventListener('planning-table-sync', this._syncHandler);
+            }
+        },
 
         findParamValue(key) {
             const found = this.parameters.find(p => p.key === key);

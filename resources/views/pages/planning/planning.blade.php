@@ -71,24 +71,27 @@
         </div>
     </div>
 
-    {{-- Фильтры --}}
-    <div
-        class="w-48"
-        wire:loading.class="pointer-events-none opacity-60"
-        wire:target="year"
-    >
+    {{-- Фильтры: не вешаем wire:loading.class на сам переключатель года —
+         Livewire иначе перетирает Alpine-цифру пустым HTML. --}}
+    <div class="relative w-48">
+        <div
+            wire:loading
+            wire:target="year"
+            class="absolute inset-0 z-10"
+            style="cursor: wait"
+        ></div>
         <x-form.year-picker wire:model.live="year" />
     </div>
 
-    {{-- Контент остаётся на месте; скелетон — оверлей, без прыжка высоты --}}
-    <div class="relative mt-3" style="min-height: 240px">
+    {{-- Как x-report.table-loading на Каналах: оверлей без второго верхнего отступа — year-picker уже даёт 12px --}}
+    <div class="relative" style="min-height: 240px">
         <div
             wire:loading
             wire:target="year"
             class="absolute inset-0 z-10 overflow-hidden"
             style="background-color: rgba(255, 255, 255, 0.75)"
         >
-            <x-planning.table-skeleton class="h-full" style="min-height: 100%" />
+            <x-planning.table-skeleton style="min-height: 100%" />
         </div>
 
         <div
@@ -264,22 +267,30 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="1"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.1" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.1" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="2"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.2" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.2" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="3"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.3" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.3" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]['approved'] ?? false])>
+                                                <x-data.table-cell
+                                                    @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]['approved'] ?? false])
+                                                    x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][1]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 1 }"
+                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.1.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][1]['date'] ?? null"
                                                             :approved-by-name="$tableData[$rowIndex]['approvals'][1]['approved_by_name'] ?? null"
+                                                            :approved="$tableData[$rowIndex]['approvals'][1]['approved'] ?? false"
+                                                            :row-index="$rowIndex"
+                                                            :quarter="1"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -287,22 +298,30 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="4"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.4" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.4" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="5"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.5" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.5" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="6"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.6" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.6" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]['approved'] ?? false])>
+                                                <x-data.table-cell
+                                                    @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]['approved'] ?? false])
+                                                    x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][2]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 2 }"
+                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.2.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][2]['date'] ?? null"
                                                             :approved-by-name="$tableData[$rowIndex]['approvals'][2]['approved_by_name'] ?? null"
+                                                            :approved="$tableData[$rowIndex]['approvals'][2]['approved'] ?? false"
+                                                            :row-index="$rowIndex"
+                                                            :quarter="2"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -310,22 +329,30 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="7"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.7" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.7" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="8"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.8" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.8" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="9"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.9" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.9" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]['approved'] ?? false])>
+                                                <x-data.table-cell
+                                                    @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]['approved'] ?? false])
+                                                    x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][3]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 3 }"
+                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.3.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][3]['date'] ?? null"
                                                             :approved-by-name="$tableData[$rowIndex]['approvals'][3]['approved_by_name'] ?? null"
+                                                            :approved="$tableData[$rowIndex]['approvals'][3]['approved'] ?? false"
+                                                            :row-index="$rowIndex"
+                                                            :quarter="3"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>
@@ -333,22 +360,30 @@
 
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="10"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.10" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.10" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="11"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.11" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.11" />
                                             <livewire:planning.plan-value :parameters="$projectPlan['parameters']" :month="12"
                                                 :department="$projectPlan['department']" :kpi="$projectPlan['kpi']" :row-index="$rowIndex"
-                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $year }}.{{ $dataEpoch }}.{{ $rowIndex }}.12" />
+                                                :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.12" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]['approved'] ?? false])>
+                                                <x-data.table-cell
+                                                    @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]['approved'] ?? false])
+                                                    x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][4]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 4 }"
+                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
                                                     <div class="text-center">
                                                         <x-planning.approval-checkbox
                                                             wire:model.live="tableData.{{ $rowIndex }}.approvals.4.approved"
                                                             :can-edit="$this->canEditApprovals"
                                                             :date="$tableData[$rowIndex]['approvals'][4]['date'] ?? null"
                                                             :approved-by-name="$tableData[$rowIndex]['approvals'][4]['approved_by_name'] ?? null"
+                                                            :approved="$tableData[$rowIndex]['approvals'][4]['approved'] ?? false"
+                                                            :row-index="$rowIndex"
+                                                            :quarter="4"
                                                         />
                                                     </div>
                                                 </x-data.table-cell>

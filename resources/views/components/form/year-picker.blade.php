@@ -2,8 +2,7 @@
     <button class="yearpicker-selector-button h-8 w-8" x-on:click="year--">
         <x-icons.accordion-arrow class="rotate-90" />
     </button>
-    <div class="yearpicker-year" x-text="year">
-    </div>
+    <div class="yearpicker-year" x-text="year || new Date().getFullYear()">{{ now()->year }}</div>
     <button class="yearpicker-selector-button h-8 w-8" x-on:click="year++">
         <x-icons.accordion-arrow class="rotate-270" />
     </button>

@@ -168,6 +168,12 @@ Seeder копирует read/edit/full с `system settings` на три новы
 - расчётные параметры (лиды/визиты и т.п.) не редактируются; форматы `integer` / `percent` округляются до целых при расчёте, вводе и отображении;
 - для SEO + KPI «Трафик» в схеме есть «Конверсии».
 
+Производительность смены года (если набор `project_id` в таблице не изменился):
+- `applyYearChange()` загружает `tableData`, шлёт клиентское событие `planning-table-sync` и вызывает `skipRender()` — HTML таблицы в ответе Livewire не отдаётся;
+- ячейки `planning.plan-value` и согласования читают новые значения из `$wire.tableData` родителя и обновляют Alpine-состояние;
+- `wire:key` ячеек: `plan.{dataEpoch}.{row}.{month}` (год не входит) — remount только после discard (`dataEpoch++`);
+- оверлей загрузки: `wire:loading` + `x-planning.table-skeleton` поверх таблицы; на сам year-picker не вешать `wire:loading.class` — иначе Alpine-цифра года затирается.
+
 ## Тестирование
 
 - **Unit-тесты** для доменной логики в `tests/Unit/Domain/`

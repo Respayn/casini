@@ -92,20 +92,26 @@ new
                 }
             }
 
-            $this->tableData[$rowIndex] = $this->projectPlanService->recalculateRow(
-                $this->tableData[$rowIndex],
-                $this->year,
-                $month
-            );
+            $this->syncRecalculatedRow($rowIndex, $month);
+        }
 
-            $this->dispatch(
-                "row-{$rowIndex}-updated",
-                parameters: $this->tableData[$rowIndex]['parameters']
-            );
+        #[On('project-plan-cell-updated')]
+        public function updatePlanCell(int $rowIndex, int $month, int $index, mixed $value): void
+        {
+            if (! $this->canEditPlanValues) {
+                return;
+            }
 
-            $projectId = $this->tableData[$rowIndex]['project_id'];
-            $this->modifiedProjectIds[$projectId] = true;
-            $this->hasChanges = true;
+            if (! isset($this->tableData[$rowIndex]['parameters'][$index])) {
+                return;
+            }
+
+            if (! empty($this->tableData[$rowIndex]['parameters'][$index]['is_calculated'])) {
+                return;
+            }
+
+            $this->tableData[$rowIndex]['parameters'][$index]['plans'][$month] = $value;
+            $this->syncRecalculatedRow($rowIndex, $month);
         }
 
         public function updatedTableData($value, $key)
@@ -221,9 +227,45 @@ new
 
         private function applyYearChange(): void
         {
-            $this->resetDraftState();
+            $previousIds = array_map('intval', array_column($this->tableData, 'project_id'));
+
+            $this->modifiedProjectIds = [];
+            $this->hasChanges = false;
             $this->loadedYear = $this->year;
             $this->loadTableData();
+
+            $newIds = array_map('intval', array_column($this->tableData, 'project_id'));
+            $sameRows = $previousIds === $newIds && $previousIds !== [];
+
+            if ($sameRows) {
+                $this->dispatchPlanningTableSync();
+                $this->skipRender();
+            } else {
+                $this->dataEpoch++;
+            }
+        }
+
+        private function dispatchPlanningTableSync(): void
+        {
+            $this->js('window.dispatchEvent(new CustomEvent("planning-table-sync"))');
+        }
+
+        private function syncRecalculatedRow(int $rowIndex, int $month): void
+        {
+            $this->tableData[$rowIndex] = $this->projectPlanService->recalculateRow(
+                $this->tableData[$rowIndex],
+                $this->year,
+                $month
+            );
+
+            $this->dispatch(
+                "row-{$rowIndex}-updated",
+                parameters: $this->tableData[$rowIndex]['parameters']
+            );
+
+            $projectId = $this->tableData[$rowIndex]['project_id'];
+            $this->modifiedProjectIds[$projectId] = true;
+            $this->hasChanges = true;
         }
 
         private function resetDraftState(): void
