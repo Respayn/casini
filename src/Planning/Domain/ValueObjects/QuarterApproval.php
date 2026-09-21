@@ -7,8 +7,11 @@ use Src\Domain\ValueObjects\Quarter;
 class QuarterApproval
 {
     private Quarter $quarter;
+
     private bool $approved;
+
     private ?string $approvedAt;
+
     private ?int $approvedBy;
 
     public function __construct(

@@ -5,12 +5,17 @@ namespace Src\Domain\ValueObjects;
 class KpiParameter
 {
     private string $id;
+
     private string $label;
+
     private ?string $format;
+
     private bool $isCalculated;
 
     private ?string $formula;
+
     private array $dependencies;
+
     private bool $isPrimary;
 
     public function __construct(

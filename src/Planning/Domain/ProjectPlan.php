@@ -2,12 +2,13 @@
 
 namespace Src\Planning\Domain;
 
-use Src\Planning\Domain\ValueObjects\QuarterApproval;
 use Src\Domain\ValueObjects\Quarter;
+use Src\Planning\Domain\ValueObjects\QuarterApproval;
 
 class ProjectPlan
 {
     private Project $project;
+
     private int $year;
 
     /** @var QuarterApproval[] */
@@ -67,6 +68,7 @@ class ProjectPlan
     public function isQuarterApproved(Quarter $quarter): bool
     {
         $quarterNum = $quarter->getNumber();
+
         return isset($this->quarterApprovals[$quarterNum])
             && $this->quarterApprovals[$quarterNum]->isApproved();
     }

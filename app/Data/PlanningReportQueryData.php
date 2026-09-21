@@ -2,7 +2,6 @@
 
 namespace App\Data;
 
-use App\Data\TableReportColumnData;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Wireable;
@@ -17,6 +16,7 @@ class PlanningReportQueryData extends Data implements Wireable
 
     /**
      * Summary of columns
+     *
      * @var Collection<int, TableReportColumnData>
      */
     public Collection $columns;
@@ -28,11 +28,10 @@ class PlanningReportQueryData extends Data implements Wireable
 
     /**
      * Summary of create
-     * @return PlanningReportQueryData
      */
     public static function create(): PlanningReportQueryData
     {
-        $instance = new self();
+        $instance = new self;
 
         $colOrder = 0;
 
@@ -49,17 +48,17 @@ class PlanningReportQueryData extends Data implements Wireable
             new TableReportColumnData('february', 'Февраль', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('march', 'Март', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('quarter_1', 'Согласование', $colOrder++, component: 'agreement'),
-            
+
             new TableReportColumnData('april', 'Апрель', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('may', 'Май', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('june', 'Июнь', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('quarter_2', 'Согласование', $colOrder++, component: 'agreement'),
-            
+
             new TableReportColumnData('july', 'Июль', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('august', 'Август', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('september', 'Сентябрь', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('quarter_3', 'Согласование', $colOrder++, component: 'agreement'),
-            
+
             new TableReportColumnData('october', 'Октябрь', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('november', 'Ноябрь', $colOrder++, component: 'month-plan'),
             new TableReportColumnData('december', 'Декабрь', $colOrder++, component: 'month-plan'),

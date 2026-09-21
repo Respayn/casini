@@ -2,10 +2,10 @@
 
 namespace Src\Planning\Application\Factories;
 
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 use Src\Planning\Domain\Factories\AbstractKpiParametersSchemaFactory;
 use Src\Planning\Domain\ValueObjects\KpiParametersSchemaBuilder;
-use Src\Domain\ValueObjects\ProjectType;
-use Src\Domain\ValueObjects\Kpi;
 
 class ContextAdKpiParametersSchemaFactory extends AbstractKpiParametersSchemaFactory
 {
