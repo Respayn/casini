@@ -3,16 +3,14 @@
     'placeholder' => '',
     'icon' => null,
     'required' => false,
-    'suffix' => null,
     'disabled' => false,
     'mask' => null,
 ])
 
 @php
     $wireModel = $attributes->whereStartsWith('wire:model')->first();
-    $inputValue = $wireModel ? (is_array(old($wireModel)) ? '' : old($wireModel) ?? '') : '';
-    $suffix = $suffix ?? '';
     $isPhoneMask = $mask === 'phone';
+    $hasError = $wireModel && $errors->has($wireModel);
 @endphp
 
 <div {{ $attributes->class(['flex flex-col gap-2'])->only(['class', 'style']) }}>
@@ -20,58 +18,26 @@
         <label class="text-primary-text text-sm font-semibold">{{ $label }}</label>
     @endif
     <div class="relative">
-        @switch($attributes->get('type'))
-            @case('number')
-                <input
-                    type="text"
-                    @if($inputValue !== '') value="{{ $inputValue }}" @endif
-                    @class([
-                        'min-h-[42px] w-full rounded-[5px] border pe-3',
-                        'border-input-border',
-                        'border-warning-red' => $wireModel ? $errors->has($wireModel) : false,
-                        'ps-[39px]' => isset($icon),
-                        'ps-3' => !isset($icon),
-                        'disabled:bg-secondary' => $disabled,
-                    ])
-                    @if ($wireModel) wire:model="{{ $wireModel }}" @endif
-                    placeholder="{{ $placeholder }}"
-                    onfocus="this.value = this.value.replace(/ /g, '').replace(new RegExp('{{ preg_quote($suffix, '/') }}', 'g'), '');"
-                    oninput="this.value = this.value.replace(/[^0-9]/g, '').replace(/(?!^)-/g, '');"
-                    onblur="
-                    let numValue = parseFloat(this.value.replace(/\s/g, ''));if (!isNaN(numValue)) {
-                            this.value = numValue.toLocaleString('ru-RU') + ' {{ $suffix }}';
-                        } else {
-                            this.value = '';
-                        }
-                    "
-                    @required($required)
-                    @disabled($disabled)
-                    {{ $attributes->except('class', 'style', 'wire:model', 'type') }}
-                />
-            @break
-
-            @default
-                <input
-                    type="{{ $attributes->get('type') ?? 'text' }}"
-                    @class([
-                        'min-h-[42px] w-full rounded-[5px] border pe-3',
-                        'border-input-border',
-                        'border-warning-red' => $wireModel ? $errors->has($wireModel) : false,
-                        'ps-[39px]' => isset($icon),
-                        'ps-3' => !isset($icon),
-                        'disabled:bg-secondary' => $disabled,
-                    ])
-                    placeholder="{{ $placeholder }}"
-                    @required($required)
-                    @disabled($disabled)
-                    @if ($isPhoneMask)
-                        x-mask="+7 (999) 999-99-99"
-                        inputmode="tel"
-                        autocomplete="tel"
-                    @endif
-                    {{ $attributes->except('class', 'style', 'type') }}
-                />
-        @endswitch
+        <input
+            type="{{ $attributes->get('type') ?? 'text' }}"
+            @class([
+                'min-h-[42px] w-full rounded-[5px] border pe-3',
+                'border-input-border',
+                'border-warning-red' => $hasError,
+                'ps-[39px]' => isset($icon),
+                'ps-3' => ! isset($icon),
+                'disabled:bg-secondary' => $disabled,
+            ])
+            placeholder="{{ $placeholder }}"
+            @required($required)
+            @disabled($disabled)
+            @if ($isPhoneMask)
+                x-mask="+7 (999) 999-99-99"
+                inputmode="tel"
+                autocomplete="tel"
+            @endif
+            {{ $attributes->except(['class', 'style', 'type']) }}
+        />
         @if ($icon)
             <span class="pointer-events-none absolute left-[13px] top-1/2 -translate-y-1/2">
                 <x-dynamic-component :component="$icon" class="h-5 w-5 text-gray-400" />

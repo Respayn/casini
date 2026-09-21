@@ -12,8 +12,6 @@ class ProjectUtmMappingForm extends Form
 {
     /**
      * Массив UTM мэппингов.
-     *
-     * @var array
      */
     public array $utmMappings = [];
 
@@ -22,16 +20,34 @@ class ProjectUtmMappingForm extends Form
         return [
             'utmMappings' => 'nullable|array',
             'utmMappings.*.id' => 'nullable|integer',
-            'utmMappings.*.utmType' => ['required_with:utmMappings', new Enum(UtmType::class)],
-            'utmMappings.*.utmValue' => ['required_with:utmMappings', 'string', 'max:255'],
-            'utmMappings.*.replacementValue' => 'required_with:utmMappings|string|max:255',
+            'utmMappings.*.utmType' => ['required', new Enum(UtmType::class)],
+            'utmMappings.*.utmValue' => ['required', 'string', 'max:255'],
+            'utmMappings.*.replacementValue' => ['required', 'string', 'max:255'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'utmMappings.*.utmValue.required' => 'Заполните значение подменяемой UTM-метки.',
+            'utmMappings.*.replacementValue.required' => 'Заполните значение, которое отобразится в отчете.',
+            'utmMappings.*.utmType.required' => 'Выберите UTM-метку.',
+        ];
+    }
+
+    public function validationAttributes(): array
+    {
+        return [
+            'utmMappings.*.utmType' => 'UTM-метка',
+            'utmMappings.*.utmValue' => 'значение подменяемой UTM-метки',
+            'utmMappings.*.replacementValue' => 'значение в отчете',
         ];
     }
 
     /**
      * Метод для заполнения данных формы из массива DTO или моделей UTM мэппинга.
      *
-     * @param array<ProjectUtmMappingData|ProjectUtmMapping> $utmMappings
+     * @param  array<ProjectUtmMappingData|ProjectUtmMapping>  $utmMappings
      * @return void
      */
     public function from(array $utmMappings)
@@ -66,7 +82,7 @@ class ProjectUtmMappingForm extends Form
     /**
      * Метод для удаления мэппинга по индексу.
      *
-     * @param int $index
+     * @param  int  $index
      * @return void
      */
     public function removeMapping($index)

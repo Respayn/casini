@@ -2,17 +2,17 @@
 
 namespace Tests\Feature\Integration;
 
-use App\Models\Agency;
-use App\Models\User;
 use Database\Seeders\IntegrationSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Concerns\CreatesUserWithClientProjectEdit;
 use Tests\TestCase;
 
 class YandexDirectOAuthPrepareTest extends TestCase
 {
+    use CreatesUserWithClientProjectEdit;
     use DatabaseTransactions;
 
     protected function setUp(): void
@@ -36,9 +36,7 @@ class YandexDirectOAuthPrepareTest extends TestCase
             'services.yandex_direct.client_secret' => null,
         ]);
 
-        $user = User::factory()->create();
-        $agency = Agency::factory()->create();
-        $user->agencies()->attach($agency->id);
+        $user = $this->createUserWithClientProjectEdit();
 
         $component = Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')
@@ -56,9 +54,7 @@ class YandexDirectOAuthPrepareTest extends TestCase
     #[Test]
     public function test_prepare_yandex_direct_oauth_returns_url_and_stores_cache(): void
     {
-        $user = User::factory()->create();
-        $agency = Agency::factory()->create();
-        $user->agencies()->attach($agency->id);
+        $user = $this->createUserWithClientProjectEdit();
 
         $component = Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')

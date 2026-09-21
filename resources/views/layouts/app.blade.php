@@ -22,20 +22,30 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     @livewireStyles
+    <x-form.checkbox-styles />
+    <x-layout.sidebar-boot />
 </head>
 
-<body class="bg-body text-primary-text flex gap-5 font-sans">
+<body
+    class="bg-body text-primary-text flex gap-5 font-sans"
+    x-data
+>
     <livewire:sidebar />
 
-    <div class="flex w-full flex-col gap-[25px] pl-[375px] h-screen">
+    <div class="app-main flex h-screen w-full flex-col gap-[25px]">
         <livewire:header />
 
-        <x-menu.navbar :items="[
-            ['label' => 'Каналы', 'route' => 'channels'],
-            ['label' => 'Статистика', 'route' => 'statistics'],
-            ['label' => 'Планирование', 'route' => 'planning'],
-            ['label' => 'Отчеты', 'route' => 'reports']
-        ]" />
+        <x-menu.navbar :items="collect([
+            ['label' => 'Каналы', 'route' => 'channels', 'permissions' => ['read channels', 'full channels']],
+            ['label' => 'Статистика', 'route' => 'statistics', 'permissions' => ['read statistics', 'full statistics']],
+            ['label' => 'Планирование', 'route' => 'planning', 'permissions' => ['read planning', 'full planning']],
+            ['label' => 'Отчеты', 'route' => 'reports', 'permissions' => ['read reports', 'full reports']],
+        ])->map(function (array $item) {
+            $item['canAccess'] = collect($item['permissions'])
+                ->contains(fn (string $permission) => auth()->user()?->can($permission));
+
+            return $item;
+        })->values()->all()" />
 
         <div class="rounded-tl-2xl bg-white p-5 flex-1">
             {{ $slot }}

@@ -19,7 +19,9 @@ class RoleEditData extends Data implements Wireable
         public bool $useInManagersList,
         public bool $useInSpecialistList,
         public bool $hasChildRoles,
-        public array|Collection $childRoles
+        public array|Collection $childRoles,
+        public string $systemName = '',
+        public bool $hasAssignedUsers = false,
     ) {
         if (is_array($permissions)) {
             $this->permissions = collect($permissions);

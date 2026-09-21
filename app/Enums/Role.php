@@ -5,6 +5,7 @@ namespace App\Enums;
 enum Role: string
 {
     case ADMIN = 'admin';
+    case DEFAULT = 'default';
     case MANAGER = 'manager';
     case CA_SPECIALIST = 'kr';
     case SEO_SPECIALIST = 'seo';
@@ -18,6 +19,7 @@ enum Role: string
     {
         return match ($this) {
             static::ADMIN => 'Администратор',
+            static::DEFAULT => 'Роль по умолчанию',
             static::MANAGER => 'Менеджер',
             static::CA_SPECIALIST => 'Специалист (директолог)',
             static::SEO_SPECIALIST => 'Специалист (SEO)',

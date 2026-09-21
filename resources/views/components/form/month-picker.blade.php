@@ -32,7 +32,7 @@
         {{-- Month grid --}}
         <div class="monthpicker-grid">
             <template x-for="(monthData, index) in monthMap">
-                <button class="monthpicker-btn monthpicker-btn--month" x-bind:class="{ 'selected': monthSelected(index) }"
+                <button type="button" class="monthpicker-btn monthpicker-btn--month" x-bind:class="{ 'selected': monthSelected(index) }"
                     x-text="monthData.short" x-on:click="selectMonth(index)"></button>
             </template>
         </div>
@@ -43,7 +43,7 @@
     @script
     <script>
         Alpine.data('monthpicker', () => ({
-            value: new Date().toISOString(),
+            value: null,
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
             isOpen: false,
@@ -111,6 +111,14 @@
             },
 
             updateDateFromValue() {
+                if (! this.value) {
+                    const now = new Date();
+                    this.year = now.getFullYear();
+                    this.month = now.getMonth();
+
+                    return;
+                }
+
                 const date = new Date(this.value);
                 this.year = date.getFullYear();
                 this.month = date.getMonth();
@@ -136,6 +144,10 @@
             },
 
             get displayValue() {
+                if (! this.value) {
+                    return '';
+                }
+
                 const date = new Date(this.value);
                 const year = date.getFullYear();
                 const month = this.monthMap[date.getMonth()].full;
@@ -143,6 +155,10 @@
             },
 
             monthSelected(monthIndex) {
+                if (! this.value) {
+                    return false;
+                }
+
                 const date = new Date(this.value);
                 const year = date.getFullYear();
                 const monthVal = date.getMonth();
@@ -169,6 +185,8 @@
             background: none;
             color: inherit;
             font: inherit;
+            min-width: 141px;
+            min-height: 42px;
         }
 
         .monthpicker-trigger__icon {

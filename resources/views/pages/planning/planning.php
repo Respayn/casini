@@ -1,12 +1,12 @@
 <?php
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
-use Livewire\Attributes\Title;
-use Livewire\Component;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Title;
+use Livewire\Component;
 use Src\Planning\Application\ProjectPlanService;
 
 new
@@ -43,9 +43,8 @@ new
             $this->projectPlanService = $projectPlanService;
         }
 
-        public function mount(\App\Support\SidebarProjectContext $context): void
+        public function mount(): void
         {
-            $this->sidebarProjectId = $context->get();
             $this->year = Carbon::now()->year;
             $this->loadedYear = $this->year;
             $this->loadTableData();

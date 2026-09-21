@@ -3,6 +3,8 @@
             $nextTick(() => $wire.download({{ $pendingDownloadId }}))
         @endif
     ">
+    <x-layout.sidebar-filter-hint />
+
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <h1 class="mb-7">Отчеты</h1>

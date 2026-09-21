@@ -19,7 +19,6 @@ class StatisticsReportQueryData extends Data implements Wireable
 
     /**
      * Выбранная группировка
-     * @var ChannelReportGrouping
      */
     public ChannelReportGrouping $grouping = ChannelReportGrouping::NONE;
 
@@ -27,6 +26,7 @@ class StatisticsReportQueryData extends Data implements Wireable
 
     /**
      * Summary of columns
+     *
      * @var Collection<int, TableReportColumnData>
      */
     public Collection $columns;
@@ -37,17 +37,18 @@ class StatisticsReportQueryData extends Data implements Wireable
 
     public bool $includeVat = false;
 
+    public ?int $projectId = null;
+
     public function __construct() {}
 
     /**
      * Summary of create
-     * @return StatisticsReportQueryData
      */
     public static function create(
         StatisticsReportDetailLevel $detailLevel = StatisticsReportDetailLevel::BY_WEEK,
-        Carbon $dateTo = new Carbon()
+        Carbon $dateTo = new Carbon
     ): StatisticsReportQueryData {
-        $instance = new self();
+        $instance = new self;
 
         $instance->dateTo = $dateTo;
         $instance->detailLevel = $detailLevel;
@@ -71,7 +72,7 @@ class StatisticsReportQueryData extends Data implements Wireable
             $daysCount = $dateTo->daysInMonth();
             $monthNum = $dateTo->month;
             for ($i = 1; $i <= $daysCount; $i++) {
-                $label = Str::padLeft($i, 2, '0') . '.' . Str::padLeft($monthNum, 2, '0') . ' план/факт';
+                $label = Str::padLeft($i, 2, '0').'.'.Str::padLeft($monthNum, 2, '0').' план/факт';
                 $instance->columns->add(new TableReportColumnData("day_{$i}", $label, $colOrder++, component: 'fact', isSortable: false));
             }
         }
@@ -79,7 +80,7 @@ class StatisticsReportQueryData extends Data implements Wireable
         if ($detailLevel === StatisticsReportDetailLevel::BY_WEEK) {
             $weekIntervals = DateTimeHelper::getMonthWeekIntervals($dateTo);
             foreach ($weekIntervals as $i => $weekInterval) {
-                $label = $weekInterval['start']->format('d.m') . ' - ' . $weekInterval['end']->format('d.m')  . ' план/факт';
+                $label = $weekInterval['start']->format('d.m').' - '.$weekInterval['end']->format('d.m').' план/факт';
                 $instance->columns->add(new TableReportColumnData("week_{$i}", $label, $colOrder++, component: 'fact', isSortable: false));
             }
         }

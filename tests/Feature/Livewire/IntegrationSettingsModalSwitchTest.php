@@ -2,17 +2,18 @@
 
 namespace Tests\Feature\Livewire;
 
-use App\Models\Agency;
 use App\Models\Integration;
 use App\Models\User;
 use Database\Seeders\IntegrationSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
+use Tests\Concerns\CreatesUserWithClientProjectEdit;
 use Tests\TestCase;
 
 class IntegrationSettingsModalSwitchTest extends TestCase
 {
+    use CreatesUserWithClientProjectEdit;
     use DatabaseTransactions;
 
     protected function setUp(): void
@@ -32,11 +33,7 @@ class IntegrationSettingsModalSwitchTest extends TestCase
 
     private function createUserWithAgency(): User
     {
-        $user = User::factory()->create();
-        $agency = Agency::factory()->create();
-        $user->agencies()->attach($agency->id);
-
-        return $user;
+        return $this->createUserWithClientProjectEdit();
     }
 
     #[Test]

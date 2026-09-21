@@ -6,6 +6,7 @@ use App\Data\Statistics\StatisticsReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
 use App\Domain\Statistics\Services\StatisticsService;
+use App\Livewire\Concerns\WithSidebarProjectFilter;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
@@ -15,6 +16,8 @@ new
 #[Title('Статистика - Casini')]
 class extends Component
 {
+    use WithSidebarProjectFilter;
+
     public StatisticsReportQueryData $queryData;
 
     /**
@@ -32,6 +35,11 @@ class extends Component
     public function mount()
     {
         $this->queryData = StatisticsReportQueryData::create();
+    }
+
+    protected function afterSidebarProjectFilterChanged(): void
+    {
+        unset($this->reportData);
     }
 
     /**
@@ -83,7 +91,7 @@ class extends Component
     public function sortColumn($item, $position)
     {
         $column = $this->queryData->columns->first(
-            fn($v) => $v->field === $item,
+            fn ($v) => $v->field === $item,
         );
         $oldPosition = $column->order;
 
@@ -113,7 +121,7 @@ class extends Component
         });
 
         $this->queryData->columns = $this->queryData->columns->sortBy(
-            fn(TableReportColumnData $col) => $col->order,
+            fn (TableReportColumnData $col) => $col->order,
         );
     }
 
@@ -131,7 +139,7 @@ class extends Component
     #[Computed]
     public function sortableColumns()
     {
-        return $this->queryData->columns->filter(function(TableReportColumnData $col, $key) {
+        return $this->queryData->columns->filter(function (TableReportColumnData $col, $key) {
             return $col->isSortable;
         });
     }
@@ -139,6 +147,8 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
+        $this->queryData->projectId = $this->sidebarProjectId;
+
         return $this->statisticsService->getReportData($this->queryData);
     }
 };

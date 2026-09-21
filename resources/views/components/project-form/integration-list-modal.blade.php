@@ -1,4 +1,4 @@
-@props(['name', 'title', 'integrations'])
+@props(['name', 'title', 'integrations', 'canEdit' => true])
 
 <x-overlay.modal
     name="{{ $name }}"
@@ -7,10 +7,19 @@
     <x-slot:body>
         <div class="flex flex-col gap-1">
             @foreach ($integrations as $integration)
-                <x-button.button
-                    :label="$integration->name"
-                    wire:click="selectIntegration('{{ $integration->code }}')"
-                ></x-button.button>
+                @if ($canEdit)
+                    <x-button.button
+                        :label="$integration->name"
+                        wire:click="selectIntegration('{{ $integration->code }}')"
+                    ></x-button.button>
+                @else
+                    <x-permissions.field-guard :enabled="false">
+                        <x-button.button
+                            :label="$integration->name"
+                            disabled
+                        ></x-button.button>
+                    </x-permissions.field-guard>
+                @endif
             @endforeach
         </div>
     </x-slot:body>

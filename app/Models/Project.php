@@ -90,11 +90,11 @@ class Project extends Model
     /**
      * Связанные помощники.
      *
-     * @return BelongsTo
+     * @return BelongsToMany
      */
-    public function assistants()
+    public function assistants(): BelongsToMany
     {
-        return $this->belongsTo(User::class, 'specialist_id');
+        return $this->belongsToMany(User::class, 'project_assistant');
     }
 
     /**
