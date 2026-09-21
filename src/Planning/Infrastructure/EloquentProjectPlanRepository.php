@@ -36,21 +36,24 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
         return $this->mapToDomainModel($project, $year);
     }
 
-    public function getAllPlansForYear(int $year): array
+    public function getAllPlansForYear(int $year, bool $showInactive = false): array
     {
-        return $this->getProjects($year)
+        return $this->getProjects($year, [], $showInactive)
             ->map(fn ($project) => $this->mapToDomainModel($project, $year))
             ->toArray();
     }
 
     public function getPlansByProjectIds(int $year, array $projectIds): array
     {
-        return $this->getProjects($year, $projectIds)
+        return $this->getProjects($year, $projectIds, true)
             ->map(fn ($project) => $this->mapToDomainModel($project, $year))
             ->toArray();
     }
 
-    private function getProjects(int $year, array $projectIds = []): Collection
+    /**
+     * @param  list<int>  $projectIds
+     */
+    private function getProjects(int $year, array $projectIds = [], bool $showInactive = false): Collection
     {
         $query = ProjectModel::with([
             'client',
@@ -64,6 +67,8 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
 
         if (! empty($projectIds)) {
             $query->whereIn('id', $projectIds);
+        } elseif (! $showInactive) {
+            $query->where('is_active', true);
         }
 
         return $query->get();

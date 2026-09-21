@@ -45,15 +45,14 @@ class ProjectPlanService
      *
      * @return array[]
      */
-    public function getPlansForYear(int $year, ?int $projectId = null): array
+    public function getPlansForYear(int $year, ?int $projectId = null, bool $showInactive = false): array
     {
-        $domainPlans = $this->repository->getAllPlansForYear($year);
-
+        // Фильтр одного клиенто-проекта из сайдбара: показываем его даже если неактивный
+        // (как на Каналах/Статистике при выбранном projectId).
         if ($projectId !== null) {
-            $domainPlans = array_values(array_filter(
-                $domainPlans,
-                fn (ProjectPlan $plan) => $plan->getProject()->getId() === $projectId
-            ));
+            $domainPlans = $this->repository->getPlansByProjectIds($year, [$projectId]);
+        } else {
+            $domainPlans = $this->repository->getAllPlansForYear($year, $showInactive);
         }
 
         foreach ($domainPlans as $plan) {

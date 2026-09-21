@@ -20,6 +20,15 @@ new
         /** Год, за который сейчас загружена таблица (для отката при несохранённых правках). */
         public int $loadedYear;
 
+        /** Как на Каналах/Статистике: показывать неактивные клиенто-проекты. */
+        public bool $showInactive = false;
+
+        /**
+         * Как на Каналах/Статистике: флаг «НДС» в фильтрах.
+         * Пересчёт сумм пока не подключен (на Каналах/Статистике галочка тоже только UI).
+         */
+        public bool $includeVat = false;
+
         public array $tableData = [];
 
         public bool $hasChanges = false;
@@ -55,7 +64,22 @@ new
             $this->tableData = $this->projectPlanService->getPlansForYear(
                 $this->year,
                 $this->sidebarProjectId,
+                $this->showInactive,
             );
+        }
+
+        public function updatedShowInactive(): void
+        {
+            $this->reloadTableAfterFilterChange();
+        }
+
+        private function reloadTableAfterFilterChange(): void
+        {
+            if ($this->hasChanges) {
+                $this->resetDraftState();
+            }
+
+            $this->loadTableData();
         }
 
         protected function afterSidebarProjectFilterChanged(): void

@@ -71,23 +71,35 @@
         </div>
     </div>
 
-    {{-- Фильтры: не вешаем wire:loading.class на сам переключатель года —
-         Livewire иначе перетирает Alpine-цифру пустым HTML. --}}
-    <div class="relative w-48">
-        <div
-            wire:loading
-            wire:target="year"
-            class="absolute inset-0 z-10"
-            style="cursor: wait"
-        ></div>
-        <x-form.year-picker wire:model.live="year" />
+    {{-- Фильтры: как на Каналах/Статистике + год.
+         На year-picker не вешаем wire:loading.class — иначе Alpine-цифра года затирается. --}}
+    <div class="flex flex-wrap items-center gap-y-3">
+        <div class="mr-3.5 flex items-center gap-2">
+            <label>Неактивные клиенто-проекты:</label>
+            <x-form.checkbox wire:model.live="showInactive" />
+        </div>
+
+        <div class="mr-[26px] flex items-center gap-2">
+            <label>НДС</label>
+            <x-form.checkbox wire:model.live="includeVat" />
+        </div>
+
+        <div class="relative w-48">
+            <div
+                wire:loading
+                wire:target="year,showInactive"
+                class="absolute inset-0 z-10"
+                style="cursor: wait"
+            ></div>
+            <x-form.year-picker wire:model.live="year" />
+        </div>
     </div>
 
-    {{-- Как x-report.table-loading на Каналах: оверлей без второго верхнего отступа — year-picker уже даёт 12px --}}
+    {{-- Оверлей без второго верхнего отступа — year-picker уже даёт 12px --}}
     <div class="relative" style="min-height: 240px">
         <div
             wire:loading
-            wire:target="year"
+            wire:target="year,showInactive"
             class="absolute inset-0 z-10 overflow-hidden"
             style="background-color: rgba(255, 255, 255, 0.75)"
         >
@@ -96,7 +108,7 @@
 
         <div
             wire:loading.class="pointer-events-none opacity-40"
-            wire:target="year"
+            wire:target="year,showInactive"
         >
             @if (empty($tableData))
                 <div class="mt-20 flex flex-col items-center gap-4">

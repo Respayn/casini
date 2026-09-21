@@ -7,11 +7,14 @@ use Src\Planning\Domain\ProjectPlan;
 interface ProjectPlanRepositoryInterface
 {
     public function findForYearByProject(int $projectId, int $year): ?ProjectPlan;
-    public function getAllPlansForYear(int $year): array;
 
     /**
-     * @param int $year
-     * @param array $projectIds
+     * @param  bool  $showInactive  если false — только активные клиенто-проекты
+     * @return ProjectPlan[]
+     */
+    public function getAllPlansForYear(int $year, bool $showInactive = false): array;
+
+    /**
      * @return ProjectPlan[]
      */
     public function getPlansByProjectIds(int $year, array $projectIds): array;
@@ -19,11 +22,11 @@ interface ProjectPlanRepositoryInterface
     public function save(ProjectPlan $projectPlan): void;
 
     /**
-     * @param ProjectPlan[] $plans
-     * @return void
+     * @param  ProjectPlan[]  $plans
      */
     public function saveAll(array $plans): void;
 
     public function getMonthlyPlansForChannels(int $year, int $month, array $projectIds = []): array;
+
     public function getMonthlyPlansForStatistics(int $year, int $month, array $projectIds = []): array;
 }
