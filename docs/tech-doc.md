@@ -150,6 +150,24 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 Сворачивание: кнопка-«пилюля» на правом краю панели; состояние в `Alpine.store('sidebar')` + `localStorage` (`casini.sidebarOpen`). Класс `html.sidebar-collapsed` выставляется до отрисовки (`sidebar-boot`) и восстанавливается после `livewire:navigated`. В свёрнутом виде остаётся полоска ~18px панели; анимация (`sidebar-animating`) только при клике по кнопке.
 
+
+## Планирование (таблица планов)
+
+Страница `resources/views/pages/planning/` — годовая таблица планов по клиенто-проектам.
+
+| Часть | Роль |
+|-------|------|
+| Livewire | `planning.php` + `WithSidebarProjectFilter` (фильтр сайдбара) |
+| Сервис | `Src\Planning\Application\ProjectPlanService` |
+| Согласование | `project_plan_approvals`: `approved`, `approved_at`, `approved_by`; в UI — дата `дд.мм.гг` и тултип «Согласовал Имя Фамилия» |
+| Черновик | `hasChanges` / `modifiedProjectIds`; модалка `planning-leave-guard` при navigate и смене года |
+
+Поведение:
+- смена года и уход на другой продукт при несохранённых правках → «Сохранить» / «Выйти без сохранения» / отмена;
+- фильтр сайдбара при открытом черновике сбрасывает черновик и перезагружает таблицу;
+- расчётные параметры (лиды/визиты и т.п.) не редактируются; форматы `integer` / `percent` округляются до целых при расчёте, вводе и отображении;
+- для SEO + KPI «Трафик» в схеме есть «Конверсии».
+
 ## Тестирование
 
 - **Unit-тесты** для доменной логики в `tests/Unit/Domain/`
