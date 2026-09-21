@@ -4,21 +4,25 @@ namespace Src\Planning\Application;
 
 use App\Models\User;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
+use Src\Domain\ValueObjects\Quarter;
 use Src\Planning\Application\Repositories\ProjectPlanRepositoryInterface;
 use Src\Planning\Application\Repositories\ProjectRepositoryInterface;
 use Src\Planning\Application\Services\KpiParametersSchemaService;
 use Src\Planning\Application\Services\PlanCalculator;
 use Src\Planning\Domain\ProjectPlan;
-use Src\Domain\ValueObjects\Kpi;
-use Src\Domain\ValueObjects\ProjectType;
-use Src\Domain\ValueObjects\Quarter;
 
 class ProjectPlanService
 {
     private ProjectPlanRepositoryInterface $repository;
+
     private ProjectRepositoryInterface $projectRepository;
+
     private PlanCalculator $planCalculator;
+
     private KpiParametersSchemaService $schemaService;
 
     /** @var array<int, string|null> */
@@ -38,8 +42,7 @@ class ProjectPlanService
 
     /**
      * Получение планов на год для всех проектов
-     * @param int $year
-     * @param int|null $projectId
+     *
      * @return array[]
      */
     public function getPlansForYear(int $year, ?int $projectId = null): array
@@ -49,7 +52,7 @@ class ProjectPlanService
         if ($projectId !== null) {
             $domainPlans = array_values(array_filter(
                 $domainPlans,
-                fn(ProjectPlan $plan) => $plan->getProject()->getId() === $projectId
+                fn (ProjectPlan $plan) => $plan->getProject()->getId() === $projectId
             ));
         }
 
@@ -59,14 +62,11 @@ class ProjectPlanService
             $this->planCalculator->recalculate($plan, $projectType, $kpi);
         }
 
-        return array_map(fn(ProjectPlan $plan) => $this->mapToViewDto($plan), $domainPlans);
+        return array_map(fn (ProjectPlan $plan) => $this->mapToViewDto($plan), $domainPlans);
     }
 
     /**
      * Сохранение планов на год
-     * @param int $year
-     * @param array $plansData
-     * @return void
      */
     public function savePlansForYear(int $year, array $plansData): void
     {
@@ -81,10 +81,10 @@ class ProjectPlanService
         foreach ($plansData as $planData) {
             $projectId = $planData['project_id'];
 
-            $plan = Arr::first($plans, fn($existingPlan) => $existingPlan->getProject()->getId() === $projectId);
+            $plan = Arr::first($plans, fn ($existingPlan) => $existingPlan->getProject()->getId() === $projectId);
 
             foreach ($planData['parameters'] as $paramData) {
-                if (!$paramData['is_calculated']) {
+                if (! $paramData['is_calculated']) {
                     foreach ($paramData['plans'] as $month => $value) {
                         if ($value !== '') {
                             $valueToSave = $value !== null ? (float) $value : null;
@@ -135,9 +135,6 @@ class ProjectPlanService
 
     /**
      * Получение схемы параметров для страницы "статистика"
-     * @param ProjectType $projectType
-     * @param Kpi $kpi
-     * @return array
      */
     public function getKpiParametersSchemaForStatistics(ProjectType $projectType, Kpi $kpi): array
     {
@@ -146,17 +143,29 @@ class ProjectPlanService
         return array_map(function ($parameter) {
             return [
                 'name' => $parameter->getLabel(),
-                'highlight' => false
+                'highlight' => $parameter->isPrimary(),
             ];
         }, $parametersSchema->getParameters());
     }
 
     /**
+     * Коды параметров KPI в том же порядке, что и схема для Статистики/Каналов.
+     *
+     * @return list<string>
+     */
+    public function getParameterCodes(ProjectType $projectType, Kpi $kpi): array
+    {
+        return array_map(
+            fn ($p) => $p->getId(),
+            $this->schemaService->createSchema($projectType, $kpi)->getParameters()
+        );
+    }
+
+    /**
      * Получение планов на месяц для всех проектов для страницы "Каналы"
-     * @param int $year
-     * @param int $month
+     *
      * @return array[]
-    */
+     */
     public function getMonthlyPlansForChannels(int $year, int $month): array
     {
         return $this->repository->getMonthlyPlansForChannels($year, $month);
@@ -164,8 +173,7 @@ class ProjectPlanService
 
     /**
      * Получение планов на месяц для всех проектов для страницы "статистика"
-     * @param int $year
-     * @param int $month
+     *
      * @return array[]
      */
     public function getMonthlyPlansForStatistics(int $year, int $month): array
@@ -175,10 +183,6 @@ class ProjectPlanService
 
     /**
      * Summary of recalculateRow
-     * @param array $rowData
-     * @param int $year
-     * @param int $month
-     * @return array
      */
     public function recalculateRow(array $rowData, int $year, int $month): array
     {
@@ -186,7 +190,7 @@ class ProjectPlanService
         $projectPlan = new ProjectPlan($project, $year);
 
         foreach ($rowData['parameters'] as $paramData) {
-            if (!empty($paramData['is_calculated'])) {
+            if (! empty($paramData['is_calculated'])) {
                 continue;
             }
 
@@ -219,8 +223,6 @@ class ProjectPlanService
 
     /**
      * Создание DTO для страницы "планирование"
-     * @param ProjectPlan $plan
-     * @return array
      */
     public function mapToViewDto(ProjectPlan $plan): array
     {
@@ -251,7 +253,7 @@ class ProjectPlanService
                 'formula' => $paramEnum->getFormula(),
                 'dependencies' => $paramEnum->getDependencies(),
                 'highlight' => $paramEnum->isPrimary(),
-                'plans' => $paramPlans
+                'plans' => $paramPlans,
             ];
         }
 
@@ -269,7 +271,7 @@ class ProjectPlanService
                 'approved_by' => $approvedBy,
                 'approved_by_name' => $approvedByName,
                 'date' => ($approved && $approvedAt)
-                    ? \Illuminate\Support\Carbon::parse($approvedAt)->format('d.m.y')
+                    ? Carbon::parse($approvedAt)->format('d.m.y')
                     : null,
             ];
         }
@@ -283,7 +285,7 @@ class ProjectPlanService
             'department' => $projectType->label(),
             'kpi' => $kpi->label(),
             'parameters' => $parameters,
-            'approvals' => $approvals
+            'approvals' => $approvals,
         ];
     }
 
