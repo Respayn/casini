@@ -54,6 +54,24 @@
             this.pendingUrl = null;
             $wire.cancelLeaveGuard();
         },
+
+        /**
+         * Подсветка ячейки согласования после смены года без remount.
+         */
+        syncApprovalHighlight(rowIndex, quarter) {
+            const parent = window.Livewire
+                ? window.Livewire.all().find((component) => component.name === 'pages::planning')
+                : null;
+            const approvals = parent
+                && parent.$wire
+                && parent.$wire.tableData
+                && parent.$wire.tableData[rowIndex]
+                ? parent.$wire.tableData[rowIndex].approvals
+                : null;
+            const approval = approvals ? approvals[quarter] : null;
+
+            return !!(approval && approval.approved);
+        },
     }"
     x-on:modal-hide.window="
         if ($event.detail.name !== 'planning-leave-guard') return;
@@ -291,7 +309,7 @@
                                                 <x-data.table-cell
                                                     @class(['bg-primary' => $tableData[$rowIndex]['approvals'][1]['approved'] ?? false])
                                                     x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][1]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 1 }"
-                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
                                                     x-bind:class="{ 'bg-primary': approved }"
                                                 >
                                                     <div class="text-center">
@@ -322,7 +340,7 @@
                                                 <x-data.table-cell
                                                     @class(['bg-primary' => $tableData[$rowIndex]['approvals'][2]['approved'] ?? false])
                                                     x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][2]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 2 }"
-                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
                                                     x-bind:class="{ 'bg-primary': approved }"
                                                 >
                                                     <div class="text-center">
@@ -353,7 +371,7 @@
                                                 <x-data.table-cell
                                                     @class(['bg-primary' => $tableData[$rowIndex]['approvals'][3]['approved'] ?? false])
                                                     x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][3]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 3 }"
-                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
                                                     x-bind:class="{ 'bg-primary': approved }"
                                                 >
                                                     <div class="text-center">
@@ -384,7 +402,7 @@
                                                 <x-data.table-cell
                                                     @class(['bg-primary' => $tableData[$rowIndex]['approvals'][4]['approved'] ?? false])
                                                     x-data="{ approved: @js((bool) ($tableData[$rowIndex]['approvals'][4]['approved'] ?? false)), rowIndex: {{ (int) $rowIndex }}, quarter: 4 }"
-                                                    x-on:planning-table-sync.window="const parent = window.Livewire && window.Livewire.all().find((c) => c.name === 'pages::planning'); const a = parent && parent.$wire && parent.$wire.tableData && parent.$wire.tableData[rowIndex] && parent.$wire.tableData[rowIndex].approvals ? parent.$wire.tableData[rowIndex].approvals[quarter] : null; if (a) approved = !!a.approved"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
                                                     x-bind:class="{ 'bg-primary': approved }"
                                                 >
                                                     <div class="text-center">

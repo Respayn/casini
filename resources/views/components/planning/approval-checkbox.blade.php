@@ -16,7 +16,6 @@
         rowIndex: {{ $rowIndex === null ? 'null' : (int) $rowIndex }},
         quarter: {{ $quarter === null ? 'null' : (int) $quarter }},
         deniedOpen: false,
-        dateOpen: false,
         _syncHandler: null,
 
         init() {
@@ -79,29 +78,26 @@
         </div>
     @endif
 
+    {{-- Дата без ФИО — просто текст --}}
     <span
-        x-show="date"
+        x-show="date && !approvedByName"
         x-cloak
-        @class([
-            'mt-0.5 text-xs italic leading-none',
-            'cursor-default' => filled($approvedByName),
-        ])
+        class="mt-0.5 text-xs italic leading-none"
         style="color: #BFD9FF"
-        x-ref="approvalDateTrigger"
-        x-on:mouseenter="if (approvedByName) dateOpen = true"
-        x-on:mouseleave="dateOpen = false"
-    >
-        <span x-text="date">{{ $date }}</span>
-        <template x-teleport="body">
-            <div
-                class="rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                style="z-index: 1000; max-width: 16rem"
-                x-show="approvedByName && dateOpen"
-                x-cloak
-                x-anchor.top="$refs.approvalDateTrigger"
-            >
-                Согласовал <span x-text="approvedByName">{{ $approvedByName }}</span>
-            </div>
-        </template>
+        x-text="date"
+    >{{ $date }}</span>
+
+    {{-- Дата с ФИО — готовое облачко, наведение на саму дату (без иконки «?») --}}
+    <span x-show="date && approvedByName" x-cloak class="mt-0.5">
+        <x-overlay.tooltip>
+            <x-slot:trigger>
+                <span
+                    class="cursor-default text-xs italic leading-none"
+                    style="color: #BFD9FF"
+                    x-text="date"
+                >{{ $date }}</span>
+            </x-slot:trigger>
+            Согласовал <span x-text="approvedByName">{{ $approvedByName }}</span>
+        </x-overlay.tooltip>
     </span>
 </div>

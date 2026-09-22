@@ -37,7 +37,12 @@ new
         /** Счётчик для принудительного remount дочерних plan-value после discard. */
         public int $dataEpoch = 0;
 
-        /** navigate | year | null */
+        /**
+         * Чем занята модалка «Выйти без сохранения?»:
+         * navigate — уход на другую страницу / продукт;
+         * year — смена года в таблице;
+         * null — модалка не ждёт ответа.
+         */
         public ?string $leaveGuardIntent = null;
 
         public ?string $pendingNavigateUrl = null;
