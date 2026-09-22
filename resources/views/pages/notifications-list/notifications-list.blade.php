@@ -27,17 +27,18 @@
                         $titleClass = $isRead ? 'text-[#6E8198]' : 'text-[#283544]';
                       @endphp
 
-                    <div class="py-[10px]">
-                        <div class="text-[14px] leading-[100%] font-semibold {{ $titleClass }}
+                    <div class="min-w-0 py-[10px]">
+                        <div class="min-w-0 break-words text-[14px] leading-snug font-semibold {{ $titleClass }}
+                            [overflow-wrap:anywhere]
                             [&_a]:text-[#599CFF] [&_a]:underline [&_a:hover]:no-underline">
                             {!! $html !!}
                         </div>
 
                         @unless($inlineMeta)
-                        <div class="mt-1 text-[14px] italic flex items-center gap-2">
-                            <span class="{{ $dateClass }}">{{ $n->created_at->format('d.m.Y, H:i') }}</span>
+                        <div class="mt-1 min-w-0 break-words text-[14px] italic leading-snug {{ $dateClass }}">
+                            <span>{{ $n->created_at->format('d.m.Y, H:i') }}</span>
                             @if($projectName)
-                                <span class="{{ $dateClass }}">,</span>
+                                <span>,</span>
                                 @if($projectUrl)
                                     <a href="{{ $projectUrl }}" target="_blank" rel="noopener"
                                         class="text-[#599CFF] underline underline-offset-2 hover:no-underline">

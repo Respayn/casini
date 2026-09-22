@@ -74,6 +74,30 @@ class SafeLogger
         return $current;
     }
 
+    /**
+     * Короткий однострочный текст для UI/уведомлений:
+     * снимает обёртку Monolog и схлопывает переносы.
+     */
+    public static function forDisplay(string $message, int $maxLength = 220): string
+    {
+        $suffix = '';
+        if (preg_match('/(,\s*\d{1,2}:\d{2},\s*\d{2}\.\d{2}\.\d{2},\s*\[\[proj\]\])\s*$/u', $message, $m) === 1) {
+            $suffix = $m[1];
+            $message = substr($message, 0, -strlen($m[0]));
+        }
+
+        $clean = preg_replace('/\s+/u', ' ', trim(self::unwrap($message))) ?? '';
+        if ($clean === '') {
+            $clean = 'Ошибка съёма данных';
+        }
+
+        if (mb_strlen($clean) > $maxLength) {
+            $clean = rtrim(mb_substr($clean, 0, $maxLength - 1)).'…';
+        }
+
+        return $clean.$suffix;
+    }
+
     public static function isYandexDirectAuthError(Throwable $e): bool
     {
         $haystack = $e->getMessage();

@@ -7,6 +7,7 @@ use App\Models\Agency;
 use App\Models\Project;
 use App\Services\NotificationService;
 use App\Services\Notifications\ProjectNotificationRecipientResolver;
+use App\Support\SafeLogger;
 use Illuminate\Support\Carbon;
 
 class CreateIntegrationSyncFailedNotification
@@ -23,7 +24,9 @@ class CreateIntegrationSyncFailedNotification
             ? (string) $project->name
             : 'Клиенто-проект №'.$e->projectId;
 
-        $error = filled($e->error) ? $e->error : 'Ошибка съёма данных';
+        $error = filled($e->error)
+            ? SafeLogger::forDisplay($e->error)
+            : 'Ошибка съёма данных';
         $now = Carbon::now($this->agencyTimezone());
         $text = $error.', '.$now->format('H:i').', '.$now->format('d.m.y').', [[proj]]';
 

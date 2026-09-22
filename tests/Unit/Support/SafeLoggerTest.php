@@ -55,4 +55,17 @@ class SafeLoggerTest extends TestCase
         );
         $this->assertTrue(SafeLogger::isYandexDirectAuthError($outer));
     }
+
+    public function test_for_display_shortens_permission_wrapped_notification_text(): void
+    {
+        $message = 'The stream or file "/var/www/casini/storage/logs/laravel-2026-08-16.log" could not be opened in append mode: Failed to open stream: Permission denied'
+            ."\nThe exception occurred while attempting to log: Integration sync: collect threw"
+            ."\nContext: {\"item_id\":30,\"project_id\":1,\"collector\":\"yandex_direct_daily_spend\",\"message\":\"The stream or file \\\"/var/www/casini/storage/logs/laravel-2026-08-16.log\\\" could not be opened in append mode: Failed to open stream: Permission denied\\nThe exception occurred while attempting to log: Integration sync: Yandex Direct daily spend range failed\\nContext: {\\\"project_id\\\":1,\\\"from\\\":\\\"2026-08-16\\\",\\\"to\\\":\\\"2026-08-16\\\",\\\"message\\\":\\\"Failed to get daily expenses\\\"}\"}"
+            .', 00:01, 17.08.26, [[proj]]';
+
+        $this->assertSame(
+            'Failed to get daily expenses, 00:01, 17.08.26, [[proj]]',
+            SafeLogger::forDisplay($message)
+        );
+    }
 }
