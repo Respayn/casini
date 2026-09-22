@@ -14,10 +14,7 @@
                 @forelse($notifications as $n)
                     @php
                         $isRead = (bool) $n->read_at;
-                        $inlineMeta = (bool) data_get($n->payload ?? [], 'inline_meta')
-                            || $n->type === 'integrations.sync.failed';
                         $projectName = data_get($n->payload ?? [], 'project');
-                        // URL проекта без домена по реальному роуту
                         $projectUrl = $n->project_id
                             ? route('system-settings.clients-and-projects.projects.manage', ['projectId' => $n->project_id], false)
                             : (data_get($n->payload ?? [], 'project_url') ?: null);
@@ -25,21 +22,42 @@
                         $html = $n->html ?? e($n->text);
                         $dateClass = $isRead ? 'text-[#97A3B6]' : 'text-[#486388]';
                         $titleClass = $isRead ? 'text-[#6E8198]' : 'text-[#283544]';
-                      @endphp
 
-                    <div class="min-w-0 py-[10px]">
+                        $errorDetail = data_get($n->payload ?? [], 'error_detail');
+                        if (! filled($errorDetail) && $n->type === 'integrations.sync.failed') {
+                            $errorDetail = (string) ($n->text ?? '');
+                        }
+                        $showErrorDetails = filled($errorDetail);
+                    @endphp
+
+                    <div class="min-w-0 py-[10px]" @if ($showErrorDetails) x-data="{ open: false }" @endif>
                         <div class="min-w-0 break-words text-[14px] leading-snug font-semibold {{ $titleClass }}
                             [overflow-wrap:anywhere]
                             [&_a]:text-[#599CFF] [&_a]:underline [&_a:hover]:no-underline">
                             {!! $html !!}
                         </div>
 
-                        @unless($inlineMeta)
+                        @if ($showErrorDetails)
+                            <div class="mt-1">
+                                <button
+                                    type="button"
+                                    class="text-[14px] text-[#599CFF] underline underline-offset-2 hover:no-underline"
+                                    x-on:click="open = !open"
+                                    x-text="open ? 'Скрыть' : 'Подробнее'"
+                                ></button>
+                                <pre
+                                    x-show="open"
+                                    x-cloak
+                                    class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[#F5F8FC] p-3 text-[12px] font-normal leading-snug text-[#283544] [overflow-wrap:anywhere]"
+                                >{{ $errorDetail }}</pre>
+                            </div>
+                        @endif
+
                         <div class="mt-1 min-w-0 break-words text-[14px] italic leading-snug {{ $dateClass }}">
                             <span>{{ $n->created_at->format('d.m.Y, H:i') }}</span>
-                            @if($projectName)
+                            @if ($projectName)
                                 <span>,</span>
-                                @if($projectUrl)
+                                @if ($projectUrl)
                                     <a href="{{ $projectUrl }}" target="_blank" rel="noopener"
                                         class="text-[#599CFF] underline underline-offset-2 hover:no-underline">
                                         {{ $projectName }}
@@ -49,7 +67,6 @@
                                 @endif
                             @endif
                         </div>
-                        @endunless
                     </div>
                 @empty
                     <div class="py-10 text-center text-slate-500">Пока нет уведомлений</div>

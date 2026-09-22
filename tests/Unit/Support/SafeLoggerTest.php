@@ -64,7 +64,7 @@ class SafeLoggerTest extends TestCase
             .', 00:01, 17.08.26, [[proj]]';
 
         $this->assertSame(
-            'Failed to get daily expenses, 00:01, 17.08.26, [[proj]]',
+            'Failed to get daily expenses',
             SafeLogger::forDisplay($message)
         );
     }

@@ -75,14 +75,13 @@ class SafeLogger
     }
 
     /**
-     * Короткий однострочный текст для UI/уведомлений:
-     * снимает обёртку Monolog и схлопывает переносы.
+     * Короткий однострочный текст для заголовка уведомления:
+     * снимает обёртку Monolog, схлопывает переносы,
+     * убирает старый хвост «, чч:мм, дд.мм.гг, [[proj]]».
      */
     public static function forDisplay(string $message, int $maxLength = 220): string
     {
-        $suffix = '';
         if (preg_match('/(,\s*\d{1,2}:\d{2},\s*\d{2}\.\d{2}\.\d{2},\s*\[\[proj\]\])\s*$/u', $message, $m) === 1) {
-            $suffix = $m[1];
             $message = substr($message, 0, -strlen($m[0]));
         }
 
@@ -95,7 +94,7 @@ class SafeLogger
             $clean = rtrim(mb_substr($clean, 0, $maxLength - 1)).'…';
         }
 
-        return $clean.$suffix;
+        return $clean;
     }
 
     public static function isYandexDirectAuthError(Throwable $e): bool

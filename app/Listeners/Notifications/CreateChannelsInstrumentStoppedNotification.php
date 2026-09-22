@@ -28,6 +28,7 @@ class CreateChannelsInstrumentStoppedNotification
             'channel_name' => $e->channelName,
             'instrument'   => $e->instrument,
             'last_seen_at' => optional($e->lastSeenAt)->toIso8601String(),
+            'error_detail' => $e->instrument,
         ];
 
         $this->svc->create(
