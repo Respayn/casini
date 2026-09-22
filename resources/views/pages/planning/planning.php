@@ -178,6 +178,9 @@ new
                     $this->tableData[$rowIndex]['approvals'][$quarter]['approved_by'] = null;
                     $this->tableData[$rowIndex]['approvals'][$quarter]['approved_by_name'] = null;
                 }
+
+                // Подсветка ячейки и дата в Alpine — только через sync (без «залипшего» bg-primary в HTML).
+                $this->js('window.dispatchEvent(new CustomEvent("planning-table-sync"))');
             }
 
             if (isset($parts[0]) && isset($this->tableData[$parts[0]])) {

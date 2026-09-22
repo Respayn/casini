@@ -29,10 +29,13 @@
                 const tableData = parent && parent.$wire ? parent.$wire.tableData : null;
                 const row = tableData ? tableData[this.rowIndex] : null;
                 const approval = row && row.approvals ? row.approvals[this.quarter] : null;
-                if (! approval) {
+                if (! approval || ! approval.approved) {
+                    this.approved = false;
+                    this.date = null;
+                    this.approvedByName = null;
                     return;
                 }
-                this.approved = !! approval.approved;
+                this.approved = true;
                 this.date = approval.date || null;
                 this.approvedByName = approval.approved_by_name || null;
             };
