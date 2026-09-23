@@ -2,17 +2,18 @@
 
 namespace Src\Planning\Infrastructure;
 
-use Src\Planning\Domain\Client;
-use Src\Planning\Domain\Project;
 use App\Models\Project as ProjectModel;
 use App\Models\ProjectPlanApproval;
 use App\Models\ProjectPlanValue;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Src\Domain\ValueObjects\Quarter;
 use Src\Planning\Application\Repositories\ProjectPlanRepositoryInterface;
+use Src\Planning\Domain\Client;
+use Src\Planning\Domain\Project;
 use Src\Planning\Domain\ProjectPlan;
 use Src\Planning\Domain\ValueObjects\PlanValue;
-use Src\Domain\ValueObjects\Quarter;
 
 class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
 {
@@ -25,31 +26,34 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             },
             'planApprovals' => function ($query) use ($year) {
                 $query->where('year', $year);
-            }
+            },
         ])->find($projectId);
 
-        if (!$project) {
+        if (! $project) {
             return null;
         }
 
         return $this->mapToDomainModel($project, $year);
     }
 
-    public function getAllPlansForYear(int $year): array
+    public function getAllPlansForYear(int $year, bool $showInactive = false): array
     {
-        return $this->getProjects($year)
-            ->map(fn($project) => $this->mapToDomainModel($project, $year))
+        return $this->getProjects($year, [], $showInactive)
+            ->map(fn ($project) => $this->mapToDomainModel($project, $year))
             ->toArray();
     }
 
     public function getPlansByProjectIds(int $year, array $projectIds): array
     {
-        return $this->getProjects($year, $projectIds)
-            ->map(fn($project) => $this->mapToDomainModel($project, $year))
+        return $this->getProjects($year, $projectIds, true)
+            ->map(fn ($project) => $this->mapToDomainModel($project, $year))
             ->toArray();
     }
 
-    private function getProjects(int $year, array $projectIds = []): Collection
+    /**
+     * @param  list<int>  $projectIds
+     */
+    private function getProjects(int $year, array $projectIds = [], bool $showInactive = false): Collection
     {
         $query = ProjectModel::with([
             'client',
@@ -58,11 +62,13 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             },
             'planApprovals' => function ($query) use ($year) {
                 $query->where('year', $year);
-            }
+            },
         ]);
 
-        if (!empty($projectIds)) {
+        if (! empty($projectIds)) {
             $query->whereIn('id', $projectIds);
+        } elseif (! $showInactive) {
+            $query->where('is_active', true);
         }
 
         return $query->get();
@@ -96,24 +102,29 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                         'project_id' => $projectId,
                         'parameter_code' => $parameterCode,
                         'year_month_date' => $dateStr,
-                        'value' => $value
+                        'value' => $value,
                     ];
                 }
             }
 
-            foreach ($plan->getQuarterApprovals() as $quarterNumber => $approved) {
+            foreach ($plan->getQuarterApprovals() as $quarterNumber => $approval) {
+                $approved = (bool) ($approval['approved'] ?? false);
                 $approvalsData[] = [
                     'project_id' => $projectId,
                     'period' => 'quarter',
                     'year' => $year,
                     'period_number' => $quarterNumber,
-                    'approved' => $approved
+                    'approved' => $approved,
+                    'approved_at' => $approved ? ($approval['approved_at'] ?? null) : null,
+                    'approved_by' => $approved ? ($approval['approved_by'] ?? null) : null,
+                    'updated_at' => now(),
+                    'created_at' => now(),
                 ];
             }
         }
 
         DB::transaction(function () use ($valuesData, $approvalsData) {
-            if (!empty($valuesData)) {
+            if (! empty($valuesData)) {
                 foreach (array_chunk($valuesData, 1000) as $chunk) {
                     ProjectPlanValue::upsert(
                         $chunk,
@@ -123,11 +134,11 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 }
             }
 
-            if (!empty($approvalsData)) {
+            if (! empty($approvalsData)) {
                 ProjectPlanApproval::upsert(
                     $approvalsData,
                     ['project_id', 'period', 'year', 'period_number'],
-                    ['approved']
+                    ['approved', 'approved_at', 'approved_by', 'updated_at']
                 );
             }
         });
@@ -141,19 +152,19 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 $query->whereYear('year_month_date', $year)
                     ->whereMonth('year_month_date', $month);
             },
-            'planApprovals' => function ($query) use ($year, $month) {
+            'planApprovals' => function ($query) use ($year) {
                 $query->where('year', $year);
-            }
+            },
         ]);
 
-        if (!empty($projectIds)) {
+        if (! empty($projectIds)) {
             $projectsQuery->whereIn('project_id', $projectIds);
         }
 
         $projects = $projectsQuery->get();
 
         $plans = $projects->reduce(function ($carry, $project) use ($year, $month) {
-            $planValues = $project->planValues->map(fn($pv) => new PlanValue(
+            $planValues = $project->planValues->map(fn ($pv) => new PlanValue(
                 $pv->parameter_code,
                 $year,
                 $month,
@@ -169,6 +180,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             );
 
             $carry[$project->id] = $domainProject->getPrimaryPlanValue($year, $month);
+
             return $carry;
         }, []);
 
@@ -183,19 +195,19 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 $query->whereYear('year_month_date', $year)
                     ->whereMonth('year_month_date', $month);
             },
-            'planApprovals' => function ($query) use ($year, $month) {
+            'planApprovals' => function ($query) use ($year) {
                 $query->where('year', $year);
-            }
+            },
         ]);
 
-        if (!empty($projectIds)) {
+        if (! empty($projectIds)) {
             $projectsQuery->whereIn('project_id', $projectIds);
         }
 
         $projects = $projectsQuery->get();
 
         $plans = $projects->reduce(function ($carry, $project) use ($year, $month) {
-            $planValues = $project->planValues->map(fn($pv) => new PlanValue(
+            $planValues = $project->planValues->map(fn ($pv) => new PlanValue(
                 $pv->parameter_code,
                 $year,
                 $month,
@@ -214,11 +226,12 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             foreach ($domainProject->getParametersSchema()->getParameters() as $parameter) {
                 $result[] = [
                     'value' => $domainProject->getPlanValue($parameter->getId(), $year, $month),
-                    'format' => $parameter->getFormat()
+                    'format' => $parameter->getFormat(),
                 ];
             }
 
             $carry[$project->id] = $result;
+
             return $carry;
         }, []);
 
@@ -232,7 +245,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
             $eloquentProject->client->name
         );
 
-        $planValues = $eloquentProject->planValues->map(fn($pv) => new PlanValue(
+        $planValues = $eloquentProject->planValues->map(fn ($pv) => new PlanValue(
             $pv->parameter_code,
             $year,
             $pv->year_month_date->month,
@@ -256,7 +269,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
 
         foreach ($eloquentProject->planValues as $value) {
             $month = $value->year_month_date->month;
-            $planValue = $value->value !== null ? (float)$value->value : null;
+            $planValue = $value->value !== null ? (float) $value->value : null;
 
             $plan->setMonthlyValue($value->parameter_code, $month, $planValue);
         }
@@ -264,7 +277,20 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
         foreach ($eloquentProject->planApprovals as $approval) {
             if ($approval->period === 'quarter') {
                 $quarter = new Quarter($approval->period_number);
-                $plan->setQuarterApproval($quarter, $approval->approved);
+                $approvedAt = null;
+                $approvedBy = null;
+                if ($approval->approved) {
+                    $approvedAt = $approval->approved_at
+                        ? Carbon::parse($approval->approved_at)->toDateString()
+                        : ($approval->updated_at?->toDateString());
+                    $approvedBy = $approval->approved_by ? (int) $approval->approved_by : null;
+                }
+                $plan->setQuarterApproval(
+                    $quarter,
+                    (bool) $approval->approved,
+                    $approvedAt,
+                    $approvedBy,
+                );
             }
         }
 
@@ -283,12 +309,12 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                     'project_id' => $projectId,
                     'parameter_code' => $parameterCode,
                     'year_month_date' => $date,
-                    'value' => $value
+                    'value' => $value,
                 ];
             }
         }
 
-        if (!empty($upsertData)) {
+        if (! empty($upsertData)) {
             ProjectPlanValue::upsert(
                 $upsertData,
                 ['project_id', 'parameter_code', 'year_month_date'],
@@ -300,21 +326,35 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
     private function saveQuarterApprovals(int $projectId, int $year, array $quarterApprovals): void
     {
         $data = [];
-        foreach ($quarterApprovals as $quarterNumber => $approved) {
+        foreach ($quarterApprovals as $quarterNumber => $approval) {
+            $approved = is_array($approval)
+                ? (bool) ($approval['approved'] ?? false)
+                : (bool) $approval;
+            $approvedAt = is_array($approval)
+                ? ($approved ? ($approval['approved_at'] ?? null) : null)
+                : null;
+            $approvedBy = is_array($approval)
+                ? ($approved ? ($approval['approved_by'] ?? null) : null)
+                : null;
+
             $data[] = [
                 'project_id' => $projectId,
                 'period' => 'quarter',
                 'year' => $year,
                 'period_number' => $quarterNumber,
-                'approved' => $approved
+                'approved' => $approved,
+                'approved_at' => $approvedAt,
+                'approved_by' => $approvedBy,
+                'updated_at' => now(),
+                'created_at' => now(),
             ];
         }
 
-        if (!empty($data)) {
+        if (! empty($data)) {
             ProjectPlanApproval::upsert(
                 $data,
                 ['project_id', 'period', 'year', 'period_number'],
-                ['approved']
+                ['approved', 'approved_at', 'approved_by', 'updated_at']
             );
         }
     }

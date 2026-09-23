@@ -1,16 +1,31 @@
-@props(['class' => ''])
+@props([
+    'class' => '',
+])
+
+@php
+    $hasCustomTrigger = isset($trigger) && ! $trigger->isEmpty();
+@endphp
 
 <div
-    class="relative inline-block cursor-pointer"
+    @class([
+        'relative inline-block',
+        'cursor-pointer' => ! $hasCustomTrigger,
+    ])
     x-data="{ open: false }"
 >
     <span
-        class="tooltip-icon"
+        @class([
+            'tooltip-icon' => ! $hasCustomTrigger,
+        ])
         @mouseenter="open = true"
         @mouseleave="open = false"
         x-ref="icon"
     >
-        <x-icons.tooltip class="{{ $class }} text-white" />
+        @if ($hasCustomTrigger)
+            {{ $trigger }}
+        @else
+            <x-icons.tooltip class="{{ $class }} text-white" />
+        @endif
     </span>
 
     <template x-teleport="body">

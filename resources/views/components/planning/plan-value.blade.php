@@ -2,12 +2,16 @@
 
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Src\Planning\Domain\ValueObjects\VatRate;
 
-new class extends Component {
+new class extends Component
+{
     public $parameters;
 
     public $month;
+
     public $rowIndex;
+
     public $canEdit = false;
 
     #[On('row-{rowIndex}-updated')]
@@ -18,24 +22,45 @@ new class extends Component {
 
     public function save($index, $value)
     {
-        if (!$this->canEdit) {
+        if (! $this->canEdit) {
             return;
         }
 
-        if (!empty($this->parameters[$index]['is_calculated'])) {
+        if (! empty($this->parameters[$index]['is_calculated'])) {
             return;
         }
 
         $castedValue = ($value === '' || $value === null) ? null : (float) $value;
 
-        $updatedParameters = $this->parameters;
-        $updatedParameters[$index]['plans'][$this->month] = $castedValue;
+        if ($castedValue !== null && in_array($this->parameters[$index]['format'] ?? null, ['integer', 'percent'], true)) {
+            $castedValue = round($castedValue);
+        }
+
+        $currentValue = $this->parameters[$index]['plans'][$this->month] ?? null;
+        if ($currentValue === '') {
+            $currentValue = null;
+        }
+        if ($currentValue !== null) {
+            $currentValue = (float) $currentValue;
+            if (in_array($this->parameters[$index]['format'] ?? null, ['integer', 'percent'], true)) {
+                $currentValue = round($currentValue);
+            }
+        }
+
+        if ($currentValue === null && $castedValue === null) {
+            return;
+        }
+
+        if ($currentValue !== null && $castedValue !== null && abs($currentValue - $castedValue) < 0.0000001) {
+            return;
+        }
 
         $this->dispatch(
-            'project-plan-updated',
+            'project-plan-cell-updated',
             rowIndex: $this->rowIndex,
-            parameters: $updatedParameters,
-            month: $this->month
+            month: $this->month,
+            index: $index,
+            value: $castedValue
         );
     }
 };
@@ -45,33 +70,137 @@ new class extends Component {
     <div class="grid auto-rows-fr h-full divide-y divide-table-cell" x-data="{
         parameters: @js($parameters),
         month: {{ $month }},
+        rowIndex: {{ (int) $rowIndex }},
         canEdit: @js($canEdit),
+        includeVat: false,
+        vatKeys: @js(VatRate::AFFECTED_KEYS),
+        vatMultiplier: {{ VatRate::multiplier() }},
+        _syncHandler: null,
+        _vatHandler: null,
 
+        init() {
+            this.includeVat = this.readIncludeVat();
+
+            this._syncHandler = () => {
+                const parent = this.planningParent();
+                const tableData = parent && parent.$wire ? parent.$wire.tableData : null;
+                const row = tableData ? tableData[this.rowIndex] : null;
+                if (row && row.parameters) {
+                    this.parameters = JSON.parse(JSON.stringify(row.parameters));
+                }
+                this.includeVat = this.readIncludeVat();
+            };
+
+            this._vatHandler = () => {
+                this.includeVat = this.readIncludeVat();
+            };
+
+            window.addEventListener('planning-table-sync', this._syncHandler);
+            window.addEventListener('planning-vat-sync', this._vatHandler);
+        },
+
+        destroy() {
+            if (this._syncHandler) {
+                window.removeEventListener('planning-table-sync', this._syncHandler);
+            }
+            if (this._vatHandler) {
+                window.removeEventListener('planning-vat-sync', this._vatHandler);
+            }
+        },
+
+        planningParent() {
+            return window.Livewire
+                ? window.Livewire.all().find((component) => component.name === 'pages::planning')
+                : null;
+        },
+
+        readIncludeVat() {
+            const parent = this.planningParent();
+            return !!(parent && parent.$wire && parent.$wire.includeVat);
+        },
+
+        isVatKey(key) {
+            return this.vatKeys.includes(key);
+        },
+
+        /** Сырое значение из базы (без НДС). */
         findParamValue(key) {
             const found = this.parameters.find(p => p.key === key);
             return found ? parseFloat(found.plans?.[this.month] || 0) : 0;
         },
 
+        toDisplay(netValue, key) {
+            if (netValue === null || netValue === '' || Number.isNaN(netValue)) {
+                return null;
+            }
+            const num = parseFloat(netValue);
+            if (Number.isNaN(num)) {
+                return null;
+            }
+            if (this.isVatKey(key) && this.includeVat) {
+                return Math.round(num * this.vatMultiplier * 100) / 100;
+            }
+            return num;
+        },
+
+        toStorage(displayValue, key) {
+            if (displayValue === null || displayValue === '' || Number.isNaN(displayValue)) {
+                return null;
+            }
+            const num = parseFloat(displayValue);
+            if (Number.isNaN(num)) {
+                return null;
+            }
+            if (this.isVatKey(key) && this.includeVat) {
+                return Math.round(num / this.vatMultiplier * 100) / 100;
+            }
+            return num;
+        },
+
         calculateValue(parameter) {
             if (!parameter.is_calculated) {
-                return parameter.plans?.[this.month] ?? null;
+                const raw = parameter.plans?.[this.month] ?? null;
+                if (raw === null || raw === '') return null;
+                const num = parseFloat(raw);
+                if (isNaN(num)) return null;
+                if (parameter.format === 'integer' || parameter.format === 'percent') {
+                    return Math.round(num);
+                }
+                return num;
             }
 
             try {
                 const formula = parameter.formula;
                 const args = parameter.dependencies || [];
                 const argv = args.map(argKey => this.findParamValue(argKey));
-                
+
                 const func = new Function(...args, 'return ' + formula);
-                const result = func(...argv);
-                
-                parameter.plans[this.month] = result; 
-                
+                let result = func(...argv);
+
+                if (result === null || result === undefined || Number.isNaN(result)) {
+                    parameter.plans[this.month] = null;
+                    return null;
+                }
+
+                if (parameter.format === 'integer' || parameter.format === 'percent') {
+                    result = Math.round(result);
+                }
+
+                parameter.plans[this.month] = result;
+
                 return result;
             } catch (e) {
                 console.error('Formula error', e);
                 return 'Err';
             }
+        },
+
+        displayValue(parameter) {
+            const net = this.calculateValue(parameter);
+            if (net === null || net === 'Err') {
+                return net;
+            }
+            return this.toDisplay(net, parameter.key);
         },
 
         formatValue(value, format) {
@@ -80,17 +209,21 @@ new class extends Component {
 
             switch (format) {
                 case 'currency':
-                    return new Intl.NumberFormat('ru-RU', { 
+                    return new Intl.NumberFormat('ru-RU', {
                         style: 'currency',
                         currency: 'RUB',
-                        maximumFractionDigits: 0,
                         maximumFractionDigits: 2
                     }).format(num);
                 case 'percent':
                     return new Intl.NumberFormat('ru-RU', {
                         minimumFractionDigits: 0,
-                        maximumFractionDigits: 2
-                    }).format(num) + '%';
+                        maximumFractionDigits: 0
+                    }).format(Math.round(num)) + '%';
+                case 'integer':
+                    return new Intl.NumberFormat('ru-RU', {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(Math.round(num));
                 default:
                     return new Intl.NumberFormat('ru-RU', {
                         minimumFractionDigits: 0,
@@ -104,38 +237,116 @@ new class extends Component {
             <div x-data="{
                         isEditing: false,
                         localValue: null,
+                        tipOpen: false,
 
                         startEdit() {
                             if (!canEdit || parameter.is_calculated || this.isEditing) return;
                             this.isEditing = true;
-                            this.localValue = parameters[index].plans[month];
+                            const net = parameters[index].plans[month];
+                            const shown = toDisplay(net, parameter.key);
+                            this.localValue = shown;
                             this.$nextTick(() => $refs.input.focus());
                         },
 
                         commit() {
                             this.isEditing = false;
-                            parameters[index].plans[month] = this.localValue;
 
-                            $wire.save(index, this.localValue);
+                            let value = this.localValue;
+                            if (value === '' || value === undefined) {
+                                value = null;
+                            } else if (value !== null) {
+                                const num = parseFloat(value);
+                                if (Number.isNaN(num)) {
+                                    value = null;
+                                } else if (parameter.format === 'integer' || parameter.format === 'percent') {
+                                    value = Math.round(num);
+                                } else {
+                                    value = num;
+                                }
+                            }
+
+                            // Экранное число → без НДС для базы
+                            const storageValue = value === null ? null : toStorage(value, parameter.key);
+
+                            let prev = parameters[index].plans[month];
+                            if (prev === '' || prev === undefined) {
+                                prev = null;
+                            } else if (prev !== null) {
+                                const prevNum = parseFloat(prev);
+                                if (Number.isNaN(prevNum)) {
+                                    prev = null;
+                                } else if (parameter.format === 'integer' || parameter.format === 'percent') {
+                                    prev = Math.round(prevNum);
+                                } else {
+                                    prev = prevNum;
+                                }
+                            }
+
+                            if (prev === null && storageValue === null) {
+                                return;
+                            }
+                            if (prev !== null && storageValue !== null && Math.abs(prev - storageValue) < 0.0000001) {
+                                return;
+                            }
+
+                            parameters[index].plans[month] = storageValue;
+                            this.localValue = value;
+
+                            $wire.save(index, storageValue);
                         },
 
                         cancel() {
                             this.isEditing = false;
                         },
-                    }" x-on:click="startEdit()" class="flex items-center justify-end grow px-2.5"
-                x-bind:class="{'cursor-pointer hover:bg-gray-50': canEdit && !parameter.is_calculated}">
-                <template x-if="isEditing">
-                    <div>
-                        <x-form.input-number x-ref="input" x-model="localValue" x-on:keydown.enter="commit()"
-                            x-on:blur="commit()" x-on:keydown.escape="cancel()"
-                            class="w-full h-full px-1 py-0 bg-white border-none focus:ring-0" />
+                    }"
+                x-ref="valueCell"
+                x-on:click="startEdit()"
+                x-on:mouseenter="if (parameter.is_calculated) tipOpen = true"
+                x-on:mouseleave="tipOpen = false"
+                class="relative flex grow items-center justify-end px-2.5"
+                style="min-height: 2.25rem"
+                x-bind:class="{
+                    'cursor-pointer hover:bg-gray-50': canEdit && !parameter.is_calculated,
+                    'cursor-not-allowed': parameter.is_calculated,
+                }"
+            >
+                <span
+                    x-show="!isEditing"
+                    x-text="formatValue(displayValue(parameter), parameter.format)"
+                ></span>
+                <input
+                    x-show="isEditing"
+                    x-ref="input"
+                    type="text"
+                    inputmode="decimal"
+                    x-model="localValue"
+                    x-on:click.stop
+                    x-on:keydown.enter="commit()"
+                    x-on:blur="commit()"
+                    x-on:keydown.escape="cancel()"
+                    class="absolute inset-0 w-full border-0 bg-white px-2.5 text-right outline-none"
+                    style="min-height: 0; height: 100%; box-sizing: border-box;"
+                />
+                <template x-teleport="body">
+                    <div
+                        class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
+                        style="z-index: 1000"
+                        x-show="parameter.is_calculated && tipOpen"
+                        x-cloak
+                        x-anchor.top="$refs.valueCell"
+                    >
+                        Рассчитывается автоматически
                     </div>
                 </template>
-
-                <template x-if="!isEditing">
-                    <div>
-                        <span x-text="formatValue(calculateValue(parameter), parameter.format)"></span>
-                    </div>
+                <template x-teleport="body">
+                    <div
+                        class="rounded-md bg-gray-700 p-2 text-sm italic text-white whitespace-nowrap"
+                        style="z-index: 1000"
+                        x-show="isEditing && isVatKey(parameter.key)"
+                        x-cloak
+                        x-anchor.top="$refs.valueCell"
+                        x-text="includeVat ? 'учитывая НДС' : 'НДС не учитывается'"
+                    ></div>
                 </template>
             </div>
         </template>
