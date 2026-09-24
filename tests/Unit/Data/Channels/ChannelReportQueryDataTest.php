@@ -33,6 +33,66 @@ class ChannelReportQueryDataTest extends TestCase
         $this->assertSame('Тип клиенто-проекта', $projectType->label);
     }
 
+    public function test_create_includes_labor_columns_before_summary_spendings(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-04 15:00:00'));
+
+        $fields = ChannelReportQueryData::create()->columns->pluck('field')->values()->all();
+
+        $seoLinksIdx = array_search('seo-links', $fields, true);
+        $summaryIdx = array_search('summary-spendings', $fields, true);
+        $expectedLabor = [
+            'seo-assistant' => 'Помощник SEO-специалиста (час / ₽)',
+            'seo-specialist' => 'SEO-специалист (час / ₽)',
+            'analyst' => 'Аналитик (час / ₽)',
+            'ork-manager' => 'Менеджер ОРК (час / ₽)',
+        ];
+
+        $this->assertNotFalse($seoLinksIdx);
+        $this->assertNotFalse($summaryIdx);
+
+        $laborFields = array_keys($expectedLabor);
+        foreach ($laborFields as $offset => $field) {
+            $this->assertSame($field, $fields[$seoLinksIdx + 1 + $offset]);
+            $this->assertLessThan($summaryIdx, $seoLinksIdx + 1 + $offset);
+        }
+
+        $columns = ChannelReportQueryData::create()->columns;
+        foreach ($expectedLabor as $field => $label) {
+            $column = $columns->first(fn ($item) => $item->field === $field);
+            $this->assertNotNull($column);
+            $this->assertSame($label, $column->label);
+            $this->assertSame('labor', $column->component);
+            $this->assertSame(ChannelReportQueryData::SPENDINGS_SYNC_TOOLTIP, $column->tooltip);
+        }
+    }
+
+    public function test_spendings_columns_share_sync_tooltip_with_refresh_icon(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-08-04 15:00:00'));
+
+        $rates = [(object) ['id' => 1, 'name' => 'Аналитик']];
+        $columns = ChannelReportQueryData::create($rates)->columns;
+        $fields = [
+            'programming',
+            'copyrighting',
+            'seo-links',
+            'seo-assistant',
+            'seo-specialist',
+            'analyst',
+            'ork-manager',
+            'position_1',
+        ];
+
+        foreach ($fields as $field) {
+            $column = $columns->first(fn ($item) => $item->field === $field);
+            $this->assertNotNull($column, $field);
+            $this->assertSame(ChannelReportQueryData::SPENDINGS_SYNC_TOOLTIP, $column->tooltip);
+            $this->assertStringContainsString('иконку обновления данных', (string) $column->tooltip);
+            $this->assertStringNotContainsString('кликните на ячейку', (string) $column->tooltip);
+        }
+    }
+
     public function test_from_saved_settings_fills_missing_date_from(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-04'));

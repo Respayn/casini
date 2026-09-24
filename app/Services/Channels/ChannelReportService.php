@@ -201,16 +201,23 @@ class ChannelReportService implements ChannelReportServiceInterface
     }
 
     /**
-     * Суммы «Программинг», «Копирайтер», «SEO-ссылки» и «Расход итого» по строкам группы и по всему отчёту.
+     * Суммы «Программинг», «Копирайтер», «SEO-ссылки», ролей labor и «Расход итого» по строкам группы и по всему отчёту.
      */
     private function enrichWithSpendingsTotals(TableReportData $report): void
     {
+        $laborFields = ['seo-assistant', 'seo-specialist', 'analyst', 'ork-manager'];
+
         $reportProgrammingHours = null;
         $reportProgrammingSum = null;
         $reportCopyrightingUnits = null;
         $reportCopyrightingSum = null;
         $reportSeoLinksSum = null;
         $reportSummarySpendings = null;
+        /** @var array<string, array{hours: float|null, sum: float|null}> $reportLabor */
+        $reportLabor = [];
+        foreach ($laborFields as $field) {
+            $reportLabor[$field] = ['hours' => null, 'sum' => null];
+        }
 
         foreach ($report->groups as $group) {
             $groupProgrammingHours = null;
@@ -219,6 +226,11 @@ class ChannelReportService implements ChannelReportServiceInterface
             $groupCopyrightingSum = null;
             $groupSeoLinksSum = null;
             $groupSummarySpendings = null;
+            /** @var array<string, array{hours: float|null, sum: float|null}> $groupLabor */
+            $groupLabor = [];
+            foreach ($laborFields as $field) {
+                $groupLabor[$field] = ['hours' => null, 'sum' => null];
+            }
 
             foreach ($group->rows as $row) {
                 $programming = $row->data->get('programming');
@@ -242,6 +254,18 @@ class ChannelReportService implements ChannelReportServiceInterface
                 if ($seoLinksSum !== null) {
                     $groupSeoLinksSum = ($groupSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
                     $reportSeoLinksSum = ($reportSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
+                }
+
+                foreach ($laborFields as $field) {
+                    $labor = $row->data->get($field);
+                    if (! is_array($labor)) {
+                        continue;
+                    }
+
+                    $groupLabor[$field]['hours'] = ($groupLabor[$field]['hours'] ?? 0.0) + (float) ($labor['hours'] ?? 0);
+                    $groupLabor[$field]['sum'] = ($groupLabor[$field]['sum'] ?? 0.0) + (float) ($labor['sum'] ?? 0);
+                    $reportLabor[$field]['hours'] = ($reportLabor[$field]['hours'] ?? 0.0) + (float) ($labor['hours'] ?? 0);
+                    $reportLabor[$field]['sum'] = ($reportLabor[$field]['sum'] ?? 0.0) + (float) ($labor['sum'] ?? 0);
                 }
 
                 $summarySpendings = $row->data->get('summary-spendings');
@@ -271,6 +295,15 @@ class ChannelReportService implements ChannelReportServiceInterface
                     'seo-links',
                     $groupSeoLinksSum === null ? null : ['sum' => round($groupSeoLinksSum, 2)],
                 );
+                foreach ($laborFields as $field) {
+                    $group->summary->put(
+                        $field,
+                        $groupLabor[$field]['sum'] === null ? null : [
+                            'hours' => $groupLabor[$field]['hours'] ?? 0.0,
+                            'sum' => round((float) $groupLabor[$field]['sum'], 2),
+                        ],
+                    );
+                }
                 $group->summary->put(
                     'summary-spendings',
                     $groupSummarySpendings === null ? null : ['sum' => round($groupSummarySpendings, 2)],
@@ -297,6 +330,15 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'seo-links',
                 $reportSeoLinksSum === null ? null : ['sum' => round($reportSeoLinksSum, 2)],
             );
+            foreach ($laborFields as $field) {
+                $report->summary->put(
+                    $field,
+                    $reportLabor[$field]['sum'] === null ? null : [
+                        'hours' => $reportLabor[$field]['hours'] ?? 0.0,
+                        'sum' => round((float) $reportLabor[$field]['sum'], 2),
+                    ],
+                );
+            }
             $report->summary->put(
                 'summary-spendings',
                 $reportSummarySpendings === null ? null : ['sum' => round($reportSummarySpendings, 2)],
@@ -935,27 +977,64 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createSpendingsData(?array $programming, ?array $copyrighting, ?int $seoLinksSum, ?array $positions): array
-    {
+    /**
+     * @param  array<string, array{hours?: float|int, sum?: float|int}>|null  $positions
+     * @param  array{hours?: float|int, sum?: float|int}|null  $seoAssistant
+     * @param  array{hours?: float|int, sum?: float|int}|null  $seoSpecialist
+     * @param  array{hours?: float|int, sum?: float|int}|null  $analyst
+     * @param  array{hours?: float|int, sum?: float|int}|null  $orkManager
+     * @return array<string, mixed>
+     */
+    public function createSpendingsData(
+        ?array $programming,
+        ?array $copyrighting,
+        ?int $seoLinksSum,
+        ?array $positions,
+        ?array $seoAssistant = null,
+        ?array $seoSpecialist = null,
+        ?array $analyst = null,
+        ?array $orkManager = null,
+    ): array {
         $spendings = [
             'programming' => $programming,
             'copyrighting' => $copyrighting,
             'seo-links' => ['sum' => $seoLinksSum],
+            'seo-assistant' => $seoAssistant,
+            'seo-specialist' => $seoSpecialist,
+            'analyst' => $analyst,
+            'ork-manager' => $orkManager,
         ];
 
-        foreach ($positions as $key => $position) {
+        foreach ($positions ?? [] as $key => $position) {
             $spendings[$key] = $position;
         }
 
-        $programmingSum = $programming ? $programming['sum'] : 0;
-        $copyrightingSum = $copyrighting ? $copyrighting['sum'] : 0;
+        $programmingSum = $programming ? ($programming['sum'] ?? 0) : 0;
+        $copyrightingSum = $copyrighting ? ($copyrighting['sum'] ?? 0) : 0;
+        $laborSlots = [$seoAssistant, $seoSpecialist, $analyst, $orkManager];
+        $laborSum = 0.0;
+        $hasLabor = false;
+        foreach ($laborSlots as $labor) {
+            if ($labor === null) {
+                continue;
+            }
+            $hasLabor = true;
+            $laborSum += (float) ($labor['sum'] ?? 0);
+        }
 
-        if ($programming === null && $copyrighting === null && $seoLinksSum === null && $positions === null) {
+        $positionsEmpty = $positions === null || $positions === [];
+        if (
+            $programming === null
+            && $copyrighting === null
+            && $seoLinksSum === null
+            && $positionsEmpty
+            && ! $hasLabor
+        ) {
             $totalSum = null;
         } else {
-            $totalSum = $programmingSum + $copyrightingSum + ($seoLinksSum ?? 0);
-            foreach ($positions as $position) {
-                $totalSum += $position['sum'];
+            $totalSum = (float) $programmingSum + (float) $copyrightingSum + (float) ($seoLinksSum ?? 0) + $laborSum;
+            foreach ($positions ?? [] as $position) {
+                $totalSum += (float) ($position['sum'] ?? 0);
             }
         }
 

@@ -228,7 +228,7 @@
 
     <x-overlay.modal name="column-settings-modal" title="Настроить столбцы">
         <x-slot:body>
-            <x-panel.scroll-panel style="max-height: 400px">
+            <x-panel.scroll-panel style="max-height: min(25rem, calc(100vh - 14rem))">
                 <div class="flex flex-col gap-2.5" x-data x-sort="$wire.sortColumn($item, $position)">
                     @foreach ($queryData->columns as $index => $column)
                         <div class="flex items-center gap-2.5" wire:key="column.{{ $column->field }}"
