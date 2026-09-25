@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Bitrix24AgencyConnection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -60,5 +61,13 @@ class Agency extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class);
+    }
+
+    public function isBitrix24Configured(): bool
+    {
+        return Bitrix24AgencyConnection::isConfigured(
+            $this->bitrix24_portal_url,
+            $this->bitrix24_webhook
+        );
     }
 }

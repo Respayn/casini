@@ -7,31 +7,32 @@ use App\Data\ProjectData;
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Data\ProjectUtmMappingData;
 use App\Enums\IntegrationCategory;
-use Src\Domain\ValueObjects\Kpi;
-use Src\Domain\ValueObjects\ProjectType;
+use App\Exceptions\CallibriApiException;
 use App\Factories\IntegrationSettingsFactory;
+use App\Helpers\PhraseDuplicateHelper;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
-use App\Exceptions\CallibriApiException;
-use App\Helpers\PhraseDuplicateHelper;
+use App\Models\Agency;
 use App\Services\CallibriService;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
-use Illuminate\Validation\ValidationException;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
 use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
+use App\Support\Bitrix24ProjectSettingsValidator;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -39,6 +40,8 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Src\Domain\Clients\ClientRepositoryInterface;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 
 new
 #[Layout('layouts::system-settings')]
@@ -48,20 +51,29 @@ class extends Component
     use WithFileUploads;
 
     public CreateClientProjectForm $clientProjectForm;
+
     public ProjectBonusGuaranteeForm $bonusGuaranteeForm;
+
     public ProjectUtmMappingForm $utmMappingForm;
 
     private ClientRepositoryInterface $clientRepository;
 
     private ClientService $clientService;
+
     private ProjectService $projectService;
+
     private PromotionRegionService $promotionRegionService;
+
     private PromotionTopicService $promotionTopicService;
+
     private IntegrationService $integrationService;
+
     private UserService $userService;
 
     public Collection $clients;
+
     public Collection $promotionRegions;
+
     public Collection $promotionTopics;
 
     public ?ProjectIntegrationData $selectedIntegration = null;
@@ -80,8 +92,7 @@ class extends Component
         IntegrationService $integrationService,
         UserService $userService,
         ClientRepositoryInterface $clientRepository
-    )
-    {
+    ) {
         $this->clientService = $clientService;
         $this->projectService = $projectService;
         $this->promotionRegionService = $promotionRegionService;
@@ -102,7 +113,7 @@ class extends Component
             // Получение данных
             $project = $this->projectService->getProjectDataById($projectId);
             $client = $this->clientRepository->findById($project->client_id);
-            
+
             $this->clientProjectForm->from($project);
             $this->clientProjectForm->manager = $client->getManagerId();
             $this->bonusGuaranteeForm->from($project->bonusCondition);
@@ -114,14 +125,14 @@ class extends Component
 
         if ($request->input('state')) {
             $state = json_decode(Crypt::decryptString(base64_decode($request->input('state'))), true);
-            $cachedData = Cache::pull('integration_data_' . $state['cache_data_id']);
+            $cachedData = Cache::pull('integration_data_'.$state['cache_data_id']);
 
             if ($cachedData) {
                 $this->restoreFromOAuthCache($cachedData);
             }
 
             foreach ($state['integrations'] as $setting) {
-                $integrationData = new ProjectIntegrationData();
+                $integrationData = new ProjectIntegrationData;
                 $integrationData->integration = IntegrationData::from($setting['integration']);
                 $integrationData->settings = $setting['settings'];
                 $integrationData->isEnabled = $setting['isEnabled'];
@@ -152,27 +163,28 @@ class extends Component
     public function moneyIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::MONEY);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::MONEY);
     }
 
     #[Computed]
     public function analyticsIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::ANALYTICS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::ANALYTICS);
     }
 
     #[Computed]
     public function toolsIntegrations(): Collection
     {
         return $this->integrations()
-            ->filter(fn($integration) => $integration->category === IntegrationCategory::TOOLS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::TOOLS);
     }
 
     #[Computed]
     public function configuredMoneyIntegrations(): Collection
     {
         $moneyIntegrationIds = $this->moneyIntegrations()->pluck('id');
+
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $moneyIntegrationIds->contains($integrationId));
     }
 
@@ -180,6 +192,7 @@ class extends Component
     public function configuredAnalyticsIntegrations(): Collection
     {
         $analyticsIntegrationIds = $this->analyticsIntegrations()->pluck('id');
+
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $analyticsIntegrationIds->contains($integrationId));
     }
 
@@ -187,6 +200,7 @@ class extends Component
     public function configuredToolsIntegrations(): Collection
     {
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
+
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
     }
 
@@ -217,6 +231,36 @@ class extends Component
     }
 
     #[Computed]
+    public function isBitrix24AgencyConfigured(): bool
+    {
+        $agencyId = (int) (session('current_agency_id') ?? 0);
+
+        if ($agencyId <= 0) {
+            $agencyId = (int) (Auth::user()?->agencies()->first()?->id ?? 0);
+        }
+
+        if ($agencyId <= 0) {
+            return false;
+        }
+
+        $agency = Agency::query()->find($agencyId);
+
+        return $agency !== null && $agency->isBitrix24Configured();
+    }
+
+    #[Computed]
+    public function moneyIntegrationDisabledReasons(): array
+    {
+        if ($this->isBitrix24AgencyConfigured) {
+            return [];
+        }
+
+        return [
+            'bitrix24' => 'Сначала укажите URL портала и вебхук в настройках агентства',
+        ];
+    }
+
+    #[Computed]
     public function isSelectedIntegrationPlatformConfigured(): bool
     {
         $code = $this->selectedIntegration?->integration->code ?? null;
@@ -224,12 +268,17 @@ class extends Component
         return match ($code) {
             'yandex_search_api' => $this->isYandexSearchApiConfigured,
             'yandex_direct' => $this->isYandexDirectOAuthConfigured,
+            'bitrix24' => $this->isBitrix24AgencyConfigured,
             default => true,
         };
     }
 
     public function selectIntegration(string $code)
     {
+        if ($code === 'bitrix24' && ! $this->isBitrix24AgencyConfigured) {
+            return;
+        }
+
         $integration = $this->integrations()->firstWhere('code', $code);
 
         if ($integration === null) {
@@ -239,8 +288,8 @@ class extends Component
         if ($this->integrationSettings->has($integration->id)) {
             $this->selectedIntegration = $this->integrationSettings->get($integration->id);
         } else {
-            $integrationSettingsFactory = new IntegrationSettingsFactory();
-            $selectedIntegration = new ProjectIntegrationData();
+            $integrationSettingsFactory = new IntegrationSettingsFactory;
+            $selectedIntegration = new ProjectIntegrationData;
             $selectedIntegration->integration = IntegrationData::from($integration);
             $selectedIntegration->isEnabled = false;
             $selectedIntegration->settings = $integrationSettingsFactory->create($code)->toArray();
@@ -262,7 +311,7 @@ class extends Component
     {
         $integration = $this->integrations()->firstWhere('id', $integrationId);
 
-        $projectIntegrationData = new ProjectIntegrationData();
+        $projectIntegrationData = new ProjectIntegrationData;
         $projectIntegrationData->integration = IntegrationData::from($integration);
         $settingsCollection = collect($settings);
         $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
@@ -278,9 +327,26 @@ class extends Component
             }
         }
 
+        if ($integration?->code === 'bitrix24') {
+            $normalized = Bitrix24ProjectSettingsValidator::normalize(
+                $projectIntegrationData->settings,
+                (bool) $projectIntegrationData->isEnabled
+            );
+            $errors = Bitrix24ProjectSettingsValidator::errors(
+                (bool) $projectIntegrationData->isEnabled,
+                $normalized,
+                $this->isBitrix24AgencyConfigured
+            );
+
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+
+            $projectIntegrationData->settings = $normalized;
+        }
+
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
     }
-
 
     public function loadCallibriProjects(string $email, string $token, ?string $includeSiteId = null): array
     {
@@ -307,7 +373,7 @@ class extends Component
             report($e);
 
             return ['error' => 'Не удалось загрузить проекты Callibri. Проверьте email и token.'];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return ['error' => 'Не удалось загрузить проекты Callibri.'];
@@ -344,11 +410,10 @@ class extends Component
             return ['count' => $count];
         } catch (CallibriApiException $e) {
             return ['error' => 'Ошибка API Callibri. Проверьте настройки интеграции.'];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return ['error' => 'Не удалось проверить интеграцию.'];
         }
     }
-
 
     /**
      * @return array{url?: string, cache_data_id?: string, error?: string}
@@ -497,7 +562,7 @@ class extends Component
             $this->selectedIntegration->isEnabled = true;
             $this->selectedIntegration->settings = $mergedSettings;
 
-            $projectIntegrationData = new ProjectIntegrationData();
+            $projectIntegrationData = new ProjectIntegrationData;
             $projectIntegrationData->integration = $this->selectedIntegration->integration;
             $projectIntegrationData->isEnabled = true;
             $projectIntegrationData->settings = $mergedSettings;
@@ -543,7 +608,7 @@ class extends Component
 
         try {
             $profile = app(YandexDirectService::class)->fetchOauthUserProfile($oauthToken);
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return ['error' => 'Не удалось получить данные аккаунта Яндекса'];
@@ -567,7 +632,7 @@ class extends Component
             if ($this->integrationSettings->has($integrationId)) {
                 $this->integrationSettings[$integrationId]->settings = $mergedSettings;
             } else {
-                $projectIntegrationData = new ProjectIntegrationData();
+                $projectIntegrationData = new ProjectIntegrationData;
                 $projectIntegrationData->integration = $this->selectedIntegration->integration;
                 $projectIntegrationData->isEnabled = $this->selectedIntegration->isEnabled ?? false;
                 $projectIntegrationData->settings = $mergedSettings;
@@ -627,7 +692,7 @@ class extends Component
             }
 
             return ['logins' => $logins];
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return ['error' => 'Не удалось загрузить логины Яндекс.Директ'];
@@ -669,7 +734,7 @@ class extends Component
                 continue;
             }
 
-            $integrationData = new ProjectIntegrationData();
+            $integrationData = new ProjectIntegrationData;
             $integrationData->integration = IntegrationData::from($setting['integration']);
             $integrationData->settings = $setting['settings'] ?? [];
             $integrationData->isEnabled = $setting['isEnabled'] ?? false;
@@ -689,7 +754,7 @@ class extends Component
         try {
             $phrases = app(YandexSearchApiPhraseParser::class)
                 ->parseFromPath($this->phraseDocxFile->getRealPath());
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             $this->reset('phraseDocxFile');
 
             return ['phrases' => [], 'error' => $exception->getMessage()];
@@ -717,7 +782,7 @@ class extends Component
         }
 
         if ($this->selectedIntegration === null) {
-            $this->selectedIntegration = new ProjectIntegrationData();
+            $this->selectedIntegration = new ProjectIntegrationData;
             $this->selectedIntegration->isEnabled = false;
             $this->selectedIntegration->settings = [];
         }
@@ -814,11 +879,12 @@ class extends Component
             // Подготовка данных для бонусных настроек
             $intervals = array_map(function ($intervalData) {
                 $intervalData = new IntervalData(
-                    from_percentage: (float)$intervalData['fromPercentage'],
-                    to_percentage: (float)$intervalData['toPercentage'],
-                    bonus_amount: isset($intervalData['bonusAmount']) ? (float)$intervalData['bonusAmount'] : null,
-                    bonus_percentage: isset($intervalData['bonusPercentage']) ? (float)$intervalData['bonusPercentage'] : null,
+                    from_percentage: (float) $intervalData['fromPercentage'],
+                    to_percentage: (float) $intervalData['toPercentage'],
+                    bonus_amount: isset($intervalData['bonusAmount']) ? (float) $intervalData['bonusAmount'] : null,
+                    bonus_percentage: isset($intervalData['bonusPercentage']) ? (float) $intervalData['bonusPercentage'] : null,
                 );
+
                 return $intervalData;
             }, $this->bonusGuaranteeForm->intervals);
 
@@ -848,6 +914,7 @@ class extends Component
                         utm_value: $utmMapping['utmValue'],
                         replacement_value: $utmMapping['replacementValue'],
                     );
+
                     return $projectUtmMappingData;
                 }, $this->utmMappingForm->utmMappings ?? []);
             }
@@ -861,7 +928,7 @@ class extends Component
 
             // Перенаправление или другие действия
             return redirect()->route('system-settings.clients-and-projects');
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
 
             // Обработка исключения, можно добавить сообщение об ошибке

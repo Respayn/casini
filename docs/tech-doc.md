@@ -87,7 +87,7 @@ Controller -> QueryHandler -> Repository -> Data Source
 
 ## Справочники staging (reference data)
 
-Список типов интеграций в UI клиенто-проекта читается из таблицы `integrations` (`IntegrationService::getIntegrations()`), не из blade-файлов. Ожидается ≥ 9 записей (`IntegrationSeeder`: 1С ×3, Yandex Search API, Google Sheets, Мегаплан, Яндекс.Директ, Яндекс.Метрика, Callibri).
+Список типов интеграций в UI клиенто-проекта читается из таблицы `integrations` (`IntegrationService::getIntegrations()`), не из blade-файлов. Ожидается ≥ 9 записей (`IntegrationSeeder`: 1С ×3, Битрикс24, Yandex Search API, Google Sheets, Яндекс.Директ, Яндекс.Метрика, Callibri). Мегаплан из справочника убран (отложен).
 
 Другие обязательные справочники: `products`, `product_notifications`, `rates`, `tooltips`, `search_engines`, агентство (`AgencySettingsTableSeeder`).
 
@@ -245,6 +245,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | Автообновление | `channels:dispatch-due-budget-refresh` (schedule `everyMinute`): если по `agencies.time_zone` наступило `agencies.direct_budget_refresh_time` (default 09:00) и за текущий local-date ещё не запускали — `refreshBudgetsForcedWithoutThrottle` по всем активным проектам с интеграцией `yandex_direct`. Без user-throttle. Guard — cache key `channels.direct.budget.scheduled.{localDate}` (TTL 25 ч) |
 | Настройка времени | «Настройка агентства» → «Основные настройки» → поле «Время обновления "Остаток бюджета в Директе"» (`agencies.direct_budget_refresh_time`, тип `time`, default `09:00:00`). Интерпретируется в `agencies.time_zone` |
 | Битрикс24 (агентство) | «Настройка агентства» → «Интеграция с Битрикс24»: `agencies.bitrix24_portal_url`, `agencies.bitrix24_webhook` (cast `encrypted`). Поля только парой; пустая пара = не подключено. Съём часов в Каналы — отдельно |
+| Битрикс24 (клиенто-проект) | Категория «Деньги», код `bitrix24`. Настройки в `integration_project.settings`: `root_task`, `search_query`, `parse_comment_works`, `sync_enabled_at` (+ `is_enabled`). Вебхук/URL из агентства. Кнопка disabled без пары агентства. Съём часов/комментариев ещё не запущен |
 | Макс. бонусы | `BonusService::resolveMaxBonusAmount`: max по интервалам настроек клиенто-проекта (фикс. ₽ или `% × чек`); `bonuses_enabled=false` / нет интервалов / `%` без чека → `-`. **Итого по группировке / таблице** для «Чек клиента» и «Макс. бонусы» — сумма по строкам (`enrichWithFinancialTotals`) |
 | Расходы итого | `ChannelReportService::createSpendingsData`: сумма ₽ из программинга, копирайтера, SEO-ссылок, четырёх ролей labor (`seo-assistant`, `seo-specialist`, `analyst`, `ork-manager`) и динамических ставок `position_*`. Пока данных по роли нет — в ячейке `-`, но при появлении `sum` она уже входит в итог. Если все источники пустые — итог `null` (прочерк), не 0. Агрегация по группе/таблице — `enrichWithSpendingsTotals` |
 

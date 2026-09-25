@@ -661,6 +661,7 @@
         name="money-integrations-modal"
         title="Деньги"
         :integrations="$this->moneyIntegrations"
+        :disabled-reasons="$this->moneyIntegrationDisabledReasons"
     />
 
     <x-project-form.integration-list-modal

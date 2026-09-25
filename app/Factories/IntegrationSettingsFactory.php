@@ -2,6 +2,7 @@
 
 namespace App\Factories;
 
+use App\Data\IntegrationSettings\Bitrix24IntegrationSettingsData;
 use App\Data\IntegrationSettings\CallibriIntegrationSettingsData;
 use App\Data\IntegrationSettings\GoogleSheetsIntegrationSettingsData;
 use App\Data\IntegrationSettings\IntegrationSettingsData;
@@ -21,6 +22,7 @@ class IntegrationSettingsFactory
             '1c_acts' => new OneCActsIntegrationSettingsData(),
             '1c_ad_budget_flow' => new OneCAdBudgetFlowIntegrationSettingsData(),
             '1c_check' => new OneCCheckIntegrationSettingsData(),
+            'bitrix24' => new Bitrix24IntegrationSettingsData(),
             'callibri' => new CallibriIntegrationSettingsData(),
             'google_sheets' => new GoogleSheetsIntegrationSettingsData(),
             'megaplan' => new MegaplanIntegrationSettingsData(),
