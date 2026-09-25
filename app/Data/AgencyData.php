@@ -20,5 +20,7 @@ class AgencyData extends Data
         public ?string $phone = null,
         public ?string $address = null,
         public ?string $logoSrc = null,
+        public ?string $bitrix24PortalUrl = null,
+        public ?string $bitrix24Webhook = null,
     ) {}
 }

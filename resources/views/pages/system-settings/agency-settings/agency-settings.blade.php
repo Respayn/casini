@@ -102,6 +102,67 @@
                 </div>
             </x-form.form-field>
 
+            <h2 class="mb-1 mt-6 font-semibold">Интеграция с Битрикс24</h2>
+
+            <x-form.form-field>
+                <x-form.form-label>URL портала Битрикс24</x-form.form-label>
+                <x-form.input-text
+                    wire:model="form.bitrix24PortalUrl"
+                    placeholder="https://company.bitrix24.ru"
+                />
+            </x-form.form-field>
+
+            <x-form.form-field>
+                <div class="flex gap-3">
+                    <label class="max-w-[250px] text-sm">Вебхук</label>
+                    <x-overlay.tooltip panel-max-width="20rem">
+                        В Битрикс24: войти администратором → Приложения → Разработчикам → Другое → Входящий вебхук.
+                        Скопируйте адрес вебхука. В правах включите «Задачи» и «Пользователи»: по ним Касини позже
+                        заберёт часы и сопоставит сотрудников.
+                        <strong class="font-semibold not-italic">После настройки в настройках клиенто-проектов станет доступен Битрикс24 для настройки интеграции.</strong>
+                        Вебхук — как пароль: не пересылайте его.
+                    </x-overlay.tooltip>
+                </div>
+                <div
+                    class="flex flex-col gap-2"
+                    x-data="{
+                        focused: false,
+                        mask(value) {
+                            if (! value) {
+                                return '';
+                            }
+                            if (value.length <= 14) {
+                                return '*'.repeat(value.length);
+                            }
+                            const head = value.slice(0, 8);
+                            const tail = value.slice(-6);
+                            const middleLen = value.length - head.length - tail.length;
+
+                            return head + '*'.repeat(middleLen) + tail;
+                        }
+                    }"
+                >
+                    <textarea
+                        rows="2"
+                        autocomplete="off"
+                        spellcheck="false"
+                        placeholder="https://company.bitrix24.ru/rest/1/секрет/"
+                        class="min-h-[68px] w-full resize-none rounded-[5px] border border-input-border pe-3 ps-3 py-2 font-mono text-sm leading-snug @error('form.bitrix24Webhook') border-warning-red @enderror"
+                        x-bind:value="focused ? ($wire.form.bitrix24Webhook ?? '') : mask($wire.form.bitrix24Webhook ?? '')"
+                        x-on:focus="focused = true; $nextTick(() => { $el.value = $wire.form.bitrix24Webhook ?? '' })"
+                        x-on:blur="
+                            $wire.set('form.bitrix24Webhook', $el.value);
+                            focused = false;
+                            $nextTick(() => { $el.value = mask($wire.form.bitrix24Webhook ?? '') });
+                        "
+                        x-on:input="if (focused) { $dispatch('agency-settings-mark-dirty') }"
+                    ></textarea>
+                    @error('form.bitrix24Webhook')
+                        <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                    @enderror
+                </div>
+            </x-form.form-field>
+
             <h2 class="mb-1 mt-6 font-semibold">Реквизиты в отчетах</h2>
 
             <x-form.form-field>

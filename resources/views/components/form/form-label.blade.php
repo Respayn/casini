@@ -1,6 +1,7 @@
 @props([
     'required' => false,
     'tooltip' => '',
+    'tooltipPanelMaxWidth' => '16rem',
 ])
 
 <div class="flex gap-3">
@@ -8,7 +9,7 @@
         {{ $slot }}
     </label>
     @if($tooltip)
-        <x-overlay.tooltip>
+        <x-overlay.tooltip :panel-max-width="$tooltipPanelMaxWidth">
             {{ $tooltip }}
         </x-overlay.tooltip>
     @endif

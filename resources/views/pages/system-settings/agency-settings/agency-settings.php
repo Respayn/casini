@@ -47,6 +47,7 @@ class extends Component
 
     public function save(AgencySettingsService $service)
     {
+        $this->form->prepareBitrixValidation();
         $this->validate();
 
         if ($this->form->logo) {

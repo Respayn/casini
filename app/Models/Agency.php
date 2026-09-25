@@ -16,7 +16,9 @@ use Illuminate\Support\Collection;
  * @property $email
  * @property $phone
  * @property $address
- * @property ?string $logo_src
+ * @property $logo_src
+ * @property ?string $bitrix24_portal_url
+ * @property ?string $bitrix24_webhook
  * @property $created_at
  * @property $updated_at
  * @property Collection<AgencyUser> $admins
@@ -44,7 +46,16 @@ class Agency extends Model
         'phone',
         'address',
         'logo_src',
+        'bitrix24_portal_url',
+        'bitrix24_webhook',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'bitrix24_webhook' => 'encrypted',
+        ];
+    }
 
     public function users(): BelongsToMany
     {
