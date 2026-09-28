@@ -12,6 +12,7 @@ entity users <<Пользователи>> {
     phone: VARCHAR
     image_path: VARCHAR
     megaplan_id: VARCHAR
+    bitrix24_id: BIGINT UNIQUE
     enable_important_notifications: BOOLEAN
     enable_notifications: BOOLEAN
     created_at: DATETIME

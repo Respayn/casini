@@ -92,6 +92,18 @@
                     />
                 </x-permissions.field-guard>
             </x-form.form-field>
+
+            <x-form.form-field>
+                <x-form.form-label tooltip="Номер сотрудника в Битрикс24. По нему Касини поймёт, чьи часы из задач записать в Каналы. Где взять: откройте профиль сотрудника в Битрикс24, номер стоит в адресе страницы после /user/.">ID пользователя в Битрикс24</x-form.form-label>
+                <x-permissions.field-guard :enabled="$canEditUserAdminFields">
+                    <x-form.input-text
+                        wire:model="form.bitrix24_id"
+                        inputmode="numeric"
+                        placeholder="например, 42"
+                        :disabled="! $canEditUserAdminFields"
+                    />
+                </x-permissions.field-guard>
+            </x-form.form-field>
         </div>
 
         @if($form->id)

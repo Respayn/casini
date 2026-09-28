@@ -96,7 +96,9 @@ php artisan db:seed --class=MigrateSystemSettingsPermissionsSeeder --force
 
 Seeder копирует read/edit/full с `system settings` на три новых группы; право на агентство не снимает. Admin получает новые permissions через `PermissionSeeder`. Seeder **не** в `DatabaseSeeder` — одноразовый перенос.
 
-**Свой профиль:** маршрут `system-settings.users.edit` для `user.id === auth()->id()` доступен любому авторизованному (middleware `EnsureCanAccessUserEdit`). Список пользователей — с `read|edit|full system settings users`; создание (`/users/create`) — только с `edit|full system settings users` (кнопка «+ Добавить пользователя» disabled без edit). Поля логин / статус / роль / ставка / Мегаплан редактируются только при `edit|full system settings users`; без этого права — disabled в UI и отсекаются в `UserProfileAccess::mergeSavePayload`.
+**Свой профиль:** маршрут `system-settings.users.edit` для `user.id === auth()->id()` доступен любому авторизованному (middleware `EnsureCanAccessUserEdit`). Список пользователей — с `read|edit|full system settings users`; создание (`/users/create`) — только с `edit|full system settings users` (кнопка «+ Добавить пользователя» disabled без edit). Поля логин / статус / роль / ставка / ID Битрикс24 редактируются только при `edit|full system settings users`; без этого права — disabled в UI и отсекаются в `UserProfileAccess::mergeSavePayload`.
+
+**ID Битрикс24:** `users.bitrix24_id` (unsigned bigint, nullable, unique). Валидация в `UserForm`: `nullable|integer|min:1|unique`; пустая строка сохраняется как `NULL` (`UserRepository::normalizeBitrix24Id`). По этому номеру съём часов из задач Битрикс24 сопоставляет исполнителя с пользователем Касини. `megaplan_id` форма больше не передаёт, поэтому `updateWithRate` не трогает сохранённые значения.
 
 **Продукты и права:** `read` открывает страницу; `edit|full` — изменение. Без edit UI в режиме read-only: кнопки, ссылки, чекбоксы и переключатели disabled, при наведении — `permissions.denied` (`field-guard` / Alpine-тултип). `save()` без edit бросает `UnauthorizedException`.
 

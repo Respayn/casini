@@ -87,6 +87,7 @@ class UserProfileAccess
             'role_id',
             'rate_id',
             'megaplan_id',
+            'bitrix24_id',
         ];
     }
 

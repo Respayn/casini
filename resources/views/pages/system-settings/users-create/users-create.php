@@ -72,7 +72,7 @@ class extends Component
             'email' => $this->form->email,
             'phone' => $this->form->phone,
             'image_path' => $this->form->image_path,
-            'megaplan_id' => $this->form->megaplan_id,
+            'bitrix24_id' => $this->form->bitrix24_id,
             'rate_id' => $this->form->rate_id,
             'role_id' => $this->form->role_id,
             'enable_important_notifications' => $this->form->enable_important_notifications,
@@ -89,6 +89,11 @@ class extends Component
         session()->flash('success', 'Пользователь успешно создан!');
 
         return redirect()->route('system-settings.users');
+    }
+
+    public function cancelChanges(): mixed
+    {
+        return $this->redirect(route('system-settings.users'), navigate: true);
     }
 
     public function deletePhoto()
