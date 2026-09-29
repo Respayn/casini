@@ -88,9 +88,10 @@ class UsersCreatePermissionsTest extends TestCase
             'edit system settings users',
         ]);
 
-        $response = $this->actingAs($user)
-            ->get(route('system-settings.users.create'));
-
-        $this->assertNotSame(403, $response->status());
+        $this->actingAs($user)
+            ->get(route('system-settings.users.create'))
+            ->assertOk()
+            ->assertSee('hasPendingChanges', false)
+            ->assertSee('Создать пользователя', false);
     }
 }

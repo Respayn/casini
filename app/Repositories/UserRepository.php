@@ -115,6 +115,7 @@ class UserRepository extends EloquentRepository
                 'phone' => $data['phone'],
                 'image_path' => $data['image_path'] ?? null,
                 'megaplan_id' => $data['megaplan_id'] ?? null,
+                'bitrix24_id' => $this->normalizeBitrix24Id($data['bitrix24_id'] ?? null),
                 'enable_important_notifications' => ! empty($data['enable_important_notifications']),
                 'enable_notifications' => ! empty($data['enable_notifications']),
                 'email_verified_at' => $data['email_verified_at'] ?? null,
@@ -166,6 +167,10 @@ class UserRepository extends EloquentRepository
                 }
             }
 
+            if (array_key_exists('bitrix24_id', $data)) {
+                $updateData['bitrix24_id'] = $this->normalizeBitrix24Id($data['bitrix24_id']);
+            }
+
             foreach (['is_active', 'enable_important_notifications', 'enable_notifications'] as $field) {
                 if (array_key_exists($field, $data)) {
                     $updateData[$field] = ! empty($data[$field]);
@@ -200,5 +205,12 @@ class UserRepository extends EloquentRepository
 
             return $user;
         });
+    }
+
+    private function normalizeBitrix24Id(mixed $value): ?int
+    {
+        $value = trim((string) $value);
+
+        return $value === '' ? null : (int) $value;
     }
 }

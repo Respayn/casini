@@ -108,7 +108,7 @@ class UserOwnProfileAccessTest extends TestCase
             ->set('form.first_name', 'Пётр')
             ->set('form.login', 'hacked_login')
             ->set('form.is_active', false)
-            ->set('form.megaplan_id', '9999999')
+            ->set('form.bitrix24_id', '9999999')
             ->set('form.role_id', $adminRole->id)
             ->call('save')
             ->assertHasNoErrors();
@@ -119,6 +119,7 @@ class UserOwnProfileAccessTest extends TestCase
         $this->assertSame($originalLogin, $user->login);
         $this->assertTrue((bool) $user->is_active);
         $this->assertSame($originalMegaplan, $user->megaplan_id);
+        $this->assertNull($user->bitrix24_id);
         $this->assertTrue($user->hasRole(RoleEnum::MANAGER->value));
         $this->assertFalse($user->hasRole(RoleEnum::ADMIN->value));
     }

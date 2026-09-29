@@ -33,6 +33,7 @@ class User extends Authenticatable implements CanResetPasswordContract
         'phone',
         'image_path',
         'megaplan_id',
+        'bitrix24_id',
         'enable_important_notifications',
         'enable_notifications',
         'email_verified_at',
@@ -62,6 +63,7 @@ class User extends Authenticatable implements CanResetPasswordContract
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
+            'bitrix24_id' => 'integer',
         ];
     }
 

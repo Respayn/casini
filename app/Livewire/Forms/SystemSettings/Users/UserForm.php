@@ -28,8 +28,7 @@ class UserForm extends Form
     #[Validate('nullable|string|max:255')]
     public ?string $image_path = null;
 
-    #[Validate('nullable|string|max:255')]
-    public ?string $megaplan_id = null;
+    public ?string $bitrix24_id = null;
 
     public string $account_status = UserAccountStatus::Active->value;
 
@@ -121,7 +120,7 @@ class UserForm extends Form
             'email' => "required|email|max:255|unique:users,email,{$id},id",
             'phone' => 'nullable|string|max:30',
             'image_path' => 'nullable|string|max:255',
-            'megaplan_id' => 'nullable|string|max:255',
+            'bitrix24_id' => "nullable|integer|min:1|unique:users,bitrix24_id,{$id},id",
             'account_status' => ['required', 'string', Rule::enum(UserAccountStatus::class)],
             'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
             'rate_id' => 'nullable|integer|exists:rates,id',
@@ -143,6 +142,9 @@ class UserForm extends Form
             'email.unique' => 'Пользователь с таким email уже существует',
             'login.required' => 'Поле логин обязательно для заполнения',
             'login.unique' => 'Пользователь с таким логином уже существует',
+            'bitrix24_id.integer' => 'ID в Битрикс24 должен быть числом',
+            'bitrix24_id.min' => 'ID в Битрикс24 должен быть числом',
+            'bitrix24_id.unique' => 'Этот ID Битрикс24 уже указан у другого пользователя',
         ];
     }
 
@@ -165,7 +167,7 @@ class UserForm extends Form
         $this->email = $user->email ?? '';
         $this->phone = $user->phone ?? '';
         $this->image_path = $user->image_path ?? '';
-        $this->megaplan_id = $user->megaplan_id ?? '';
+        $this->bitrix24_id = $user->bitrix24_id !== null ? (string) $user->bitrix24_id : null;
         $this->account_status = $user->accountStatus()->value;
         $this->rate_id = $user->latestRate?->rateValue->rate_id ?? null;
         $this->role_id = isset($user->roles) && count($user->roles) ? ($user->roles[0]['id'] ?? null) : null;
