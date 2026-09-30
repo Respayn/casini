@@ -10,6 +10,7 @@ use App\Models\Agency;
 use App\Models\IntegrationSyncItem;
 use App\Models\IntegrationSyncRun;
 use App\Models\Project;
+use App\Services\IntegrationSync\Collectors\Bitrix24LaborCollector;
 use App\Services\IntegrationSync\Collectors\CallibriDailyLeadsCollector;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
 use App\Services\IntegrationSync\Collectors\YandexSearchApiDailyPositionsCollector;
@@ -203,6 +204,7 @@ class IntegrationSyncDispatcher
             app(YandexDirectDailySpendCollector::class),
             app(CallibriDailyLeadsCollector::class),
             app(YandexSearchApiDailyPositionsCollector::class),
+            app(Bitrix24LaborCollector::class),
         ];
     }
 }

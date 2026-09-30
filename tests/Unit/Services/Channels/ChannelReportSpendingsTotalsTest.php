@@ -187,4 +187,53 @@ class ChannelReportSpendingsTotalsTest extends TestCase
         $this->assertNull($group->summary->get('ork-manager'));
         $this->assertNull($group->summary->get('summary-spendings'));
     }
+
+    public function test_bitrix_labor_is_added_next_to_google_sheets_spendings(): void
+    {
+        $service = $this->makeService();
+        $this->setPrivate($service, 'laborSpendingsForReport', [
+            10 => ['seo-specialist' => ['hours' => 2.5, 'sum' => 2500.0]],
+        ]);
+        $this->setPrivate($service, 'googleSpendingsForReport', new Collection([
+            10 => (object) ['programming_hours' => 1, 'programming_sum' => 1000, 'copyrighting_units' => 0, 'copyrighting_sum' => 0],
+        ]));
+
+        $googleIntegration = (object) [
+            'integration' => (object) ['code' => 'google_sheets'],
+            'isEnabled' => true,
+            'settings' => ['document_id' => 'doc'],
+        ];
+
+        $method = new ReflectionMethod(ChannelReportService::class, 'buildProjectSpendingsData');
+        $result = $method->invoke($service, 10, new Collection([$googleIntegration]));
+
+        $this->assertSame(['hours' => 1.0, 'sum' => 1000.0], $result['programming']);
+        $this->assertSame(['hours' => 2.5, 'sum' => 2500.0], $result['seo-specialist']);
+        $this->assertNull($result['analyst']);
+        $this->assertSame(['sum' => 3500.0], $result['summary-spendings']);
+    }
+
+    public function test_bitrix_labor_without_google_sheets_keeps_empty_roles_as_dash(): void
+    {
+        $service = $this->makeService();
+        $this->setPrivate($service, 'laborSpendingsForReport', [
+            10 => ['ork-manager' => ['hours' => 1.0, 'sum' => 800.0]],
+        ]);
+
+        $method = new ReflectionMethod(ChannelReportService::class, 'buildProjectSpendingsData');
+        $withLabor = $method->invoke($service, 10, new Collection);
+        $withoutLabor = $method->invoke($service, 11, new Collection);
+
+        $this->assertNull($withLabor['programming']);
+        $this->assertSame(['hours' => 1.0, 'sum' => 800.0], $withLabor['ork-manager']);
+        $this->assertNull($withLabor['seo-specialist']);
+        $this->assertSame(['sum' => 800.0], $withLabor['summary-spendings']);
+        $this->assertSame(['sum' => null], $withoutLabor['summary-spendings']);
+    }
+
+    private function setPrivate(object $object, string $property, mixed $value): void
+    {
+        $reflection = new \ReflectionProperty($object, $property);
+        $reflection->setValue($object, $value);
+    }
 }

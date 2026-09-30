@@ -4,8 +4,11 @@ namespace App\Services\IntegrationSync;
 
 use App\Clients\YandexDirect\YandexDirectOAuthClient;
 use App\Helpers\PhraseDuplicateHelper;
+use App\Models\Agency;
 use App\Models\IntegrationProject;
+use App\Models\Project;
 use App\Repositories\IntegrationRepository;
+use App\Services\Bitrix24\Bitrix24TaskSelection;
 use App\Support\SafeLogger;
 use Illuminate\Support\Collection;
 
@@ -165,6 +168,44 @@ class IntegrationProjectCredentials
             'email' => (string) $email,
             'token' => (string) $token,
             'site_id' => (int) $siteId,
+        ];
+    }
+
+    /**
+     * Вебхук и часовой пояс берутся из агентства специалиста проекта (иначе первое агентство с Битрикс24).
+     *
+     * @return array{webhook: string, root_task_id: int, search_query: string, timezone: string}|null
+     */
+    public function bitrix24(int $projectId): ?array
+    {
+        $settings = $this->settingsFor($projectId, 'bitrix24');
+
+        if ($settings === null) {
+            return null;
+        }
+
+        $rootTaskId = Bitrix24TaskSelection::taskIdFromUrl((string) ($settings['root_task'] ?? ''));
+
+        if ($rootTaskId === null) {
+            return null;
+        }
+
+        $specialistAgencies = Project::query()->find($projectId)?->specialist?->agencies ?? collect();
+        $agency = $specialistAgencies->first(fn (Agency $agency) => $agency->isBitrix24Configured())
+            ?? Agency::query()
+                ->orderBy('id')
+                ->get()
+                ->first(fn (Agency $agency) => $agency->isBitrix24Configured());
+
+        if ($agency === null) {
+            return null;
+        }
+
+        return [
+            'webhook' => (string) $agency->bitrix24_webhook,
+            'root_task_id' => $rootTaskId,
+            'search_query' => (string) ($settings['search_query'] ?? ''),
+            'timezone' => filled($agency->time_zone) ? (string) $agency->time_zone : (string) config('app.timezone', 'UTC'),
         ];
     }
 

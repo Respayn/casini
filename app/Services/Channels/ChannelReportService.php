@@ -8,6 +8,7 @@ use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Enums\ChannelReportGrouping;
+use App\Enums\LaborRole;
 use App\Models\GoogleSheetsMonthlySpending;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
@@ -44,6 +45,9 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     /** @var Collection<int, GoogleSheetsMonthlySpending>|null */
     private ?Collection $googleSpendingsForReport = null;
+
+    /** @var array<int, array<string, array{hours: float, sum: float}>> */
+    private array $laborSpendingsForReport = [];
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -127,6 +131,11 @@ class ChannelReportService implements ChannelReportServiceInterface
             $projects->pluck('id'),
             $query->dateTo,
         );
+        $this->laborSpendingsForReport = app(ChannelLaborSpendingsService::class)->forProjects(
+            $projects->pluck('id'),
+            $query->dateFrom->copy()->startOfMonth(),
+            $query->dateTo->copy()->endOfMonth(),
+        );
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
@@ -146,6 +155,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->enrichWithSpendingsTotals($report);
 
         $this->googleSpendingsForReport = null;
+        $this->laborSpendingsForReport = [];
 
         return $report;
     }
@@ -1048,8 +1058,19 @@ class ChannelReportService implements ChannelReportServiceInterface
      */
     private function buildProjectSpendingsData(int $projectId, mixed $projectIntegrations): array
     {
+        $labor = $this->laborSpendingsForReport[$projectId] ?? [];
+
         if (! $this->projectHasGoogleSheetsIntegration($projectIntegrations)) {
-            return $this->createSpendingsData(null, null, null, []);
+            return $this->createSpendingsData(
+                null,
+                null,
+                null,
+                [],
+                $labor[LaborRole::SeoAssistant->value] ?? null,
+                $labor[LaborRole::SeoSpecialist->value] ?? null,
+                $labor[LaborRole::Analyst->value] ?? null,
+                $labor[LaborRole::OrkManager->value] ?? null,
+            );
         }
 
         $record = $this->googleSpendingsForReport?->get($projectId);
@@ -1065,6 +1086,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             ],
             null,
             [],
+            $labor[LaborRole::SeoAssistant->value] ?? null,
+            $labor[LaborRole::SeoSpecialist->value] ?? null,
+            $labor[LaborRole::Analyst->value] ?? null,
+            $labor[LaborRole::OrkManager->value] ?? null,
         );
     }
 
