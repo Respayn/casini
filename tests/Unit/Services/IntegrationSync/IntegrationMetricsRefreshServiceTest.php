@@ -26,6 +26,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         Cache::flush();
         Carbon::setTestNow(Carbon::parse('2026-08-07 12:00:00'));
         Auth::shouldReceive('id')->andReturn(1);
+        Auth::shouldReceive('hasResolvedGuards')->andReturn(false);
     }
 
     protected function tearDown(): void
