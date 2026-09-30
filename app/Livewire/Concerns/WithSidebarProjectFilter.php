@@ -3,17 +3,19 @@
 namespace App\Livewire\Concerns;
 
 use App\Models\Project;
-use App\Support\SidebarProjectContext;
+use App\Support\SidebarProjectAccess;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Session;
 
 trait WithSidebarProjectFilter
 {
+    #[Session(key: SidebarProjectAccess::SESSION_KEY)]
     public ?int $sidebarProjectId = null;
 
-    public function mountWithSidebarProjectFilter(SidebarProjectContext $context): void
+    public function bootWithSidebarProjectFilter(): void
     {
-        $this->sidebarProjectId = $context->get();
+        $this->sanitizeSidebarProjectIdFromSession();
     }
 
     #[On('sidebar-project-selected')]
@@ -30,9 +32,8 @@ trait WithSidebarProjectFilter
         $this->afterSidebarProjectFilterChanged();
     }
 
-    public function clearSidebarProjectFilter(SidebarProjectContext $context): void
+    public function clearSidebarProjectFilter(): void
     {
-        $context->clear();
         $this->sidebarProjectId = null;
         $this->dispatch('sidebar-project-cleared');
         $this->afterSidebarProjectFilterChanged();
@@ -58,6 +59,17 @@ trait WithSidebarProjectFilter
             'id' => $project->id,
             'name' => $project->name,
         ];
+    }
+
+    protected function sanitizeSidebarProjectIdFromSession(): void
+    {
+        if ($this->sidebarProjectId === null) {
+            return;
+        }
+
+        if (! SidebarProjectAccess::userCanAccessProject($this->sidebarProjectId)) {
+            $this->sidebarProjectId = null;
+        }
     }
 
     protected function afterSidebarProjectFilterChanged(): void

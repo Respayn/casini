@@ -10,7 +10,9 @@ class Role extends SpatieRole
     protected function casts(): array
     {
         return [
-            'use_in_project_filter' => 'boolean'
+            'use_in_project_filter' => 'boolean',
+            'use_in_managers_list' => 'boolean',
+            'use_in_specialist_list' => 'boolean',
         ];
     }
 

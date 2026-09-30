@@ -1,5 +1,8 @@
 @props([
-    'projectIntegration' => null
+    'canEdit' => true,
+    'projectIntegration' => null,
+    'projectId' => null,
+    'platformConfigured' => true
 ])
 
 <div

@@ -6,6 +6,7 @@ use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Data\ProjectUtmMappingData;
+use App\Data\UserData;
 use App\Enums\IntegrationCategory;
 use App\Exceptions\CallibriApiException;
 use App\Factories\IntegrationSettingsFactory;
@@ -14,6 +15,8 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Models\Agency;
+use App\Models\Project;
+use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
 use App\Services\ClientService;
 use App\Services\IntegrationService;
@@ -24,6 +27,7 @@ use App\Services\UserService;
 use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
 use App\Support\Bitrix24ProjectSettingsValidator;
+use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -39,6 +43,7 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
@@ -84,6 +89,16 @@ class extends Component
 
     public $phraseDocxFile;
 
+    public ?Carbon $statisticsRebuildFrom = null;
+
+    public ?Carbon $statisticsRebuildTo = null;
+
+    /** После возврата из OAuth форма уже содержит несохранённые данные */
+    public bool $startWithPendingChanges = false;
+
+    /** Показать баннер «Изменения сохранены» после редиректа с успешного save */
+    public bool $startWithSuccessMessage = false;
+
     public function boot(
         ClientService $clientService,
         ProjectService $projectService,
@@ -102,8 +117,110 @@ class extends Component
         $this->clientRepository = $clientRepository;
     }
 
+    #[Computed]
+    public function canEditClientsAndProjects(): bool
+    {
+        return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
+    }
+
+    #[Computed]
+    public function canSubmitClientProject(): bool
+    {
+        if (! $this->canEditClientsAndProjects) {
+            return false;
+        }
+
+        if ($this->bonusGuaranteeForm->bonusesEnabled) {
+            foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+                if (str_starts_with($key, 'bonusGuaranteeForm.')) {
+                    return false;
+                }
+            }
+        }
+
+        if ($this->clientProjectForm->projectType !== ProjectType::CONTEXT_AD->value) {
+            return true;
+        }
+
+        foreach ($this->utmMappingForm->utmMappings as $mapping) {
+            if (blank($mapping['utmValue'] ?? null) || blank($mapping['replacementValue'] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    #[Computed]
+    public function canRebuildStatistics(): bool
+    {
+        return $this->canEditClientsAndProjects
+            && $this->statisticsRebuildFrom !== null
+            && $this->statisticsRebuildTo !== null;
+    }
+
+    public function updatedStatisticsRebuildFrom(mixed $value): void
+    {
+        if ($this->statisticsRebuildFrom === null) {
+            return;
+        }
+
+        $this->statisticsRebuildFrom = $this->statisticsRebuildFrom->startOfMonth();
+    }
+
+    public function updatedStatisticsRebuildTo(mixed $value): void
+    {
+        if ($this->statisticsRebuildTo === null) {
+            return;
+        }
+
+        $this->statisticsRebuildTo = $this->statisticsRebuildTo->endOfMonth()->startOfDay();
+    }
+
+    public function updatedClientProjectFormIsActive(mixed $value): void
+    {
+        if (filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        if ($this->clientProjectForm->archivedAt === '') {
+            $this->clientProjectForm->archivedAt = now()->format('d.m.Y');
+        }
+    }
+
+    private function ensureCanEdit(): void
+    {
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+    }
+
+    private function markPendingChanges(): void
+    {
+        if (! $this->canEditClientsAndProjects) {
+            return;
+        }
+
+        $this->dispatch('client-project-mark-dirty');
+    }
+
+    public function cancelChanges(): mixed
+    {
+        $projectId = $this->clientProjectForm->id;
+
+        return $this->redirect(
+            route(
+                'system-settings.clients-and-projects.projects.manage',
+                $projectId ? ['projectId' => $projectId] : []
+            ),
+            navigate: true
+        );
+    }
+
     public function mount(Request $request, $projectId = null)
     {
+        if ($projectId === null) {
+            ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
+        }
+
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
         $this->promotionTopics = $this->promotionTopicService->getPromotionTopics();
@@ -114,8 +231,24 @@ class extends Component
             $project = $this->projectService->getProjectDataById($projectId);
             $client = $this->clientRepository->findById($project->client_id);
 
+            app(ClientProjectAccessPolicy::class)
+                ->ensureUserCanViewProject(Auth::user(), $project, $client->getManagerId());
+
             $this->clientProjectForm->from($project);
             $this->clientProjectForm->manager = $client->getManagerId();
+            $createdAt = Project::query()->whereKey($projectId)->value('created_at');
+            $this->clientProjectForm->createdAt = $createdAt
+                ? Carbon::parse($createdAt)->format('d.m.Y')
+                : '';
+            $archivedAt = ProjectFieldHistory::query()
+                ->where('project_id', $projectId)
+                ->where('field', 'is_active')
+                ->whereIn('new_value', [0, '0', false, 'false'])
+                ->orderByDesc('changed_at')
+                ->value('changed_at');
+            $this->clientProjectForm->archivedAt = $archivedAt
+                ? Carbon::parse($archivedAt)->format('d.m.Y')
+                : '';
             $this->bonusGuaranteeForm->from($project->bonusCondition);
             $this->utmMappingForm->from($project->utmMappings->toArray());
             $this->integrationSettings = $this->integrationService->getIntegrationSettingsForProject($projectId);
@@ -142,6 +275,8 @@ class extends Component
             if (! empty($state['open_integration'])) {
                 $this->selectIntegration($state['open_integration']);
             }
+
+            $this->startWithPendingChanges = true;
         }
 
         if (empty($this->clientProjectForm->promotionRegions)) {
@@ -151,6 +286,24 @@ class extends Component
         if (empty($this->clientProjectForm->promotionTopics)) {
             $this->clientProjectForm->promotionTopics[] = null;
         }
+
+        if (empty($this->clientProjectForm->assistants)) {
+            $this->clientProjectForm->assistants[] = null;
+        }
+
+        if (session()->pull('client_project_saved')) {
+            $this->startWithSuccessMessage = true;
+        }
+    }
+
+    public function validateUtmField(int $index, string $attribute): void
+    {
+        $this->utmMappingForm->validateOnly("utmMappings.{$index}.{$attribute}");
+    }
+
+    public function validateBonusIntervalField(int $index, string $attribute): void
+    {
+        $this->bonusGuaranteeForm->validateOnly("intervals.{$index}.{$attribute}");
     }
 
     #[Computed]
@@ -213,7 +366,50 @@ class extends Component
     #[Computed]
     public function specialists()
     {
-        return $this->userService->getSpecialists();
+        $agencyId = Auth::user()?->agencies()->first()?->id;
+
+        return $agencyId
+            ? $this->userService->getByAgency((int) $agencyId, with: ['roles'])
+            : collect();
+    }
+
+    /**
+     * @return list<array{label: string, value: int|null}>
+     */
+    #[Computed]
+    public function specialistSelectOptions(): array
+    {
+        return $this->mapUsersToSelectOptions($this->specialists);
+    }
+
+    /**
+     * @param  Collection<int, UserData>  $users
+     * @return list<array{label: string, value: int|null}>
+     */
+    private function mapUsersToSelectOptions(Collection $users): array
+    {
+        return $users
+            ->map(fn ($user) => [
+                'label' => $this->formatUserSelectLabel($user),
+                'value' => $user->id,
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function formatUserSelectLabel(object $user): string
+    {
+        $name = trim(($user->first_name ?? '').' '.($user->last_name ?? ''));
+        $role = collect($user->roles ?? [])
+            ->map(fn ($role) => $role->display_name ?? $role['display_name'] ?? null)
+            ->filter()
+            ->first();
+
+        if ($role === null || $role === '') {
+            return $name;
+        }
+
+        return $name.' ('.$role.')';
     }
 
     #[Computed]
@@ -275,6 +471,8 @@ class extends Component
 
     public function selectIntegration(string $code)
     {
+        $this->ensureCanEdit();
+
         if ($code === 'bitrix24' && ! $this->isBitrix24AgencyConfigured) {
             return;
         }
@@ -309,6 +507,8 @@ class extends Component
 
     public function setIntegrationSettings(int $integrationId, array $settings)
     {
+        $this->ensureCanEdit();
+
         $integration = $this->integrations()->firstWhere('id', $integrationId);
 
         $projectIntegrationData = new ProjectIntegrationData;
@@ -346,10 +546,13 @@ class extends Component
         }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
+        $this->markPendingChanges();
     }
 
     public function loadCallibriProjects(string $email, string $token, ?string $includeSiteId = null): array
     {
+        $this->ensureCanEdit();
+
         if (trim($email) === '' || trim($token) === '') {
             return ['error' => 'Укажите email и API token'];
         }
@@ -382,6 +585,8 @@ class extends Component
 
     public function testCallibriIntegration(array $settings, string $date): array
     {
+        $this->ensureCanEdit();
+
         if (trim($settings['email'] ?? '') === '' || trim($settings['token'] ?? '') === '') {
             return ['error' => 'Укажите email и API token'];
         }
@@ -420,6 +625,7 @@ class extends Component
      */
     public function prepareYandexDirectOAuth(bool $popup = true): array
     {
+        $this->ensureCanEdit();
         $this->ensureSelectedIntegration('yandex_direct');
 
         if (! $this->isYandexDirectOAuthConfigured) {
@@ -453,6 +659,8 @@ class extends Component
      */
     public function pullYandexDirectOAuthResult(string $cacheDataId): array
     {
+        $this->ensureCanEdit();
+
         if (trim($cacheDataId) === '') {
             return ['pending' => true];
         }
@@ -471,6 +679,8 @@ class extends Component
      */
     public function finalizeYandexDirectOAuth(string $cacheDataId): array
     {
+        $this->ensureCanEdit();
+
         $cacheDataId = trim($cacheDataId);
 
         if ($cacheDataId === '') {
@@ -495,6 +705,8 @@ class extends Component
      */
     public function applyYandexDirectOAuthFromBroadcast(array $settings, ?int $integrationId = null): void
     {
+        $this->ensureCanEdit();
+
         $this->selectIntegration('yandex_direct');
 
         if ($integrationId !== null
@@ -519,6 +731,8 @@ class extends Component
         ?string $cacheDataId = null,
         ?int $integrationId = null
     ): void {
+        $this->ensureCanEdit();
+
         if (is_array($settings) && $settings !== []) {
             $this->applyYandexDirectOAuthFromBroadcast($settings, $integrationId);
 
@@ -535,6 +749,7 @@ class extends Component
      */
     public function applyYandexDirectOAuthTokens(array $settings): void
     {
+        $this->ensureCanEdit();
         $this->ensureSelectedIntegration('yandex_direct');
 
         if ($this->selectedIntegration?->integration === null) {
@@ -569,6 +784,7 @@ class extends Component
             $this->integrationSettings[$integrationId] = $projectIntegrationData;
 
             $this->integrationModalBodyRevision++;
+            $this->markPendingChanges();
         }
 
         $oauthToken = (string) ($mergedSettings['oauth_token'] ?? '');
@@ -602,6 +818,8 @@ class extends Component
      */
     public function loadYandexDirectOAuthProfile(string $oauthToken): array
     {
+        $this->ensureCanEdit();
+
         if (trim($oauthToken) === '') {
             return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
         }
@@ -670,6 +888,8 @@ class extends Component
      */
     public function loadYandexDirectLogins(string $oauthToken): array
     {
+        $this->ensureCanEdit();
+
         if (trim($oauthToken) === '') {
             return ['error' => 'Сначала авторизуйтесь через Яндекс.Директ'];
         }
@@ -747,6 +967,8 @@ class extends Component
      */
     public function parsePhrasesFromDocx(): array
     {
+        $this->ensureCanEdit();
+
         $this->validate([
             'phraseDocxFile' => 'required|file|mimes:docx|max:5120',
         ]);
@@ -792,61 +1014,137 @@ class extends Component
 
     public function removeIntegration(int $integrationId)
     {
+        $this->ensureCanEdit();
+
         $this->integrationSettings->forget($integrationId);
+        $this->markPendingChanges();
     }
 
     public function setIntegrationEnabled(int $integrationId, bool $isEnabled)
     {
+        $this->ensureCanEdit();
+
         $this->integrationSettings[$integrationId]->isEnabled = $isEnabled;
+        $this->markPendingChanges();
     }
 
     public function addRegion()
     {
+        $this->ensureCanEdit();
+
         $this->clientProjectForm->promotionRegions[] = null;
+        $this->markPendingChanges();
+    }
+
+    public function addAssistant()
+    {
+        $this->ensureCanEdit();
+
+        $this->clientProjectForm->assistants[] = null;
+        $this->markPendingChanges();
+    }
+
+    public function removeAssistant(int $index)
+    {
+        $this->ensureCanEdit();
+
+        if ($index <= 0) {
+            return;
+        }
+
+        unset($this->clientProjectForm->assistants[$index]);
+        $this->clientProjectForm->assistants = array_values($this->clientProjectForm->assistants);
+
+        if ($this->clientProjectForm->assistants === []) {
+            $this->clientProjectForm->assistants[] = null;
+        }
+
+        $this->markPendingChanges();
     }
 
     public function removeRegion($index)
     {
+        $this->ensureCanEdit();
+
         unset($this->clientProjectForm->promotionRegions[$index]);
         $this->clientProjectForm->promotionRegions = array_values($this->clientProjectForm->promotionRegions);
+        $this->markPendingChanges();
     }
 
     public function addTopic()
     {
+        $this->ensureCanEdit();
+
         $this->clientProjectForm->promotionTopics[] = null;
+        $this->markPendingChanges();
     }
 
     public function removeTopic($index)
     {
+        $this->ensureCanEdit();
+
         unset($this->clientProjectForm->promotionTopics[$index]);
         $this->clientProjectForm->promotionTopics = array_values($this->clientProjectForm->promotionTopics);
+        $this->markPendingChanges();
     }
 
     public function addInterval()
     {
+        $this->ensureCanEdit();
+
         $this->bonusGuaranteeForm->intervals[] = [];
+        $this->markPendingChanges();
     }
 
     public function removeInterval($index)
     {
+        $this->ensureCanEdit();
+
         unset($this->bonusGuaranteeForm->intervals[$index]);
+        $this->bonusGuaranteeForm->intervals = array_values($this->bonusGuaranteeForm->intervals);
+
+        foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+            if (str_starts_with($key, 'bonusGuaranteeForm.intervals')) {
+                $this->resetErrorBag($key);
+            }
+        }
+
+        $this->markPendingChanges();
     }
 
     public function addMapping()
     {
-        $this->utmMappingForm->addMapping(); // Внутренний метод формы
+        $this->ensureCanEdit();
+
+        $this->utmMappingForm->addMapping();
+        $this->markPendingChanges();
     }
 
     public function removeMapping(int $index)
     {
-        $this->utmMappingForm->removeMapping($index); // Внутренний метод формы
+        $this->ensureCanEdit();
+
+        $this->utmMappingForm->removeMapping($index);
+        $this->markPendingChanges();
+
+        foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+            if (str_starts_with($key, 'utmMappingForm.utmMappings')) {
+                $this->resetErrorBag($key);
+            }
+        }
     }
 
     public function save()
     {
+        $this->ensureCanEdit();
+
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
         $this->bonusGuaranteeForm->validate();
+
+        if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
+            $this->utmMappingForm->validate();
+        }
 
         DB::beginTransaction();
 
@@ -871,6 +1169,10 @@ class extends Component
                 recommendation_url: $this->clientProjectForm->recommendationUrl ?? null,
                 legal_entity: $this->clientProjectForm->legalEntity ?? null,
                 inn: $this->clientProjectForm->inn ?? null,
+                assistantIds: array_values(array_filter(array_map(
+                    static fn ($id) => filled($id) ? (int) $id : null,
+                    $this->clientProjectForm->assistants
+                ))),
             );
 
             // Сохраняем проект через сервис
@@ -902,9 +1204,6 @@ class extends Component
             $utmMappingsData = [];
 
             if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
-                // Валидация формы UTM-мэппингов
-                $this->utmMappingForm->validate();
-
                 // Подготовка данных для UTM-мэппингов с указанием project_id
                 $utmMappingsData = array_map(function ($utmMapping) use ($project) {
                     $projectUtmMappingData = new ProjectUtmMappingData(
@@ -926,8 +1225,14 @@ class extends Component
 
             DB::commit();
 
-            // Перенаправление или другие действия
-            return redirect()->route('system-settings.clients-and-projects');
+            session()->flash('client_project_saved', true);
+
+            return $this->redirect(
+                route('system-settings.clients-and-projects.projects.manage', [
+                    'projectId' => $project->id,
+                ]),
+                navigate: true
+            );
         } catch (Exception $e) {
             DB::rollBack();
 

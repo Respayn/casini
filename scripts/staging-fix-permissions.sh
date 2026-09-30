@@ -45,14 +45,15 @@ fi
 
 echo "==> Verify Livewire compiler cache writable"
 LIVEWIRE_CLASSES="${APP_DIR}/storage/framework/views/livewire/classes"
-mkdir -p "${LIVEWIRE_CLASSES}"
-chown "${WEB_USER}:${WEB_GROUP}" "${APP_DIR}/storage/framework/views/livewire" "${LIVEWIRE_CLASSES}" 2>/dev/null || true
-chmod 775 "${APP_DIR}/storage/framework/views/livewire" "${LIVEWIRE_CLASSES}" 2>/dev/null || true
+LIVEWIRE_VIEWS="${APP_DIR}/storage/framework/views/livewire/views"
+mkdir -p "${LIVEWIRE_CLASSES}" "${LIVEWIRE_VIEWS}"
+chown -R "${WEB_USER}:${WEB_GROUP}" "${APP_DIR}/storage/framework/views/livewire" 2>/dev/null || true
+chmod -R 775 "${APP_DIR}/storage/framework/views/livewire" 2>/dev/null || true
 
-if sudo -u "${WEB_USER}" test -w "${LIVEWIRE_CLASSES}"; then
-  echo "OK: ${LIVEWIRE_CLASSES} writable by ${WEB_USER}"
+if sudo -u "${WEB_USER}" test -w "${LIVEWIRE_CLASSES}" && sudo -u "${WEB_USER}" test -w "${LIVEWIRE_VIEWS}"; then
+  echo "OK: Livewire classes/views writable by ${WEB_USER}"
 else
-  echo "FAIL: ${LIVEWIRE_CLASSES} not writable by ${WEB_USER}"
+  echo "FAIL: Livewire compiler dirs not writable by ${WEB_USER}"
   exit 1
 fi
 

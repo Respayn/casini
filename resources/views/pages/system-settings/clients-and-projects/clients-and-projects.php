@@ -1,5 +1,8 @@
 <?php
 
+use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Support\ClientsAndProjectsPermissions;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -12,6 +15,8 @@ new
     #[Title('Клиенты и Клиенто-проекты')]
     class extends Component
     {
+        use WithSidebarProjectFilter;
+
         public function mount(): void
         {
             if (request()->boolean('createClient')) {
@@ -25,6 +30,20 @@ new
         public function clients()
         {
             return app(GetClientsWithProjectsQueryHandler::class)
-                ->handle(new GetClientsWithProjectsQuery());
+                ->handle(new GetClientsWithProjectsQuery(
+                    auth()->id(),
+                    $this->sidebarProjectId,
+                ));
+        }
+
+        #[Computed]
+        public function canEditClientsAndProjects(): bool
+        {
+            return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
+        }
+
+        protected function afterSidebarProjectFilterChanged(): void
+        {
+            unset($this->clients);
         }
     };

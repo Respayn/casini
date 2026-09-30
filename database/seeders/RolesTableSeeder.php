@@ -19,6 +19,11 @@ class RolesTableSeeder extends Seeder
                 'useInManagersList' => false,
                 'useInSpecialistList' => false
             ],
+            'default' => [
+                'displayName' => 'Роль по умолчанию',
+                'useInManagersList' => false,
+                'useInSpecialistList' => false
+            ],
             'manager' => [
                 'displayName' => 'Менеджер',
                 'useInManagersList' => true,

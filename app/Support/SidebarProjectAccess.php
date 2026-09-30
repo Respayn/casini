@@ -5,48 +5,12 @@ namespace App\Support;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Session;
 
-class SidebarProjectContext
+class SidebarProjectAccess
 {
     public const SESSION_KEY = 'sidebar_selected_project_id';
 
-    public function get(): ?int
-    {
-        $projectId = Session::get(self::SESSION_KEY);
-
-        if ($projectId === null) {
-            return null;
-        }
-
-        $projectId = (int) $projectId;
-
-        if (! $this->userCanAccessProject($projectId)) {
-            $this->clear();
-
-            return null;
-        }
-
-        return $projectId;
-    }
-
-    public function set(int $projectId): bool
-    {
-        if (! $this->userCanAccessProject($projectId)) {
-            return false;
-        }
-
-        Session::put(self::SESSION_KEY, $projectId);
-
-        return true;
-    }
-
-    public function clear(): void
-    {
-        Session::forget(self::SESSION_KEY);
-    }
-
-    public function userCanAccessProject(int $projectId, ?User $user = null): bool
+    public static function userCanAccessProject(int $projectId, ?User $user = null): bool
     {
         $user ??= Auth::user();
 

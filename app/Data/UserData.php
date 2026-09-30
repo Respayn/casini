@@ -2,6 +2,8 @@
 
 namespace App\Data;
 
+use App\Enums\UserAccountStatus;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Livewire\Wireable;
 use Spatie\LaravelData\Concerns\WireableData;
@@ -17,11 +19,17 @@ class UserData extends Data implements Wireable
         public string $login,
         public string $email,
         /** @var Collection<int, Role> */
-        public Collection|array $roles = new Collection(),
+        public Collection|array $roles = new Collection,
         public ?string $first_name = null,
         public ?string $last_name = null,
         public ?bool $is_active = null,
         public ?string $rate_name = null,
         public ?int $rate_value = null,
+        public mixed $email_verified_at = null,
     ) {}
+
+    public function accountStatus(): UserAccountStatus
+    {
+        return User::statusFromFlags((bool) $this->is_active, $this->email_verified_at);
+    }
 }

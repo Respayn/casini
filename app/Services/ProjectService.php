@@ -34,7 +34,14 @@ class ProjectService
             'bonusCondition.intervals',
         ])->findOrFail($projectId);
 
-        return ProjectData::from($project);
+        $data = ProjectData::from($project)->toArray();
+        $data['assistantIds'] = $project->assistants
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        return ProjectData::from($data);
     }
 
     /**
@@ -46,10 +53,22 @@ class ProjectService
     public function updateOrCreateProject(ProjectData $data): ProjectData
     {
         return DB::transaction(function () use ($data) {
+            $payload = collect($data->toArray())
+                ->except([
+                    'assistantIds',
+                    'client',
+                    'specialist',
+                    'bonusCondition',
+                    'promotionRegions',
+                    'promotionTopics',
+                    'utmMappings',
+                ])
+                ->all();
+
             if ($data->id) {
                 $project = Project::findOrFail($data->id);
                 $originalStatus = $project->is_active;
-                $project->fill($data->toArray());
+                $project->fill($payload);
                 $project->save();
 
                 // Проверяем изменение статуса и сохраняем историю
@@ -57,10 +76,22 @@ class ProjectService
                     $this->saveStatusChangeHistory($project, $originalStatus, $project->is_active);
                 }
             } else {
-                $project = Project::create($data->toArray());
+                $project = Project::create($payload);
             }
 
-            return ProjectData::from($project);
+            $assistantIds = collect($data->assistantIds)
+                ->filter(fn ($id) => filled($id))
+                ->map(fn ($id) => (int) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            $project->assistants()->sync($assistantIds);
+
+            return ProjectData::from([
+                ...ProjectData::from($project->fresh(['assistants']))->toArray(),
+                'assistantIds' => $assistantIds,
+            ]);
         });
     }
 

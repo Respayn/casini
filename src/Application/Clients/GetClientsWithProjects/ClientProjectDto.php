@@ -7,6 +7,7 @@ readonly class ClientProjectDto
     public function __construct(
         public int $id,
         public string $name,
-        public string $projectType
+        public string $projectType,
+        public ?int $specialistId = null,
     ) {}
 }

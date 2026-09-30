@@ -153,6 +153,10 @@ class Project
             $result = $this->getRawPlanValue($plan->getId(), $year, $month);
         }
 
+        if ($result !== null && $plan->shouldRoundToInteger()) {
+            $result = round((float) $result);
+        }
+
         return $result;
     }
 
@@ -190,6 +194,10 @@ class Project
             $result = $expressionLanguage->evaluate($formula, $dependenciesValues);
         } else {
             $result = $this->getRawPlanValue($primaryPlan->getId(), $year, $month);
+        }
+
+        if ($result !== null && $primaryPlan->shouldRoundToInteger()) {
+            $result = round((float) $result);
         }
 
         return $result;

@@ -14,7 +14,12 @@ use Src\Domain\ValueObjects\ProjectType;
 
 class ReportsListDataProvider implements ReportsListDataProviderInterface
 {
-    public function getList(bool $showInactiveProjects, DateTimeRange $period, ?int $userId): array
+    public function getList(
+        bool $showInactiveProjects,
+        DateTimeRange $period,
+        ?int $userId,
+        ?int $projectId = null,
+    ): array
     {
         $query = DB::table('reports')
             ->join('templates', 'templates.id', '=', 'reports.template_id')
@@ -22,7 +27,9 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
             ->join('projects', 'projects.id', '=', 'reports.project_id')
             ->join('users as specialists', 'specialists.id', '=', 'reports.specialist_id');
 
-        if (!$showInactiveProjects) {
+        if ($projectId !== null) {
+            $query = $query->where('projects.id', '=', $projectId);
+        } elseif (!$showInactiveProjects) {
             $query = $query->where('projects.is_active', '=', true);
         }
 

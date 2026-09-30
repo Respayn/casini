@@ -10,6 +10,16 @@ use Illuminate\Support\Collection;
 
 class StubChannelReportService implements ChannelReportServiceInterface
 {
+    public function getUserSettings(int $userId): ChannelReportQueryData
+    {
+        return ChannelReportQueryData::create();
+    }
+
+    public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void
+    {
+        //
+    }
+
     public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
     {
         return $this->flatReport();

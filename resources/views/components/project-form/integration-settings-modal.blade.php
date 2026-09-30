@@ -3,6 +3,7 @@
     'projectId' => null,
     'platformConfigured' => true,
     'bodyRevision' => 0,
+    'canEdit' => true,
 ])
 
 @php
@@ -35,7 +36,7 @@
     name="integration-settings-modal"
     title="{{ $projectIntegration?->integration->name }}"
 >
-    @if ($isConfigured)
+    @if ($isConfigured && $canEdit)
         <x-slot:titleActions>
             <x-button.button
                 label="Удалить интеграцию"
@@ -52,6 +53,7 @@
                     :project-integration="$projectIntegration"
                     :project-id="$projectId"
                     :platform-configured="$platformConfigured"
+                    :can-edit="$canEdit"
                 />
             </div>
         </x-slot:body>

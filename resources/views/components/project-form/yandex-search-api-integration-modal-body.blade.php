@@ -2,6 +2,7 @@
     'projectIntegration' => null,
     'projectId' => null,
     'platformConfigured' => true,
+    'canEdit' => true,
 ])
 
 @php
@@ -50,6 +51,7 @@
 <div
     class="flex h-full w-fit min-w-0 flex-col gap-5"
     x-data="{
+        canEdit: @js($canEdit),
         platformConfigured: {{ Js::from($platformConfigured) }},
         settings: {{ Js::from($searchApiSettings) }},
         docxUploading: false,
@@ -218,7 +220,7 @@
         },
 
         save() {
-            if (!this.canSave) {
+            if (!this.canEdit || !this.canSave) {
                 return;
             }
 

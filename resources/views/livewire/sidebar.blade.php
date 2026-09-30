@@ -17,28 +17,39 @@
             </a>
         </div>
 
-        <x-form.input-text
+        <div
             class="mb-5"
-            label="Поиск:"
-            icon="icons.search"
-            wire:model.live.debounce="searchQuery"
-            placeholder="Начните вводить"
-        />
-
-        <div class="mb-4">
-            <x-button.button
-                variant="link"
-                label="Все клиенты"
-                icon="icons.client"
-                wire:click="resetSelectedProject"
+            wire:loading.delay.long.class="pointer-events-none opacity-60"
+            wire:target="searchQuery,sortBy,clearFilters"
+        >
+            <x-form.input-text
+                label="Поиск по клиентам и клиенто-проектам"
+                icon="icons.search"
+                wire:model.live.debounce.200ms="searchQuery"
+                placeholder="Начните вводить"
             />
         </div>
 
-        <x-form.select
-            label="Сортировать по:"
-            :options="$sortOptions"
-            wire:model.live="sortBy"
-        />
+        <div class="mb-4">
+            <x-button.button
+                variant="secondary"
+                label="Удалить фильтры"
+                icon="icons.delete"
+                :disabled="! $this->canClearFilters"
+                wire:click="clearFilters"
+            />
+        </div>
+
+        <div
+            wire:loading.delay.long.class="pointer-events-none opacity-60"
+            wire:target="searchQuery,sortBy,clearFilters"
+        >
+            <x-form.select
+                label="Собрать портфель клиенто-проектов по:"
+                :options="$sortOptions"
+                wire:model.live="sortBy"
+            />
+        </div>
 
         @if ($sortOptions === [])
             <p class="text-secondary-text mt-4 text-sm">
@@ -46,107 +57,117 @@
             </p>
         @endif
 
-        {{-- Список сотрудников --}}
+        {{-- Скелетон: hidden по умолчанию (Tailwind), снимается только на время wire:loading --}}
         <div
-            class="pretty-scroll mt-5 mb-4 mr-[-25px] flex-1 overflow-y-auto"
-            style="scrollbar-gutter: stable"
+            class="pretty-scroll sidebar-tree-scroll relative mt-5 mb-4 mr-[-25px] min-h-[200px] flex-1 overflow-y-auto"
         >
-            <ul
-                class="pr-[15px]"
-                x-cloak
+            <div
+                class="absolute inset-0 z-10 overflow-hidden bg-white"
+                wire:loading.delay.long
+                wire:target="searchQuery,sortBy,clearFilters"
             >
-                @foreach ($employees as $employeeKey => $employee)
-                    <li
-                        class="flex flex-col pb-2"
-                        x-data="{
-                            employeeOpen: $wire.entangle('employees.{{ $employeeKey }}.open')
-                        }"
-                        wire:key="sidebar-employee-{{ $employee->id }}"
-                    >
-                        {{-- Информация о сотруднике --}}
-                        <div
-                            class="flex min-h-[42px] cursor-pointer items-center justify-between rounded-[5px] p-[10px]"
-                            x-on:click="employeeOpen = !employeeOpen"
-                            x-bind:class="{
-                                'bg-primary text-white': employeeOpen,
-                                'bg-secondary text-primary-text': !employeeOpen
-                            }"
-                        >
-                            <div class="flex items-center gap-[10px]">
-                                <span>
-                                    <x-icons.card />
-                                </span>
-                                <span x-bind:class="employeeOpen && 'font-extrabold'">{{ $employee->name }}</span>
-                            </div>
-                            <span>
-                                <x-icons.arrow x-show="!employeeOpen" />
-                                <x-icons.minus x-show="employeeOpen" />
-                            </span>
-                        </div>
+                <x-sidebar.tree-skeleton class="h-full" />
+            </div>
 
-                        {{-- Клиенты --}}
-                        <ul
-                            class="flex flex-col text-sm ps-4"
-                            x-show="employeeOpen"
-                            x-collapse
-                        >
-                            @foreach ($employee->clients as $clientKey => $client)
-                                {{-- Клиент --}}
-                                <li
-                                    class="relative mt-1 treeitem first:mt-2"
-                                    x-data="{
-                                        clientOpen: $wire.entangle('employees.{{ $employeeKey }}.clients.{{ $clientKey }}.open')
+            @if ($searchQuery !== '' && $employees === [])
+                <p class="text-caption-text pr-[15px] pt-2 text-sm">
+                    Нет результатов
+                </p>
+            @else
+                <ul class="pr-[15px]">
+                        @foreach ($employees as $employeeKey => $employee)
+                            <li
+                                class="flex flex-col pb-2"
+                                x-data="{
+                                    employeeOpen: $wire.entangle('employees.{{ $employeeKey }}.open')
+                                }"
+                                wire:key="sidebar-employee-{{ $employee->id }}"
+                            >
+                                {{-- Информация о сотруднике --}}
+                                <div
+                                    class="flex min-h-[42px] cursor-pointer items-center justify-between rounded-[5px] p-[10px]"
+                                    x-on:click="employeeOpen = !employeeOpen"
+                                    x-bind:class="{
+                                        'bg-primary text-white': employeeOpen,
+                                        'bg-secondary text-primary-text': !employeeOpen
                                     }"
-                                    wire:key="sidebar-client-{{ $client->id }}"
                                 >
-                                    <div class="arrow"></div>
-                                    {{-- Информация о клиенте --}}
-                                    <div
-                                        class="flex min-h-[42px] cursor-pointer items-center justify-between rounded-[5px] p-[10px]"
-                                        x-on:click="clientOpen = !clientOpen"
-                                        x-bind:class="{
-                                            'bg-flat-primary text-white': clientOpen,
-                                            'bg-secondary text-primary-text': !clientOpen
-                                        }"
-                                    >
-                                        <span class="font-bold">{{ $client->name }}</span>
+                                    <div class="flex items-center gap-[10px]">
                                         <span>
-                                            <x-icons.plus x-show="!clientOpen" />
-                                            <x-icons.minus x-show="clientOpen" />
+                                            <x-icons.card />
                                         </span>
+                                        <span x-bind:class="employeeOpen && 'font-extrabold'">{{ $employee->name }}</span>
                                     </div>
+                                    <span>
+                                        <x-icons.arrow x-show="!employeeOpen" />
+                                        <x-icons.minus x-show="employeeOpen" />
+                                    </span>
+                                </div>
 
-                                    {{-- Проекты --}}
-                                    @if (!empty($client->projects))
-                                        <div
-                                            class="relative flex flex-col ps-4"
-                                            x-show="clientOpen"
-                                            x-collapse
+                                {{-- Клиенты --}}
+                                <ul
+                                    class="flex flex-col text-sm ps-4"
+                                    x-show="employeeOpen"
+                                    x-collapse
+                                >
+                                    @foreach ($employee->clients as $clientKey => $client)
+                                        {{-- Клиент --}}
+                                        <li
+                                            class="relative mt-1 treeitem first:mt-2"
+                                            x-data="{
+                                                clientOpen: $wire.entangle('employees.{{ $employeeKey }}.clients.{{ $clientKey }}.open')
+                                            }"
+                                            wire:key="sidebar-client-{{ $client->id }}"
                                         >
-                                            @foreach ($client->projects as $project)
+                                            <div class="arrow"></div>
+                                            {{-- Информация о клиенте --}}
+                                            <div
+                                                class="flex min-h-[42px] cursor-pointer items-center justify-between rounded-[5px] p-[10px]"
+                                                x-on:click="clientOpen = !clientOpen"
+                                                x-bind:class="{
+                                                    'bg-flat-primary text-white': clientOpen,
+                                                    'bg-secondary text-primary-text': !clientOpen
+                                                }"
+                                            >
+                                                <span class="font-bold">{{ $client->name }}</span>
+                                                <span>
+                                                    <x-icons.plus x-show="!clientOpen" />
+                                                    <x-icons.minus x-show="clientOpen" />
+                                                </span>
+                                            </div>
+
+                                            {{-- Проекты --}}
+                                            @if (!empty($client->projects))
                                                 <div
-                                                    class="treeitem border-flat-border relative mt-1 flex min-h-[42px] cursor-pointer items-center gap-1 rounded-[5px] border p-[10px] first:mt-2"
-                                                    wire:click="selectProject({{ $project->id }})"
-                                                    x-bind:class="{
-                                                        'bg-selected-project-card *:text-white': $wire.selectedProjectId ==
-                                                            {{ $project->id }}
-                                                    }"
-                                                    wire:key="sidebar-project-{{ $project->id }}"
+                                                    class="relative flex flex-col ps-4"
+                                                    x-show="clientOpen"
+                                                    x-collapse
                                                 >
-                                                    <div class="arrow"></div>
-                                                    <span
-                                                        class="font-semibold text-primary-text">{{ $project->name }}</span>
-                                                    <span class="text-xs text-input-text">(№{{ $project->id }})</span>
+                                                    @foreach ($client->projects as $project)
+                                                        <div
+                                                            class="treeitem border-flat-border relative mt-1 flex min-h-[42px] cursor-pointer items-center gap-1 rounded-[5px] border p-[10px] first:mt-2"
+                                                            wire:click="selectProject({{ $project->id }})"
+                                                            x-bind:class="{
+                                                                'bg-selected-project-card *:text-white': $wire.selectedProjectId ==
+                                                                    {{ $project->id }}
+                                                            }"
+                                                            wire:key="sidebar-project-{{ $project->id }}"
+                                                        >
+                                                            <div class="arrow"></div>
+                                                            <span
+                                                                class="font-semibold text-primary-text">{{ $project->name }}</span>
+                                                            <span class="text-xs text-input-text">(№{{ $project->id }})</span>
+                                                        </div>
+                                                    @endforeach
                                                 </div>
-                                            @endforeach
-                                        </div>
-                                    @endif
-                                </li>
-                            @endforeach
-                        </ul>
-                    </li>
-                @endforeach
-            </ul>
+                                            @endif
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
         </div>
     </aside>
 

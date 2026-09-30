@@ -22,7 +22,7 @@
                                 Новый пароль
                             </x-form.form-label>
                             <x-form.input-text
-                                wire:model.live="password"
+                                wire:model="password"
                                 wire:blur="validateField('password')"
                                 icon="icons.lock"
                                 type="password"
@@ -34,7 +34,7 @@
                                 Повторите пароль
                             </x-form.form-label>
                             <x-form.input-text
-                                wire:model.live="passwordConfirmation"
+                                wire:model="passwordConfirmation"
                                 wire:blur="validateField('passwordConfirmation')"
                                 icon="icons.lock"
                                 type="password"
