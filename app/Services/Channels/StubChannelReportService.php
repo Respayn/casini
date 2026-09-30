@@ -20,10 +20,8 @@ class StubChannelReportService implements ChannelReportServiceInterface
         //
     }
 
-    public function getReportData(ChannelReportQueryData $query): TableReportData
+    public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
     {
-        $projectId = $query->projectId;
-
         return $this->flatReport();
     }
 
@@ -34,7 +32,7 @@ class StubChannelReportService implements ChannelReportServiceInterface
 
         $group->rows = new Collection([
             new Collection(array_merge(
-                $this->createClientData('SEO', 'ООО "ТД ПЗЭМ"', 'pzem.ru', 2706, 'active'),
+                $this->createClientData('SEO-продвижение', 'ООО "ТД ПЗЭМ"', 'pzem.ru', 2706, 'active'),
                 $this->createTeamData('Евгений Э.', 1, 'Александр С.', 2),
                 $this->createFinancialData('Трафик', 5130, 88000, 4000, 91000),
                 $this->createSpendingsData(
@@ -68,7 +66,7 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 )
             )),
             new Collection(array_merge(
-                $this->createClientData('SEO', 'ООО “ПРАЙМ-1С-ЕКАТЕРИНБУРГ”', '1c-prime.ru', 2710, 'active'),
+                $this->createClientData('SEO-продвижение', 'ООО “ПРАЙМ-1С-ЕКАТЕРИНБУРГ”', '1c-prime.ru', 2710, 'active'),
                 $this->createTeamData('Евгений Э.', 1, 'Александр С.', 2),
                 $this->createFinancialData('Трафик', 2207, 55000, 10000, 55000),
                 $this->createSpendingsData(
@@ -102,7 +100,7 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 )
             )),
             new Collection(array_merge(
-                $this->createClientData('SEO', 'ИП Пахомчик В.Н.', 'chestnuyput.ru', 2712, 'active'),
+                $this->createClientData('SEO-продвижение', 'ИП Пахомчик В.Н.', 'chestnuyput.ru', 2712, 'active'),
                 $this->createTeamData('Наталия. Б', 1, 'Мария. Б', 2),
                 $this->createFinancialData('Трафик', 107, 40000, 20000, 40000),
                 $this->createSpendingsData(
@@ -136,9 +134,9 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 )
             )),
             new Collection(array_merge(
-                $this->createClientData('SEO', 'ООО “ММК-МЕТИЗ”', 'mmk-metiz.ru', 2713, 'inactive'),
+                $this->createClientData('SEO-продвижение', 'ООО “ММК-МЕТИЗ”', 'mmk-metiz.ru', 2713, 'inactive'),
                 $this->createTeamData('Екатерина. М', 1, 'Мария. Б', 2),
-                $this->createFinancialData('Позиции', '50%', 27500, null, 38698),
+                $this->createFinancialData('Позиции', ['value' => 50, 'format' => 'percent'], 27500, null, 38698),
                 $this->createSpendingsData(
                     [
                         'hours' => 0,
@@ -170,7 +168,7 @@ class StubChannelReportService implements ChannelReportServiceInterface
                 )
             )),
             new Collection(array_merge(
-                $this->createClientData('Контекст', 'ИП Нетесов', 'example.com', 2714, 'active'),
+                $this->createClientData('Контекстная реклама', 'ИП Нетесов', 'example.com', 2714, 'active'),
                 $this->createTeamData('Екатерина. М', 1, 'Марина. Х', 2),
                 $this->createFinancialData('Показы', '100000', 30000, 0, null),
                 $this->createSpendingsData(
@@ -223,10 +221,10 @@ class StubChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
-    public function createClientData(string $department, string $clientName, string $projectName, int $projectId, string $status): array
+    public function createClientData(string $projectTypeLabel, string $clientName, string $projectName, int $projectId, string $status): array
     {
         return [
-            'department' => ['name' => $department],
+            'project-type' => ['name' => $projectTypeLabel],
             'client' => ['name' => $clientName],
             'client_project' => [
                 'name' => $projectName,

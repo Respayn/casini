@@ -1,0 +1,121 @@
+<?php
+
+namespace App\Livewire\Concerns;
+
+use App\Data\TableReportData;
+use App\Services\IntegrationSync\IntegrationManualRefreshTimestamp;
+use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
+use Illuminate\Support\Facades\Auth;
+
+trait WithReportDataRefresh
+{
+    public ?string $lastDataRefreshLabel = null;
+
+    public bool $isReportDataRefreshing = false;
+
+    public function mountWithReportDataRefresh(IntegrationManualRefreshTimestamp $timestamps): void
+    {
+        $userId = Auth::id();
+
+        if ($userId === null) {
+            return;
+        }
+
+        $this->lastDataRefreshLabel = $timestamps->formattedLabel(
+            (int) $userId,
+            $this->reportRefreshProductKey(),
+        );
+    }
+
+    public function refreshAllData(
+        IntegrationMetricsRefreshService $metricsRefreshService,
+        IntegrationManualRefreshTimestamp $timestamps,
+    ): void {
+        $projectIds = $this->visibleReportProjectIds();
+
+        if ($projectIds === []) {
+            $this->setActionMessage('Нет клиенто-проектов для обновления', 'error');
+            $this->dispatch('report-data-refresh-finished');
+
+            return;
+        }
+
+        $this->isReportDataRefreshing = true;
+
+        try {
+            $stats = $metricsRefreshService->refreshReportData(
+                $projectIds,
+                $this->queryData->dateFrom,
+                $this->queryData->dateTo,
+                $this->queryData->includeVat,
+                $this->shouldRefreshDirectBudget(),
+            );
+
+            unset($this->reportData);
+
+            if (! empty($stats['error'])) {
+                $this->setActionMessage($stats['error'], 'error');
+
+                return;
+            }
+
+            $userId = Auth::id();
+            if ($userId !== null) {
+                $timestamps->record((int) $userId, $this->reportRefreshProductKey());
+                $this->lastDataRefreshLabel = $timestamps->formattedLabel(
+                    (int) $userId,
+                    $this->reportRefreshProductKey(),
+                );
+            }
+
+            $this->setActionMessage(
+                sprintf(
+                    'Обновлено: %d, ошибок: %d, пропущено: %d',
+                    $stats['updated'],
+                    $stats['failed'],
+                    $stats['skipped'],
+                ),
+                $stats['failed'] > 0 ? 'error' : 'success',
+            );
+
+            $this->afterSuccessfulReportDataRefresh($projectIds);
+        } finally {
+            $this->isReportDataRefreshing = false;
+            $this->dispatch('report-data-refresh-finished');
+        }
+    }
+
+    public function cancelReportDataRefresh(): void
+    {
+        $this->isReportDataRefreshing = false;
+    }
+
+    /**
+     * Хук после успешного обновления данных отчёта (метрики API).
+     * Статистика — пересчёт снимков бонусов; Каналы — no-op.
+     *
+     * @param  list<int>  $projectIds
+     */
+    protected function afterSuccessfulReportDataRefresh(array $projectIds): void {}
+
+    /**
+     * @return list<int>
+     */
+    protected function visibleReportProjectIds(): array
+    {
+        /** @var TableReportData $reportData */
+        $reportData = $this->reportData;
+
+        return $reportData->groups
+            ->flatMap(fn ($group) => $group->rows->pluck('id'))
+            ->map(fn ($id) => (int) $id)
+            ->filter(fn (int $id) => $id > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    abstract protected function reportRefreshProductKey(): string;
+
+    abstract protected function shouldRefreshDirectBudget(): bool;
+}

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Bitrix24AgencyConnection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,11 +12,14 @@ use Illuminate\Support\Collection;
  * @property $id
  * @property $name
  * @property $time_zone
+ * @property string $direct_budget_refresh_time
  * @property $url
  * @property $email
  * @property $phone
  * @property $address
- * @property ?string $logo_src
+ * @property $logo_src
+ * @property ?string $bitrix24_portal_url
+ * @property ?string $bitrix24_webhook
  * @property $created_at
  * @property $updated_at
  * @property Collection<AgencyUser> $admins
@@ -26,18 +30,44 @@ class Agency extends Model
 
     protected $table = 'agencies';
 
+    /**
+     * ID задаётся приложением (случайный 4-значный при создании), не AUTO_INCREMENT.
+     */
+    public $incrementing = false;
+
+    protected $keyType = 'int';
+
     protected $fillable = [
+        'id',
         'name',
         'time_zone',
+        'direct_budget_refresh_time',
         'url',
         'email',
         'phone',
         'address',
         'logo_src',
+        'bitrix24_portal_url',
+        'bitrix24_webhook',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'bitrix24_webhook' => 'encrypted',
+        ];
+    }
 
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class);
+    }
+
+    public function isBitrix24Configured(): bool
+    {
+        return Bitrix24AgencyConnection::isConfigured(
+            $this->bitrix24_portal_url,
+            $this->bitrix24_webhook
+        );
     }
 }

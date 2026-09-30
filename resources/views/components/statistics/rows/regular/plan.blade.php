@@ -4,26 +4,22 @@
 https://stackoverflow.com/questions/3542090/how-to-make-div-fill-td-height--}}
 <x-data.table-cell {{ $attributes }} class="!p-0 h-1">
     <div class="grid auto-rows-fr h-full divide-y divide-table-cell">
-        @foreach ($params as $param)
-            <div class="flex items-center grow px-2.5">
-                <span>
-                    @if (isset($param['value']))
-                        @switch($param['format'])
-                            @case('currency')
-                                {{ Number::currency($param['value'], in: 'RUB', locale: 'ru', precision: 0) }}
-                                @break
-    
-                            @case('percent')
-                                {{ $param['value'] }}%
-                                @break
-    
-                            @default
-                                {{ $param['value'] }}
-                        @endswitch
-                    @else
-                        -
-                    @endif
-                </span>
+        @foreach (($params ?? []) as $param)
+            @php
+                $parts = isset($param['value'])
+                    ? \App\Helpers\PlanValueHelper::planColumnParts(
+                        $param['value'],
+                        $param['format'] ?? null,
+                        $param['code'] ?? null,
+                        ! empty($param['highlight']),
+                    )
+                    : ['value' => '-', 'suffix' => null];
+            @endphp
+            <div class="flex items-center grow gap-1 px-2.5 whitespace-nowrap {{ ! empty($param['highlight']) ? 'font-bold' : '' }}">
+                <span>{{ $parts['value'] }}</span>
+                @if ($parts['suffix'] !== null)
+                    <span class="text-xs font-normal text-secondary-text">{{ $parts['suffix'] }}</span>
+                @endif
             </div>
         @endforeach
     </div>

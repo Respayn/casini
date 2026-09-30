@@ -8,11 +8,15 @@ use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Enums\ChannelReportGrouping;
+use App\Enums\LaborRole;
+use App\Models\GoogleSheetsMonthlySpending;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
 use App\Repositories\UserRepository;
+use App\Services\BonusService;
+use App\Services\GoogleSheetsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -33,13 +37,28 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     private ProjectPlanService $projectPlanService;
 
+    private ChannelDirectMetricsService $directMetricsService;
+
+    private BonusService $bonusService;
+
+    private GoogleSheetsService $googleSheetsService;
+
+    /** @var Collection<int, GoogleSheetsMonthlySpending>|null */
+    private ?Collection $googleSpendingsForReport = null;
+
+    /** @var array<int, array<string, array{hours: float, sum: float}>> */
+    private array $laborSpendingsForReport = [];
+
     public function __construct(
         ClientRepository $clientRepository,
         ProjectRepository $projectRepository,
         UserRepository $userRepository,
         IntegrationRepository $integrationRepository,
         RateRepository $rateRepository,
-        ProjectPlanService $projectPlanService
+        ProjectPlanService $projectPlanService,
+        ChannelDirectMetricsService $directMetricsService,
+        BonusService $bonusService,
+        GoogleSheetsService $googleSheetsService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
@@ -47,20 +66,25 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->integrationRepository = $integrationRepository;
         $this->rateRepository = $rateRepository;
         $this->projectPlanService = $projectPlanService;
+        $this->directMetricsService = $directMetricsService;
+        $this->bonusService = $bonusService;
+        $this->googleSheetsService = $googleSheetsService;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
     {
         // TODO: move fetch logic to repository
+        $rates = $this->rateRepository->getRatesWithEnabledSpendingsTimeFetching();
+
         $savedSettings = DB::table('channel_report_user_settings')
             ->where('user_id', $userId)
             ->value('settings');
 
         if ($savedSettings) {
-            return ChannelReportQueryData::from($savedSettings);
+            return ChannelReportQueryData::hydrateFromSavedSettings($savedSettings, $rates);
         }
 
-        return ChannelReportQueryData::create($this->rateRepository->getRatesWithEnabledSpendingsTimeFetching());
+        return ChannelReportQueryData::create($rates);
     }
 
     public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void
@@ -73,9 +97,8 @@ class ChannelReportService implements ChannelReportServiceInterface
             );
     }
 
-    public function getReportData(ChannelReportQueryData $query): TableReportData
+    public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
     {
-        $projectId = $query->projectId;
         $user = Auth::user();
 
         $clients = $this->clientRepository->all();
@@ -92,7 +115,9 @@ class ChannelReportService implements ChannelReportServiceInterface
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
 
-        $plans = $this->projectPlanService->getMonthlyPlansForChannels($query->dateTo->year, $query->dateTo->month);
+        $plans = $query->isSingleMonthPeriod()
+            ? $this->projectPlanService->getMonthlyPlansForChannels($query->dateFrom->year, $query->dateFrom->month)
+            : [];
 
         if ($projectId !== null) {
             $projects = $projects->filter(fn ($project) => $project->id === $projectId);
@@ -102,24 +127,286 @@ class ChannelReportService implements ChannelReportServiceInterface
             $projects = $projects->filter(fn ($project) => $project->is_active);
         }
 
+        $this->googleSpendingsForReport = $this->googleSheetsService->getSpendingsForProjects(
+            $projects->pluck('id'),
+            $query->dateTo,
+        );
+        $this->laborSpendingsForReport = app(ChannelLaborSpendingsService::class)->forProjects(
+            $projects->pluck('id'),
+            $query->dateFrom->copy()->startOfMonth(),
+            $query->dateTo->copy()->endOfMonth(),
+        );
+
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $plans);
+            $report = $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $plans);
+        } elseif ($query->grouping === ChannelReportGrouping::CLIENTS) {
+            $report = $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $plans);
+        } elseif ($query->grouping === ChannelReportGrouping::TOOLS) {
+            $report = $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $plans);
+        } elseif ($query->grouping === ChannelReportGrouping::ROLE) {
+            $report = $this->createReportGroupedByRoles($clients, $projects, $users, $integrations, $plans);
+        } else {
+            $report = $this->createFlatReport($clients, $projects, $users, $integrations, $plans);
         }
 
-        if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $plans);
+        $this->enrichWithDirectMetrics($report, $query, $integrations);
+        $this->enrichWithFinancialTotals($report);
+        $this->enrichWithSpendingsTotals($report);
+
+        $this->googleSpendingsForReport = null;
+        $this->laborSpendingsForReport = [];
+
+        return $report;
+    }
+
+    /**
+     * Суммы «Чек клиента» и «Макс. бонусы» по строкам группы и по всему отчёту.
+     */
+    private function enrichWithFinancialTotals(TableReportData $report): void
+    {
+        $reportClientReceipt = null;
+        $reportMaxBonuses = null;
+
+        foreach ($report->groups as $group) {
+            $groupClientReceipt = null;
+            $groupMaxBonuses = null;
+
+            foreach ($group->rows as $row) {
+                $clientReceipt = $row->data->get('client-receipt');
+                if (is_numeric($clientReceipt)) {
+                    $groupClientReceipt = ($groupClientReceipt ?? 0.0) + (float) $clientReceipt;
+                    $reportClientReceipt = ($reportClientReceipt ?? 0.0) + (float) $clientReceipt;
+                }
+
+                $maxBonuses = $row->data->get('max-bonuses');
+                if (is_numeric($maxBonuses)) {
+                    $groupMaxBonuses = ($groupMaxBonuses ?? 0.0) + (float) $maxBonuses;
+                    $reportMaxBonuses = ($reportMaxBonuses ?? 0.0) + (float) $maxBonuses;
+                }
+            }
+
+            if ($group->summary instanceof Collection) {
+                $group->summary->put(
+                    'client-receipt',
+                    $groupClientReceipt === null ? null : round($groupClientReceipt, 2),
+                );
+                $group->summary->put(
+                    'max-bonuses',
+                    $groupMaxBonuses === null ? null : round($groupMaxBonuses, 2),
+                );
+            }
         }
 
-        if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $plans);
+        if ($report->summary instanceof Collection) {
+            $report->summary->put(
+                'client-receipt',
+                $reportClientReceipt === null ? null : round($reportClientReceipt, 2),
+            );
+            $report->summary->put(
+                'max-bonuses',
+                $reportMaxBonuses === null ? null : round($reportMaxBonuses, 2),
+            );
+        }
+    }
+
+    /**
+     * Суммы «Программинг», «Копирайтер», «SEO-ссылки», ролей labor и «Расход итого» по строкам группы и по всему отчёту.
+     */
+    private function enrichWithSpendingsTotals(TableReportData $report): void
+    {
+        $laborFields = ['seo-assistant', 'seo-specialist', 'analyst', 'ork-manager'];
+
+        $reportProgrammingHours = null;
+        $reportProgrammingSum = null;
+        $reportCopyrightingUnits = null;
+        $reportCopyrightingSum = null;
+        $reportSeoLinksSum = null;
+        $reportSummarySpendings = null;
+        /** @var array<string, array{hours: float|null, sum: float|null}> $reportLabor */
+        $reportLabor = [];
+        foreach ($laborFields as $field) {
+            $reportLabor[$field] = ['hours' => null, 'sum' => null];
         }
 
-        if ($query->grouping === ChannelReportGrouping::ROLE) {
-            return $this->createReportGroupedByRoles($clients, $projects, $users, $integrations, $plans);
+        foreach ($report->groups as $group) {
+            $groupProgrammingHours = null;
+            $groupProgrammingSum = null;
+            $groupCopyrightingUnits = null;
+            $groupCopyrightingSum = null;
+            $groupSeoLinksSum = null;
+            $groupSummarySpendings = null;
+            /** @var array<string, array{hours: float|null, sum: float|null}> $groupLabor */
+            $groupLabor = [];
+            foreach ($laborFields as $field) {
+                $groupLabor[$field] = ['hours' => null, 'sum' => null];
+            }
+
+            foreach ($group->rows as $row) {
+                $programming = $row->data->get('programming');
+                if (is_array($programming)) {
+                    $groupProgrammingHours = ($groupProgrammingHours ?? 0.0) + (float) ($programming['hours'] ?? 0);
+                    $groupProgrammingSum = ($groupProgrammingSum ?? 0.0) + (float) ($programming['sum'] ?? 0);
+                    $reportProgrammingHours = ($reportProgrammingHours ?? 0.0) + (float) ($programming['hours'] ?? 0);
+                    $reportProgrammingSum = ($reportProgrammingSum ?? 0.0) + (float) ($programming['sum'] ?? 0);
+                }
+
+                $copyrighting = $row->data->get('copyrighting');
+                if (is_array($copyrighting)) {
+                    $groupCopyrightingUnits = ($groupCopyrightingUnits ?? 0.0) + (float) ($copyrighting['hours'] ?? 0);
+                    $groupCopyrightingSum = ($groupCopyrightingSum ?? 0.0) + (float) ($copyrighting['sum'] ?? 0);
+                    $reportCopyrightingUnits = ($reportCopyrightingUnits ?? 0.0) + (float) ($copyrighting['hours'] ?? 0);
+                    $reportCopyrightingSum = ($reportCopyrightingSum ?? 0.0) + (float) ($copyrighting['sum'] ?? 0);
+                }
+
+                $seoLinks = $row->data->get('seo-links');
+                $seoLinksSum = is_array($seoLinks) ? $seoLinks['sum'] ?? null : null;
+                if ($seoLinksSum !== null) {
+                    $groupSeoLinksSum = ($groupSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
+                    $reportSeoLinksSum = ($reportSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
+                }
+
+                foreach ($laborFields as $field) {
+                    $labor = $row->data->get($field);
+                    if (! is_array($labor)) {
+                        continue;
+                    }
+
+                    $groupLabor[$field]['hours'] = ($groupLabor[$field]['hours'] ?? 0.0) + (float) ($labor['hours'] ?? 0);
+                    $groupLabor[$field]['sum'] = ($groupLabor[$field]['sum'] ?? 0.0) + (float) ($labor['sum'] ?? 0);
+                    $reportLabor[$field]['hours'] = ($reportLabor[$field]['hours'] ?? 0.0) + (float) ($labor['hours'] ?? 0);
+                    $reportLabor[$field]['sum'] = ($reportLabor[$field]['sum'] ?? 0.0) + (float) ($labor['sum'] ?? 0);
+                }
+
+                $summarySpendings = $row->data->get('summary-spendings');
+                $summarySpendingsSum = is_array($summarySpendings) ? $summarySpendings['sum'] ?? null : null;
+                if ($summarySpendingsSum !== null) {
+                    $groupSummarySpendings = ($groupSummarySpendings ?? 0.0) + (float) $summarySpendingsSum;
+                    $reportSummarySpendings = ($reportSummarySpendings ?? 0.0) + (float) $summarySpendingsSum;
+                }
+            }
+
+            if ($group->summary instanceof Collection) {
+                $group->summary->put(
+                    'programming',
+                    $groupProgrammingSum === null ? null : [
+                        'hours' => $groupProgrammingHours ?? 0.0,
+                        'sum' => round($groupProgrammingSum, 2),
+                    ],
+                );
+                $group->summary->put(
+                    'copyrighting',
+                    $groupCopyrightingSum === null ? null : [
+                        'hours' => $groupCopyrightingUnits ?? 0.0,
+                        'sum' => round($groupCopyrightingSum, 2),
+                    ],
+                );
+                $group->summary->put(
+                    'seo-links',
+                    $groupSeoLinksSum === null ? null : ['sum' => round($groupSeoLinksSum, 2)],
+                );
+                foreach ($laborFields as $field) {
+                    $group->summary->put(
+                        $field,
+                        $groupLabor[$field]['sum'] === null ? null : [
+                            'hours' => $groupLabor[$field]['hours'] ?? 0.0,
+                            'sum' => round((float) $groupLabor[$field]['sum'], 2),
+                        ],
+                    );
+                }
+                $group->summary->put(
+                    'summary-spendings',
+                    $groupSummarySpendings === null ? null : ['sum' => round($groupSummarySpendings, 2)],
+                );
+            }
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $plans);
+        if ($report->summary instanceof Collection) {
+            $report->summary->put(
+                'programming',
+                $reportProgrammingSum === null ? null : [
+                    'hours' => $reportProgrammingHours ?? 0.0,
+                    'sum' => round($reportProgrammingSum, 2),
+                ],
+            );
+            $report->summary->put(
+                'copyrighting',
+                $reportCopyrightingSum === null ? null : [
+                    'hours' => $reportCopyrightingUnits ?? 0.0,
+                    'sum' => round($reportCopyrightingSum, 2),
+                ],
+            );
+            $report->summary->put(
+                'seo-links',
+                $reportSeoLinksSum === null ? null : ['sum' => round($reportSeoLinksSum, 2)],
+            );
+            foreach ($laborFields as $field) {
+                $report->summary->put(
+                    $field,
+                    $reportLabor[$field]['sum'] === null ? null : [
+                        'hours' => $reportLabor[$field]['hours'] ?? 0.0,
+                        'sum' => round((float) $reportLabor[$field]['sum'], 2),
+                    ],
+                );
+            }
+            $report->summary->put(
+                'summary-spendings',
+                $reportSummarySpendings === null ? null : ['sum' => round($reportSummarySpendings, 2)],
+            );
+        }
+    }
+
+    private function enrichWithDirectMetrics(
+        TableReportData $report,
+        ChannelReportQueryData $query,
+        Collection $integrations
+    ): void {
+        $budgetTotal = null;
+        $spendingsTotal = null;
+
+        foreach ($report->groups as $group) {
+            $groupBudget = null;
+            $groupSpendings = null;
+
+            foreach ($group->rows as $row) {
+                $projectIntegrations = $integrations->get($row->id, collect());
+
+                $budgetParams = $this->directMetricsService->budgetCellParams(
+                    (int) $row->id,
+                    $projectIntegrations
+                );
+                $spendingsParams = $this->directMetricsService->spendingsCellParams(
+                    (int) $row->id,
+                    $projectIntegrations,
+                    $query->dateFrom,
+                    $query->dateTo,
+                    $query->includeVat
+                );
+
+                $row->data->put('direct-budget', $budgetParams);
+                $row->data->put('direct-spendings', $spendingsParams);
+
+                if ($budgetParams['value'] !== null) {
+                    $groupBudget = ($groupBudget ?? 0) + $budgetParams['value'];
+                    $budgetTotal = ($budgetTotal ?? 0) + $budgetParams['value'];
+                }
+
+                if ($spendingsParams['value'] !== null) {
+                    $groupSpendings = ($groupSpendings ?? 0) + $spendingsParams['value'];
+                    $spendingsTotal = ($spendingsTotal ?? 0) + $spendingsParams['value'];
+                }
+            }
+
+            if ($group->summary instanceof Collection) {
+                $group->summary->put('direct-budget', $groupBudget);
+                $group->summary->put('direct-spendings', $groupSpendings);
+            }
+        }
+
+        if ($report->summary instanceof Collection) {
+            $report->summary->put('direct-budget', $budgetTotal);
+            $report->summary->put('direct-spendings', $spendingsTotal);
+        }
     }
 
     public function createFlatReport($clients, $projects, $users, Collection $integrations, array $plans): TableReportData
@@ -133,10 +420,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row = new TableReportRowData;
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
+            $projectTypeLabel = $project->project_type->label();
 
             $status = match ($project->is_active) {
                 true => 'active',
@@ -155,10 +439,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
-                $this->createSpendingsData(null, null, null, []),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
 
@@ -223,9 +507,9 @@ class ChannelReportService implements ChannelReportServiceInterface
     {
         $report = new TableReportData;
         $seoGroup = new TableReportGroupData;
-        $seoGroup->groupLabel = 'SEO';
+        $seoGroup->groupLabel = ProjectType::SEO_PROMOTION->label();
         $contextGroup = new TableReportGroupData;
-        $contextGroup->groupLabel = 'Контекст';
+        $contextGroup->groupLabel = ProjectType::CONTEXT_AD->label();
 
         $seoRows = new Collection;
         $contextRows = new Collection;
@@ -234,10 +518,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row = new TableReportRowData;
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
+            $projectTypeLabel = $project->project_type->label();
 
             $status = match ($project->is_active) {
                 true => 'active',
@@ -256,10 +537,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
-                $this->createSpendingsData(null, null, null, []),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
 
@@ -347,10 +628,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row = new TableReportRowData;
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
+                $projectTypeLabel = $project->project_type->label();
 
                 $status = match ($project->is_active) {
                     true => 'active',
@@ -369,10 +647,10 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
-                    $this->createSpendingsData(null, null, null, []),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                    $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
 
@@ -445,10 +723,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row = new TableReportRowData;
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
+                $projectTypeLabel = $project->project_type->label();
 
                 $status = match ($project->is_active) {
                     true => 'active',
@@ -467,10 +742,10 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
-                    $this->createSpendingsData(null, null, null, []),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                    $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
 
@@ -509,10 +784,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row = new TableReportRowData;
             $row->id = $project->id;
 
-            $department = match ($project->project_type) {
-                ProjectType::CONTEXT_AD => 'Контекст',
-                ProjectType::SEO_PROMOTION => 'SEO'
-            };
+            $projectTypeLabel = $project->project_type->label();
 
             $status = match ($project->is_active) {
                 true => 'active',
@@ -531,10 +803,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
             $row->data = new Collection(array_merge(
-                $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
-                $this->createSpendingsData(null, null, null, []),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
 
@@ -602,10 +874,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row = new TableReportRowData;
                 $row->id = $project->id;
 
-                $department = match ($project->project_type) {
-                    ProjectType::CONTEXT_AD => 'Контекст',
-                    ProjectType::SEO_PROMOTION => 'SEO'
-                };
+                $projectTypeLabel = $project->project_type->label();
 
                 $status = match ($project->is_active) {
                     true => 'active',
@@ -624,10 +893,10 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $plan = isset($plans[$project->id]) ? $plans[$project->id] : null;
 
                 $row->data = new Collection(array_merge(
-                    $this->createClientData($department, $client?->name ?? '—', $project->name, $project->id, $status),
+                    $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, 0, 0),
-                    $this->createSpendingsData(null, null, null, []),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                    $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
 
@@ -679,10 +948,10 @@ class ChannelReportService implements ChannelReportServiceInterface
         return $report;
     }
 
-    public function createClientData(string $department, string $clientName, string $projectName, int $projectId, string $status): array
+    public function createClientData(string $projectTypeLabel, string $clientName, string $projectName, int $projectId, string $status): array
     {
         return [
-            'department' => ['name' => $department],
+            'project-type' => ['name' => $projectTypeLabel],
             'client' => ['name' => $clientName],
             'client-project' => [
                 'name' => $projectName,
@@ -707,7 +976,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createFinancialData(string $kpi, int|string|null $plan, ?int $clientReceipt, ?int $maxBonuses, ?int $acts): array
+    public function createFinancialData(string $kpi, array|int|string|null $plan, int|float|null $clientReceipt, int|float|null $maxBonuses, ?int $acts): array
     {
         return [
             'kpi' => $kpi,
@@ -718,33 +987,127 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createSpendingsData(?array $programming, ?array $copyrighting, ?int $seoLinksSum, ?array $positions): array
-    {
+    /**
+     * @param  array<string, array{hours?: float|int, sum?: float|int}>|null  $positions
+     * @param  array{hours?: float|int, sum?: float|int}|null  $seoAssistant
+     * @param  array{hours?: float|int, sum?: float|int}|null  $seoSpecialist
+     * @param  array{hours?: float|int, sum?: float|int}|null  $analyst
+     * @param  array{hours?: float|int, sum?: float|int}|null  $orkManager
+     * @return array<string, mixed>
+     */
+    public function createSpendingsData(
+        ?array $programming,
+        ?array $copyrighting,
+        ?int $seoLinksSum,
+        ?array $positions,
+        ?array $seoAssistant = null,
+        ?array $seoSpecialist = null,
+        ?array $analyst = null,
+        ?array $orkManager = null,
+    ): array {
         $spendings = [
             'programming' => $programming,
             'copyrighting' => $copyrighting,
             'seo-links' => ['sum' => $seoLinksSum],
+            'seo-assistant' => $seoAssistant,
+            'seo-specialist' => $seoSpecialist,
+            'analyst' => $analyst,
+            'ork-manager' => $orkManager,
         ];
 
-        foreach ($positions as $key => $position) {
+        foreach ($positions ?? [] as $key => $position) {
             $spendings[$key] = $position;
         }
 
-        $programmingSum = $programming ? $programming['sum'] : 0;
-        $copyrightingSum = $copyrighting ? $copyrighting['sum'] : 0;
+        $programmingSum = $programming ? ($programming['sum'] ?? 0) : 0;
+        $copyrightingSum = $copyrighting ? ($copyrighting['sum'] ?? 0) : 0;
+        $laborSlots = [$seoAssistant, $seoSpecialist, $analyst, $orkManager];
+        $laborSum = 0.0;
+        $hasLabor = false;
+        foreach ($laborSlots as $labor) {
+            if ($labor === null) {
+                continue;
+            }
+            $hasLabor = true;
+            $laborSum += (float) ($labor['sum'] ?? 0);
+        }
 
-        if ($programming === null && $copyrighting === null && $seoLinksSum === null && $positions === null) {
+        $positionsEmpty = $positions === null || $positions === [];
+        if (
+            $programming === null
+            && $copyrighting === null
+            && $seoLinksSum === null
+            && $positionsEmpty
+            && ! $hasLabor
+        ) {
             $totalSum = null;
         } else {
-            $totalSum = $programmingSum + $copyrightingSum + $seoLinksSum;
-            foreach ($positions as $position) {
-                $totalSum += $position['sum'];
+            $totalSum = (float) $programmingSum + (float) $copyrightingSum + (float) ($seoLinksSum ?? 0) + $laborSum;
+            foreach ($positions ?? [] as $position) {
+                $totalSum += (float) ($position['sum'] ?? 0);
             }
         }
 
         $spendings['summary-spendings'] = ['sum' => $totalSum];
 
         return $spendings;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function buildProjectSpendingsData(int $projectId, mixed $projectIntegrations): array
+    {
+        $labor = $this->laborSpendingsForReport[$projectId] ?? [];
+
+        if (! $this->projectHasGoogleSheetsIntegration($projectIntegrations)) {
+            return $this->createSpendingsData(
+                null,
+                null,
+                null,
+                [],
+                $labor[LaborRole::SeoAssistant->value] ?? null,
+                $labor[LaborRole::SeoSpecialist->value] ?? null,
+                $labor[LaborRole::Analyst->value] ?? null,
+                $labor[LaborRole::OrkManager->value] ?? null,
+            );
+        }
+
+        $record = $this->googleSpendingsForReport?->get($projectId);
+
+        return $this->createSpendingsData(
+            [
+                'hours' => (float) ($record?->programming_hours ?? 0),
+                'sum' => (float) ($record?->programming_sum ?? 0),
+            ],
+            [
+                'hours' => (float) ($record?->copyrighting_units ?? 0),
+                'sum' => (float) ($record?->copyrighting_sum ?? 0),
+            ],
+            null,
+            [],
+            $labor[LaborRole::SeoAssistant->value] ?? null,
+            $labor[LaborRole::SeoSpecialist->value] ?? null,
+            $labor[LaborRole::Analyst->value] ?? null,
+            $labor[LaborRole::OrkManager->value] ?? null,
+        );
+    }
+
+    private function projectHasGoogleSheetsIntegration(mixed $projectIntegrations): bool
+    {
+        $items = $projectIntegrations instanceof Collection
+            ? $projectIntegrations
+            : collect($projectIntegrations);
+
+        return $items->contains(function ($integration) {
+            $settings = is_array($integration->settings)
+                ? $integration->settings
+                : json_decode((string) $integration->settings, true) ?? [];
+
+            return $integration->integration->code === 'google_sheets'
+                && $integration->isEnabled
+                && filled($settings['document_id'] ?? '');
+        });
     }
 
     public function createIntegrationData(array|Collection $integrations): array
@@ -790,6 +1153,10 @@ class ChannelReportService implements ChannelReportServiceInterface
         // ? Возможно стоит использовать enum?
         return match ($code) {
             'yandex_direct' => 'yandex-direct',
+            'yandex_metrika' => 'yandex-metrika',
+            'callibri' => 'callibri',
+            'yandex_search_api' => 'yandex-search-api',
+            'google_sheets' => 'google-sheets',
             default => 'default'
         };
     }

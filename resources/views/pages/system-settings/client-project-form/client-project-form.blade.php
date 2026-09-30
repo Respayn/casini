@@ -890,6 +890,7 @@
         name="money-integrations-modal"
         title="Деньги"
         :integrations="$this->moneyIntegrations"
+        :disabled-reasons="$this->moneyIntegrationDisabledReasons"
         :can-edit="$canEdit"
     />
 

@@ -11,5 +11,5 @@ interface ChannelReportServiceInterface
 
     public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void;
 
-    public function getReportData(ChannelReportQueryData $query): TableReportData;
+    public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData;
 }

@@ -2,11 +2,11 @@
 
 namespace App\Repositories;
 
-
 use App\Data\AgencyData;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Models\Agency;
 use App\Repositories\Interfaces\AgencyRepositoryInterface;
+use App\Services\Agency\AgencyIdGenerator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +25,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         return AgencyData::collect($agencies->map(function ($agency) {
             $arr = $agency->toArray();
             $arr['users'] = $agency->users;
+
             return $arr;
         })->all());
     }
@@ -36,6 +37,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         if ($agency) {
             $arr = $agency->toArray();
             $arr['users'] = $agency->users;
+
             return AgencyData::from($arr);
         }
 
@@ -49,6 +51,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         return AgencyData::collect($agencies->map(function ($agency) {
             $arr = $agency->toArray();
             $arr['users'] = $agency->users;
+
             return $arr;
         })->all());
     }
@@ -74,11 +77,14 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
             $update = [
                 'name' => $data['name'],
                 'time_zone' => $data['timeZone'],
+                'direct_budget_refresh_time' => ($data['directBudgetRefreshTime'] ?? '09:00').':00',
                 'url' => $data['url'] ?? null,
                 'email' => $data['email'] ?? null,
                 'phone' => $data['phone'] ?? null,
                 'address' => $data['address'] ?? null,
                 'logo_src' => $data['logoSrc'] ?? null,
+                'bitrix24_portal_url' => $this->nullableTrimmed($data['bitrix24PortalUrl'] ?? null),
+                'bitrix24_webhook' => $this->nullableTrimmed($data['bitrix24Webhook'] ?? null),
             ];
 
             $agency->update($update);
@@ -96,6 +102,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         // Подготавливаем массив админов
         $users = $agency->users->map(function ($user) {
             $name = trim("{$user->first_name} {$user->last_name}");
+
             return [
                 'id' => $user->id,
                 'name' => empty($name) ? $user->login : $name,
@@ -108,11 +115,14 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
             'name' => $agency->name,
             'users' => $users,
             'timeZone' => $agency->time_zone,
+            'directBudgetRefreshTime' => substr($agency->direct_budget_refresh_time ?? '09:00:00', 0, 5),
             'url' => $agency->url,
             'email' => $agency->email,
             'phone' => $agency->phone,
             'address' => $agency->address,
             'logoSrc' => $agency->logo_src,
+            'bitrix24PortalUrl' => $agency->bitrix24_portal_url,
+            'bitrix24Webhook' => $agency->bitrix24_webhook,
         ];
 
         return AgencyData::from($data);
@@ -127,14 +137,18 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
             $data = $data->toArray();
         }
 
-        // 2. Создаём агентство
+        // 2. Создаём агентство со случайным 4-значным id
+        $agencyId = app(AgencyIdGenerator::class)->generate();
+
         $agency = Agency::create([
-            'name'      => $data['name'],
+            'id' => $agencyId,
+            'name' => $data['name'],
             'time_zone' => $data['timeZone'],
-            'url'       => $data['url'] ?? null,
-            'email'     => $data['email'] ?? null,
-            'phone'     => $data['phone'] ?? null,
-            'address'   => $data['address'] ?? null,
+            'direct_budget_refresh_time' => ($data['directBudgetRefreshTime'] ?? '09:00').':00',
+            'url' => $data['url'] ?? null,
+            'email' => $data['email'] ?? null,
+            'phone' => $data['phone'] ?? null,
+            'address' => $data['address'] ?? null,
         ]);
 
         // 3. Получаем текущего пользователя
@@ -149,7 +163,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
 
         // 5. Для DTO: обновляем массив админов и timeZone
         $agencyArr = $agency->toArray();
-        $agencyArr['users'] = $agency->users()->get()->map(function($admin) {
+        $agencyArr['users'] = $agency->users()->get()->map(function ($admin) {
             return [
                 'id' => $admin->user_id,
             ];
@@ -157,5 +171,16 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         $agencyArr['timeZone'] = $agency->time_zone;
 
         return AgencyData::from($agencyArr);
+    }
+
+    private function nullableTrimmed(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

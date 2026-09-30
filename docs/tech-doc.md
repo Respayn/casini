@@ -192,9 +192,19 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 ## Справочники staging (reference data)
 
-Список типов интеграций в UI клиенто-проекта читается из таблицы `integrations` (`IntegrationService::getIntegrations()`), не из blade-файлов. Ожидается ≥ 9 записей (`IntegrationSeeder`: 1С ×3, Yandex Search API, Google Sheets, Мегаплан, Яндекс.Директ, Яндекс.Метрика, Callibri).
+Список типов интеграций в UI клиенто-проекта читается из таблицы `integrations` (`IntegrationService::getIntegrations()`), не из blade-файлов. Ожидается ≥ 9 записей (`IntegrationSeeder`: 1С ×3, Битрикс24, Yandex Search API, Google Sheets, Яндекс.Директ, Яндекс.Метрика, Callibri). Мегаплан из справочника убран (отложен).
 
 Другие обязательные справочники: `products`, `product_notifications`, `rates`, `tooltips`, `search_engines`, агентство (`AgencySettingsTableSeeder`).
+
+### ID агентства
+
+| Правило | Значение |
+|---|---|
+| При создании | `AgencyIdGenerator` выдаёт случайное **4-значное** число `1000–9999` (`AgencyRepository::createAgency`) |
+| Уникальность | повтор при коллизии (до 50 попыток) |
+| БД | `agencies.id` без `AUTO_INCREMENT`; `Agency::$incrementing = false` |
+| Существующие | не перегенерируются (legacy `id=1` для «СайтАктив» в сидерах) |
+| UI | поле «ID агентства» и переключатель `№{id}` читают `agencies.id` |
 
 Сидер `IntegrationSeeder` / `ProductSeeder` / `TooltipSeeder` / `ProductNotificationSeeder` — идемпотентны (`updateOrInsert` по `code`). Восстановление: `scripts/staging-reseed-reference.sh`. Smoke проверяет `integrations.count > 0`.
 
@@ -336,3 +346,134 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `sync_enabled_at` | дата включения синхронизации (`Y-m-d`) |
 
 Чтение поддерживает legacy camelCase (`clientLogin`, `encryptedOauthToken`).
+
+## Каналы: остаток бюджета и расход в Директе
+
+Колонки `direct-budget` / `direct-spendings` на странице `/channels`.
+
+Колонка «Тип клиенто-проекта» (`project-type`) вместо «Отдел»: значение из `ProjectType::label()` настроек клиенто-проекта. Группировка в UI: без / по клиентам / по типу клиенто-проекта (варианты «по ролям» и «по инструментам» убраны; при загрузке старых настроек сбрасываются в `none`).
+
+Период отчёта: `ChannelReportQueryData.dateFrom` / `dateTo` (месяц–месяц), UI — два `x-form.month-picker` с `disable-future`. По умолчанию оба = текущий месяц. Будущие месяцы запрещены (UI + `clampPeriodToPresent()`).
+
+| Что | Как |
+|-----|-----|
+| Источник credentials | `integration_project.settings` проекта: `oauth_token` + `client_login` (код интеграции `yandex_direct`) |
+| Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` = `{value, updated_at}` (TTL 7 дней); в ячейке `ЧЧ:мм, дд.мм.гг / сумма ₽` (время по `agencies.time_zone`, дата — `text-secondary-text`); обновление — иконка в шапке |
+| План | только если `dateFrom` и `dateTo` в одном месяце; иначе в ячейке `-` |
+| Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
+| Обновление | иконка в шапке (`refreshAllData`): collectors + остаток бюджета Директа по всем видимым проектам; клик по ячейке отключён |
+| Сервис UI | `ChannelDirectMetricsService`; строки — `ChannelReportService::enrichWithDirectMetrics()` |
+| Автообновление | `channels:dispatch-due-budget-refresh` (schedule `everyMinute`): если по `agencies.time_zone` наступило `agencies.direct_budget_refresh_time` (default 09:00) и за текущий local-date ещё не запускали — `refreshBudgetsForcedWithoutThrottle` по всем активным проектам с интеграцией `yandex_direct`. Без user-throttle. Guard — cache key `channels.direct.budget.scheduled.{localDate}` (TTL 25 ч) |
+| Настройка времени | «Настройка агентства» → «Основные настройки» → поле «Время обновления "Остаток бюджета в Директе"» (`agencies.direct_budget_refresh_time`, тип `time`, default `09:00:00`). Интерпретируется в `agencies.time_zone` |
+| Битрикс24 (агентство) | «Настройка агентства» → «Интеграция с Битрикс24»: `agencies.bitrix24_portal_url`, `agencies.bitrix24_webhook` (cast `encrypted`). Поля только парой; пустая пара = не подключено. Съём часов в Каналы — отдельно |
+| Битрикс24 (клиенто-проект) | Категория «Деньги», код `bitrix24`. Настройки в `integration_project.settings`: `root_task`, `search_query`, `parse_comment_works`, `sync_enabled_at` (+ `is_enabled`). Вебхук/URL из агентства. Кнопка disabled без пары агентства. **Часы:** коллектор `bitrix24_labor` (`Bitrix24LaborCollector`, ночной съём + «Обновить данные») берёт вебхук и часовой пояс из агентства специалиста проекта, номер корневой задачи из URL, все вложенные подзадачи (`tasks.task.list` по `PARENT_ID`, до 10 уровней / 1000 задач), фильтр названия по кускам `search_query` через запятую (пусто: все), записи `task.elapseditem.getlist` за день. Сотрудник ищется по `users.bitrix24_id` (без совпадения часы пропускаются). Колонка: ставка с «аналитик» в названии → `analyst`; иначе `projects.specialist_id` → `seo-specialist`; `clients.manager_id` → `ork-manager`; `project_assistant` (если таблица есть) → `seo-assistant`; иначе пропуск. Хранение: `bitrix24_daily_labor` (project_id, date, report_month, user_id, role, seconds; unique project+date+report_month+user), повторный съём дня перезаписывает строки проекта за период по `date`. `report_month`: месяц из названия задачи (`Bitrix24TaskSelection::reportMonth`, «октябрь 2026», «в мае»; без года: ближайший к дню записи), без месяца в названии: месяц дня записи. Каналы: `ChannelLaborSpendingsService` суммирует часы по `report_month` за месяцы отчёта, ₽ = часы × ставка на день записи (`UserRateHistory`: `rate_user` + `rate_values.start_date`), `buildProjectSpendingsData` добавляет четыре роли к данным Google Таблиц. Комментарии со 💪 не переносятся |
+| Макс. бонусы | `BonusService::resolveMaxBonusAmount`: max по интервалам настроек клиенто-проекта (фикс. ₽ или `% × чек`); `bonuses_enabled=false` / нет интервалов / `%` без чека → `-`. **Итого по группировке / таблице** для «Чек клиента» и «Макс. бонусы» — сумма по строкам (`enrichWithFinancialTotals`) |
+| Расходы итого | `ChannelReportService::createSpendingsData`: сумма ₽ из программинга, копирайтера, SEO-ссылок, четырёх ролей labor (`seo-assistant`, `seo-specialist`, `analyst`, `ork-manager`) и динамических ставок `position_*`. Пока данных по роли нет — в ячейке `-`, но при появлении `sum` она уже входит в итог. Если все источники пустые — итог `null` (прочерк), не 0. Агрегация по группе/таблице — `enrichWithSpendingsTotals` |
+
+Пока расхода нет в БД, в ячейке `-`.
+
+### Лимит ручных запросов к API Директа (и образец для Статистики)
+
+Класс: `App\Services\IntegrationSync\IntegrationApiThrottle` (alias `ChannelDirectApiThrottle`). Правила зафиксированы в `.cursor/rules/casini-project-workflow.mdc` (раздел «Ручные запросы к внешнему API»).
+
+| Параметр | Значение |
+|----------|----------|
+| Интервал | ≥ 5 минут между запросами |
+| Серия | ≤ 3 запроса подряд |
+| После серии | блок 60 минут |
+| Ключ кэша | `integrations.api_throttle.user.{userId}` |
+
+Клик по иконке обновления = один `consume()`.
+
+## Статистика: период отчёта
+
+Страница `/statistics`. Период как в Каналах: `StatisticsReportQueryData.dateFrom` / `dateTo` (месяц–месяц), UI — два `x-form.month-picker` с `disable-future`. По умолчанию оба = текущий месяц. Будущие месяцы запрещены (UI + `clampPeriodToPresent()`).
+
+| Что | Как |
+|-----|-----|
+| Колонки детализации (день / неделя) | при одном месяце — этот месяц; при интервале — по `dateTo` (`detailGridMonth()`) |
+| Колонки детализации «месяц» | по каждому месяцу `dateFrom`…`dateTo` (`detailMonths()` → `month_0`, `month_1`, …) |
+| План | только если `isSingleMonthPeriod()`; иначе в ячейке `-` |
+| Тип клиенто-проекта | `projects.project_type` → `ProjectType::label()` |
+| Факт «Рекламный бюджет» (CONTEXT_AD) | сумма дней из `yandex_direct_daily_spendings` за бакет (день/неделя/месяц сетки); колонка с/без НДС по `includeVat`; нет строк в БД → `-` |
+| Факт «Лиды» (CONTEXT_AD + KPI LEADS) | сумма дней из `callibri_daily_lead_counts` в слот параметра index **2**; нет строк → `-`; нулевой день пишется как `0` |
+| Факт CPL (CONTEXT_AD + LEADS) | `рекламный бюджет / лиды` за бакет; дробное до 2 знаков; нет бюджета/лидов или лиды = 0 → `-` |
+| Факт CPC (CONTEXT_AD + TRAFFIC) | `рекламный бюджет / объём визитов` за бакет; дробное до 2 знаков; визиты пока без источника → `-` |
+| Факт «% позиций в ТОП» (SEO + POSITIONS) | среднее дневных `%` из `yandex_search_api_daily_top_percents` за бакет; нет снимка → `-` |
+| Обновление данных | иконка в шапке отчёта (`WithReportDataRefresh` + `refreshAllData`) → все видимые клиенто-проекты отчёта; Каналы: collectors + остаток бюджета Директа; Статистика: только collectors; один `IntegrationApiThrottle::consume()`; тултип «Последнее обновление данных: чч:мм, дд.мм.гг» — max(ручной клик пользователя по продукту, `integration_sync_runs.finished_at` ночного съёма); если ни того ни другого — «ещё не обновлялось» (`IntegrationManualRefreshTimestamp`) |
+| Остальные факты (визиты, конверсии SEO…) | пока `-` (без тестовых заглушек) |
+| Итог | только один месяц; заполняется, если есть срез за **последний день месяца**; сумма за месяц по параметру (бюджет/лиды/визиты/конверсии), CPL/CPC = отношение сумм, `% в ТОП` = значение последнего дня; рядом `(N%)` = итог/план×100, если план задан; primary-параметр (значение и %) — **жирным**. **Итого по группировке / таблице** — один `%` только по primary KPI = сумма primary-фактов / сумма primary-планов × 100. **Итого по срезам детализации** (день/неделя/месяц) — тот же `%` по primary в каждом бакете `day_*` / `week_*` / `month_*`. Классы: `StatisticsClosingColumnsCalculator`, `StatisticsClosingColumnsAggregator` |
+| План (Каналы, Статистика) | у **основных** параметров рядом со значением в скобках: `(лидов)` / `(визитов)` / `(позиций в топ 10)`; `PlanValueHelper::planColumnParts`, `PrimaryParameterPlanHelper` |
+| Прогноз | только KPI Трафик/Лиды и только слот primary («Объем визитов» / «Лиды»); `~факт/прошедшие_дни×дней_месяца`; &lt; 3 дней с данными → курсив «мало данных»; в «Итого» таблицы не суммируется |
+| Бонусы и гарантии | только когда заполнен Итог primary KPI; иначе `-`. Первый расчёт сохраняется в `statistics_project_monthly_bonuses` (снимок за проект+месяц); смена настроек бонусов в клиенто-проекте снимок не меняет. Пересчёт и перезапись — только кнопка «Обновить данные». Live: `bonuses_enabled=false` → «Не настроены»; `% от чека` без чека → курсив «Заполните Чек клиента»; иначе `BonusService::calculateBonuses` по `% выполнения = итог/план×100`. **Итого по группировке / таблице** — сумма `amount` (₽), включая отрицательные гарантии |
+| Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |
+| Выделять невыполненные KPI | `highlightUnmetKpi` по умолчанию `N`; при `Y` в ячейках факта (срезы) и «Итог» у строк проектов и у строк Итого (группа / таблица) фон по `%`: `≥90` → `#EBFCF0`, `<90` → `#FCEBEB` |
+
+## Ночной съём интеграций (единый каркас)
+
+Правила съёма (полночь по `agencies.time_zone`, вчерашний день, только активные проекты, requeue при ошибке API) — этот раздел; локально для агента также может лежать `.cursor/rules/integration-data-sync.mdc` (в git не коммитится).
+
+| Компонент | Назначение |
+|-----------|------------|
+| `agencies.time_zone` | «Основной часовой пояс агентства»; окно старта **00:01** локально |
+| `php artisan integrations:dispatch-due-syncs` | Schedule `everyMinute()`: с **00:01** локально, если ещё нет run за текущую local-дату → создать run + items за **вчера** (догон, если минута 00:01 была пропущена) |
+| `integration_sync_runs` / `integration_sync_items` | run и очередь проектов; при ошибке API item → в хвост, max 3 attempts |
+| `ProcessIntegrationSyncItem` | Job: один item → collector → upsert; исключение в `collect` не валит соседние items |
+| `IntegrationSyncCollector` | контракт: `key`, `integrationCode`, `supportsProject`, `collect` / `collectRange` |
+| Кандидаты | активные проекты × collectors, где `supportsProject()` = true (per-collector) |
+| Ошибка одного сервиса | item `failed` (после max 3 attempts или без requeue); очередь идёт дальше; **только** запись в продукт «Уведомления» (`integrations.sync.failed`, без email): `{ошибка}, чч:мм, дд.мм.гг, [[proj]]` людям с доступом к клиенто-проекту (время агентства); непрочитано, пока не открыта страница «Уведомления» |
+
+### Collectors (фаза 1)
+
+| Ключ | Интеграция | Таблица | UI |
+|------|------------|---------|-----|
+| `yandex_direct_daily_spend` | `yandex_direct` | `yandex_direct_daily_spendings` | Каналы: расход; Статистика: «Рекламный бюджет» |
+| `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
+| `yandex_search_api_daily_positions` | `yandex_search_api` | `serp_positions` + `yandex_search_api_daily_top_percents` | Статистика: «% позиций в ТОП» (SEO + POSITIONS) |
+
+**Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни — пересчёт агрегата из уже сохранённых `serp_positions`. Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`.
+
+Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Метрика / 1С / Sheets — отдельные задачи.
+
+Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание в `bootstrap/app.php` → `withSchedule()`.
+
+### Диагностика пропусков
+
+Ячейка `-` = нет строки в дневной таблице за день (нуль пишется как `0` / `0.00`).
+
+```sql
+-- Direct
+SELECT date, cost_without_vat, cost_with_vat
+FROM yandex_direct_daily_spendings
+WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+ORDER BY date;
+
+-- Callibri
+SELECT date, leads_count
+FROM callibri_daily_lead_counts
+WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+ORDER BY date;
+
+SELECT i.id, r.target_date, i.collector, i.status, i.attempts, i.last_error
+FROM integration_sync_items i
+JOIN integration_sync_runs r ON r.id = i.run_id
+WHERE i.project_id = ?
+ORDER BY r.target_date, i.collector;
+```
+
+### Backfill и bulk refresh
+
+`integrations:dispatch-due-syncs --force` — не больше одного run на local_date (не для диапазона).
+
+1. Каналы / Статистика → иконка обновления данных (`IntegrationMetricsRefreshService::refreshReportData`, один `IntegrationApiThrottle::consume()`; в Каналах дополнительно бюджет Директа без второго consume).
+2. Ops:
+
+```bash
+sudo -u www-data php artisan integrations:backfill \
+  --project=1 --from=2026-08-04 --to=2026-08-06
+# или один collector:
+sudo -u www-data php artisan integrations:backfill \
+  --project=1 --from=2026-08-04 --to=2026-08-06 --collector=callibri_daily_leads
+```
+
+Alias: `integrations:backfill-direct-spend` (только Direct).

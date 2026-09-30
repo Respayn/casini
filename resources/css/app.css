@@ -199,7 +199,10 @@ form.form_normalized {
     .form-field {
         @apply items-start;
         & > *:last-child {
-            @apply lg:min-w-[305px] lg:max-w-[305px];
+            /* Фиксируем ширину контролов на всех ширинах экрана:
+               раньше было только lg:, из‑за этого ниже 1024px поля «прыгали»,
+               а блоки с w-full (логотип) растягивались на всю строку. */
+            @apply min-w-[305px] max-w-[305px];
         }
     }
 }

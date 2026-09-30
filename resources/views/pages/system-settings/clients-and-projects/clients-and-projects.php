@@ -17,6 +17,15 @@ new
     {
         use WithSidebarProjectFilter;
 
+        public function mount(): void
+        {
+            if (request()->boolean('createClient')) {
+                $this->js(
+                    'history.replaceState({}, "", '.json_encode(route('system-settings.clients-and-projects'), JSON_UNESCAPED_SLASHES).')'
+                );
+            }
+        }
+
         #[Computed]
         public function clients()
         {

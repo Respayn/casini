@@ -1,12 +1,22 @@
-<div>
+<x-report.refresh-navigation-guard>
     <x-layout.sidebar-filter-hint />
 
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
-        <h1 class="mb-7">Каналы:</h1>
+        <div class="mb-7 flex items-center gap-2">
+            <h1>Каналы</h1>
+            <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
+                <x-button.button
+                    icon="icons.gear"
+                    variant="outlined"
+                    rounded
+                    title="Настроить отчет"
+                />
+            </x-overlay.modal-trigger>
+        </div>
         <div>
             <x-button.button
-                href="{{ route('system-settings.clients-and-projects') }}"
+                href="{{ route('system-settings.clients-and-projects', ['createClient' => 1]) }}"
                 icon="icons.plus"
                 label="Добавить клиента"
             />
@@ -20,79 +30,68 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex items-center">
-        <div class="mr-3.5">
+    @php
+        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, refreshAllData, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+    @endphp
+
+    <div
+        class="flex flex-wrap items-center gap-y-3"
+        wire:loading.class="pointer-events-none opacity-60"
+        wire:target="{{ $reportLoadingTargets }}"
+    >
+        <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="queryData.showInactive" />
         </div>
 
-        <div class="mr-[26px]">
+        <div class="mr-[26px] flex items-center gap-2">
             <label>НДС</label>
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
 
-        <div>
-            <x-form.month-picker wire:model.live="queryData.dateTo" />
+        <div class="mr-[26px] flex items-center gap-2">
+            <x-form.month-picker wire:model.live="queryData.dateFrom" disable-future />
+            <span class="text-secondary-text">—</span>
+            <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
         </div>
 
-        <div class="flex-end ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button
-                    icon="icons.edit"
-                    label="Настроить столбцы"
-                    variant="link"
-                />
-            </x-overlay.modal-trigger>
-            <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button
-                    icon="icons.edit"
-                    label="Настроить отчет"
-                    variant="link"
-                />
-            </x-overlay.modal-trigger>
-        </div>
+        <x-report.table-toolbar :last-refresh-label="$lastDataRefreshLabel" />
     </div>
 
-    @if (!empty($selectedProjects))
-        <div class="flex gap-2">
-            <div class="w-xs">
-                <x-form.select
-                    wire:model="bulkAction"
-                    :options="[
-                        ['label' => 'Обновить расходы', 'value' => 'refresh_spendings'],
-                        ['label' => 'Обновить остаток бюджета', 'value' => 'refresh_budget_remains'],
-                    ]"
-                    placeholder="Массовые действия"
-                />
-            </div>
-            <x-button.button wire:click="makeBulkAction" label="Выполнить" />
-        </div>
+    @if ($actionMessage)
+        <x-feedback.notice
+            class="mt-3 mb-0"
+            :variant="$actionMessageType === 'error' ? 'error' : 'info'"
+        >
+            {{ $actionMessage }}
+        </x-feedback.notice>
     @endif
 
-    @if ($this->reportData->groups->isEmpty())
-        <div class="mt-20 flex flex-col items-center gap-4">
-            <span class="text-caption-text">Нет клиенто-проектов для отображения каналов</span>
-            <div>
-                <x-button.button
-                    icon="icons.plus"
-                    label="Добавить клиенто-проект"
-                    variant="primary"
-                />
+    <x-report.table-loading :targets="$reportLoadingTargets">
+        @if ($this->reportData->groups->isEmpty())
+            <div class="mt-20 flex flex-col items-center gap-4">
+                <span class="text-caption-text">Нет клиенто-проектов для отображения каналов</span>
+                <div>
+                    <x-button.button
+                        icon="icons.plus"
+                        label="Добавить клиенто-проект"
+                        variant="primary"
+                    />
+                </div>
             </div>
-        </div>
-    @else
-        <div
-            class="mt-3"
-            x-data="{ expandedGroups: {} }"
-        >
-            <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
-                <x-data.table>
+        @else
+            <div x-data="{ expandedGroups: {} }">
+                <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
+                    <x-data.table>
                     <x-data.table-columns>
-                        <x-data.table-column>
-                            <x-form.checkbox wire:model.live="selectAll" />
-                        </x-data.table-column>
                         @foreach ($this->visibleColumns as $column)
-                            <x-data.table-column class="whitespace-nowrap">
+                            <x-data.table-column
+                                @class([
+                                    'whitespace-nowrap border',
+                                    'min-w-28' => $column->field === 'tool',
+                                ])
+                                style="border-color: var(--color-table-cell)"
+                            >
                                 <span>{{ $column->label }}</span>
                                 @if ($column->tooltip !== null)
                                     <x-overlay.tooltip>
@@ -103,6 +102,7 @@
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
+                        @php $clientProjectStripe = 0; @endphp
                         @foreach ($this->reportData->groups as $groupIndex => $group)
                             {{-- Итого по группе --}}
                             @unless (empty($group->summary))
@@ -110,7 +110,7 @@
                                     <x-data.table-cell colspan="100">
                                         <div
                                             class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']; console.log(expandedGroups)"
+                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
                                         >
                                             <span class="font-bold">{{ $group->groupLabel }}</span>
                                             <x-icons.accordion-arrow
@@ -120,30 +120,27 @@
                                         </div>
                                     </x-data.table-cell>
                                 </x-data.table-row>
-                                <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
-                                    <x-data.table-cell class="bg-table-summary-bg">
-                                        <x-form.checkbox value="{{ $groupIndex }} " wire:model.live="selectedGroups" />
-                                    </x-data.table-cell>
-
+                                <x-data.table-row wire:key="group.{{ $groupIndex }}.summary" data-channels-group-summary>
                                     @foreach ($this->visibleColumns as $column)
                                         <x-dynamic-component
                                             :component="'channels.rows.summary.' . $column->component"
                                             :params="$group->summary->get($column->field)"
+                                            :bold="true"
                                         />
                                     @endforeach
                                 </x-data.table-row>
                             @endunless
                             {{-- Строки группы --}}
                             @foreach ($group->rows as $row)
+                                @php
+                                    $rowBgColor = $clientProjectStripe % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                    $clientProjectStripe++;
+                                @endphp
                                 @if ($queryData->grouping->value === 'none')
-                                    <x-data.table-row wire:key="row.{{ $row->id }}">
-                                        <x-data.table-cell>
-                                            <x-form.checkbox
-                                                value="{{ $row->id }}"
-                                                wire:model.live="selectedProjects"
-                                            />
-                                        </x-data.table-cell>
-
+                                    <x-data.table-row
+                                        wire:key="row.{{ $row->id }}"
+                                        :bg-color="$rowBgColor"
+                                    >
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component
                                                 :component="'channels.rows.regular.' . $column->component"
@@ -155,11 +152,8 @@
                                     <x-data.table-row
                                         x-show="expandedGroups['group-{{ $groupIndex }}']"
                                         wire:key="row.{{ $row->id }}"
+                                        :bg-color="$rowBgColor"
                                     >
-                                        <x-data.table-cell>
-                                            <x-form.checkbox value="{{ $row->id }}" wire:model.live="selectedProjects" />
-                                        </x-data.table-cell>
-
                                         @foreach ($this->visibleColumns as $column)
                                             <x-dynamic-component
                                                 :component="'channels.rows.regular.' . $column->component"
@@ -172,12 +166,11 @@
                         @endforeach
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
-                            <x-data.table-cell class="bg-table-summary-bg">
-                            </x-data.table-cell>
                             @foreach ($this->visibleColumns as $column)
                                 <x-dynamic-component
                                     :component="'channels.rows.summary.' . $column->component"
                                     :params="$this->reportData->summary->get($column->field)"
+                                    :bold="true"
                                 />
                             @endforeach
                         </x-data.table-row>
@@ -185,33 +178,36 @@
                 </x-data.table>
             </x-panel.scroll-panel>
         </div>
-    @endif
+        @endif
+    </x-report.table-loading>
 
     <x-overlay.modal
         name="column-settings-modal"
         title="Настроить столбцы"
     >
         <x-slot:body>
-            <div
-                class="flex flex-col gap-2.5"
-                x-data
-                x-sort="$wire.sortColumn($item, $position)"
-            >
-                @foreach ($queryData->columns as $index => $column)
-                    <div
-                        class="flex items-center gap-2.5"
-                        wire:key="column.{{ $column->field }}"
-                        x-sort:item="'{{ $column->field }}'"
-                    >
-                        <x-icons.burger
-                            class="text-secondary-text cursor-pointer"
-                            x-sort:handle
-                        />
-                        <x-form.checkbox wire:model="queryData.columns.{{ $index }}.isVisible" />
-                        <label>{{ $column->label }}</label>
-                    </div>
-                @endforeach
-            </div>
+            <x-panel.scroll-panel style="max-height: min(25rem, calc(100vh - 14rem))">
+                <div
+                    class="flex flex-col gap-2.5"
+                    x-data
+                    x-sort="$wire.sortColumn($item, $position)"
+                >
+                    @foreach ($queryData->columns as $index => $column)
+                        <div
+                            class="flex items-center gap-2.5"
+                            wire:key="column.{{ $column->field }}"
+                            x-sort:item="'{{ $column->field }}'"
+                        >
+                            <x-icons.burger
+                                class="text-secondary-text cursor-pointer"
+                                x-sort:handle
+                            />
+                            <x-form.checkbox wire:model="queryData.columns.{{ $index }}.isVisible" />
+                            <label>{{ $column->label }}</label>
+                        </div>
+                    @endforeach
+                </div>
+            </x-panel.scroll-panel>
 
             <div class="mt-3 flex justify-between">
                 <x-button
@@ -229,4 +225,4 @@
     </x-overlay.modal>
 
     <livewire:channels.group-settings-modal :initial-grouping="$queryData->grouping" />
-</div>
+</x-report.refresh-navigation-guard>
