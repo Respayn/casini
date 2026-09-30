@@ -46,7 +46,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $dispatcher = new IntegrationSyncDispatcher([$direct, $callibri, $unsupported]);
         $service = new IntegrationMetricsRefreshService(
             $dispatcher,
-            new IntegrationApiThrottle(),
+            new IntegrationApiThrottle,
             Mockery::mock(ChannelDirectMetricsService::class),
         );
 
@@ -69,7 +69,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $dispatcher = new IntegrationSyncDispatcher([$collector]);
         $service = new IntegrationMetricsRefreshService(
             $dispatcher,
-            new IntegrationApiThrottle(),
+            new IntegrationApiThrottle,
             Mockery::mock(ChannelDirectMetricsService::class),
         );
 
@@ -98,7 +98,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $dispatcher = new IntegrationSyncDispatcher([$collector]);
         $service = new IntegrationMetricsRefreshService(
             $dispatcher,
-            new IntegrationApiThrottle(),
+            new IntegrationApiThrottle,
             $direct,
         );
 
@@ -136,7 +136,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $dispatcher = new IntegrationSyncDispatcher([$failing, $brokenSupports, $ok]);
         $service = new IntegrationMetricsRefreshService(
             $dispatcher,
-            new IntegrationApiThrottle(),
+            new IntegrationApiThrottle,
             Mockery::mock(ChannelDirectMetricsService::class),
         );
 

@@ -17,7 +17,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new
-#[Title("Каналы")]
+#[Title('Каналы')]
 class extends Component
 {
     use WithReportDataRefresh;
@@ -100,7 +100,7 @@ class extends Component
     public function sortColumn($item, $position)
     {
         $column = $this->queryData->columns->first(
-            fn($v) => $v->field === $item,
+            fn ($v) => $v->field === $item,
         );
         $oldPosition = $column->order;
 
@@ -130,7 +130,7 @@ class extends Component
         });
 
         $this->queryData->columns = $this->queryData->columns->sortBy(
-            fn(TableReportColumnData $col) => $col->order,
+            fn (TableReportColumnData $col) => $col->order,
         );
     }
 

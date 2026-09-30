@@ -12,6 +12,7 @@ use App\Models\Agency;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
 use App\Models\Project;
+use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
@@ -133,7 +134,7 @@ class IntegrationSyncDispatcherTest extends TestCase
         ]);
 
         $dispatcher = new IntegrationSyncDispatcher([
-            app(\App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector::class),
+            app(YandexDirectDailySpendCollector::class),
         ]);
         $ids = $dispatcher->candidateProjectIds();
 

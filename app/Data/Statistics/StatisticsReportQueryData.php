@@ -19,8 +19,6 @@ class StatisticsReportQueryData extends Data implements Wireable
 
     /**
      * Выбранная группировка
-     *
-     * @var ChannelReportGrouping
      */
     public ChannelReportGrouping $grouping = ChannelReportGrouping::NONE;
 
@@ -56,7 +54,7 @@ class StatisticsReportQueryData extends Data implements Wireable
         ?Carbon $dateFrom = null,
         ?Carbon $dateTo = null,
     ): StatisticsReportQueryData {
-        $instance = new self();
+        $instance = new self;
 
         $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
         $instance->dateFrom = ($dateFrom ?? $currentMonth)->copy()->startOfMonth()->startOfDay();

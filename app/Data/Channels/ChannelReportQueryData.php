@@ -21,12 +21,12 @@ class ChannelReportQueryData extends Data implements Wireable
 
     /**
      * Выбранная группировка
-     * @var ChannelReportGrouping
      */
     public ChannelReportGrouping $grouping = ChannelReportGrouping::NONE;
 
     /**
      * Summary of columns
+     *
      * @var Collection<int, TableReportColumnData>
      */
     public Collection $columns;
@@ -43,8 +43,6 @@ class ChannelReportQueryData extends Data implements Wireable
 
     /**
      * Summary of create
-     * @param array|\Illuminate\Support\Collection $rates
-     * @return ChannelReportQueryData
      */
     public static function create(array|Collection $rates = []): ChannelReportQueryData
     {
@@ -52,7 +50,7 @@ class ChannelReportQueryData extends Data implements Wireable
             $rates = new Collection($rates);
         }
 
-        $instance = new self();
+        $instance = new self;
 
         $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
         $instance->dateFrom = $currentMonth->copy();
@@ -87,7 +85,7 @@ class ChannelReportQueryData extends Data implements Wireable
         // Добавляем столбцы для ставок с включенным параметром "Собирать статистику по отработанному времени?"
         if ($rates->isNotEmpty()) {
             foreach ($rates as $rate) {
-                $field = 'position_' . $rate->id;
+                $field = 'position_'.$rate->id;
                 $instance->columns->add(new TableReportColumnData($field, $rate->name, $colOrder++, component: 'position', tooltip: self::SPENDINGS_SYNC_TOOLTIP));
             }
         }
