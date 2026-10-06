@@ -9,6 +9,7 @@ use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
+use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\BonusService;
 use App\Services\Channels\ChannelDirectMetricsService;
@@ -33,6 +34,7 @@ class ChannelReportSpendingsTotalsTest extends TestCase
             $this->createMock(ChannelDirectMetricsService::class),
             $this->createMock(BonusService::class),
             $this->createMock(GoogleSheetsService::class),
+            $this->createMock(ReportUserSettingsRepository::class),
         );
     }
 

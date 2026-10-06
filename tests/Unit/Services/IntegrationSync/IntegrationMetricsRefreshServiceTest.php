@@ -51,7 +51,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
             Mockery::mock(ChannelDirectMetricsService::class),
         );
 
-        $stats = $service->refreshDataForProjects(
+        $stats = $service->refreshReportData(
             [10],
             Carbon::parse('2026-08-01'),
             Carbon::parse('2026-08-01'),
@@ -74,7 +74,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
             Mockery::mock(ChannelDirectMetricsService::class),
         );
 
-        $stats = $service->refreshDataForProjects(
+        $stats = $service->refreshReportData(
             [5],
             Carbon::parse('2026-08-01'),
             Carbon::parse('2026-08-01'),
@@ -141,7 +141,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
             Mockery::mock(ChannelDirectMetricsService::class),
         );
 
-        $stats = $service->refreshDataForProjects(
+        $stats = $service->refreshReportData(
             [10],
             Carbon::parse('2026-08-01'),
             Carbon::parse('2026-08-01'),

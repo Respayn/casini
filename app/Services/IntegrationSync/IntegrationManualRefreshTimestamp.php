@@ -2,13 +2,17 @@
 
 namespace App\Services\IntegrationSync;
 
-use App\Models\Agency;
 use App\Models\IntegrationSyncRun;
+use App\Repositories\AgencyRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 
 class IntegrationManualRefreshTimestamp
 {
+    public function __construct(
+        private readonly AgencyRepository $agencyRepository = new AgencyRepository,
+    ) {}
+
     public function record(int $userId, string $product): void
     {
         Cache::forever(
@@ -26,7 +30,7 @@ class IntegrationManualRefreshTimestamp
         }
 
         return $at
-            ->timezone($this->agencyTimezone())
+            ->timezone($this->agencyRepository->getPrimaryTimeZone())
             ->format('H:i, d.m.y');
     }
 
@@ -90,14 +94,5 @@ class IntegrationManualRefreshTimestamp
     private function cacheKey(int $userId, string $product): string
     {
         return "integrations.manual_refresh.last_at.user.{$userId}.{$product}";
-    }
-
-    private function agencyTimezone(): string
-    {
-        $timezone = Agency::query()->orderBy('id')->value('time_zone');
-
-        return filled($timezone)
-            ? (string) $timezone
-            : (string) config('app.timezone', 'UTC');
     }
 }

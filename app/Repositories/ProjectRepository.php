@@ -57,4 +57,28 @@ class ProjectRepository
         )
             ->get();
     }
+
+    /**
+     * @return list<int>
+     */
+    public function getActiveProjectIdsWithIntegration(string $integrationCode): array
+    {
+        return Project::query()
+            ->where('is_active', true)
+            ->whereHas('integrations', fn (Builder $query) => $query->where('code', $integrationCode))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function getAssistantIds(Project $project): array
+    {
+        return $project->assistants()
+            ->pluck('users.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
 }

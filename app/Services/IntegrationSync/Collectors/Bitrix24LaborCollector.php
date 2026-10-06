@@ -8,6 +8,7 @@ use App\Data\IntegrationSync\IntegrationSyncResult;
 use App\Models\Bitrix24DailyLabor;
 use App\Models\Project;
 use App\Models\User;
+use App\Repositories\ProjectRepository;
 use App\Services\Bitrix24\Bitrix24ApiException;
 use App\Services\Bitrix24\Bitrix24Client;
 use App\Services\Bitrix24\Bitrix24LaborRoleResolver;
@@ -17,7 +18,6 @@ use App\Services\Rates\UserRateHistory;
 use App\Support\SafeLogger;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 class Bitrix24LaborCollector implements IntegrationSyncCollector
@@ -29,6 +29,7 @@ class Bitrix24LaborCollector implements IntegrationSyncCollector
     public function __construct(
         private readonly IntegrationProjectCredentials $credentials,
         private readonly Bitrix24Client $client,
+        private readonly ProjectRepository $projectRepository,
     ) {}
 
     public function key(): string
@@ -157,7 +158,7 @@ class Bitrix24LaborCollector implements IntegrationSyncCollector
             ->mapWithKeys(fn ($id, $bitrixId) => [(int) $bitrixId => (int) $id]);
 
         $rates = UserRateHistory::forUsers($userIdsByBitrixId->values());
-        $assistantIds = $this->assistantIds($project->id);
+        $assistantIds = $this->projectRepository->getAssistantIds($project);
         $specialistId = $project->specialist_id !== null ? (int) $project->specialist_id : null;
         $managerId = $project->client?->manager_id !== null ? (int) $project->client->manager_id : null;
         $now = now();
@@ -199,22 +200,6 @@ class Bitrix24LaborCollector implements IntegrationSyncCollector
         }
 
         return $rows;
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function assistantIds(int $projectId): array
-    {
-        if (! Schema::hasTable('project_assistant')) {
-            return [];
-        }
-
-        return DB::table('project_assistant')
-            ->where('project_id', $projectId)
-            ->pluck('user_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
     }
 
     private function failure(int $projectId, string $fromDate, string $toDate, string $message): IntegrationSyncResult

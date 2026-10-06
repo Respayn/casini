@@ -6,6 +6,8 @@ use App\Models\Agency;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
 use App\Models\Project;
+use App\Repositories\AgencyRepository;
+use App\Repositories\ProjectRepository;
 use App\Services\Channels\ChannelDirectMetricsService;
 use App\Services\Channels\DirectBudgetRefreshDispatcher;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -54,7 +56,7 @@ class DirectBudgetRefreshDispatcherTest extends TestCase
         $metricsService = Mockery::mock(ChannelDirectMetricsService::class);
         $metricsService->shouldReceive('refreshBudgetsForcedWithoutThrottle')->once();
 
-        $dispatcher = new DirectBudgetRefreshDispatcher($metricsService);
+        $dispatcher = new DirectBudgetRefreshDispatcher($metricsService, new ProjectRepository, new AgencyRepository);
 
         $this->createProjectWithDirect();
 
@@ -81,7 +83,7 @@ class DirectBudgetRefreshDispatcherTest extends TestCase
         $metricsService = Mockery::mock(ChannelDirectMetricsService::class);
         $metricsService->shouldReceive('refreshBudgetsForcedWithoutThrottle')->once();
 
-        $dispatcher = new DirectBudgetRefreshDispatcher($metricsService);
+        $dispatcher = new DirectBudgetRefreshDispatcher($metricsService, new ProjectRepository, new AgencyRepository);
 
         $this->createProjectWithDirect();
 
@@ -96,7 +98,7 @@ class DirectBudgetRefreshDispatcherTest extends TestCase
         $metricsService = Mockery::mock(ChannelDirectMetricsService::class);
         $metricsService->shouldReceive('refreshBudgetsForcedWithoutThrottle')->zeroOrMoreTimes();
 
-        return new DirectBudgetRefreshDispatcher($metricsService);
+        return new DirectBudgetRefreshDispatcher($metricsService, new ProjectRepository, new AgencyRepository);
     }
 
     private function createProjectWithDirect(): Project

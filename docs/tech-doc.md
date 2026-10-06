@@ -201,7 +201,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 | Правило | Значение |
 |---|---|
 | При создании | `AgencyIdGenerator` выдаёт случайное **4-значное** число `1000–9999` (`AgencyRepository::createAgency`) |
-| Уникальность | повтор при коллизии (до 50 попыток) |
+| Уникальность | до 50 случайных попыток при совпадении; затем первый свободный номер в диапазоне. Ошибка только если все 9000 номеров заняты |
 | БД | `agencies.id` без `AUTO_INCREMENT`; `Agency::$incrementing = false` |
 | Существующие | не перегенерируются (legacy `id=1` для «СайтАктив» в сидерах) |
 | UI | поле «ID агентства» и переключатель `№{id}` читают `agencies.id` |
@@ -374,7 +374,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 ### Лимит ручных запросов к API Директа (и образец для Статистики)
 
-Класс: `App\Services\IntegrationSync\IntegrationApiThrottle` (alias `ChannelDirectApiThrottle`). Правила зафиксированы в `.cursor/rules/casini-project-workflow.mdc` (раздел «Ручные запросы к внешнему API»).
+Класс: `App\Services\IntegrationSync\IntegrationApiThrottle`. Правила зафиксированы в `.cursor/rules/casini-project-workflow.mdc` (раздел «Ручные запросы к внешнему API»).
 
 | Параметр | Значение |
 |----------|----------|

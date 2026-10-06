@@ -5,13 +5,11 @@ namespace Tests\Unit\Services\Channels;
 use App\Data\Integrations\IntegrationData;
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Enums\IntegrationCategory;
+use App\Models\Agency;
 use App\Models\Project;
-use App\Models\User;
 use App\Models\YandexDirectDailySpending;
 use App\Repositories\IntegrationRepository;
-use App\Services\Channels\ChannelDirectApiThrottle;
 use App\Services\Channels\ChannelDirectMetricsService;
-use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
 use App\Services\YandexDirectService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
@@ -29,12 +27,12 @@ class ChannelDirectMetricsServiceTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_resolve_month_period_clips_to_today_for_current_month(): void
+    public function test_resolve_period_clips_to_today_for_current_month(): void
     {
         Carbon::setTestNow(Carbon::parse('2026-08-03 12:00:00'));
 
         $service = $this->makeService();
-        [$from, $to] = $service->resolveMonthPeriod(Carbon::parse('2026-08-01'));
+        [$from, $to] = $service->resolvePeriod(Carbon::parse('2026-08-01'), Carbon::parse('2026-08-01'));
 
         $this->assertSame('2026-08-01', $from->toDateString());
         $this->assertSame('2026-08-03', $to->toDateString());
@@ -80,9 +78,9 @@ class ChannelDirectMetricsServiceTest extends TestCase
     {
         config(['app.timezone' => 'UTC']);
 
-        $agency = \App\Models\Agency::query()->orderBy('id')->first();
+        $agency = Agency::query()->orderBy('id')->first();
         if ($agency === null) {
-            $agency = \App\Models\Agency::factory()->create([
+            $agency = Agency::factory()->create([
                 'time_zone' => 'Asia/Yekaterinburg',
             ]);
         } else {
@@ -175,7 +173,7 @@ class ChannelDirectMetricsServiceTest extends TestCase
         );
     }
 
-    public function test_refresh_budget_skips_without_credentials(): void
+    public function test_refresh_budgets_skips_project_without_credentials(): void
     {
         $repository = Mockery::mock(IntegrationRepository::class);
         $repository->shouldReceive('getActiveIntegrationsMappedByProjects')
@@ -183,22 +181,13 @@ class ChannelDirectMetricsServiceTest extends TestCase
             ->with([42])
             ->andReturn(collect([42 => collect()]));
 
-        $service = new ChannelDirectMetricsService(
-            $repository,
-            Mockery::mock(YandexDirectDailySpendCollector::class),
-            new ChannelDirectApiThrottle(),
-        );
+        $stats = (new ChannelDirectMetricsService($repository))->refreshBudgetsForcedWithoutThrottle([42]);
 
-        $result = $service->refreshBudget(42);
-
-        $this->assertFalse($result['ok']);
-        $this->assertSame('Нет настроенной интеграции Яндекс.Директ', $result['error']);
+        $this->assertSame(['updated' => 0, 'failed' => 0, 'skipped' => 1], $stats);
     }
 
-    public function test_refresh_budget_stores_value_in_cache(): void
+    public function test_refresh_budgets_stores_value_in_cache(): void
     {
-        $this->actingAs(User::factory()->create());
-
         $repository = Mockery::mock(IntegrationRepository::class);
         $repository->shouldReceive('getActiveIntegrationsMappedByProjects')
             ->once()
@@ -211,58 +200,25 @@ class ChannelDirectMetricsServiceTest extends TestCase
 
         $this->app->instance(YandexDirectService::class, $direct);
 
-        $service = new ChannelDirectMetricsService(
-            $repository,
-            Mockery::mock(YandexDirectDailySpendCollector::class),
-            new ChannelDirectApiThrottle(),
-        );
-        $result = $service->refreshBudget(7);
+        $stats = (new ChannelDirectMetricsService($repository))->refreshBudgetsForcedWithoutThrottle([7]);
 
-        $this->assertTrue($result['ok']);
-        $this->assertSame(1500.46, $result['value']);
+        $this->assertSame(['updated' => 1, 'failed' => 0, 'skipped' => 0], $stats);
         $cached = Cache::get('channels.direct.budget.7');
         $this->assertIsArray($cached);
         $this->assertSame(1500.46, $cached['value']);
         $this->assertNotEmpty($cached['updated_at']);
     }
 
-    public function test_refresh_budget_returns_cache_without_api_on_second_click(): void
-    {
-        Cache::put('channels.direct.budget.7', [
-            'value' => 100.0,
-            'updated_at' => '2026-08-04T10:00:00+00:00',
-        ], 60);
-        $repository = Mockery::mock(IntegrationRepository::class);
-        $repository->shouldReceive('getActiveIntegrationsMappedByProjects')
-            ->once()
-            ->with([7])
-            ->andReturn(collect([7 => collect([$this->makeDirectIntegration()])]));
-
-        $service = new ChannelDirectMetricsService(
-            $repository,
-            Mockery::mock(YandexDirectDailySpendCollector::class),
-            new ChannelDirectApiThrottle(),
-        );
-
-        $result = $service->refreshBudget(7, force: false);
-
-        $this->assertTrue($result['ok']);
-        $this->assertTrue($result['fromCache'] ?? false);
-        $this->assertSame(100.0, $result['value']);
-    }
-
     private function makeService(): ChannelDirectMetricsService
     {
         return new ChannelDirectMetricsService(
             Mockery::mock(IntegrationRepository::class),
-            Mockery::mock(YandexDirectDailySpendCollector::class),
-            new ChannelDirectApiThrottle(),
         );
     }
 
     private function makeDirectIntegration(): ProjectIntegrationData
     {
-        $data = new ProjectIntegrationData();
+        $data = new ProjectIntegrationData;
         $data->integration = IntegrationData::from([
             'id' => 1,
             'name' => 'Яндекс.Директ',

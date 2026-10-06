@@ -2,8 +2,8 @@
 
 namespace App\Services\Channels;
 
-use App\Models\Agency;
-use App\Models\Project;
+use App\Repositories\AgencyRepository;
+use App\Repositories\ProjectRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -14,11 +14,13 @@ class DirectBudgetRefreshDispatcher
 
     public function __construct(
         private readonly ChannelDirectMetricsService $directMetricsService,
+        private readonly ProjectRepository $projectRepository,
+        private readonly AgencyRepository $agencyRepository,
     ) {}
 
     public function dispatchIfDue(?Carbon $nowUtc = null): bool
     {
-        $timezone = $this->resolveAgencyTimezone();
+        $timezone = $this->agencyRepository->getPrimaryTimeZone();
         $nowLocal = ($nowUtc ?? Carbon::now('UTC'))->copy()->timezone($timezone);
 
         if (! $this->isRefreshWindow($nowLocal)) {
@@ -31,7 +33,7 @@ class DirectBudgetRefreshDispatcher
             return false;
         }
 
-        $projectIds = $this->activeProjectIdsWithDirect();
+        $projectIds = $this->projectRepository->getActiveProjectIdsWithIntegration('yandex_direct');
 
         if ($projectIds === []) {
             $this->markRanToday($localDate);
@@ -51,22 +53,11 @@ class DirectBudgetRefreshDispatcher
         return true;
     }
 
-    public function resolveAgencyTimezone(): string
-    {
-        $timezone = Agency::query()->orderBy('id')->value('time_zone');
-
-        return filled($timezone) ? (string) $timezone : (string) config('app.timezone', 'UTC');
-    }
-
     public function resolveRefreshTime(): string
     {
-        $time = Agency::query()->orderBy('id')->value('direct_budget_refresh_time');
+        $time = $this->agencyRepository->getPrimaryDirectBudgetRefreshTime();
 
-        if (filled($time)) {
-            return substr((string) $time, 0, 5);
-        }
-
-        return '09:00';
+        return $time !== null ? substr($time, 0, 5) : '09:00';
     }
 
     public function isRefreshWindow(Carbon $nowLocal): bool
@@ -90,18 +81,5 @@ class DirectBudgetRefreshDispatcher
     private function guardCacheKey(string $localDate): string
     {
         return "channels.direct.budget.scheduled.{$localDate}";
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function activeProjectIdsWithDirect(): array
-    {
-        return Project::query()
-            ->where('is_active', true)
-            ->whereHas('integrations', fn ($q) => $q->where('code', 'yandex_direct'))
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
     }
 }

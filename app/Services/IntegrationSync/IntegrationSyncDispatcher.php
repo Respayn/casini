@@ -6,10 +6,10 @@ use App\Contracts\IntegrationSyncCollector;
 use App\Enums\IntegrationSyncItemStatus;
 use App\Enums\IntegrationSyncRunStatus;
 use App\Jobs\ProcessIntegrationSyncItem;
-use App\Models\Agency;
 use App\Models\IntegrationSyncItem;
 use App\Models\IntegrationSyncRun;
 use App\Models\Project;
+use App\Repositories\AgencyRepository;
 use App\Services\IntegrationSync\Collectors\Bitrix24LaborCollector;
 use App\Services\IntegrationSync\Collectors\CallibriDailyLeadsCollector;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
@@ -33,6 +33,7 @@ class IntegrationSyncDispatcher
      */
     public function __construct(
         private readonly array $collectors,
+        private readonly AgencyRepository $agencyRepository = new AgencyRepository,
     ) {}
 
     /**
@@ -128,13 +129,7 @@ class IntegrationSyncDispatcher
 
     public function resolveAgencyTimezone(): string
     {
-        $timezone = Agency::query()->orderBy('id')->value('time_zone');
-
-        if (filled($timezone)) {
-            return (string) $timezone;
-        }
-
-        return (string) config('app.timezone', 'UTC');
+        return $this->agencyRepository->getPrimaryTimeZone();
     }
 
     public function isDispatchWindow(Carbon $nowLocal): bool

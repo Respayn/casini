@@ -5,12 +5,11 @@ namespace App\Services\IntegrationSync\Collectors;
 use App\Contracts\IntegrationSyncCollector;
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
-use App\Helpers\PhraseDuplicateHelper;
-use App\Models\Agency;
 use App\Models\Project;
 use App\Models\SerpPosition;
 use App\Models\SerpTask;
 use App\Models\YandexSearchApiDailyTopPercent;
+use App\Repositories\AgencyRepository;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Services\YandexSearchApi\YandexSearchApiSerpSyncService;
 use App\Services\YandexSearchApiService;
@@ -28,6 +27,7 @@ class YandexSearchApiDailyPositionsCollector implements IntegrationSyncCollector
         private readonly IntegrationProjectCredentials $credentials,
         private readonly YandexSearchApiService $searchApiService,
         private readonly YandexSearchApiSerpSyncService $serpSyncService,
+        private readonly AgencyRepository $agencyRepository,
     ) {}
 
     public function key(): string
@@ -117,7 +117,7 @@ class YandexSearchApiDailyPositionsCollector implements IntegrationSyncCollector
             );
         }
 
-        $timezone = $this->resolveAgencyTimezone();
+        $timezone = $this->agencyRepository->getPrimaryTimeZone();
         $todayLocal = Carbon::now($timezone)->startOfDay();
         $yesterdayLocal = $todayLocal->copy()->subDay();
         $maxPhrases = (int) config('services.yandex_search_api.max_phrases_per_run', 200);
@@ -252,12 +252,5 @@ class YandexSearchApiDailyPositionsCollector implements IntegrationSyncCollector
         $percent = $total > 0 ? round($top10 / $total * 100, 1) : 0.0;
 
         YandexSearchApiDailyTopPercent::upsertDaily($projectId, $dateKey, $percent, $total);
-    }
-
-    private function resolveAgencyTimezone(): string
-    {
-        $timezone = Agency::query()->orderBy('id')->value('time_zone');
-
-        return filled($timezone) ? (string) $timezone : (string) config('app.timezone', 'UTC');
     }
 }

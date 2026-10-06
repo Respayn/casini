@@ -2,6 +2,8 @@
 
 namespace App\Console\Commands;
 
+use App\Repositories\ProjectRepository;
+use App\Services\Channels\ChannelDirectMetricsService;
 use App\Services\Channels\DirectBudgetRefreshDispatcher;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
@@ -14,15 +16,13 @@ class DispatchDueDirectBudgetRefreshCommand extends Command
 
     protected $description = 'Обновить остаток бюджета Директа, если наступило настроенное время (по timezone агентства)';
 
-    public function handle(DirectBudgetRefreshDispatcher $dispatcher): int
-    {
+    public function handle(
+        DirectBudgetRefreshDispatcher $dispatcher,
+        ProjectRepository $projectRepository,
+        ChannelDirectMetricsService $directMetricsService,
+    ): int {
         if ($this->option('force')) {
-            $projectIds = \App\Models\Project::query()
-                ->where('is_active', true)
-                ->whereHas('integrations', fn ($q) => $q->where('code', 'yandex_direct'))
-                ->pluck('id')
-                ->map(fn ($id) => (int) $id)
-                ->all();
+            $projectIds = $projectRepository->getActiveProjectIdsWithIntegration('yandex_direct');
 
             if ($projectIds === []) {
                 $this->info('No projects with Yandex Direct found');
@@ -30,8 +30,7 @@ class DispatchDueDirectBudgetRefreshCommand extends Command
                 return self::SUCCESS;
             }
 
-            app(\App\Services\Channels\ChannelDirectMetricsService::class)
-                ->refreshBudgetsForcedWithoutThrottle($projectIds);
+            $directMetricsService->refreshBudgetsForcedWithoutThrottle($projectIds);
 
             $this->info(sprintf('Forced refresh for %d projects', count($projectIds)));
 

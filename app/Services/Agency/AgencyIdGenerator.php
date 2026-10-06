@@ -23,8 +23,17 @@ class AgencyIdGenerator
             }
         }
 
-        throw new RuntimeException(
-            'Не удалось подобрать свободный 4-значный ID агентства после '.self::MAX_ATTEMPTS.' попыток'
-        );
+        $taken = Agency::query()
+            ->whereBetween('id', [self::MIN, self::MAX])
+            ->pluck('id')
+            ->mapWithKeys(fn ($id) => [(int) $id => true]);
+
+        for ($id = self::MIN; $id <= self::MAX; $id++) {
+            if (! $taken->has($id)) {
+                return $id;
+            }
+        }
+
+        throw new RuntimeException('Свободных 4-значных ID агентства не осталось');
     }
 }

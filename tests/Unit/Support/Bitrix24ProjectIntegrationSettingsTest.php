@@ -4,7 +4,7 @@ namespace Tests\Unit\Support;
 
 use App\Data\IntegrationSettings\Bitrix24IntegrationSettingsData;
 use App\Factories\IntegrationSettingsFactory;
-use App\Support\Bitrix24AgencyConnection;
+use App\Models\Agency;
 use App\Support\Bitrix24ProjectSettingsValidator;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -31,16 +31,20 @@ class Bitrix24ProjectIntegrationSettingsTest extends TestCase
     #[Test]
     public function test_agency_is_configured_only_with_both_url_and_webhook(): void
     {
-        $this->assertFalse(Bitrix24AgencyConnection::isConfigured(null, null));
-        $this->assertFalse(Bitrix24AgencyConnection::isConfigured('https://company.bitrix24.ru', null));
-        $this->assertFalse(Bitrix24AgencyConnection::isConfigured('https://company.bitrix24.ru', ''));
-        $this->assertFalse(Bitrix24AgencyConnection::isConfigured('', 'https://company.bitrix24.ru/rest/1/secret/'));
-        $this->assertFalse(Bitrix24AgencyConnection::isConfigured(null, 'https://company.bitrix24.ru/rest/1/secret/'));
+        $agency = fn (?string $url, ?string $webhook) => new Agency([
+            'bitrix24_portal_url' => $url,
+            'bitrix24_webhook' => $webhook,
+        ]);
 
-        $this->assertTrue(Bitrix24AgencyConnection::isConfigured(
-            'https://company.bitrix24.ru',
-            'https://company.bitrix24.ru/rest/1/secret/'
-        ));
+        $this->assertFalse($agency(null, null)->isBitrix24Configured());
+        $this->assertFalse($agency('https://company.bitrix24.ru', null)->isBitrix24Configured());
+        $this->assertFalse($agency('https://company.bitrix24.ru', '')->isBitrix24Configured());
+        $this->assertFalse($agency('', 'https://company.bitrix24.ru/rest/1/secret/')->isBitrix24Configured());
+        $this->assertFalse($agency(null, 'https://company.bitrix24.ru/rest/1/secret/')->isBitrix24Configured());
+
+        $this->assertTrue(
+            $agency('https://company.bitrix24.ru', 'https://company.bitrix24.ru/rest/1/secret/')->isBitrix24Configured()
+        );
     }
 
     #[Test]

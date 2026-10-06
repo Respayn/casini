@@ -12,33 +12,11 @@ use Throwable;
 
 class IntegrationMetricsRefreshService
 {
-    private const BULK_MAX_PROJECTS = 50;
-
     public function __construct(
         private readonly IntegrationSyncDispatcher $dispatcher,
         private readonly IntegrationApiThrottle $apiThrottle,
         private readonly ChannelDirectMetricsService $directMetricsService,
     ) {}
-
-    /**
-     * Ручное обновление данных по всем collectors, поддерживающим выбранные проекты.
-     *
-     * @param  list<int|string>  $projectIds
-     * @return array{updated: int, failed: int, skipped: int, error?: string}
-     */
-    public function refreshDataForProjects(
-        array $projectIds,
-        Carbon $periodFrom,
-        Carbon $periodTo,
-        bool $includeVat = false,
-    ): array {
-        return $this->refreshProjects(
-            $this->limitProjectIds($projectIds),
-            $periodFrom,
-            $periodTo,
-            withDirectBudget: false,
-        );
-    }
 
     /**
      * Обновление всех проектов текущего отчёта: collectors (+ бюджет Директа в Каналах).
@@ -165,15 +143,6 @@ class IntegrationMetricsRefreshService
         }
 
         return $applicable;
-    }
-
-    /**
-     * @param  list<int|string>  $projectIds
-     * @return list<int>
-     */
-    private function limitProjectIds(array $projectIds): array
-    {
-        return array_slice($this->normalizeProjectIds($projectIds), 0, self::BULK_MAX_PROJECTS);
     }
 
     /**

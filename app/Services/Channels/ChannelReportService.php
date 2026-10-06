@@ -14,12 +14,12 @@ use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
+use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\BonusService;
 use App\Services\GoogleSheetsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Src\Domain\ValueObjects\ProjectType;
 use Src\Planning\Application\ProjectPlanService;
 
@@ -43,6 +43,8 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     private GoogleSheetsService $googleSheetsService;
 
+    private ReportUserSettingsRepository $reportUserSettingsRepository;
+
     /** @var Collection<int, GoogleSheetsMonthlySpending>|null */
     private ?Collection $googleSpendingsForReport = null;
 
@@ -59,6 +61,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ChannelDirectMetricsService $directMetricsService,
         BonusService $bonusService,
         GoogleSheetsService $googleSheetsService,
+        ReportUserSettingsRepository $reportUserSettingsRepository,
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
@@ -69,16 +72,14 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->directMetricsService = $directMetricsService;
         $this->bonusService = $bonusService;
         $this->googleSheetsService = $googleSheetsService;
+        $this->reportUserSettingsRepository = $reportUserSettingsRepository;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
     {
-        // TODO: move fetch logic to repository
         $rates = $this->rateRepository->getRatesWithEnabledSpendingsTimeFetching();
 
-        $savedSettings = DB::table('channel_report_user_settings')
-            ->where('user_id', $userId)
-            ->value('settings');
+        $savedSettings = $this->reportUserSettingsRepository->getChannelSettings($userId);
 
         if ($savedSettings) {
             return ChannelReportQueryData::hydrateFromSavedSettings($savedSettings, $rates);
@@ -89,12 +90,7 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void
     {
-        // TODO: move save logic to repository
-        DB::table('channel_report_user_settings')
-            ->updateOrInsert(
-                ['user_id' => $userId],
-                ['settings' => $settings->toJson()]
-            );
+        $this->reportUserSettingsRepository->saveChannelSettings($userId, $settings->toJson());
     }
 
     public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
@@ -215,7 +211,7 @@ class ChannelReportService implements ChannelReportServiceInterface
      */
     private function enrichWithSpendingsTotals(TableReportData $report): void
     {
-        $laborFields = ['seo-assistant', 'seo-specialist', 'analyst', 'ork-manager'];
+        $laborFields = array_map(fn (LaborRole $role) => $role->value, LaborRole::cases());
 
         $reportProgrammingHours = null;
         $reportProgrammingSum = null;
@@ -1009,10 +1005,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             'programming' => $programming,
             'copyrighting' => $copyrighting,
             'seo-links' => ['sum' => $seoLinksSum],
-            'seo-assistant' => $seoAssistant,
-            'seo-specialist' => $seoSpecialist,
-            'analyst' => $analyst,
-            'ork-manager' => $orkManager,
+            LaborRole::SeoAssistant->value => $seoAssistant,
+            LaborRole::SeoSpecialist->value => $seoSpecialist,
+            LaborRole::Analyst->value => $analyst,
+            LaborRole::OrkManager->value => $orkManager,
         ];
 
         foreach ($positions ?? [] as $key => $position) {

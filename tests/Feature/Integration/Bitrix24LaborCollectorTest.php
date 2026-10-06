@@ -8,6 +8,7 @@ use App\Models\Client;
 use App\Models\Integration;
 use App\Models\Project;
 use App\Models\User;
+use App\Repositories\ProjectRepository;
 use App\Services\Bitrix24\Bitrix24Client;
 use App\Services\IntegrationSync\Collectors\Bitrix24LaborCollector;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
@@ -139,6 +140,7 @@ class Bitrix24LaborCollectorTest extends TestCase
         return new Bitrix24LaborCollector(
             app(IntegrationProjectCredentials::class),
             new Bitrix24Client(pauseMs: 0),
+            app(ProjectRepository::class),
         );
     }
 

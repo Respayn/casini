@@ -3,6 +3,7 @@
 namespace App\Repositories;
 
 use App\Data\AgencyData;
+use App\Helpers\StringHelper;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Models\Agency;
 use App\Repositories\Interfaces\AgencyRepositoryInterface;
@@ -83,8 +84,8 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
                 'phone' => $data['phone'] ?? null,
                 'address' => $data['address'] ?? null,
                 'logo_src' => $data['logoSrc'] ?? null,
-                'bitrix24_portal_url' => $this->nullableTrimmed($data['bitrix24PortalUrl'] ?? null),
-                'bitrix24_webhook' => $this->nullableTrimmed($data['bitrix24Webhook'] ?? null),
+                'bitrix24_portal_url' => StringHelper::trimToNull($data['bitrix24PortalUrl'] ?? null),
+                'bitrix24_webhook' => StringHelper::trimToNull($data['bitrix24Webhook'] ?? null),
             ];
 
             $agency->update($update);
@@ -173,14 +174,17 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         return AgencyData::from($agencyArr);
     }
 
-    private function nullableTrimmed(mixed $value): ?string
+    public function getPrimaryTimeZone(): string
     {
-        if ($value === null) {
-            return null;
-        }
+        $timezone = Agency::query()->orderBy('id')->value('time_zone');
 
-        $trimmed = trim((string) $value);
+        return filled($timezone) ? (string) $timezone : (string) config('app.timezone', 'UTC');
+    }
 
-        return $trimmed === '' ? null : $trimmed;
+    public function getPrimaryDirectBudgetRefreshTime(): ?string
+    {
+        $time = Agency::query()->orderBy('id')->value('direct_budget_refresh_time');
+
+        return filled($time) ? (string) $time : null;
     }
 }

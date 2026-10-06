@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Domain\Statistics\Services;
+namespace App\Services\Statistics;
 
 use App\Models\Project;
 use App\Models\ProjectBonusCondition;

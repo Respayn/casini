@@ -1,12 +1,14 @@
 <?php
 
-namespace App\Domain\Statistics\Services;
+namespace App\Services\Statistics;
 
 use App\Data\Statistics\StatisticsReportQueryData;
 use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Domain\Statistics\Enums\StatisticsReportDetailLevel;
+use App\Domain\Statistics\Services\StatisticsClosingColumnsAggregator;
+use App\Domain\Statistics\Services\StatisticsMonthlyBonusSnapshotService;
 use App\Enums\ChannelReportGrouping;
 use App\Helpers\DateTimeHelper;
 use App\Models\CallibriDailyLeadCount;
@@ -15,11 +17,11 @@ use App\Models\YandexSearchApiDailyTopPercent;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
+use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
 use Src\Planning\Application\ProjectPlanService;
@@ -42,6 +44,8 @@ class StatisticsService
 
     private StatisticsClosingColumnsAggregator $closingColumnsAggregator;
 
+    private ReportUserSettingsRepository $reportUserSettingsRepository;
+
     public function __construct(
         ProjectRepository $projectRepository,
         ClientRepository $clientRepository,
@@ -51,6 +55,7 @@ class StatisticsService
         StatisticsClosingColumnsCalculator $closingColumnsCalculator,
         StatisticsMonthlyBonusSnapshotService $bonusSnapshotService,
         StatisticsClosingColumnsAggregator $closingColumnsAggregator,
+        ReportUserSettingsRepository $reportUserSettingsRepository,
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
@@ -60,13 +65,12 @@ class StatisticsService
         $this->closingColumnsCalculator = $closingColumnsCalculator;
         $this->bonusSnapshotService = $bonusSnapshotService;
         $this->closingColumnsAggregator = $closingColumnsAggregator;
+        $this->reportUserSettingsRepository = $reportUserSettingsRepository;
     }
 
     public function getUserSettings(int $userId): StatisticsReportQueryData
     {
-        $savedSettings = DB::table('statistics_report_user_settings')
-            ->where('user_id', $userId)
-            ->value('settings');
+        $savedSettings = $this->reportUserSettingsRepository->getStatisticsSettings($userId);
 
         if ($savedSettings) {
             return StatisticsReportQueryData::hydrateFromSavedSettings($savedSettings);
@@ -77,11 +81,7 @@ class StatisticsService
 
     public function saveUserSettings(int $userId, StatisticsReportQueryData $settings): void
     {
-        DB::table('statistics_report_user_settings')
-            ->updateOrInsert(
-                ['user_id' => $userId],
-                ['settings' => $settings->toJson()]
-            );
+        $this->reportUserSettingsRepository->saveStatisticsSettings($userId, $settings->toJson());
     }
 
     public function getReportData(StatisticsReportQueryData $query, ?int $projectId = null): TableReportData

@@ -1,12 +1,12 @@
 <?php
 
-namespace Tests\Unit\Domain\Statistics;
+namespace Tests\Unit\Services\Statistics;
 
-use App\Domain\Statistics\Services\StatisticsClosingColumnsCalculator;
 use App\Models\Project;
 use App\Models\ProjectBonusCondition;
 use App\Models\ProjectBonusInterval;
 use App\Services\BonusService;
+use App\Services\Statistics\StatisticsClosingColumnsCalculator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Src\Domain\ValueObjects\Kpi;

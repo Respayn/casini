@@ -58,22 +58,6 @@ class PlanValueHelper
         return ['value' => $formatted, 'suffix' => null];
     }
 
-    /**
-     * Плановое значение с подписью основного параметра в скобках (Каналы, Статистика).
-     */
-    public static function formatForPlanColumn(
-        mixed $value,
-        ?string $format,
-        ?string $parameterCode = null,
-        bool $showPrimarySuffix = false,
-    ): string {
-        $parts = self::planColumnParts($value, $format, $parameterCode, $showPrimarySuffix);
-
-        return $parts['suffix'] !== null
-            ? $parts['value'].' '.$parts['suffix']
-            : $parts['value'];
-    }
-
     private static function formatNumber(float $value): string
     {
         return Number::format($value, precision: 0, locale: 'ru');

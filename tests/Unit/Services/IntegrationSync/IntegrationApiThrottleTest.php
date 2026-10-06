@@ -1,14 +1,14 @@
 <?php
 
-namespace Tests\Unit\Services\Channels;
+namespace Tests\Unit\Services\IntegrationSync;
 
-use App\Services\Channels\ChannelDirectApiThrottle;
+use App\Services\IntegrationSync\IntegrationApiThrottle;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
 
-class ChannelDirectApiThrottleTest extends TestCase
+class IntegrationApiThrottleTest extends TestCase
 {
     protected function setUp(): void
     {
@@ -26,7 +26,7 @@ class ChannelDirectApiThrottleTest extends TestCase
     public function test_allows_first_request_then_enforces_five_minute_cooldown(): void
     {
         Auth::shouldReceive('id')->andReturn(42);
-        $throttle = new ChannelDirectApiThrottle();
+        $throttle = new IntegrationApiThrottle;
 
         $this->assertTrue($throttle->consume(42)['ok']);
 
@@ -43,7 +43,7 @@ class ChannelDirectApiThrottleTest extends TestCase
     public function test_blocks_for_sixty_minutes_after_three_requests(): void
     {
         Auth::shouldReceive('id')->andReturn(7);
-        $throttle = new ChannelDirectApiThrottle();
+        $throttle = new IntegrationApiThrottle;
 
         $this->assertTrue($throttle->consume(7)['ok']);
         Carbon::setTestNow(Carbon::parse('2026-08-03 12:05:00'));
