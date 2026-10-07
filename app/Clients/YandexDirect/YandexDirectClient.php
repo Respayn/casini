@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Psr7\Response;
-use Illuminate\Support\Facades\Log;
 
 class YandexDirectClient implements YandexDirectClientInterface
 {
@@ -166,13 +165,24 @@ class YandexDirectClient implements YandexDirectClientInterface
             default => "Unexpected error: {$code}",
         };
 
-        Log::error("Yandex Direct API Error: {$errorMessage}", [
+        $errorPayload = is_array($data) ? ($data['error'] ?? []) : [];
+        $errorCode = is_array($errorPayload) ? ($errorPayload['error_code'] ?? $code) : $code;
+        $errorDetail = is_array($errorPayload)
+            ? ($errorPayload['error_detail'] ?? $errorPayload['error_string'] ?? '')
+            : '';
+        $numericCode = is_numeric($errorCode) ? (int) $errorCode : $code;
+        $fullMessage = filled($errorDetail)
+            ? "{$errorMessage}: {$errorDetail}"
+            : $errorMessage;
+
+        \App\Support\SafeLogger::error("Yandex Direct API Error: {$fullMessage}", [
             'code' => $code,
+            'error_code' => $errorCode,
             'response' => $data,
             'raw_body' => $body,
         ]);
 
-        throw new YandexDirectApiException($errorMessage, 400);
+        throw new YandexDirectApiException($fullMessage, $numericCode);
     }
 
     private function handleException(
@@ -180,7 +190,7 @@ class YandexDirectClient implements YandexDirectClientInterface
         string $endpoint,
         array $params
     ): void {
-        Log::error("Yandex Direct API Exception: {$e->getMessage()}", [
+        \App\Support\SafeLogger::error("Yandex Direct API Exception: {$e->getMessage()}", [
             'endpoint' => $endpoint,
             'params' => $params,
         ]);

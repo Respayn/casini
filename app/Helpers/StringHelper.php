@@ -80,4 +80,18 @@ class StringHelper
     {
         return trim(Str::lower($number ?? ''));
     }
+
+    /**
+     * Обрезает пробелы; пустую строку и null возвращает как null.
+     */
+    public static function trimToNull(mixed $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
+    }
 }

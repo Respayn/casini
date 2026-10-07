@@ -14,6 +14,7 @@ use App\Helpers\PhraseDuplicateHelper;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
+use App\Models\Agency;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
@@ -25,6 +26,7 @@ use App\Services\PromotionTopicService;
 use App\Services\UserService;
 use App\Services\YandexDirectService;
 use App\Services\YandexSearchApiPhraseParser;
+use App\Support\Bitrix24ProjectSettingsValidator;
 use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -425,6 +427,36 @@ class extends Component
     }
 
     #[Computed]
+    public function isBitrix24AgencyConfigured(): bool
+    {
+        $agencyId = (int) (session('current_agency_id') ?? 0);
+
+        if ($agencyId <= 0) {
+            $agencyId = (int) (Auth::user()?->agencies()->first()?->id ?? 0);
+        }
+
+        if ($agencyId <= 0) {
+            return false;
+        }
+
+        $agency = Agency::query()->find($agencyId);
+
+        return $agency !== null && $agency->isBitrix24Configured();
+    }
+
+    #[Computed]
+    public function moneyIntegrationDisabledReasons(): array
+    {
+        if ($this->isBitrix24AgencyConfigured) {
+            return [];
+        }
+
+        return [
+            'bitrix24' => 'Сначала укажите URL портала и вебхук в настройках агентства',
+        ];
+    }
+
+    #[Computed]
     public function isSelectedIntegrationPlatformConfigured(): bool
     {
         $code = $this->selectedIntegration?->integration->code ?? null;
@@ -432,6 +464,7 @@ class extends Component
         return match ($code) {
             'yandex_search_api' => $this->isYandexSearchApiConfigured,
             'yandex_direct' => $this->isYandexDirectOAuthConfigured,
+            'bitrix24' => $this->isBitrix24AgencyConfigured,
             default => true,
         };
     }
@@ -439,6 +472,10 @@ class extends Component
     public function selectIntegration(string $code)
     {
         $this->ensureCanEdit();
+
+        if ($code === 'bitrix24' && ! $this->isBitrix24AgencyConfigured) {
+            return;
+        }
 
         $integration = $this->integrations()->firstWhere('code', $code);
 
@@ -488,6 +525,24 @@ class extends Component
                     'regions' => 'Проверьте регионы и фразы: нужны код региона, непустые фразы без дубликатов.',
                 ]);
             }
+        }
+
+        if ($integration?->code === 'bitrix24') {
+            $normalized = Bitrix24ProjectSettingsValidator::normalize(
+                $projectIntegrationData->settings,
+                (bool) $projectIntegrationData->isEnabled
+            );
+            $errors = Bitrix24ProjectSettingsValidator::errors(
+                (bool) $projectIntegrationData->isEnabled,
+                $normalized,
+                $this->isBitrix24AgencyConfigured
+            );
+
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+
+            $projectIntegrationData->settings = $normalized;
         }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;

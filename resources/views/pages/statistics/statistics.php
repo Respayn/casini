@@ -5,8 +5,10 @@ namespace App\Livewire\Statistics;
 use App\Data\Statistics\StatisticsReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
-use App\Domain\Statistics\Services\StatisticsService;
+use App\Livewire\Concerns\WithReportDataRefresh;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\Statistics\StatisticsService;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
 use Livewire\Attributes\Title;
@@ -16,6 +18,7 @@ new
 #[Title('Статистика - Casini')]
 class extends Component
 {
+    use WithReportDataRefresh;
     use WithSidebarProjectFilter;
 
     public StatisticsReportQueryData $queryData;
@@ -24,6 +27,10 @@ class extends Component
      * Сохраненные настройки для отмены изменений в модальных окнах
      */
     public ?StatisticsReportQueryData $originalQueryData = null;
+
+    public ?string $actionMessage = null;
+
+    public string $actionMessageType = 'success';
 
     private StatisticsService $statisticsService;
 
@@ -34,7 +41,10 @@ class extends Component
 
     public function mount()
     {
-        $this->queryData = StatisticsReportQueryData::create();
+        $this->queryData = $this->statisticsService->getUserSettings(
+            Auth::user()->id,
+        );
+        $this->queryData->clampPeriodToPresent();
     }
 
     protected function afterSidebarProjectFilterChanged(): void
@@ -62,14 +72,14 @@ class extends Component
         }
     }
 
-    public function updated($property)
+    public function updatedQueryDataDateFrom(): void
     {
-        if ($property === 'queryData.dateTo') {
-            $this->queryData = StatisticsReportQueryData::create(
-                $this->queryData->detailLevel,
-                $this->queryData->dateTo
-            );
-        }
+        $this->rebuildQueryDataForPeriod();
+    }
+
+    public function updatedQueryDataDateTo(): void
+    {
+        $this->rebuildQueryDataForPeriod();
     }
 
     /**
@@ -77,11 +87,14 @@ class extends Component
      */
     public function applySettingsSnapshot()
     {
-        if ($this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
-            $this->queryData = StatisticsReportQueryData::create(
-                $this->queryData->detailLevel,
-                $this->queryData->dateTo
-            );
+        if ($this->originalQueryData !== null
+            && $this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
+            $this->rebuildQueryDataForPeriod();
+        }
+
+        if ($this->originalQueryData !== null
+            && $this->queryData->grouping !== $this->originalQueryData->grouping) {
+            unset($this->reportData);
         }
 
         $this->originalQueryData = null;
@@ -147,8 +160,65 @@ class extends Component
     #[Computed]
     public function reportData(): TableReportData
     {
-        $this->queryData->projectId = $this->sidebarProjectId;
+        // Как в Каналах: сохраняем настройки пользователя при построении отчёта
+        $this->statisticsService->saveUserSettings(
+            Auth::user()->id,
+            $this->queryData,
+        );
 
-        return $this->statisticsService->getReportData($this->queryData);
+        return $this->statisticsService->getReportData($this->queryData, $this->sidebarProjectId);
+    }
+
+    private function rebuildQueryDataForPeriod(): void
+    {
+        $this->queryData->clampPeriodToPresent();
+
+        $previous = $this->queryData;
+        $rebuilt = StatisticsReportQueryData::create(
+            $previous->detailLevel,
+            $previous->dateFrom,
+            $previous->dateTo,
+        );
+        $rebuilt->grouping = $previous->grouping;
+        $rebuilt->showInactive = $previous->showInactive;
+        $rebuilt->includeVat = $previous->includeVat;
+        $rebuilt->accumulateData = $previous->accumulateData;
+        $rebuilt->highlightUnmetKpi = $previous->highlightUnmetKpi;
+        $rebuilt->applySavedColumnPreferences($previous->columns);
+
+        $this->queryData = $rebuilt;
+        unset($this->reportData);
+    }
+
+    protected function reportRefreshProductKey(): string
+    {
+        return 'statistics';
+    }
+
+    protected function shouldRefreshDirectBudget(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @param  list<int>  $projectIds
+     */
+    protected function afterSuccessfulReportDataRefresh(array $projectIds): void
+    {
+        if (! $this->queryData->isSingleMonthPeriod()) {
+            return;
+        }
+
+        $this->statisticsService->recalculateMonthlyBonuses(
+            $projectIds,
+            $this->queryData->dateFrom->copy()->startOfMonth()->startOfDay(),
+            $this->queryData->includeVat,
+        );
+    }
+
+    protected function setActionMessage(string $message, string $type): void
+    {
+        $this->actionMessage = $message;
+        $this->actionMessageType = $type;
     }
 };

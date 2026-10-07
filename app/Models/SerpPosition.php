@@ -37,6 +37,6 @@ class SerpPosition extends Model
      */
     public function task(): BelongsTo
     {
-        return $this->belongsTo(SerpTask::class);
+        return $this->belongsTo(SerpTask::class, 'serp_task_id');
     }
 }

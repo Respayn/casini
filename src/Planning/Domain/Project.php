@@ -202,4 +202,26 @@ class Project
 
         return $result;
     }
+
+    /**
+     * Основной параметр плана на месяц для отчёта «Каналы».
+     *
+     * @return array{value: ?float, format: ?string, code: string}|null
+     */
+    public function getPrimaryPlanCell(int $year, int $month): ?array
+    {
+        foreach ($this->getParametersSchema()->getParameters() as $parameter) {
+            if (! $parameter->isPrimary()) {
+                continue;
+            }
+
+            return [
+                'value' => $this->getPlanValue($parameter->getId(), $year, $month),
+                'format' => $parameter->getFormat(),
+                'code' => $parameter->getId(),
+            ];
+        }
+
+        return null;
+    }
 }

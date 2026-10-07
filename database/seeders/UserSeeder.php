@@ -36,6 +36,7 @@ class UserSeeder extends Seeder
 
         if ($agency === null) {
             $agency = Agency::create([
+                'id' => 1,
                 'name' => 'СайтАктив',
                 'time_zone' => 'Europe/Moscow',
                 'url' => 'https://siteactiv.ru',

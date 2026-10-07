@@ -15,7 +15,6 @@
                     @php
                         $isRead = (bool) $n->read_at;
                         $projectName = data_get($n->payload ?? [], 'project');
-                        // URL проекта без домена по реальному роуту
                         $projectUrl = $n->project_id
                             ? route('system-settings.clients-and-projects.projects.manage', ['projectId' => $n->project_id], false)
                             : (data_get($n->payload ?? [], 'project_url') ?: null);
@@ -23,19 +22,42 @@
                         $html = $n->html ?? e($n->text);
                         $dateClass = $isRead ? 'text-[#97A3B6]' : 'text-[#486388]';
                         $titleClass = $isRead ? 'text-[#6E8198]' : 'text-[#283544]';
-                      @endphp
 
-                    <div class="py-[10px]">
-                        <div class="text-[14px] leading-[100%] font-semibold {{ $titleClass }}
+                        $errorDetail = data_get($n->payload ?? [], 'error_detail');
+                        if (! filled($errorDetail) && $n->type === 'integrations.sync.failed') {
+                            $errorDetail = (string) ($n->text ?? '');
+                        }
+                        $showErrorDetails = filled($errorDetail);
+                    @endphp
+
+                    <div class="min-w-0 py-[10px]" @if ($showErrorDetails) x-data="{ open: false }" @endif>
+                        <div class="min-w-0 break-words text-[14px] leading-snug font-semibold {{ $titleClass }}
+                            [overflow-wrap:anywhere]
                             [&_a]:text-[#599CFF] [&_a]:underline [&_a:hover]:no-underline">
                             {!! $html !!}
                         </div>
 
-                        <div class="mt-1 text-[14px] italic flex items-center gap-2">
-                            <span class="{{ $dateClass }}">{{ $n->created_at->format('d.m.Y, H:i') }}</span>
-                            @if($projectName)
-                                <span class="{{ $dateClass }}">,</span>
-                                @if($projectUrl)
+                        @if ($showErrorDetails)
+                            <div class="mt-1">
+                                <button
+                                    type="button"
+                                    class="text-[14px] text-[#599CFF] underline underline-offset-2 hover:no-underline"
+                                    x-on:click="open = !open"
+                                    x-text="open ? 'Скрыть' : 'Подробнее'"
+                                ></button>
+                                <pre
+                                    x-show="open"
+                                    x-cloak
+                                    class="mt-2 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md bg-[#F5F8FC] p-3 text-[12px] font-normal leading-snug text-[#283544] [overflow-wrap:anywhere]"
+                                >{{ $errorDetail }}</pre>
+                            </div>
+                        @endif
+
+                        <div class="mt-1 min-w-0 break-words text-[14px] italic leading-snug {{ $dateClass }}">
+                            <span>{{ $n->created_at->format('d.m.Y, H:i') }}</span>
+                            @if ($projectName)
+                                <span>,</span>
+                                @if ($projectUrl)
                                     <a href="{{ $projectUrl }}" target="_blank" rel="noopener"
                                         class="text-[#599CFF] underline underline-offset-2 hover:no-underline">
                                         {{ $projectName }}

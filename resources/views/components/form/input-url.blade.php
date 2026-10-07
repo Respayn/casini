@@ -69,6 +69,8 @@
 
             push() {
                 this.full = this.host === '' ? '' : (this.protocol + this.host);
+                // Чтобы родительский x-on:change.capture увидел переключение http/https
+                this.$el.dispatchEvent(new Event('change', { bubbles: true }));
             },
         }"
         @class([

@@ -26,6 +26,13 @@ new class extends Component
         $this->userService = $userService;
     }
 
+    public function mount(): void
+    {
+        if (request()->boolean('createClient')) {
+            $this->onClientCreate();
+        }
+    }
+
     #[On('client-create')]
     public function onClientCreate()
     {

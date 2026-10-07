@@ -75,6 +75,9 @@ return [
         'folder_id' => env('YANDEX_SEARCH_API_FOLDER_ID'),
         'test_token' => env('YANDEX_SEARCH_API_TEST_TOKEN'),
         'test_folder_id' => env('YANDEX_SEARCH_API_TEST_FOLDER_ID'),
+        'base_url' => env('YANDEX_SEARCH_API_BASE_URL', 'https://searchapi.api.cloud.yandex.net/v2/web/search'),
+        'timeout' => (int) env('YANDEX_SEARCH_API_TIMEOUT', 30),
+        'max_phrases_per_run' => (int) env('YANDEX_SEARCH_API_MAX_PHRASES', 200),
     ],
 
     'callibri' => [

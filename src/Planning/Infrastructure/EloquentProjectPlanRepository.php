@@ -179,7 +179,7 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 planValues: $planValues
             );
 
-            $carry[$project->id] = $domainProject->getPrimaryPlanValue($year, $month);
+            $carry[$project->id] = $domainProject->getPrimaryPlanCell($year, $month);
 
             return $carry;
         }, []);
