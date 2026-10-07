@@ -5,6 +5,10 @@ namespace App\Services\Agency;
 use App\Models\Agency;
 use RuntimeException;
 
+/**
+ * Номер агентства виден в интерфейсе: случайный, чтобы по нему нельзя было
+ * посчитать агентства и перебирать их по порядку.
+ */
 class AgencyIdGenerator
 {
     public const MIN = 1000;
