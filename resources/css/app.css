@@ -55,15 +55,16 @@ body:has(.modal.open) {
 }
 
 html.sidebar-collapsed .sidebar-panel {
+    /* Оставляем ~18px полоски панели, чтобы был виден не только тогл */
     transform: translate3d(calc(-100% + 18px), 0, 0);
 }
 
 .app-main {
     padding-left: 375px;
-    padding-right: 20px;
 }
 
 html.sidebar-collapsed .app-main {
+    /* полоска 18px + небольшой зазор */
     padding-left: 38px;
 }
 
@@ -103,22 +104,17 @@ html.sidebar-collapsed .sidebar-toggle-icon {
     transform: rotate(180deg);
 }
 
-.app-main > :first-child {
-    border-bottom-left-radius: 1rem;
-    border-bottom-right-radius: 1rem;
-}
-
-.app-main > :last-child {
-    border-top-left-radius: 1rem;
-    border-top-right-radius: 1rem;
-}
-
 .modal .p-6 {
     max-width: 800px;
 }
 
 .form-field label {
     max-width: 250px;
+}
+
+/* Сайдбар: стабильный gutter скролла, без прыжка ширины при появлении полосы */
+.sidebar-tree-scroll {
+    scrollbar-gutter: stable;
 }
 
 /* Scrollbar */
@@ -203,7 +199,10 @@ form.form_normalized {
     .form-field {
         @apply items-start;
         & > *:last-child {
-            @apply lg:min-w-[305px] lg:max-w-[305px];
+            /* Фиксируем ширину контролов на всех ширинах экрана:
+               раньше было только lg:, из‑за этого ниже 1024px поля «прыгали»,
+               а блоки с w-full (логотип) растягивались на всю строку. */
+            @apply min-w-[305px] max-w-[305px];
         }
     }
 }

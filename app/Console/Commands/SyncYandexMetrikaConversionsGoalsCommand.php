@@ -37,6 +37,7 @@ class SyncYandexMetrikaConversionsGoalsCommand extends Command
 
             if (! ($reports['goals_conversions'] ?? false)) {
                 $skipped++;
+
                 continue;
             }
 
@@ -47,6 +48,7 @@ class SyncYandexMetrikaConversionsGoalsCommand extends Command
 
             if ($token === '' || $counterId <= 0 || $goalIds === [] || $syncEnabledAt === '') {
                 $skipped++;
+
                 continue;
             }
 
@@ -60,6 +62,7 @@ class SyncYandexMetrikaConversionsGoalsCommand extends Command
 
                 if ($dateFrom->isAfter($dateTo)) {
                     $skipped++;
+
                     continue;
                 }
 

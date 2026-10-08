@@ -147,7 +147,7 @@ class YandexMetrikaConversionsGoalsTest extends TestCase
         $factory = Mockery::mock(YandexMetrikaClientFactory::class);
         $factory->shouldReceive('create')->andReturn($client);
 
-        $service = new YandexMetrikaService($factory, new YandexMetrikaFiltersBuilder());
+        $service = new YandexMetrikaService($factory, new YandexMetrikaFiltersBuilder);
         $service->setupClient('token', 'login', 123);
 
         return $service;

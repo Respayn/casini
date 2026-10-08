@@ -37,6 +37,7 @@ class SyncYandexMetrikaUtmGoalsCommand extends Command
 
             if (! ($reports['goals_utm'] ?? false)) {
                 $skipped++;
+
                 continue;
             }
 
@@ -47,6 +48,7 @@ class SyncYandexMetrikaUtmGoalsCommand extends Command
 
             if ($token === '' || $counterId <= 0 || $goalIds === [] || $syncEnabledAt === '') {
                 $skipped++;
+
                 continue;
             }
 
@@ -60,6 +62,7 @@ class SyncYandexMetrikaUtmGoalsCommand extends Command
 
                 if ($dateFrom->isAfter($dateTo)) {
                     $skipped++;
+
                     continue;
                 }
 
@@ -70,7 +73,7 @@ class SyncYandexMetrikaUtmGoalsCommand extends Command
                 $timezone = filled($agencyTimezone) ? (string) $agencyTimezone : $counterTimezone;
 
                 $utmFilterMode = YandexMetrikaIntegrationSettingsData::normalizeUtmFilterMode($settings['utm_filter_mode'] ?? null);
-                $utmValue = trim((string) ($settings['utm_' . $utmFilterMode] ?? ''));
+                $utmValue = trim((string) ($settings['utm_'.$utmFilterMode] ?? ''));
 
                 $metrikaService->setupClientFromSettings($settings);
                 $rows = $metrikaService->fetchUtmGoalsStats(
@@ -130,7 +133,7 @@ class SyncYandexMetrikaUtmGoalsCommand extends Command
                     'project_id' => $integrationProject->project_id,
                     'exception' => $e->getMessage(),
                 ]);
-                $this->error('Проект ' . $integrationProject->project_id . ': ' . $e->getMessage());
+                $this->error('Проект '.$integrationProject->project_id.': '.$e->getMessage());
             }
         }
 

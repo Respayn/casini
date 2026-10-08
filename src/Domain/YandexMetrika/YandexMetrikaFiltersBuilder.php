@@ -28,7 +28,7 @@ class YandexMetrikaFiltersBuilder
      * отрицания (строка начинается с «!») — через AND. Разные поля и фильтр
      * «без роботов» соединяются через AND.
      *
-     * @param array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null $filters
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
      */
     public function build(?array $filters, string $dataMode = self::DATA_MODE_WITHOUT_ROBOTS): ?string
     {
@@ -89,13 +89,13 @@ class YandexMetrikaFiltersBuilder
 
             $joiner = $negated ? ' AND ' : ' OR ';
 
-            return '(' . implode($joiner, $conditions) . ')';
+            return '('.implode($joiner, $conditions).')';
         });
     }
 
     /**
-     * @param list<array{value: string, negated: bool}> $lines
-     * @param callable(string, bool): string $toCondition
+     * @param  list<array{value: string, negated: bool}>  $lines
+     * @param  callable(string, bool): string  $toCondition
      */
     private function combineLines(array $lines, callable $toCondition): string
     {
@@ -115,7 +115,7 @@ class YandexMetrikaFiltersBuilder
         if ($positives !== []) {
             $parts[] = count($positives) === 1
                 ? $positives[0]
-                : '(' . implode(' OR ', $positives) . ')';
+                : '('.implode(' OR ', $positives).')';
         }
 
         foreach ($negatives as $negative) {

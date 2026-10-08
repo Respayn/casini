@@ -1,9 +1,21 @@
-<div>
+<x-report.refresh-navigation-guard>
+    <x-layout.sidebar-filter-hint />
+
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
-        <h1 class="mb-7">Статистика</h1>
+        <div class="mb-7 flex items-center gap-2">
+            <h1>Статистика</h1>
+            <x-overlay.modal-trigger name="report-settings-modal" wire:click="saveSettingsSnapshot">
+                <x-button.button
+                    icon="icons.gear"
+                    variant="outlined"
+                    rounded
+                    title="Настроить отчет"
+                />
+            </x-overlay.modal-trigger>
+        </div>
         <div>
-            <x-button.button href="{{ route('system-settings.clients-and-projects') }}" icon="icons.plus"
+            <x-button.button href="{{ route('system-settings.clients-and-projects', ['createClient' => 1]) }}" icon="icons.plus"
                 label="Добавить клиента" />
             <x-button.button href="{{ route('system-settings.clients-and-projects.projects.manage') }}"
                 icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
@@ -11,77 +23,112 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex items-center">
-        <div class="mr-3.5">
+    @php
+        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, refreshAllData, applySettingsSnapshot, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+    @endphp
+
+    <div
+        class="flex flex-wrap items-center gap-y-3"
+        wire:loading.class="pointer-events-none opacity-60"
+        wire:target="{{ $reportLoadingTargets }}"
+    >
+        <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="queryData.showInactive" />
         </div>
 
-        <div class="mr-[26px]">
+        <div class="mr-[26px] flex items-center gap-2">
             <label>НДС</label>
             <x-form.checkbox wire:model.live="queryData.includeVat" />
         </div>
 
-        <div>
-            <x-form.month-picker wire:model.live="queryData.dateTo" />
+        <div class="mr-[26px] flex items-center gap-2">
+            <x-form.month-picker wire:model.live="queryData.dateFrom" disable-future />
+            <span class="text-secondary-text">—</span>
+            <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
         </div>
 
-        <div class="flex-end ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal">
-                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link"
-                    wire:click="saveSettingsSnapshot" />
-            </x-overlay.modal-trigger>
-            <x-overlay.modal-trigger name="report-settings-modal">
-                <x-button.button icon="icons.edit" label="Настроить отчет" variant="link"
-                    wire:click="saveSettingsSnapshot" />
-            </x-overlay.modal-trigger>
-        </div>
+        <x-report.table-toolbar :last-refresh-label="$lastDataRefreshLabel" />
     </div>
 
-    @if (!empty($selectedProjects))
-        <div class="flex gap-2">
-            <div class="w-xs">
-                <x-form.select wire:model="bulkAction" :options="[
-                ['label' => 'Обновить расходы', 'value' => 'refresh_spendings'],
-                ['label' => 'Обновить остаток бюджета', 'value' => 'refresh_budget_remains'],
-            ]"
-                    placeholder="Массовые действия" />
-            </div>
-            <x-button.button wire:click="makeBulkAction" label="Выполнить" />
-        </div>
+    @if ($actionMessage)
+        <x-feedback.notice
+            class="mt-3 mb-0"
+            :variant="$actionMessageType === 'error' ? 'error' : 'info'"
+        >
+            {{ $actionMessage }}
+        </x-feedback.notice>
     @endif
 
-    @if ($this->reportData->groups->isEmpty())
-        <div class="mt-20 flex flex-col items-center gap-4">
-            <span class="text-caption-text">Нет клиенто-проектов для отображения статистики</span>
-            <div>
-                <x-button.button icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
+    <x-report.table-loading :targets="$reportLoadingTargets">
+        @if ($this->reportData->groups->isEmpty())
+            <div class="mt-20 flex flex-col items-center gap-4">
+                <span class="text-caption-text">Нет клиенто-проектов для отображения статистики</span>
+                <div>
+                    <x-button.button icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
+                </div>
             </div>
-        </div>
-    @else
-        <div class="mt-3" x-data="{ expandedGroups: {} }">
-            <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
-                <x-data.table>
+        @else
+            <div x-data="{ expandedGroups: {} }">
+                <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
+                    <x-data.table>
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
-                            <x-data.table-column class="whitespace-nowrap">
-                                <span>{{ $column->label }}</span>
-                                @if ($column->tooltip !== null)
-                                    <x-overlay.tooltip>
-                                        {{ $column->tooltip }}
-                                    </x-overlay.tooltip>
+                            <x-data.table-column
+                                @class([
+                                    'whitespace-nowrap border',
+                                    'min-w-28' => $column->field === 'service',
+                                    '!p-0' => $column->component === 'fact',
+                                ])
+                                style="{{ $column->component === 'fact' ? 'border-color: var(--color-table-cell); min-width: 7.5rem' : 'border-color: var(--color-table-cell)' }}"
+                                :stacked="$column->component === 'fact'"
+                            >
+                                @if ($column->component === 'fact')
+                                    <div class="relative w-full">
+                                        <div class="px-2.5 pt-1.5 text-center leading-tight">{{ $column->label }}</div>
+                                        <div class="relative">
+                                            <div
+                                                aria-hidden="true"
+                                                class="pointer-events-none absolute"
+                                                style="top: 0; bottom: 0; left: 50%; width: 1px; margin-left: -0.5px; background-color: var(--color-table-cell);"
+                                            ></div>
+                                            <table
+                                                class="w-full border-collapse font-normal"
+                                                style="table-layout: fixed; font-size: 12px; line-height: 1.2; margin-top: 2px"
+                                            >
+                                                <tr>
+                                                    <td
+                                                        class="px-2.5 pb-1.5 text-center"
+                                                        style="width: 50%; color: #94a8c1"
+                                                    >План</td>
+                                                    <td
+                                                        class="px-2.5 pb-1.5 text-center font-normal"
+                                                        style="width: 50%"
+                                                    >Факт</td>
+                                                </tr>
+                                            </table>
+                                        </div>
+                                    </div>
+                                @else
+                                    <span>{{ $column->label }}</span>
+                                    @if ($column->tooltip !== null)
+                                        <x-overlay.tooltip>
+                                            {{ $column->tooltip }}
+                                        </x-overlay.tooltip>
+                                    @endif
                                 @endif
                             </x-data.table-column>
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
+                        @php $clientProjectStripe = 0; @endphp
                         @foreach ($this->reportData->groups as $groupIndex => $group)
                             {{-- Итого по группе --}}
                             @unless (empty($group->summary))
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.name">
                                     <x-data.table-cell colspan="100">
                                         <div class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']; console.log(expandedGroups)">
+                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']">
                                             <span class="font-bold">{{ $group->groupLabel }}</span>
                                             <x-icons.accordion-arrow class="transition-transform duration-200"
                                                 x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }" />
@@ -90,25 +137,66 @@
                                 </x-data.table-row>
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
                                     @foreach ($this->visibleColumns as $column)
-                                        <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
-                                            :params="$group->summary->get($column->field)" />
+                                        @if (in_array($column->component, ['fact', 'summary'], true))
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$group->summary->get($column->field)"
+                                                :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                            />
+                                        @else
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$group->summary->get($column->field)"
+                                            />
+                                        @endif
                                     @endforeach
                                 </x-data.table-row>
                             @endunless
                             {{-- Строки группы --}}
                             @foreach ($group->rows as $row)
+                                @php
+                                    $rowBgColor = $clientProjectStripe % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                    $clientProjectStripe++;
+                                @endphp
                                 @if ($queryData->grouping->value === 'none')
-                                    <x-data.table-row wire:key="row.{{ $row->id }}">
+                                    <x-data.table-row
+                                        wire:key="row.{{ $row->id }}"
+                                        :bg-color="$rowBgColor"
+                                    >
                                         @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)" />
+                                            @if (in_array($column->component, ['fact', 'summary'], true))
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                    :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                                />
+                                            @else
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endif
                                         @endforeach
                                     </x-data.table-row>
                                 @else
-                                    <x-data.table-row x-show="expandedGroups['group-{{ $groupIndex }}']" wire:key="row.{{ $row->id }}">
+                                    <x-data.table-row
+                                        x-show="expandedGroups['group-{{ $groupIndex }}']"
+                                        wire:key="row.{{ $row->id }}"
+                                        :bg-color="$rowBgColor"
+                                    >
                                         @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component :component="'statistics.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)" />
+                                            @if (in_array($column->component, ['fact', 'summary'], true))
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                    :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                                />
+                                            @else
+                                                <x-dynamic-component
+                                                    :component="'statistics.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endif
                                         @endforeach
                                     </x-data.table-row>
                                 @endif
@@ -117,19 +205,30 @@
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
                             @foreach ($this->visibleColumns as $column)
-                                <x-dynamic-component :component="'statistics.rows.summary.' . $column->component"
-                                    :params="$this->reportData->summary->get($column->field)" />
+                                @if (in_array($column->component, ['fact', 'summary'], true))
+                                    <x-dynamic-component
+                                        :component="'statistics.rows.summary.' . $column->component"
+                                        :params="$this->reportData->summary->get($column->field)"
+                                        :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                    />
+                                @else
+                                    <x-dynamic-component
+                                        :component="'statistics.rows.summary.' . $column->component"
+                                        :params="$this->reportData->summary->get($column->field)"
+                                    />
+                                @endif
                             @endforeach
                         </x-data.table-row>
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.scroll-panel>
         </div>
-    @endif
+        @endif
+    </x-report.table-loading>
 
     <x-overlay.modal name="column-settings-modal" title="Настроить столбцы">
         <x-slot:body>
-            <x-panel.scroll-panel style="max-height: 400px">
+            <x-panel.scroll-panel style="max-height: min(25rem, calc(100vh - 14rem))">
                 <div class="flex flex-col gap-2.5" x-data x-sort="$wire.sortColumn($item, $position)">
                     @foreach ($queryData->columns as $index => $column)
                         <div class="flex items-center gap-2.5" wire:key="column.{{ $column->field }}"
@@ -155,24 +254,32 @@
     <x-overlay.modal name="report-settings-modal" title="Настроить отчет">
         <x-slot:body>
             <div>
-                <x-form.form>
-                    <x-form.form-field class="w-[603px]">
-                        <x-form.form-label>Выделять клиенто-проекты с невыполненными KPI</x-form.form-label>
+                <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
+                    <x-form.form-field>
+                        <x-form.form-label
+                            tooltip="При значении «Да» в колонках факта (срезы) и «Итог» ячейки окрашиваются по % выполнения плана (в том числе в строках Итого по группировке): от 90% и выше — зелёным, ниже 90% — красным."
+                        >Выделять клиенто-проекты с невыполненными KPI</x-form.form-label>
                         <div>
-                            <x-form.select :options="[
-        ['label' => 'Да', 'value' => 'Y'],
-        ['label' => 'Нет', 'value' => 'N']
-    ]"></x-form.select>
+                            <x-form.select
+                                wire:model="queryData.highlightUnmetKpi"
+                                :options="[
+                                    ['label' => 'Да', 'value' => 'Y'],
+                                    ['label' => 'Нет', 'value' => 'N'],
+                                ]"
+                            />
                         </div>
                     </x-form.form-field>
 
                     <x-form.form-field>
                         <x-form.form-label>План и факт накапливаются в отчете</x-form.form-label>
                         <div>
-                            <x-form.select :options="[
-        ['label' => 'Да', 'value' => 'Y'],
-        ['label' => 'Нет', 'value' => 'N']
-    ]"></x-form.select>
+                            <x-form.select
+                                wire:model="queryData.accumulateData"
+                                :options="[
+                                    ['label' => 'Да', 'value' => 'Y'],
+                                    ['label' => 'Нет', 'value' => 'N'],
+                                ]"
+                            />
                         </div>
                     </x-form.form-field>
 
@@ -193,8 +300,7 @@
                             <x-form.select :options="[
         ['label' => 'Без группировки', 'value' => 'none'],
         ['label' => 'По клиентам', 'value' => 'clients'],
-        ['label' => 'По отделам', 'value' => 'project_type'],
-        ['label' => 'По инструментам', 'value' => 'tools'],
+        ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
     ]" wire:model="queryData.grouping"></x-form.select>
                         </div>
                     </x-form.form-field>
@@ -209,4 +315,4 @@
             </div>
             </x-slot>
     </x-overlay.modal>
-</div>
+</x-report.refresh-navigation-guard>

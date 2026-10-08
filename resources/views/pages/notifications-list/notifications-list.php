@@ -31,5 +31,6 @@ new class extends Component
         
         // по требованиям: при открытии страницы — все прочитаны
         $this->svc->markAllAsRead($uid);
+        $this->dispatch('notifications-read');
     }
 };

@@ -12,11 +12,14 @@ class ProjectPlanApproval extends Model
         'period',
         'year',
         'period_number',
-        'approved'
+        'approved',
+        'approved_at',
+        'approved_by',
     ];
 
     protected $casts = [
-        'approved' => 'boolean'
+        'approved' => 'boolean',
+        'approved_at' => 'datetime',
     ];
 
     public function project(): BelongsTo

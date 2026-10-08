@@ -15,6 +15,11 @@ class ChannelReportQueryData extends Data implements Wireable
     use WireableData;
 
     /**
+     * Тултип колонок расходов (Google Таблицы / роли / ставки): расписание съёма и ручное обновление.
+     */
+    public const SPENDINGS_SYNC_TOOLTIP = 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - нажмите на иконку обновления данных (над таблицей)';
+
+    /**
      * Выбранная группировка
      */
     public ChannelReportGrouping $grouping = ChannelReportGrouping::NONE;
@@ -68,23 +73,27 @@ class ChannelReportQueryData extends Data implements Wireable
             new TableReportColumnData('client-receipt', 'Чек клиента', $colOrder++),
             new TableReportColumnData('max-bonuses', 'Макс. бонусы', $colOrder++, tooltip: 'Максимальное количество бонусов доступное в канале, задается в настройках канала'),
             new TableReportColumnData('acts', 'Акты', $colOrder++),
-            new TableReportColumnData('programming', 'Программинг (час/₽)', $colOrder++, tooltip: 'Данные за текущий месяц обновляются автоматически каждую ночь в 05:00. За завершённые месяцы показываются сохранённые значения; обновить их можно вручную — иконка обновления данных в шапке отчёта'),
-            new TableReportColumnData('copyrighting', 'Копирайтер (знак/₽)', $colOrder++, tooltip: 'Данные за текущий месяц обновляются автоматически каждую ночь в 05:00. За завершённые месяцы показываются сохранённые значения; обновить их можно вручную — иконка обновления данных в шапке отчёта'),
-            new TableReportColumnData('seo-links', 'SEO-ссылки (₽)', $colOrder++, tooltip: 'Парсинг SEO-ссылок пока не подключён'),
+            new TableReportColumnData('programming', 'Программинг (час/₽)', $colOrder++, tooltip: self::SPENDINGS_SYNC_TOOLTIP),
+            new TableReportColumnData('copyrighting', 'Копирайтер (знак/₽)', $colOrder++, tooltip: self::SPENDINGS_SYNC_TOOLTIP),
+            new TableReportColumnData('seo-links', 'SEO-ссылки (₽)', $colOrder++, tooltip: self::SPENDINGS_SYNC_TOOLTIP),
+            new TableReportColumnData('seo-assistant', 'Помощник SEO-специалиста (час / ₽)', $colOrder++, component: 'labor', tooltip: self::SPENDINGS_SYNC_TOOLTIP),
+            new TableReportColumnData('seo-specialist', 'SEO-специалист (час / ₽)', $colOrder++, component: 'labor', tooltip: self::SPENDINGS_SYNC_TOOLTIP),
+            new TableReportColumnData('analyst', 'Аналитик (час / ₽)', $colOrder++, component: 'labor', tooltip: self::SPENDINGS_SYNC_TOOLTIP),
+            new TableReportColumnData('ork-manager', 'Менеджер ОРК (час / ₽)', $colOrder++, component: 'labor', tooltip: self::SPENDINGS_SYNC_TOOLTIP),
         ]);
 
         // Добавляем столбцы для ставок с включенным параметром "Собирать статистику по отработанному времени?"
         if ($rates->isNotEmpty()) {
             foreach ($rates as $rate) {
                 $field = 'position_'.$rate->id;
-                $instance->columns->add(new TableReportColumnData($field, $rate->name, $colOrder++, component: 'position', tooltip: 'Автоматический съем данных происходит каждый понедельник в 05:00 и каждое 1-ое число месяца в 05:30. Если нужно обновить данные сейчас - кликните на ячейку и данные обновятся'));
+                $instance->columns->add(new TableReportColumnData($field, $rate->name, $colOrder++, component: 'position', tooltip: self::SPENDINGS_SYNC_TOOLTIP));
             }
         }
 
         // сумма по должностям и программингу, копирайтеру и ссылкам
         $instance->columns->add(new TableReportColumnData('summary-spendings', 'Расходы итого (₽)', $colOrder++));
-        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток на сейчас. Обновление — иконка обновления данных в шапке отчёта'));
-        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за выбранный период из базы Касини. Обновление — иконка обновления данных в шапке отчёта'));
+        $instance->columns->add(new TableReportColumnData('direct-budget', 'Остаток бюджета в Директе (₽)', $colOrder++, tooltip: 'Остаток на сейчас. Обновление: иконка обновления данных в шапке отчёта (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
+        $instance->columns->add(new TableReportColumnData('direct-spendings', 'Расход в Директе (₽)', $colOrder++, tooltip: 'Расход за выбранный период из базы Касини. Обновление: иконка обновления данных в шапке отчёта (лимит API: не чаще раза в 5 минут, не более 3 раз подряд, затем пауза 60 минут)'));
 
         return $instance;
     }

@@ -3,10 +3,13 @@
     'placeholder' => 'Выберите месяц',
     'min' => null,
     'max' => null,
+    'disableFuture' => false,
 ])
 
 @php
-    $max ??= now()->toDateString();
+    if ($disableFuture) {
+        $max ??= now()->toDateString();
+    }
 @endphp
 
 {{-- TODO: объединить этот компонент с компонентом date-picker. Сделать по аналогии с компонентом из библиотеки PrimeVue

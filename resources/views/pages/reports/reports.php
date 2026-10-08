@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Concerns\WithSidebarProjectFilter;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -19,6 +20,7 @@ new
     class extends Component
     {
         use WithColumnSettings;
+        use WithSidebarProjectFilter;
 
         protected function getTableId(): string
         {
@@ -86,8 +88,14 @@ new
                 $this->showInactiveProjects,
                 $this->periodFrom,
                 $this->periodTo,
-                Auth::id()
+                Auth::id(),
+                $this->sidebarProjectId,
             ));
+        }
+
+        protected function afterSidebarProjectFilterChanged(): void
+        {
+            unset($this->reports);
         }
 
         public function download(DownloadReportFileQueryHandler $queryHandler, int $reportId)

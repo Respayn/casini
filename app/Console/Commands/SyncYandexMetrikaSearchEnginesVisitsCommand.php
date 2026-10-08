@@ -37,6 +37,7 @@ class SyncYandexMetrikaSearchEnginesVisitsCommand extends Command
 
             if (! ($reports['visits_search_engines'] ?? false)) {
                 $skipped++;
+
                 continue;
             }
 
@@ -46,6 +47,7 @@ class SyncYandexMetrikaSearchEnginesVisitsCommand extends Command
 
             if ($token === '' || $counterId <= 0 || $syncEnabledAt === '') {
                 $skipped++;
+
                 continue;
             }
 
@@ -59,6 +61,7 @@ class SyncYandexMetrikaSearchEnginesVisitsCommand extends Command
 
                 if ($dateFrom->isAfter($dateTo)) {
                     $skipped++;
+
                     continue;
                 }
 

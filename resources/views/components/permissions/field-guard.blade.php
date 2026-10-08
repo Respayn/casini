@@ -34,7 +34,6 @@
         <template x-teleport="body">
             <div
                 class="z-1000 w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                style="z-index: 1000"
                 x-show="open"
                 x-cloak
                 x-anchor.{{ $anchor }}="$refs.fieldGuardTrigger"

@@ -22,7 +22,7 @@ class UserCreateData <<DTO с данными для создания польз�
     + string $email
     + string $phone
     + string $imagePath
-    + string $megaplanId
+    + ?int $bitrix24Id
     + bool $enableImportantNotifications
     + bool $enableNotifications // TODO: подобрать имя - ползунок остальные уведомления или обновление системы
 }

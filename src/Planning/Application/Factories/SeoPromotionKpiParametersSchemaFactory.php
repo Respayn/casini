@@ -2,10 +2,10 @@
 
 namespace Src\Planning\Application\Factories;
 
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 use Src\Planning\Domain\Factories\AbstractKpiParametersSchemaFactory;
 use Src\Planning\Domain\ValueObjects\KpiParametersSchemaBuilder;
-use Src\Domain\ValueObjects\ProjectType;
-use Src\Domain\ValueObjects\Kpi;
 
 class SeoPromotionKpiParametersSchemaFactory extends AbstractKpiParametersSchemaFactory
 {
@@ -18,11 +18,13 @@ class SeoPromotionKpiParametersSchemaFactory extends AbstractKpiParametersSchema
     protected function configureParameters(KpiParametersSchemaBuilder $builder)
     {
         if ($this->kpi === Kpi::TRAFFIC) {
-            $builder->addSimpleParameter('visits', 'Объем визитов', null, true);
+            $builder
+                ->addSimpleParameter('visits', 'Объем визитов', 'integer', true)
+                ->addSimpleParameter('conversions', 'Конверсии', 'integer', false);
         } elseif ($this->kpi === Kpi::POSITIONS) {
             $builder
-                ->addSimpleParameter('top_percent', 'Процент позиций в ТОП', 'percent', true)
-                ->addSimpleParameter('conversions', 'Конверсии', null, false);
+                ->addSimpleParameter('top_percent', '% позиций в ТОП 10', 'percent', true)
+                ->addSimpleParameter('conversions', 'Конверсии', 'integer', false);
         }
     }
 }

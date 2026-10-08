@@ -176,7 +176,7 @@ trait WithYandexMetrikaOAuth
             $this->selectedIntegration->isEnabled = true;
             $this->selectedIntegration->settings = $mergedSettings;
 
-            $projectIntegrationData = new ProjectIntegrationData();
+            $projectIntegrationData = new ProjectIntegrationData;
             $projectIntegrationData->integration = $this->selectedIntegration->integration;
             $projectIntegrationData->isEnabled = true;
             $projectIntegrationData->settings = $mergedSettings;
@@ -247,7 +247,7 @@ trait WithYandexMetrikaOAuth
             if ($this->integrationSettings->has($integrationId)) {
                 $this->integrationSettings[$integrationId]->settings = $mergedSettings;
             } else {
-                $projectIntegrationData = new ProjectIntegrationData();
+                $projectIntegrationData = new ProjectIntegrationData;
                 $projectIntegrationData->integration = $this->selectedIntegration->integration;
                 $projectIntegrationData->isEnabled = $this->selectedIntegration->isEnabled ?? false;
                 $projectIntegrationData->settings = $mergedSettings;

@@ -2,12 +2,13 @@
 
 namespace Src\Planning\Domain;
 
-use Src\Planning\Domain\ValueObjects\QuarterApproval;
 use Src\Domain\ValueObjects\Quarter;
+use Src\Planning\Domain\ValueObjects\QuarterApproval;
 
 class ProjectPlan
 {
     private Project $project;
+
     private int $year;
 
     /** @var QuarterApproval[] */
@@ -49,24 +50,63 @@ class ProjectPlan
         return $values;
     }
 
-    public function setQuarterApproval(Quarter $quarter, bool $approved): void
-    {
+    public function setQuarterApproval(
+        Quarter $quarter,
+        bool $approved,
+        ?string $approvedAt = null,
+        ?int $approvedBy = null,
+    ): void {
         $quarterNum = $quarter->getNumber();
-        $this->quarterApprovals[$quarterNum] = new QuarterApproval($quarter, $approved);
+        $this->quarterApprovals[$quarterNum] = new QuarterApproval(
+            $quarter,
+            $approved,
+            $approvedAt,
+            $approvedBy,
+        );
     }
 
     public function isQuarterApproved(Quarter $quarter): bool
     {
         $quarterNum = $quarter->getNumber();
+
         return isset($this->quarterApprovals[$quarterNum])
             && $this->quarterApprovals[$quarterNum]->isApproved();
     }
 
+    public function getQuarterApprovedAt(Quarter $quarter): ?string
+    {
+        $quarterNum = $quarter->getNumber();
+
+        if (! isset($this->quarterApprovals[$quarterNum])) {
+            return null;
+        }
+
+        return $this->quarterApprovals[$quarterNum]->getApprovedAt();
+    }
+
+    public function getQuarterApprovedBy(Quarter $quarter): ?int
+    {
+        $quarterNum = $quarter->getNumber();
+
+        if (! isset($this->quarterApprovals[$quarterNum])) {
+            return null;
+        }
+
+        return $this->quarterApprovals[$quarterNum]->getApprovedBy();
+    }
+
+    /**
+     * @return array<int, array{approved: bool, approved_at: ?string, approved_by: ?int}>
+     */
     public function getQuarterApprovals(): array
     {
         $approvals = [];
         foreach ($this->quarterApprovals as $quarterNum => $approval) {
-            $approvals[$quarterNum] = $approval->isApproved();
+            $approvals[$quarterNum] = [
+                'approved' => $approval->isApproved(),
+                'approved_at' => $approval->getApprovedAt(),
+                'approved_by' => $approval->getApprovedBy(),
+            ];
         }
 
         return $approvals;

@@ -38,8 +38,8 @@ class ProjectBonusGuaranteeForm extends Form
             'clientPayment' => 'nullable|numeric|min:0',
             'startMonth' => 'required_if:bonusesEnabled,true|integer|in:1,2,3',
             'intervals' => 'required_if:bonusesEnabled,true|array|min:1',
-            'intervals.*.fromPercentage' => 'required_if:bonusesEnabled,true|numeric|min:0|max:9999.99',
-            'intervals.*.toPercentage' => 'required_if:bonusesEnabled,true|numeric|min:0|max:9999.99|gte:intervals.*.fromPercentage',
+            'intervals.*.fromPercentage' => 'required_if:bonusesEnabled,true|numeric',
+            'intervals.*.toPercentage' => 'required_if:bonusesEnabled,true|numeric|gte:intervals.*.fromPercentage',
         ];
 
         if (! $this->calculateInPercentage) {
@@ -57,8 +57,6 @@ class ProjectBonusGuaranteeForm extends Form
             'intervals.*.fromPercentage.required_if' => 'Укажите начало диапазона выполнения плана.',
             'intervals.*.toPercentage.required_if' => 'Укажите конец диапазона выполнения плана.',
             'intervals.*.toPercentage.gte' => 'Значение «До» не должно быть меньше значения «От».',
-            'intervals.*.fromPercentage.max' => 'Значение «От» не может быть больше 9999,99%.',
-            'intervals.*.toPercentage.max' => 'Значение «До» не может быть больше 9999,99%.',
             'intervals.*.bonusAmount.required_if' => 'Укажите сумму бонуса или гарантии.',
             'intervals.*.bonusPercentage.required_if' => 'Укажите процент бонуса или гарантии.',
             'startMonth.required_if' => 'Выберите месяц начала расчёта бонусов и гарантий.',
@@ -116,11 +114,13 @@ class ProjectBonusGuaranteeForm extends Form
 
     /**
      * Метод для заполнения данных формы из модели бонусных условий.
-     *
-     * @return void
      */
-    public function from(BonusConditionData|ProjectBonusCondition $bonusCondition)
+    public function from(BonusConditionData|ProjectBonusCondition|null $bonusCondition): void
     {
+        if ($bonusCondition === null) {
+            return;
+        }
+
         $this->bonusesEnabled = $bonusCondition->bonuses_enabled;
         $this->calculateInPercentage = $bonusCondition->calculate_in_percentage;
         $this->clientPayment = $bonusCondition->client_payment;

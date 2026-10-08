@@ -1,22 +1,42 @@
-@props(['class' => ''])
+@props([
+    'class' => '',
+    'panelClass' => '',
+    'panelMaxWidth' => '16rem',
+])
+
+@php
+    $hasCustomTrigger = isset($trigger) && ! $trigger->isEmpty();
+@endphp
 
 <div
-    class="relative inline-block cursor-pointer"
+    @class([
+        'relative inline-block',
+        'cursor-pointer' => ! $hasCustomTrigger,
+    ])
     x-data="{ open: false }"
 >
     <span
-        class="tooltip-icon"
+        @class([
+            'tooltip-icon' => ! $hasCustomTrigger,
+        ])
         @mouseenter="open = true"
         @mouseleave="open = false"
         x-ref="icon"
     >
-        <x-icons.tooltip class="{{ $class }} text-white" />
+        @if ($hasCustomTrigger)
+            {{ $trigger }}
+        @else
+            <x-icons.tooltip class="{{ $class }} text-white" />
+        @endif
     </span>
 
     <template x-teleport="body">
         <div
-            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-            style="z-index: 1000"
+            @class([
+                'rounded-md bg-gray-700 p-2 text-sm italic text-white whitespace-normal break-words',
+                $panelClass,
+            ])
+            style="z-index: 1000; max-width: min({{ $panelMaxWidth }}, calc(100vw - 2rem)); width: max-content;"
             x-show="open"
             x-transition:enter="transition ease-out duration-200"
             x-transition:enter-start="opacity-0"

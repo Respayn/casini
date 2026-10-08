@@ -56,7 +56,7 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
 
         $this->assertSame('ym:s:goal111visits,ym:s:goal222visits', $captured['metrics']);
         $this->assertSame('ym:s:goal', $captured['dimensions']);
-        $this->assertStringContainsString("ym:s:<attribution>DirectClickOrder!n", (string) $captured['filters']);
+        $this->assertStringContainsString('ym:s:<attribution>DirectClickOrder!n', (string) $captured['filters']);
 
         $byGoal = [];
         foreach ($rows as $row) {
@@ -103,7 +103,7 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
 
         $this->assertSame('ym:s:goal333reaches', $captured['metrics']);
         $this->assertSame('ym:s:goal,ym:s:month', $captured['dimensions']);
-        $this->assertStringContainsString("ym:s:<attribution>DirectClickOrder!n", (string) $captured['filters']);
+        $this->assertStringContainsString('ym:s:<attribution>DirectClickOrder!n', (string) $captured['filters']);
 
         $this->assertCount(2, $rows);
         $this->assertSame('2026-07-01', $rows[0]['month']);
@@ -141,7 +141,7 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
         $factory = Mockery::mock(YandexMetrikaClientFactory::class);
         $factory->shouldReceive('create')->andReturn($client);
 
-        $service = new YandexMetrikaService($factory, new YandexMetrikaFiltersBuilder());
+        $service = new YandexMetrikaService($factory, new YandexMetrikaFiltersBuilder);
         $service->setupClient('token', 'login', 123);
 
         return $service;

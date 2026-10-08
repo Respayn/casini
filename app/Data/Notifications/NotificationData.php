@@ -3,6 +3,7 @@
 namespace App\Data\Notifications;
 
 use App\Models\Notification as NotificationModel;
+use App\Support\SafeLogger;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Livewire\Wireable;
@@ -59,7 +60,7 @@ class NotificationData extends Data implements Wireable
     /** Безопасный HTML с подстановкой ссылок [[key]] + автолинки + fallback linkUrl */
     public function html(): string
     {
-        $text  = e($this->text);
+        $text  = e(SafeLogger::forDisplay($this->text));
         $links = collect($this->links->items());
 
         $text = preg_replace_callback('/\[\[([a-zA-Z0-9_-]+)\]\]/', function ($m) use ($links) {

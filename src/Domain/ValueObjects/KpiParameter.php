@@ -5,12 +5,17 @@ namespace Src\Domain\ValueObjects;
 class KpiParameter
 {
     private string $id;
+
     private string $label;
+
     private ?string $format;
+
     private bool $isCalculated;
 
     private ?string $formula;
+
     private array $dependencies;
+
     private bool $isPrimary;
 
     public function __construct(
@@ -69,5 +74,13 @@ class KpiParameter
     public function isPrimary(): bool
     {
         return $this->isPrimary;
+    }
+
+    /**
+     * Лиды, визиты, % позиций и т.п. — только целые числа.
+     */
+    public function shouldRoundToInteger(): bool
+    {
+        return in_array($this->format, ['integer', 'percent'], true);
     }
 }

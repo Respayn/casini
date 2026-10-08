@@ -3,29 +3,29 @@
 namespace App\Providers;
 
 use App\Contracts\ChannelReportServiceInterface;
-use App\Repositories\AgencyRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\Interfaces\IntegrationRepositoryInterface;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Repositories\ProjectUtmMappingRepository;
 use App\Services\Channels\ChannelReportService;
+use App\Services\IntegrationSync\IntegrationSyncDispatcher;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use Src\Application\Clients\ClientReadRepositoryInterface;
+use Src\Application\ColumnSettings\ColumnSettingsRepositoryInterface;
 use Src\Application\Reports\Generate\ReportDataProviderInterface;
 use Src\Application\Reports\Generate\ReportGeneratorInterface;
 use Src\Application\Reports\GetList\ReportsListDataProviderInterface;
-use Src\Domain\Clients\ClientRepositoryInterface;
-use Src\Application\ColumnSettings\ColumnSettingsRepositoryInterface;
 use Src\Domain\Agencies\AgencyRepositoryInterface;
+use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Domain\CompletedWorks\CompletedWorkRepositoryInterface;
 use Src\Domain\Leads\CallibriLeadRepositoryInterface;
 use Src\Domain\Projects\ProjectPlanValueRepositoryInterface;
 use Src\Domain\Projects\ProjectRepositoryInterface;
 use Src\Domain\Reports\ReportRepositoryInterface;
-use Src\Domain\Templates\TemplateRepositoryInterface;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
+use Src\Domain\Templates\TemplateRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;
 use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
 use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
@@ -57,6 +57,12 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ProjectUtmMappingRepositoryInterface::class, ProjectUtmMappingRepository::class);
         $this->app->bind(IntegrationRepositoryInterface::class, IntegrationRepository::class);
         $this->app->bind(ChannelReportServiceInterface::class, ChannelReportService::class);
+
+        $this->app->singleton(IntegrationSyncDispatcher::class, function ($app) {
+            return new IntegrationSyncDispatcher(
+                IntegrationSyncDispatcher::defaultCollectors()
+            );
+        });
 
         // Привязка по Clean Architecture, отрефакторить остальное на неё
         $this->app->bind(AgencyRepositoryInterface::class, EloquentAgencyRepository::class);

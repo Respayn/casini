@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\SafeLogger;
 use Illuminate\Database\Eloquent\Model;
 
 class Notification extends Model
@@ -22,7 +23,7 @@ class Notification extends Model
 
     public function getHtmlAttribute(): string
     {
-        $text  = e($this->text ?? '');
+        $text  = e(SafeLogger::forDisplay((string) ($this->text ?? '')));
         $links = collect($this->links ?? []);
 
         // [[key]] → <a>

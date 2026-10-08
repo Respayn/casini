@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,12 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $project_id
  * @property string $goal_name
- * @property \Carbon\Carbon $month
+ * @property Carbon $month
  * @property int $conversions
- * @property \Carbon\Carbon $created_at
- * @property \Carbon\Carbon $updated_at
- *
- * @property \App\Models\Project $project
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
+ * @property Project $project
  */
 class YandexMetrikaGoalDirectSummary extends Model
 {

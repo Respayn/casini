@@ -12,8 +12,6 @@ class ProjectUtmMappingForm extends Form
 {
     /**
      * Массив UTM мэппингов.
-     *
-     * @var array
      */
     public array $utmMappings = [];
 

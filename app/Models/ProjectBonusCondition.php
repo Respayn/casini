@@ -24,6 +24,13 @@ class ProjectBonusCondition extends Model
         'start_month',
     ];
 
+    protected $casts = [
+        'bonuses_enabled' => 'boolean',
+        'calculate_in_percentage' => 'boolean',
+        'client_payment' => 'float',
+        'start_month' => 'integer',
+    ];
+
     public function project()
     {
         return $this->belongsTo(Project::class);

@@ -13,11 +13,12 @@ class ProjectRepository
 {
     public function all()
     {
-        return Project::with('bonusCondition')->get();
+        return Project::with(['bonusCondition.intervals'])->get();
     }
 
     /**
      * Находит проект по данным компании
+     *
      * @throws ProjectNotFoundException
      */
     public function findProjectByCompanyData(CompanyData $company): Project
@@ -37,7 +38,7 @@ class ProjectRepository
             })
             ->first();
 
-        if (!$project) {
+        if (! $project) {
             throw new ProjectNotFoundException(
                 $company->inn,
                 $company->contractNumber,
@@ -55,5 +56,29 @@ class ProjectRepository
             'name as label'
         )
             ->get();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function getActiveProjectIdsWithIntegration(string $integrationCode): array
+    {
+        return Project::query()
+            ->where('is_active', true)
+            ->whereHas('integrations', fn (Builder $query) => $query->where('code', $integrationCode))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function getAssistantIds(Project $project): array
+    {
+        return $project->assistants()
+            ->pluck('users.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 }

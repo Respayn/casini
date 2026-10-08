@@ -8,17 +8,18 @@ use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Enums\ChannelReportGrouping;
+use App\Enums\LaborRole;
 use App\Models\GoogleSheetsMonthlySpending;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
+use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\BonusService;
 use App\Services\GoogleSheetsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 use Src\Domain\ValueObjects\ProjectType;
 use Src\Planning\Application\ProjectPlanService;
 
@@ -42,8 +43,13 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     private GoogleSheetsService $googleSheetsService;
 
+    private ReportUserSettingsRepository $reportUserSettingsRepository;
+
     /** @var Collection<int, GoogleSheetsMonthlySpending>|null */
     private ?Collection $googleSpendingsForReport = null;
+
+    /** @var array<int, array<string, array{hours: float, sum: float}>> */
+    private array $laborSpendingsForReport = [];
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -55,6 +61,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ChannelDirectMetricsService $directMetricsService,
         BonusService $bonusService,
         GoogleSheetsService $googleSheetsService,
+        ReportUserSettingsRepository $reportUserSettingsRepository,
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
@@ -65,16 +72,14 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->directMetricsService = $directMetricsService;
         $this->bonusService = $bonusService;
         $this->googleSheetsService = $googleSheetsService;
+        $this->reportUserSettingsRepository = $reportUserSettingsRepository;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
     {
-        // TODO: move fetch logic to repository
         $rates = $this->rateRepository->getRatesWithEnabledSpendingsTimeFetching();
 
-        $savedSettings = DB::table('channel_report_user_settings')
-            ->where('user_id', $userId)
-            ->value('settings');
+        $savedSettings = $this->reportUserSettingsRepository->getChannelSettings($userId);
 
         if ($savedSettings) {
             return ChannelReportQueryData::hydrateFromSavedSettings($savedSettings, $rates);
@@ -85,12 +90,7 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     public function saveUserSettings(int $userId, ChannelReportQueryData $settings): void
     {
-        // TODO: move save logic to repository
-        DB::table('channel_report_user_settings')
-            ->updateOrInsert(
-                ['user_id' => $userId],
-                ['settings' => $settings->toJson()]
-            );
+        $this->reportUserSettingsRepository->saveChannelSettings($userId, $settings->toJson());
     }
 
     public function getReportData(ChannelReportQueryData $query, ?int $projectId = null): TableReportData
@@ -127,6 +127,11 @@ class ChannelReportService implements ChannelReportServiceInterface
             $projects->pluck('id'),
             $query->dateTo,
         );
+        $this->laborSpendingsForReport = app(ChannelLaborSpendingsService::class)->forProjects(
+            $projects->pluck('id'),
+            $query->dateFrom->copy()->startOfMonth(),
+            $query->dateTo->copy()->endOfMonth(),
+        );
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
@@ -143,8 +148,10 @@ class ChannelReportService implements ChannelReportServiceInterface
 
         $this->enrichWithDirectMetrics($report, $query, $integrations);
         $this->enrichWithFinancialTotals($report);
+        $this->enrichWithSpendingsTotals($report);
 
         $this->googleSpendingsForReport = null;
+        $this->laborSpendingsForReport = [];
 
         return $report;
     }
@@ -195,6 +202,152 @@ class ChannelReportService implements ChannelReportServiceInterface
             $report->summary->put(
                 'max-bonuses',
                 $reportMaxBonuses === null ? null : round($reportMaxBonuses, 2),
+            );
+        }
+    }
+
+    /**
+     * Суммы «Программинг», «Копирайтер», «SEO-ссылки», ролей labor и «Расход итого» по строкам группы и по всему отчёту.
+     */
+    private function enrichWithSpendingsTotals(TableReportData $report): void
+    {
+        $laborFields = array_map(fn (LaborRole $role) => $role->value, LaborRole::cases());
+
+        $reportProgrammingHours = null;
+        $reportProgrammingSum = null;
+        $reportCopyrightingUnits = null;
+        $reportCopyrightingSum = null;
+        $reportSeoLinksSum = null;
+        $reportSummarySpendings = null;
+        /** @var array<string, array{hours: float|null, sum: float|null}> $reportLabor */
+        $reportLabor = [];
+        foreach ($laborFields as $field) {
+            $reportLabor[$field] = ['hours' => null, 'sum' => null];
+        }
+
+        foreach ($report->groups as $group) {
+            $groupProgrammingHours = null;
+            $groupProgrammingSum = null;
+            $groupCopyrightingUnits = null;
+            $groupCopyrightingSum = null;
+            $groupSeoLinksSum = null;
+            $groupSummarySpendings = null;
+            /** @var array<string, array{hours: float|null, sum: float|null}> $groupLabor */
+            $groupLabor = [];
+            foreach ($laborFields as $field) {
+                $groupLabor[$field] = ['hours' => null, 'sum' => null];
+            }
+
+            foreach ($group->rows as $row) {
+                $programming = $row->data->get('programming');
+                if (is_array($programming)) {
+                    $groupProgrammingHours = ($groupProgrammingHours ?? 0.0) + (float) ($programming['hours'] ?? 0);
+                    $groupProgrammingSum = ($groupProgrammingSum ?? 0.0) + (float) ($programming['sum'] ?? 0);
+                    $reportProgrammingHours = ($reportProgrammingHours ?? 0.0) + (float) ($programming['hours'] ?? 0);
+                    $reportProgrammingSum = ($reportProgrammingSum ?? 0.0) + (float) ($programming['sum'] ?? 0);
+                }
+
+                $copyrighting = $row->data->get('copyrighting');
+                if (is_array($copyrighting)) {
+                    $groupCopyrightingUnits = ($groupCopyrightingUnits ?? 0.0) + (float) ($copyrighting['hours'] ?? 0);
+                    $groupCopyrightingSum = ($groupCopyrightingSum ?? 0.0) + (float) ($copyrighting['sum'] ?? 0);
+                    $reportCopyrightingUnits = ($reportCopyrightingUnits ?? 0.0) + (float) ($copyrighting['hours'] ?? 0);
+                    $reportCopyrightingSum = ($reportCopyrightingSum ?? 0.0) + (float) ($copyrighting['sum'] ?? 0);
+                }
+
+                $seoLinks = $row->data->get('seo-links');
+                $seoLinksSum = is_array($seoLinks) ? $seoLinks['sum'] ?? null : null;
+                if ($seoLinksSum !== null) {
+                    $groupSeoLinksSum = ($groupSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
+                    $reportSeoLinksSum = ($reportSeoLinksSum ?? 0.0) + (float) $seoLinksSum;
+                }
+
+                foreach ($laborFields as $field) {
+                    $labor = $row->data->get($field);
+                    if (! is_array($labor)) {
+                        continue;
+                    }
+
+                    $groupLabor[$field]['hours'] = ($groupLabor[$field]['hours'] ?? 0.0) + (float) ($labor['hours'] ?? 0);
+                    $groupLabor[$field]['sum'] = ($groupLabor[$field]['sum'] ?? 0.0) + (float) ($labor['sum'] ?? 0);
+                    $reportLabor[$field]['hours'] = ($reportLabor[$field]['hours'] ?? 0.0) + (float) ($labor['hours'] ?? 0);
+                    $reportLabor[$field]['sum'] = ($reportLabor[$field]['sum'] ?? 0.0) + (float) ($labor['sum'] ?? 0);
+                }
+
+                $summarySpendings = $row->data->get('summary-spendings');
+                $summarySpendingsSum = is_array($summarySpendings) ? $summarySpendings['sum'] ?? null : null;
+                if ($summarySpendingsSum !== null) {
+                    $groupSummarySpendings = ($groupSummarySpendings ?? 0.0) + (float) $summarySpendingsSum;
+                    $reportSummarySpendings = ($reportSummarySpendings ?? 0.0) + (float) $summarySpendingsSum;
+                }
+            }
+
+            if ($group->summary instanceof Collection) {
+                $group->summary->put(
+                    'programming',
+                    $groupProgrammingSum === null ? null : [
+                        'hours' => $groupProgrammingHours ?? 0.0,
+                        'sum' => round($groupProgrammingSum, 2),
+                    ],
+                );
+                $group->summary->put(
+                    'copyrighting',
+                    $groupCopyrightingSum === null ? null : [
+                        'hours' => $groupCopyrightingUnits ?? 0.0,
+                        'sum' => round($groupCopyrightingSum, 2),
+                    ],
+                );
+                $group->summary->put(
+                    'seo-links',
+                    $groupSeoLinksSum === null ? null : ['sum' => round($groupSeoLinksSum, 2)],
+                );
+                foreach ($laborFields as $field) {
+                    $group->summary->put(
+                        $field,
+                        $groupLabor[$field]['sum'] === null ? null : [
+                            'hours' => $groupLabor[$field]['hours'] ?? 0.0,
+                            'sum' => round((float) $groupLabor[$field]['sum'], 2),
+                        ],
+                    );
+                }
+                $group->summary->put(
+                    'summary-spendings',
+                    $groupSummarySpendings === null ? null : ['sum' => round($groupSummarySpendings, 2)],
+                );
+            }
+        }
+
+        if ($report->summary instanceof Collection) {
+            $report->summary->put(
+                'programming',
+                $reportProgrammingSum === null ? null : [
+                    'hours' => $reportProgrammingHours ?? 0.0,
+                    'sum' => round($reportProgrammingSum, 2),
+                ],
+            );
+            $report->summary->put(
+                'copyrighting',
+                $reportCopyrightingSum === null ? null : [
+                    'hours' => $reportCopyrightingUnits ?? 0.0,
+                    'sum' => round($reportCopyrightingSum, 2),
+                ],
+            );
+            $report->summary->put(
+                'seo-links',
+                $reportSeoLinksSum === null ? null : ['sum' => round($reportSeoLinksSum, 2)],
+            );
+            foreach ($laborFields as $field) {
+                $report->summary->put(
+                    $field,
+                    $reportLabor[$field]['sum'] === null ? null : [
+                        'hours' => $reportLabor[$field]['hours'] ?? 0.0,
+                        'sum' => round((float) $reportLabor[$field]['sum'], 2),
+                    ],
+                );
+            }
+            $report->summary->put(
+                'summary-spendings',
+                $reportSummarySpendings === null ? null : ['sum' => round($reportSummarySpendings, 2)],
             );
         }
     }
@@ -819,7 +972,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createFinancialData(string $kpi, int|string|null $plan, int|float|null $clientReceipt, int|float|null $maxBonuses, ?int $acts): array
+    public function createFinancialData(string $kpi, array|int|string|null $plan, int|float|null $clientReceipt, int|float|null $maxBonuses, ?int $acts): array
     {
         return [
             'kpi' => $kpi,
@@ -830,27 +983,64 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createSpendingsData(?array $programming, ?array $copyrighting, ?int $seoLinksSum, ?array $positions): array
-    {
+    /**
+     * @param  array<string, array{hours?: float|int, sum?: float|int}>|null  $positions
+     * @param  array{hours?: float|int, sum?: float|int}|null  $seoAssistant
+     * @param  array{hours?: float|int, sum?: float|int}|null  $seoSpecialist
+     * @param  array{hours?: float|int, sum?: float|int}|null  $analyst
+     * @param  array{hours?: float|int, sum?: float|int}|null  $orkManager
+     * @return array<string, mixed>
+     */
+    public function createSpendingsData(
+        ?array $programming,
+        ?array $copyrighting,
+        ?int $seoLinksSum,
+        ?array $positions,
+        ?array $seoAssistant = null,
+        ?array $seoSpecialist = null,
+        ?array $analyst = null,
+        ?array $orkManager = null,
+    ): array {
         $spendings = [
             'programming' => $programming,
             'copyrighting' => $copyrighting,
             'seo-links' => ['sum' => $seoLinksSum],
+            LaborRole::SeoAssistant->value => $seoAssistant,
+            LaborRole::SeoSpecialist->value => $seoSpecialist,
+            LaborRole::Analyst->value => $analyst,
+            LaborRole::OrkManager->value => $orkManager,
         ];
 
-        foreach ($positions as $key => $position) {
+        foreach ($positions ?? [] as $key => $position) {
             $spendings[$key] = $position;
         }
 
-        $programmingSum = $programming ? $programming['sum'] : 0;
-        $copyrightingSum = $copyrighting ? $copyrighting['sum'] : 0;
+        $programmingSum = $programming ? ($programming['sum'] ?? 0) : 0;
+        $copyrightingSum = $copyrighting ? ($copyrighting['sum'] ?? 0) : 0;
+        $laborSlots = [$seoAssistant, $seoSpecialist, $analyst, $orkManager];
+        $laborSum = 0.0;
+        $hasLabor = false;
+        foreach ($laborSlots as $labor) {
+            if ($labor === null) {
+                continue;
+            }
+            $hasLabor = true;
+            $laborSum += (float) ($labor['sum'] ?? 0);
+        }
 
-        if ($programming === null && $copyrighting === null && $seoLinksSum === null && $positions === null) {
+        $positionsEmpty = $positions === null || $positions === [];
+        if (
+            $programming === null
+            && $copyrighting === null
+            && $seoLinksSum === null
+            && $positionsEmpty
+            && ! $hasLabor
+        ) {
             $totalSum = null;
         } else {
-            $totalSum = $programmingSum + $copyrightingSum + ($seoLinksSum ?? 0);
-            foreach ($positions as $position) {
-                $totalSum += $position['sum'];
+            $totalSum = (float) $programmingSum + (float) $copyrightingSum + (float) ($seoLinksSum ?? 0) + $laborSum;
+            foreach ($positions ?? [] as $position) {
+                $totalSum += (float) ($position['sum'] ?? 0);
             }
         }
 
@@ -864,8 +1054,19 @@ class ChannelReportService implements ChannelReportServiceInterface
      */
     private function buildProjectSpendingsData(int $projectId, mixed $projectIntegrations): array
     {
+        $labor = $this->laborSpendingsForReport[$projectId] ?? [];
+
         if (! $this->projectHasGoogleSheetsIntegration($projectIntegrations)) {
-            return $this->createSpendingsData(null, null, null, []);
+            return $this->createSpendingsData(
+                null,
+                null,
+                null,
+                [],
+                $labor[LaborRole::SeoAssistant->value] ?? null,
+                $labor[LaborRole::SeoSpecialist->value] ?? null,
+                $labor[LaborRole::Analyst->value] ?? null,
+                $labor[LaborRole::OrkManager->value] ?? null,
+            );
         }
 
         $record = $this->googleSpendingsForReport?->get($projectId);
@@ -881,6 +1082,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             ],
             null,
             [],
+            $labor[LaborRole::SeoAssistant->value] ?? null,
+            $labor[LaborRole::SeoSpecialist->value] ?? null,
+            $labor[LaborRole::Analyst->value] ?? null,
+            $labor[LaborRole::OrkManager->value] ?? null,
         );
     }
 

@@ -14,7 +14,7 @@ class YandexMetrikaFiltersBuilderTest extends TestCase
     {
         parent::setUp();
 
-        $this->builder = new YandexMetrikaFiltersBuilder();
+        $this->builder = new YandexMetrikaFiltersBuilder;
     }
 
     #[Test]
@@ -105,8 +105,8 @@ class YandexMetrikaFiltersBuilderTest extends TestCase
 
         $this->assertSame(
             "ym:s:startURL=@'catalog'"
-            . " AND ym:s:<attribution>SearchPhrase=='кейс'"
-            . " AND (ym:s:regionCityName=@'Москва' OR ym:s:regionCountryName=@'Москва' OR ym:s:regionAreaName=@'Москва')",
+            ." AND ym:s:<attribution>SearchPhrase=='кейс'"
+            ." AND (ym:s:regionCityName=@'Москва' OR ym:s:regionCountryName=@'Москва' OR ym:s:regionAreaName=@'Москва')",
             $filters
         );
     }
@@ -173,7 +173,7 @@ class YandexMetrikaFiltersBuilderTest extends TestCase
             'last_search_phrase' => '*кейс*',
         ], YandexMetrikaFiltersBuilder::DATA_MODE_WITH_ROBOTS);
 
-        $this->assertSame('ym:s:<attribution>SearchPhrase=*' . "'*кейс*'", $filters);
+        $this->assertSame('ym:s:<attribution>SearchPhrase=*'."'*кейс*'", $filters);
     }
 
     #[Test]

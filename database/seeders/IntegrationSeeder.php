@@ -29,6 +29,11 @@ class IntegrationSeeder extends Seeder
                 'code' => '1c_check',
             ],
             [
+                'name' => 'Битрикс24',
+                'category' => 'money',
+                'code' => 'bitrix24',
+            ],
+            [
                 'name' => 'Yandex Search API',
                 'category' => 'analytics',
                 'code' => 'yandex_search_api',
@@ -37,11 +42,6 @@ class IntegrationSeeder extends Seeder
                 'name' => 'Google Таблицы',
                 'category' => 'money',
                 'code' => 'google_sheets',
-            ],
-            [
-                'name' => 'Мегаплан',
-                'category' => 'analytics',
-                'code' => 'megaplan',
             ],
             [
                 'name' => 'Яндекс Директ',

@@ -17,6 +17,7 @@ use App\Livewire\Concerns\WithYandexMetrikaOAuth;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
+use App\Models\Agency;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
@@ -32,6 +33,7 @@ use App\Services\UserService;
 use App\Services\YandexDirectService;
 use App\Services\YandexMetrikaService;
 use App\Services\YandexSearchApiPhraseParser;
+use App\Support\Bitrix24ProjectSettingsValidator;
 use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -48,7 +50,6 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
-use Spatie\Permission\Exceptions\UnauthorizedException;
 use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Domain\ValueObjects\Kpi;
@@ -224,11 +225,7 @@ class extends Component
 
     protected function ensureCanEdit(): void
     {
-        if (! ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
-            throw UnauthorizedException::forPermissions(
-                ClientsAndProjectsPermissions::editPermissionNames()
-            );
-        }
+        ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
     }
 
     protected function markPendingChanges(): void
@@ -544,6 +541,36 @@ class extends Component
     }
 
     #[Computed]
+    public function isBitrix24AgencyConfigured(): bool
+    {
+        $agencyId = (int) (session('current_agency_id') ?? 0);
+
+        if ($agencyId <= 0) {
+            $agencyId = (int) (Auth::user()?->agencies()->first()?->id ?? 0);
+        }
+
+        if ($agencyId <= 0) {
+            return false;
+        }
+
+        $agency = Agency::query()->find($agencyId);
+
+        return $agency !== null && $agency->isBitrix24Configured();
+    }
+
+    #[Computed]
+    public function moneyIntegrationDisabledReasons(): array
+    {
+        if ($this->isBitrix24AgencyConfigured) {
+            return [];
+        }
+
+        return [
+            'bitrix24' => 'Сначала укажите URL портала и вебхук в настройках агентства',
+        ];
+    }
+
+    #[Computed]
     public function isSelectedIntegrationPlatformConfigured(): bool
     {
         $code = $this->selectedIntegration?->integration->code ?? null;
@@ -553,6 +580,7 @@ class extends Component
             'yandex_direct' => $this->isYandexDirectOAuthConfigured,
             'yandex_metrika' => $this->isYandexMetrikaOAuthConfigured,
             'google_sheets' => $this->isGoogleSheetsOAuthConfigured,
+            'bitrix24' => $this->isBitrix24AgencyConfigured,
             default => true,
         };
     }
@@ -560,6 +588,10 @@ class extends Component
     public function selectIntegration(string $code)
     {
         $this->ensureCanEdit();
+
+        if ($code === 'bitrix24' && ! $this->isBitrix24AgencyConfigured) {
+            return;
+        }
 
         $integration = $this->integrations()->firstWhere('code', $code);
 
@@ -681,6 +713,24 @@ class extends Component
             // Отчёт «География» снят с UI: API Метрики не даёт стабильной сверки по городам без роботов.
             $reports['visits_geo'] = false;
             $projectIntegrationData->settings['reports'] = $reports;
+        }
+
+        if ($integration?->code === 'bitrix24') {
+            $normalized = Bitrix24ProjectSettingsValidator::normalize(
+                $projectIntegrationData->settings,
+                (bool) $projectIntegrationData->isEnabled
+            );
+            $errors = Bitrix24ProjectSettingsValidator::errors(
+                (bool) $projectIntegrationData->isEnabled,
+                $normalized,
+                $this->isBitrix24AgencyConfigured
+            );
+
+            if ($errors !== []) {
+                throw ValidationException::withMessages($errors);
+            }
+
+            $projectIntegrationData->settings = $normalized;
         }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;

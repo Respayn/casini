@@ -12,7 +12,7 @@ class YandexMetrikaUtmFilterBuilderTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->builder = new YandexMetrikaUtmFilterBuilder();
+        $this->builder = new YandexMetrikaUtmFilterBuilder;
     }
 
     public function test_empty_value_produces_not_empty_filter(): void

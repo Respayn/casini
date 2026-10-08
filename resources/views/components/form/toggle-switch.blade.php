@@ -3,7 +3,8 @@
 ])
 
 @php
-    $isDisabled = filter_var($disabled, FILTER_VALIDATE_BOOLEAN);
+    $isDisabled = filter_var($disabled, FILTER_VALIDATE_BOOLEAN)
+        || $attributes->has('disabled');
 @endphp
 
 <label

@@ -27,12 +27,12 @@
 </head>
 
 <body
-    class="bg-body text-primary-text font-sans"
+    class="bg-body text-primary-text flex gap-5 font-sans"
     x-data
 >
     <livewire:sidebar />
 
-    <div class="app-main flex h-screen min-w-0 flex-col gap-[25px] pe-[20px]">
+    <div class="app-main flex h-screen w-full flex-col gap-[25px]">
         <livewire:header />
 
         <x-menu.navbar :items="collect([
@@ -47,12 +47,12 @@
             return $item;
         })->values()->all()" />
 
-        <div class="min-w-0 flex-1 overflow-x-auto rounded-tl-2xl bg-white p-5">
+        <div class="rounded-tl-2xl bg-white p-5 flex-1">
             {{ $slot }}
         </div>
     </div>
 
-    @livewireScriptConfig
+    @livewireScriptConfig 
 </body>
 
 </html>
