@@ -9,7 +9,6 @@ use App\Data\TableReportData;
 use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithReportDataRefresh;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
-use App\Services\GoogleSheetsService;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
@@ -184,20 +183,5 @@ class extends Component
     {
         $this->actionMessage = $message;
         $this->actionMessageType = $type;
-    }
-
-    protected function afterSuccessfulReportDataRefresh(array $projectIds): void
-    {
-        if ($projectIds === []) {
-            return;
-        }
-
-        app(GoogleSheetsService::class)->syncProjects(
-            $projectIds,
-            $this->queryData->dateTo->copy()->startOfMonth(),
-            manual: true,
-        );
-
-        unset($this->reportData);
     }
 };

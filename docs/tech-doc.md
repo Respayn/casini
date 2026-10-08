@@ -475,10 +475,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### Ночной съём
 
-Команда `metrika:sync-search-engines-goals` (расписание `03:00` в [`routes/console.php`](routes/console.php)):
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-search-engines-goals`:
 
 - проекты с включённой Метрикой, `reports.goals_search_engines`, токеном, счётчиком, целями и `sync_enabled_at`;
-- период: с начала месяца `sync_enabled_at` по сегодня;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
 - запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits`.
 
 Ошибка по одному проекту не останавливает остальные.
@@ -522,7 +522,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### Ночной съём
 
-Команда `metrika:sync-utm-goals` (расписание `03:30` в [`routes/console.php`](routes/console.php)):
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-utm-goals`:
 
 - условия: `is_enabled`, `reports.goals_utm`, токен, счётчик, цели, `sync_enabled_at`;
 - стратегия: удаляет старые строки за период и вставляет свежие в `yandex_metrika_goal_utms`.
@@ -560,7 +560,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### Ночной съём
 
-Команда `metrika:sync-conversions-goals` (расписание `04:00` в [`routes/console.php`](routes/console.php)):
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-conversions-goals`:
 
 - условия: `is_enabled`, `reports.goals_conversions`, токен, счётчик, цели, `sync_enabled_at`;
 - стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_conversions`.
@@ -600,7 +600,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### Ночной съём
 
-Команда `metrika:sync-direct-summary-goals` (расписание `04:30` в [`routes/console.php`](routes/console.php)):
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-direct-summary-goals`:
 
 - условия: `is_enabled`, `reports.goals_direct_summary`, токен, счётчик, цели, `sync_enabled_at`;
 - стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary`.
@@ -651,10 +651,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### Ночной съём
 
-Команда `metrika:sync-search-engines-visits` (расписание `05:00` в [`routes/console.php`](routes/console.php)):
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-search-engines-visits`:
 
 - условия: `is_enabled`, `reports.visits_search_engines`, токен, счётчик, `sync_enabled_at`;
-- период: с начала месяца `sync_enabled_at` по сегодня;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
 - upsert `visits` по `(project_id, search_engine, month)`.
 
 ## Интеграция Яндекс Метрики (этап 3.6: переходы «Поисковые запросы»)
@@ -697,10 +697,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ### Ночной съём
 
-Команда `metrika:sync-search-queries-visits` (расписание `05:30` в [`routes/console.php`](routes/console.php)):
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-search-queries-visits`:
 
 - условия: `is_enabled`, `reports.visits_search_queries`, токен, счётчик, `sync_enabled_at`;
-- период: с начала месяца `sync_enabled_at` по сегодня;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
 - upsert по `(project_id, month, phrase)`.
 
 ## Интеграция Яндекс Метрики (этап 3.7: переходы «География»)
@@ -830,10 +830,13 @@ Callibri отдаёт каждое обращение с временем в UTC
 | `yandex_direct_daily_spend` | `yandex_direct` | `yandex_direct_daily_spendings` | Каналы: расход; Статистика: «Рекламный бюджет» |
 | `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
 | `yandex_search_api_daily_positions` | `yandex_search_api` | `serp_positions` + `yandex_search_api_daily_top_percents` | Статистика: «% позиций в ТОП» (SEO + POSITIONS) |
+| `bitrix24_labor` | `bitrix24` | `bitrix24_daily_labor` | Каналы: часы ролей (SEO-специалист, помощник, аналитик, ОРК) |
+| `yandex_metrika` | `yandex_metrika` | `yandex_metrika_*` (суммы за месяц) | Отчёты, переменные `ym.*`. Все включённые отчёты проекта за один item. Ночью: месяц вчерашней даты с 1-го числа по вчера (`YandexMetrikaSyncPeriod::nightly`), прошлые месяцы не перекачиваются; ручное обновление и backfill: все месяцы периода, не раньше месяца `sync_enabled_at` |
+| `google_sheets` | `google_sheets` | `google_sheets_monthly_spendings` | Каналы: «Программинг», «Копирайтер». Ночью только открытый месяц по поясу агентства (в ночь на 1-е это уже новый месяц), закрытые не трогаем; ручное обновление и backfill: месяц конца периода, в том числе закрытый |
 
 **Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни — пересчёт агрегата из уже сохранённых `serp_positions`. Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`.
 
-Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Метрика / 1С / Sheets — отдельные задачи.
+Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Отдельные `Schedule::command` для интеграций не заводим: ночью всё идёт через `integrations:dispatch-due-syncs`. Команды `metrika:sync-*` и `google-sheets:sync-spendings` остались только для ручного запуска.
 
 Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание в `bootstrap/app.php` → `withSchedule()`.
 

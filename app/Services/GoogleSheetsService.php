@@ -54,55 +54,6 @@ class GoogleSheetsService
     }
 
     /**
-     * @param  array<int>  $projectIds
-     * @return array{synced: int, failed: int, skipped: int}
-     */
-    public function syncProjects(array $projectIds, ?Carbon $month = null, bool $manual = true): array
-    {
-        $month ??= Carbon::now()->startOfMonth();
-        $synced = 0;
-        $failed = 0;
-        $skipped = 0;
-
-        $integration = Integration::query()->where('code', 'google_sheets')->first();
-
-        if ($integration === null) {
-            return ['synced' => 0, 'failed' => count($projectIds), 'skipped' => 0];
-        }
-
-        $settings = IntegrationProject::query()
-            ->with(['project.specialist.agencies', 'integration'])
-            ->where('integration_id', $integration->id)
-            ->where('is_enabled', true)
-            ->whereIn('project_id', $projectIds)
-            ->get();
-
-        foreach ($settings as $projectIntegration) {
-            if ($manual) {
-                try {
-                    $this->syncProjectIntegration($projectIntegration, $month, manual: true);
-                    $synced++;
-                } catch (Throwable $e) {
-                    report($e);
-                    $failed++;
-                }
-
-                continue;
-            }
-
-            $result = $this->syncProjectIntegrationIfOpenMonth($projectIntegration, $month);
-
-            match ($result) {
-                'synced' => $synced++,
-                'failed' => $failed++,
-                'skipped' => $skipped++,
-            };
-        }
-
-        return ['synced' => $synced, 'failed' => $failed, 'skipped' => $skipped];
-    }
-
-    /**
      * @return array{synced: int, failed: int, skipped: int}
      */
     public function syncOpenMonthForAllEnabledProjects(): array
@@ -124,8 +75,7 @@ class GoogleSheetsService
         $skipped = 0;
 
         foreach ($settings as $projectIntegration) {
-            $timezone = $this->resolveAgencyTimezone($projectIntegration);
-            $month = Carbon::now($timezone)->startOfMonth();
+            $month = $this->openMonth($this->resolveAgencyTimezone($projectIntegration));
 
             $result = $this->syncProjectIntegrationIfOpenMonth($projectIntegration, $month);
 
@@ -137,6 +87,55 @@ class GoogleSheetsService
         }
 
         return ['synced' => $synced, 'failed' => $failed, 'skipped' => $skipped];
+    }
+
+    /**
+     * Месяц, который обновляет ночной съём: текущий по часовому поясу агентства.
+     */
+    public function openMonth(string $timezone): Carbon
+    {
+        return Carbon::now($timezone)->startOfMonth();
+    }
+
+    /**
+     * Ночной съём одного проекта: только открытый месяц.
+     *
+     * @throws Throwable интеграция не настроена или ошибка Google
+     */
+    public function syncProjectOpenMonth(int $projectId): void
+    {
+        $projectIntegration = $this->enabledProjectIntegration($projectId);
+
+        $this->syncProjectIntegration(
+            $projectIntegration,
+            $this->openMonth($this->resolveAgencyTimezone($projectIntegration)),
+        );
+    }
+
+    /**
+     * Ручное обновление: выбранный месяц, в том числе закрытый.
+     *
+     * @throws Throwable интеграция не настроена или ошибка Google
+     */
+    public function syncProjectMonth(int $projectId, Carbon $month): void
+    {
+        $this->syncProjectIntegration($this->enabledProjectIntegration($projectId), $month, manual: true);
+    }
+
+    private function enabledProjectIntegration(int $projectId): IntegrationProject
+    {
+        $projectIntegration = IntegrationProject::query()
+            ->with(['project.specialist.agencies', 'integration'])
+            ->where('project_id', $projectId)
+            ->where('is_enabled', true)
+            ->whereHas('integration', fn ($query) => $query->where('code', 'google_sheets'))
+            ->first();
+
+        if ($projectIntegration === null) {
+            throw new \RuntimeException('Google Sheets integration is not enabled for the project.');
+        }
+
+        return $projectIntegration;
     }
 
     public function isClosedMonth(Carbon $month, ?string $timezone = null): bool

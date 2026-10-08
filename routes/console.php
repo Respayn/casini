@@ -2,17 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
-
-Schedule::command('metrika:sync-search-engines-goals')->dailyAt('03:00');
-Schedule::command('metrika:sync-utm-goals')->dailyAt('03:30');
-Schedule::command('metrika:sync-conversions-goals')->dailyAt('04:00');
-Schedule::command('metrika:sync-direct-summary-goals')->dailyAt('04:30');
-Schedule::command('metrika:sync-search-engines-visits')->dailyAt('05:00');
-Schedule::command('metrika:sync-search-queries-visits')->dailyAt('05:30');
-Schedule::command('google-sheets:sync-spendings')->dailyAt('05:00');
-// metrika:sync-geo-visits — отчёт «География» снят с UI интеграции (нестабильный API по городам без роботов).

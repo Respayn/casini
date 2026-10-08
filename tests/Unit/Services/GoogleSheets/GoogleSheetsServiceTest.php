@@ -26,6 +26,21 @@ class GoogleSheetsServiceTest extends TestCase
             'Europe/Moscow',
         ));
 
+        $this->assertSame('2026-09-01', $service->openMonth('Europe/Moscow')->toDateString());
+
+        Carbon::setTestNow();
+    }
+
+    #[Test]
+    public function it_takes_new_open_month_on_first_night(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-10-01 00:01:00', 'Europe/Moscow'));
+
+        $service = app(GoogleSheetsService::class);
+
+        $this->assertSame('2026-10-01', $service->openMonth('Europe/Moscow')->toDateString());
+        $this->assertTrue($service->isClosedMonth(Carbon::parse('2026-09-01'), 'Europe/Moscow'));
+
         Carbon::setTestNow();
     }
 }
