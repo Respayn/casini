@@ -8,6 +8,7 @@ use App\Models\GoogleSheetsMonthlySpending;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
 use App\Models\Project;
+use App\Repositories\IntegrationRepository;
 use App\Services\GoogleSheets\Exceptions\GoogleSheetsParseException;
 use App\Services\GoogleSheets\GoogleSheetsSpendingsParser;
 use Carbon\Carbon;
@@ -22,6 +23,7 @@ class GoogleSheetsService
     public function __construct(
         private GoogleSheetsAuthService $authService,
         private GoogleSheetsSpendingsParser $parser,
+        private IntegrationRepository $integrationRepository,
     ) {}
 
     public static function extractSpreadsheetId(string $value): string
@@ -124,12 +126,7 @@ class GoogleSheetsService
 
     private function enabledProjectIntegration(int $projectId): IntegrationProject
     {
-        $projectIntegration = IntegrationProject::query()
-            ->with(['project.specialist.agencies', 'integration'])
-            ->where('project_id', $projectId)
-            ->where('is_enabled', true)
-            ->whereHas('integration', fn ($query) => $query->where('code', 'google_sheets'))
-            ->first();
+        $projectIntegration = $this->integrationRepository->findEnabledProjectIntegration($projectId, 'google_sheets');
 
         if ($projectIntegration === null) {
             throw new \RuntimeException('Google Sheets integration is not enabled for the project.');

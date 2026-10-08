@@ -270,8 +270,8 @@
                     <div
                         class="flex h-8 w-8 items-center justify-center"
                         x-text="day.day"
-                        x-bind:style="day.disabled ? 'opacity: .35; cursor: not-allowed;' : null"
                         x-bind:class="{
+                            'opacity-35 cursor-not-allowed': day.disabled,
                             'text-secondary-text': !day.inMonth,
                             'hover:bg-primary hover:cursor-pointer hover:text-white': !day.disabled,
                             'bg-primary text-white': day.selected && !day.disabled

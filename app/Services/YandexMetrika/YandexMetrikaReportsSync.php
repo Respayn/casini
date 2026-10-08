@@ -3,8 +3,8 @@
 namespace App\Services\YandexMetrika;
 
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
-use App\Models\IntegrationProject;
-use App\Models\Project;
+use App\Repositories\AgencyRepository;
+use App\Repositories\IntegrationRepository;
 use App\Services\IntegrationSync\YandexMetrikaSyncPeriod;
 use App\Services\YandexMetrikaService;
 use Illuminate\Support\Carbon;
@@ -54,6 +54,8 @@ class YandexMetrikaReportsSync
     public function __construct(
         private readonly YandexMetrikaService $metrikaService,
         private readonly YandexMetrikaRepositoryInterface $repository,
+        private readonly IntegrationRepository $integrationRepository,
+        private readonly AgencyRepository $agencyRepository,
     ) {}
 
     /**
@@ -88,10 +90,7 @@ class YandexMetrikaReportsSync
      */
     public function syncReportForAllProjects(string $report): array
     {
-        $integrations = IntegrationProject::query()
-            ->where('is_enabled', true)
-            ->whereHas('integration', fn ($query) => $query->where('code', 'yandex_metrika'))
-            ->get();
+        $integrations = $this->integrationRepository->getEnabledProjectIntegrationsByCode('yandex_metrika');
 
         $stats = ['synced' => 0, 'skipped' => 0, 'failed' => 0, 'errors' => []];
 
@@ -140,9 +139,7 @@ class YandexMetrikaReportsSync
         $counterTimezone = filled($settings['counter_time_zone'] ?? null)
             ? (string) $settings['counter_time_zone']
             : null;
-        $agencyTimezone = Project::query()->with('specialist.agencies')->find($projectId)
-            ?->specialist?->agencies->first()?->time_zone;
-        $timezone = filled($agencyTimezone) ? (string) $agencyTimezone : $counterTimezone;
+        $timezone = $this->agencyRepository->getProjectTimeZone($projectId) ?? $counterTimezone;
 
         $filters = is_array($settings['filters'] ?? null) ? $settings['filters'] : null;
         $dataMode = (string) ($settings['data_mode'] ?? YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE);

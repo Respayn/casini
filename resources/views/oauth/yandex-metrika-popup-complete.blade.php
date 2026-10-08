@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>Яндекс Метрика — авторизация</title>
+    <title>Яндекс Метрика: авторизация</title>
 </head>
 <body>
     <p id="oauth-status">Авторизация завершена. Это окно можно закрыть.</p>
@@ -44,7 +44,7 @@
             if (hasOpener) {
                 window.opener.postMessage(payload, window.location.origin);
             } else if (status) {
-                status.textContent = 'Авторизация завершена. Вернитесь в окно Касини — авторизация подтянется автоматически. Это окно можно закрыть.';
+                status.textContent = 'Авторизация завершена. Вернитесь в окно Касини, авторизация подтянется автоматически. Это окно можно закрыть.';
             }
 
             setTimeout(function () {

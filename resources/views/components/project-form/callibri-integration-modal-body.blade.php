@@ -489,8 +489,7 @@
                         </div>
                         <template x-teleport="body">
                             <div
-                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                style="z-index: 1000"
+                                class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                                 x-show="testDateHintOpen && !testDate"
                                 x-cloak
                                 x-anchor.bottom="$refs.testButtonWrap"

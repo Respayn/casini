@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
-use App\Models\IntegrationProject;
+use App\Repositories\IntegrationRepository;
 use App\Services\YandexMetrikaService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
@@ -19,13 +19,10 @@ class SyncYandexMetrikaGeoVisitsCommand extends Command
 
     public function handle(
         YandexMetrikaService $metrikaService,
-        YandexMetrikaRepositoryInterface $repository
+        YandexMetrikaRepositoryInterface $repository,
+        IntegrationRepository $integrationRepository,
     ): int {
-        $integrations = IntegrationProject::query()
-            ->with(['integration', 'project.specialist.agencies'])
-            ->where('is_enabled', true)
-            ->whereHas('integration', fn ($query) => $query->where('code', 'yandex_metrika'))
-            ->get();
+        $integrations = $integrationRepository->getEnabledProjectIntegrationsByCode('yandex_metrika');
 
         $synced = 0;
         $skipped = 0;

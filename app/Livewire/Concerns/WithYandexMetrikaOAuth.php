@@ -54,26 +54,6 @@ trait WithYandexMetrikaOAuth
     }
 
     /**
-     * @return array{settings?: array<string, mixed>, pending?: bool}
-     */
-    public function pullYandexMetrikaOAuthResult(string $cacheDataId): array
-    {
-        $this->ensureCanEdit();
-
-        if (trim($cacheDataId) === '') {
-            return ['pending' => true];
-        }
-
-        $settings = Cache::pull('yandex_metrika_oauth_result_'.$cacheDataId);
-
-        if (! is_array($settings) || $settings === []) {
-            return ['pending' => true];
-        }
-
-        return ['settings' => $settings];
-    }
-
-    /**
      * @return array{applied?: bool, pending?: bool}
      */
     public function finalizeYandexMetrikaOAuth(string $cacheDataId): array

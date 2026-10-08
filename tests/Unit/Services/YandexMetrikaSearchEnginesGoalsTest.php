@@ -5,6 +5,7 @@ namespace Tests\Unit\Services;
 use App\Contracts\YandexMetrikaClientInterface;
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Factories\YandexMetrikaClientFactory;
+use App\Repositories\AgencyRepository;
 use App\Services\YandexMetrikaService;
 use Carbon\Carbon;
 use Mockery;
@@ -168,7 +169,7 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
         $factory = Mockery::mock(YandexMetrikaClientFactory::class);
         $factory->shouldReceive('create')->andReturn($client);
 
-        $service = new YandexMetrikaService($factory, new YandexMetrikaFiltersBuilder);
+        $service = new YandexMetrikaService($factory, new YandexMetrikaFiltersBuilder, $this->createStub(AgencyRepository::class));
         $service->setupClient('token', 'login', 123);
 
         return $service;

@@ -1,4 +1,4 @@
-<x-panel.scroll-panel style="max-height: 500px">
+<x-panel.scroll-panel class="max-h-[500px]">
     <div class="flex min-w-[500px] flex-col gap-2">
         <span class="text-primary-text text-2xl font-semibold">Инструкция</span>
         <ol class="list-decimal py-1 pl-5">
@@ -22,7 +22,7 @@
             </li>
         </ol>
         <span>
-            Данные передаются раз в сутки — по ночам за предыдущий день. Не переживайте, если не увидите их в отчете сразу.
+            Данные передаются раз в сутки: по ночам за предыдущий день. Не переживайте, если не увидите их в отчете сразу.
         </span>
         <span>
             После подключения данные начнут поступать в продукты Каналы и Статистика

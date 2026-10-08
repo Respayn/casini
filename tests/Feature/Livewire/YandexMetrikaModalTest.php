@@ -207,30 +207,6 @@ class YandexMetrikaModalTest extends TestCase
     }
 
     #[Test]
-    public function test_pull_yandex_metrika_oauth_result_returns_settings_and_clears_cache(): void
-    {
-        $user = $this->createUserWithAgency();
-        $cacheDataId = 'lw-metrika-oauth-result';
-
-        Cache::put('yandex_metrika_oauth_result_'.$cacheDataId, [
-            'oauth_token' => 'access-token',
-            'refresh_token' => 'refresh-token',
-            'token_expires_at' => '2026-08-14 12:00:00',
-        ], now()->addMinutes(15));
-
-        $component = Livewire::actingAs($user)
-            ->test('pages::system-settings.client-project-form')
-            ->call('pullYandexMetrikaOAuthResult', $cacheDataId);
-
-        $result = ($component->effects['returns'] ?? [])[0] ?? null;
-
-        $this->assertIsArray($result);
-        $this->assertArrayHasKey('settings', $result);
-        $this->assertSame('access-token', $result['settings']['oauth_token']);
-        $this->assertFalse(Cache::has('yandex_metrika_oauth_result_'.$cacheDataId));
-    }
-
-    #[Test]
     public function test_finalize_yandex_metrika_oauth_applies_tokens_and_opens_modal(): void
     {
         $user = $this->createUserWithAgency();

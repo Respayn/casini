@@ -582,8 +582,7 @@
         @endunless
 
         <div
-            class="mb-4 break-words rounded-lg border p-4 text-sm"
-            style="border-color: #FF7373; color: #FF7373; background-color: #FFF5F5;"
+            class="mb-4 break-words rounded-lg border border-[#FF7373] bg-[#FFF5F5] p-4 text-sm text-[#FF7373]"
             x-show="hasIntegrationError"
             x-text="integrationError"
             x-cloak

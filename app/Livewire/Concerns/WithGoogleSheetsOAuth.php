@@ -52,26 +52,6 @@ trait WithGoogleSheetsOAuth
     }
 
     /**
-     * @return array{settings?: array<string, mixed>, pending?: bool}
-     */
-    public function pullGoogleSheetsOAuthResult(string $cacheDataId): array
-    {
-        $this->ensureCanEdit();
-
-        if (trim($cacheDataId) === '') {
-            return ['pending' => true];
-        }
-
-        $settings = Cache::pull('google_sheets_oauth_result_'.$cacheDataId);
-
-        if (! is_array($settings) || $settings === []) {
-            return ['pending' => true];
-        }
-
-        return ['settings' => $settings];
-    }
-
-    /**
      * @return array{applied?: bool, pending?: bool}
      */
     public function finalizeGoogleSheetsOAuth(string $cacheDataId): array

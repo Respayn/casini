@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>Яндекс Метрика — авторизация</title>
+    <title>Яндекс Метрика: авторизация</title>
 </head>
 <body>
     <p>{{ $message }}</p>

@@ -4,6 +4,6 @@
         alt="Google Таблицы"
         width="15"
         height="11"
-        style="display: block; width: auto; height: 11px; max-width: 15px;"
+        class="block h-[11px] w-auto max-w-[15px]"
     >
 </span>

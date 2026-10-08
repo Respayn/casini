@@ -1651,7 +1651,7 @@
         },
     }"
 >
-    <x-panel.scroll-panel style="max-height: 500px">
+    <x-panel.scroll-panel class="max-h-[500px]">
     <x-form.form class="lg:min-w-[580px]">
         <div class="border-primary mb-4 break-words rounded-lg border bg-blue-50 p-4 text-sm text-primary-text">
             Чтобы цифры в Касини совпадали с интерфейсом Яндекс Метрики, проверьте, чтобы в
@@ -1669,8 +1669,7 @@
         @endunless
 
         <div
-            class="mb-4 break-words rounded-lg border p-4 text-sm"
-            style="border-color: #FF7373; color: #FF7373; background-color: #FFF5F5;"
+            class="mb-4 break-words rounded-lg border border-[#FF7373] bg-[#FFF5F5] p-4 text-sm text-[#FF7373]"
             x-show="hasIntegrationError"
             x-text="integrationError"
             x-cloak
@@ -1967,8 +1966,7 @@
                     />
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="reportTooltipKey === '{{ $reportKey }}'"
                             x-cloak
                             x-anchor.bottom="$refs.goalReport_{{ $reportKey }}"
@@ -2002,8 +2000,7 @@
                     x-cloak
                 >У счётчика нет целей</p>
                 <div
-                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
-                    style="max-height: 196px; overflow-y: auto"
+                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
                     x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
                     x-cloak
                 >
@@ -2126,8 +2123,7 @@
                     </div>
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="testDateHintOpen && !testDate"
                             x-cloak
                             x-anchor.bottom="$refs.testButtonWrap"
@@ -2168,8 +2164,7 @@
                     />
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="reportTooltipKey === '{{ $utmKey }}'"
                             x-cloak
                             x-anchor.bottom="$refs.goalReport_{{ $utmKey }}"
@@ -2205,8 +2200,7 @@
                     x-cloak
                 >У счётчика нет целей</p>
                 <div
-                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
-                    style="max-height: 196px; overflow-y: auto"
+                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
                     x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
                     x-cloak
                 >
@@ -2411,8 +2405,7 @@
                     </div>
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="utmTestDateHintOpen && !utmTestDate"
                             x-cloak
                             x-anchor.bottom="$refs.utmTestButtonWrap"
@@ -2453,8 +2446,7 @@
                     />
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="reportTooltipKey === '{{ $conversionsKey }}'"
                             x-cloak
                             x-anchor.bottom="$refs.goalReport_{{ $conversionsKey }}"
@@ -2490,8 +2482,7 @@
                     x-cloak
                 >У счётчика нет целей</p>
                 <div
-                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
-                    style="max-height: 196px; overflow-y: auto"
+                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
                     x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
                     x-cloak
                 >
@@ -2616,8 +2607,7 @@
                     </div>
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="conversionsTestDateHintOpen && !conversionsTestDate"
                             x-cloak
                             x-anchor.bottom="$refs.conversionsTestButtonWrap"
@@ -2658,8 +2648,7 @@
                     />
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="reportTooltipKey === '{{ $directSummaryKey }}'"
                             x-cloak
                             x-anchor.bottom="$refs.goalReport_{{ $directSummaryKey }}"
@@ -2695,8 +2684,7 @@
                     x-cloak
                 >У счётчика нет целей</p>
                 <div
-                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
-                    style="max-height: 196px; overflow-y: auto"
+                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
                     x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
                     x-cloak
                 >
@@ -2821,8 +2809,7 @@
                     </div>
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="directSummaryTestDateHintOpen && !directSummaryTestDate"
                             x-cloak
                             x-anchor.bottom="$refs.directSummaryTestButtonWrap"
@@ -2863,8 +2850,7 @@
                     />
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="reportTooltipKey === '{{ $visitsSearchEnginesKey }}'"
                             x-cloak
                             x-anchor.bottom="$refs.goalReport_{{ $visitsSearchEnginesKey }}"
@@ -2895,8 +2881,7 @@
                     x-cloak
                 >За выбранный период у счётчика нет данных по поисковым системам</p>
                 <div
-                    class="pretty-scroll border-input-border rounded-[5px] border px-3 py-2"
-                    style="max-height: 196px; overflow-y: auto"
+                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
                     x-show="!searchEnginesLoading && !searchEnginesError && searchEngineOptions.length > 0"
                     x-cloak
                 >
@@ -3027,8 +3012,7 @@
                     </div>
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="visitsSearchEnginesTestDateHintOpen && !visitsSearchEnginesTestDate"
                             x-cloak
                             x-anchor.bottom="$refs.visitsSearchEnginesTestButtonWrap"
@@ -3069,8 +3053,7 @@
                     />
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="reportTooltipKey === '{{ $visitsSearchQueriesKey }}'"
                             x-cloak
                             x-anchor.bottom="$refs.goalReport_{{ $visitsSearchQueriesKey }}"
@@ -3213,8 +3196,7 @@
                     </div>
                     <template x-teleport="body">
                         <div
-                            class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            style="z-index: 1000"
+                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                             x-show="visitsSearchQueriesTestDateHintOpen && !visitsSearchQueriesTestDate"
                             x-cloak
                             x-anchor.bottom="$refs.visitsSearchQueriesTestButtonWrap"
@@ -3257,8 +3239,7 @@
                         />
                         <template x-teleport="body">
                             <div
-                                class="w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                style="z-index: 1000"
+                                class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
                                 x-show="reportTooltipKey === '{{ $reportKey }}'"
                                 x-cloak
                                 x-anchor.bottom="$refs.goalReport_{{ $reportKey }}"

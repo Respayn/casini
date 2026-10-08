@@ -7,7 +7,7 @@ use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Data\YandexMetrika\GoalDTO;
 use App\Data\YandexMetrika\VisitReportDTO;
 use App\Factories\YandexMetrikaClientFactory;
-use App\Models\Agency;
+use App\Repositories\AgencyRepository;
 use App\Support\YandexMetrikaSearchEngine;
 use App\Support\YandexMetrikaTimezone;
 use Carbon\Carbon;
@@ -27,6 +27,7 @@ class YandexMetrikaService
     public function __construct(
         private readonly YandexMetrikaClientFactory $clientFactory,
         private readonly YandexMetrikaFiltersBuilder $filtersBuilder,
+        private readonly AgencyRepository $agencyRepository,
         private readonly YandexMetrikaUtmFilterBuilder $utmFilterBuilder = new YandexMetrikaUtmFilterBuilder()
     ) {}
 
@@ -811,9 +812,9 @@ class YandexMetrikaService
         $agencyId = session('current_agency_id') ?? Auth::user()?->agencies()->first()?->id;
 
         if ($agencyId) {
-            $agencyTimezone = Agency::query()->whereKey($agencyId)->value('time_zone');
+            $agencyTimezone = $this->agencyRepository->getTimeZone((int) $agencyId);
 
-            if ($agencyTimezone) {
+            if ($agencyTimezone !== null) {
                 return $agencyTimezone;
             }
         }
