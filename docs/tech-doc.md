@@ -707,7 +707,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 Отчёт `visits_geo` **снят с UI** интеграции: Reporting API Метрики не отдаёт стабильные данные по `ym:s:regionCity` в режиме «без роботов» (пустой ответ при `ym:s:isRobot=='No'`), сверка с интерфейсом Метрики получается неоднозначной.
 
-Ключ `reports.visits_geo` при сохранении принудительно `false`. Расписание `metrika:sync-geo-visits` отключено. Таблица `yandex_metrika_visits_geo`, сервис `fetchGeoVisitsStats` / `upsertVisitsGeo` и переменная отчёта `ym.table.visits_geo` пока остаются в коде (исторические данные / шаблоны), но новый съём из модалки недоступен.
+Ключ `reports.visits_geo` при сохранении принудительно `false`. Кода съёма «Географии» нет: ни команды, ни отчёта в collector `yandex_metrika`. Таблица `yandex_metrika_visits_geo`, чтение `getVisitsGeoStats` и переменная отчёта `ym.table.visits_geo` остаются для исторических данных и шаблонов. Если отчёт вернут в UI, съём добавляется отчётом в `YandexMetrikaReportsSync::REPORTS`, без отдельной команды и расписания.
 
 ## UI-шаблон: проверка работы интеграции
 
