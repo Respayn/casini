@@ -22,7 +22,7 @@
                     x-cloak
                     x-anchor.bottom="$refs.fieldGuardTrigger"
                 >
-                    Нет прав для изменения
+{{ __('permissions.denied') }}
                 </div>
             </template>
         </div>

@@ -113,6 +113,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 - Список фильтруется `ClientListVisibilityFilter` (self: менеджер клиента / specialist проекта; all: всё).
 - Создание и сохранение клиента/проекта — `ensureUserCanEdit` (edit|full self|all).
 - Открытие существующего проекта — `ClientProjectAccessPolicy` (all или self с привязкой).
+- **Форма клиенто-проекта (read-only):** при `read` без `edit|full` форма открывается на просмотр — все поля, toggles, кнопки и интеграции disabled + тултип `permissions.denied` (`x-permissions.field-guard`). Кнопка «Сохранить» disabled. Серверная защита: `ensureCanEdit()` на всех публичных мутациях (`save`, `addRegion`, `removeRegion`, `addTopic`, `removeTopic`, `addInterval`, `removeInterval`, `addMapping`, `removeMapping`, `selectIntegration`, `setIntegrationSettings`, `removeIntegration`, `setIntegrationEnabled`, OAuth-методы, `loadCallibriProjects`, `testCallibriIntegration`, `loadYandexMetrikaGoals`, `loadYandexMetrikaSearchEngines`, `testYandexMetrikaGoalsSearchEnginesIntegration`, `parsePhrasesFromDocx`). Модалки интеграций (Callibri, Яндекс.Директ, Search API) также заблокированы через Alpine `canEdit` + серверный guard. Восстановление OAuth state из cache при mount пропускается для read-only.
 
 ## Сайдбар (виджет портфеля)
 
@@ -241,6 +242,21 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 
 Списки «Специалист» / «Помощник» в форме показывают всех пользователей агентства (`UserService::getByAgency`), подпись `Имя Фамилия (должность)`. Проверка прав редактирования формы временно всегда разрешена; полноценный read-only UI — после merge `feature/roles-permissions`.
 
+## Форма клиенто-проекта: схема расчёта параметров
+
+Блок «Настройка параметров» → «Схема расчета параметра» собирается автоматически сервисом `App\Services\ClientProject\ParameterCalculationSchemeBuilder` из **включённых** интеграций проекта (`integrationSettings` с `isEnabled = true`).
+
+| KPI / тип | Параметры | Источники |
+|---|---|---|
+| Контекст + Traffic | CPC, бюджет, визиты | Яндекс Директ (расходы / клики) |
+| Контекст + Leads | CPL, бюджет, лиды | Директ (расходы); Callibri ЕЖЛ и/или Метрика (цели UTM; цели «Поисковые системы» — этап 3) |
+| SEO + Positions | % в топ 10, конверсии | Yandex Search API; схема в коде ещё пишет «цели Поисковые системы», в UI этот отчёт Метрики доступен только для Контекста |
+| SEO + Traffic | объём визитов, конверсии | Метрика (переходы «Поисковые системы»); цели в UI — только для Контекста |
+
+**Yandex Search API не влияет** на CPL, рекламный бюджет и лиды. Если для параметра нет подходящей интеграции — текст `Не настроено`. Длинные схемы обрезаются с `…`, полный текст в `title`.
+
+Пересчёт на форме сразу после `setIntegrationSettings` / `removeIntegration` / `setIntegrationEnabled` / OAuth Директа (без сохранения всей формы).
+
 ## Интеграция Яндекс.Директ (настройки клиенто-проекта)
 
 ### Переменные окружения (OAuth)
@@ -280,7 +296,7 @@ php artisan tinker --execute="echo config('services.yandex_direct.client_id') ? 
 
 ### Общая модалка интеграций (remount)
 
-Одна модалка [`integration-settings-modal`](resources/views/components/project-form/integration-settings-modal.blade.php) для Callibri, Яндекс.Директ, Yandex Search API и будущих интеграций (Метрика и др.).
+Одна модалка [`integration-settings-modal`](resources/views/components/project-form/integration-settings-modal.blade.php) для Callibri, Яндекс.Директ, Yandex Search API и Яндекс Метрики.
 
 | Механизм | Назначение |
 |----------|------------|
@@ -321,7 +337,7 @@ php artisan tinker --execute="echo config('services.yandex_direct.client_id') ? 
 
 После OAuth в settings сохраняется профиль **Passport-аккаунта** (кто нажал «Разрешить»), отдельно от `client_login` (рекламодатель в Директе):
 
-**OAuth scope в redirect** (`YandexDirectOAuthController::redirect`): `login:email`, `login:info`, `login:avatar`, `direct:api`. Право должно быть включено в консоли OAuth-приложения; в URL авторизации scope **обязательно** запрашивать явно — иначе токен не содержит нужных полей в `login.yandex.ru/info`. Для аватарки критичен `login:avatar` (`default_avatar_id`); для имени — `login:info` (`display_name`). После смены scope интеграции с уже выданным токеном нужен повторный OAuth.
+**OAuth scope в redirect** (`YandexDirectOAuthController::redirect`): `login:info`, `login:avatar`, `direct:api`. Право должно быть включено в консоли OAuth-приложения; в URL авторизации scope **обязательно** запрашивать явно — иначе токен не содержит нужных полей в `login.yandex.ru/info`. Почту и телефон не запрашиваем (`login:email` / `login:phone`) — иначе Яндекс отвечает `invalid_scope`. Для аватарки критичен `login:avatar` (`default_avatar_id`); для имени — `login:info` (`display_name`). После смены scope интеграции с уже выданным токеном нужен повторный OAuth.
 
 | Ключ | Назначение |
 |------|------------|
@@ -348,6 +364,388 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `sync_enabled_at` | дата включения синхронизации (`Y-m-d`) |
 
 Чтение поддерживает legacy camelCase (`clientLogin`, `encryptedOauthToken`).
+
+## Интеграция Яндекс Метрики (настройки клиенто-проекта, этап 1)
+
+Модалка в карточке «Аналитика». На этапе 1 сохраняются настройки и OAuth. Разбор фильтров в параметр API — этап 2 (ниже). Съём отчёта «Поисковые системы / цели» — этап 3.
+
+### Переменные окружения (OAuth)
+
+| Переменная | Назначение |
+|------------|------------|
+| `YANDEX_METRIKA_CLIENT_ID` | Client ID OAuth-приложения Яндекса (отдельное от Директа) |
+| `YANDEX_METRIKA_CLIENT_SECRET` | Client Secret |
+| `YANDEX_METRIKA_REDIRECT_URI` | Callback, должен совпадать с URI в консоли (напр. `https://test.casini.ru/yandex-metrika/callback`) |
+
+Токен Директа для Метрики не подходит: разные приложения и scope. Аккаунт Яндекса может быть тем же.
+
+Если `CLIENT_ID` / `CLIENT_SECRET` пусты, `prepareYandexMetrikaOAuth()` возвращает `error` без URL; popup показывает «не настроена на сервере».
+
+### OAuth popup
+
+Тот же контур, что у Директа, но отдельные ключи Cache / localStorage / BroadcastChannel:
+
+1. Ползунок «Синхронизация» → Livewire `prepareYandexMetrikaOAuth($popup)` → UUID `cache_data_id`, черновик в `integration_data_{uuid}`, URL `yandex-metrika.auth`.
+2. Alpine: popup или redirect (Cursor/Electron/iframe).
+3. Authorize URL: `force_confirm=yes`, scope `login:info login:avatar metrika:read`.
+4. Callback (`YandexMetrikaAuthController`) **не пишет в БД**. `popup=1`: Cache `yandex_metrika_oauth_result_{id}` + view popup-complete. `popup=0`: redirect на форму со `open_integration=yandex_metrika`. **`counter_id` не заполняется** — выбор вручную.
+5. Coordinator в layout `system-settings` (`x-scripts.yandex-metrika-oauth-coordinator`).
+6. После apply: список счётчиков `GET management/v1/counters`, событие `yandex-metrika-oauth-applied`.
+
+**UI счётчика:** `{id} ({домен})`. Поле disabled, пока нет OAuth-токена.
+
+### Settings (snake_case)
+
+| Ключ | Назначение | По умолчанию |
+|------|------------|--------------|
+| `oauth_token` / `refresh_token` / `token_expires_at` | OAuth | — |
+| `oauth_yandex_*` | профиль Яндекс ID | — |
+| `sync_enabled_at` | дата включения синхронизации | — |
+| `counter_id` / `counter_domain` | выбранный счётчик | — |
+| `counter_time_zone` | IANA-пояс счётчика (`time_zone_name` из Management API) | — |
+| `attribution_model` | значение из справочника `AttributionModel` (в API — `trim`) | `automatic` |
+| `data_mode` | `without_robots` / `with_robots` | `without_robots` |
+| `filters.entry_page` | текст фильтра страницы входа (`!` = исключение) | `null` |
+| `filters.last_search_phrase` | последняя значимая поисковая фраза | `null` |
+| `filters.geo` | география | `null` |
+| `reports.*` | какие отчёты подтягивать | все `false` |
+| `goals` | ID выбранных целей счётчика | `[]` |
+| `goals_metric` | `target_visits` (Целевые визиты) или `goal_reaches` (Достижения цели) | `target_visits` |
+| `search_engines_all` | режим «Все поисковые системы» для отчёта «Переходы» | `true` |
+| `search_engines` | root-ID выбранных ПС (`yandex`, `google`…) при `search_engines_all=false` | `[]` |
+| `search_queries_minus` | минус-фразы для отчёта «Поисковые запросы» (каждая с новой строки) | `''` |
+| `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчётов «Переходы» | `visits` |
+
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries` (`visits_geo` снят с UI интеграции). Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
+
+### Фильтры в запросах к API (этап 2)
+
+Текст из модалки собирает [`YandexMetrikaFiltersBuilder`](src/Domain/YandexMetrika/YandexMetrikaFiltersBuilder.php) в параметр `filters` Reporting API. Пустое поле (или фильтр не добавляли) в запрос не попадает. [`YandexMetrikaService::getVisitsReport()`](app/Services/YandexMetrikaService.php) и `getGoalAchievements()` подставляют эту строку автоматически.
+
+Правила как в тултипе модалки: каждое условие с новой строки; `!` в начале строки — отрицание (НЕ); утверждения внутри одного поля соединяются через **ИЛИ**; отрицания — через **И**; разные поля и «Без роботов» — через **И**.
+
+| Поле | Группировка API |
+|------|-----------------|
+| `filters.entry_page` | `ym:s:startURL` |
+| `filters.last_search_phrase` | `ym:s:<attribution>SearchPhrase` (под выбранную модель атрибуции) |
+| `filters.geo` | `ym:s:regionCityName` **или** `ym:s:regionCountryName` **или** `ym:s:regionAreaName` (чтобы сработали и город, и страна) |
+| `data_mode=without_robots` | `ym:s:isRobot=='No'` |
+| `data_mode=with_robots` | кусок про роботов не добавляется |
+
+Операторы: если в тексте есть `*` (как `!*promo*` / `!*кейс*`) — шаблон `=*` / `!*`; если звёздочек нет для страницы входа (как `catalog`) и географии — «содержит» `=@` / `!@`. **Исключения с точным сравнением (`==` / `!=`):** полный URL страницы входа (`http://…` / `https://…`); поисковая фраза без `*` — как сегмент «Поисковая фраза совпадает / не совпадает» в Метрике (иначе `!ммк метиз` через «не содержит» занижает итог).
+
+Пример страницы входа `catalog` + `store` + `!*promo*`:
+
+`(ym:s:startURL=@'catalog' OR ym:s:startURL=@'store') AND ym:s:startURL!*'*promo*'`
+
+### Часовой пояс в запросах к API
+
+Callibri отдаёт каждое обращение с временем в UTC — Касини переводит его в пояс агентства и решает, в какой день оно попало. Reporting API Метрики считает сразу по календарным дням (`date1` / `date2`). Если не передать `timezone`, Метрика берёт **пояс счётчика** (часто Москва), и сутки в Касини могут разъехаться с интерфейсом Метрики.
+
+Поэтому [`YandexMetrikaService`](app/Services/YandexMetrikaService.php) передаёт параметр `timezone` (`±hh:mm` из пояса агентства) **только если** смещение агентства отличается от пояса счётчика (`counter_time_zone`). Если пояса совпадают (например оба Екатеринбург `+05:00`) или пояс счётчика ещё не сохранён — параметр не шлём, API сам берёт пояс счётчика. Плюс в query кодируется как `%2B` (`PHP_QUERY_RFC3986`), иначе `+05:00` превратится в пробел.
+
+Чтобы цифры совпали с интерфейсом Метрики, пояс агентства должен совпадать с поясом счётчика — об этом напоминает синий блок в модалке (как у Callibri).
+
+## Интеграция Яндекс Метрики (этап 3.1: цели «Поисковые системы»)
+
+Первый отчёт этапа 3.
+
+### UI
+
+Если выбран `goals_search_engines` (и тип проекта — SEO-продвижение):
+
+Поля этапа 3 вставляются сразу после первого отчёта, остальные шесть отчётов идут ниже. Чекбоксы отчётов справа от названия.
+
+1. «Выберите цели, по которым хотите получать статистику» — чекбоксы `{название} (№{номер})` в рамке, видно 4 строки, остальные за скроллом. Список грузит Livewire `loadYandexMetrikaGoals()` (`GET management/v1/counter/{id}/goals`).
+2. «По какому параметру рассчитываем достижение целей?» — `target_visits` (Целевые визиты, по умолчанию) или `goal_reaches` (Достижения цели).
+3. Ссылка «Проверить работу интеграции» (без стрелки и без кнопки «Проверить») открывает поля: дата (`ДД.ММ.ГГ`) и disabled «Количество достижений цели». Запрос уходит при выборе даты. Livewire: `testYandexMetrikaGoalsSearchEnginesIntegration()`.
+
+Сохранить без выбранных целей нельзя (`canSave` + серверная проверка в `setIntegrationSettings`).
+
+### API
+
+[`YandexMetrikaService::fetchSearchEnginesGoalsStats()`](app/Services/YandexMetrikaService.php) запрашивает Reporting API `stat/v1/data` как отчёт [«Поисковые системы»](https://yandex.ru/support/metrica/ru/sources/search-engines.html) / preset `search_engines`:
+
+- группировка: `ym:s:<attribution>SearchEngineRoot` (один месяц) или `ym:s:<attribution>SearchEngineRoot,ym:s:month` (несколько месяцев);
+- фильтр источника: `ym:s:<attribution>TrafficSource=='organic'`;
+- метрики: `ym:s:goal{ID}visits` или `ym:s:goal{ID}reaches` по выбранным целям;
+- фильтры этапа 2, timezone и `attribution` — как обычно.
+
+Названия ПС нормализуются в `yandex` / `google` / `other` ([`YandexMetrikaSearchEngine`](app/Support/YandexMetrikaSearchEngine.php)). Проверка за день суммирует все строки.
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-search-engines-goals`:
+
+- проекты с включённой Метрикой, `reports.goals_search_engines`, токеном, счётчиком, целями и `sync_enabled_at`;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
+- запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits`.
+
+Ошибка по одному проекту не останавливает остальные.
+
+## Интеграция Яндекс Метрики (этап 3.2: цели «UTM-метки»)
+
+Второй отчёт этапа 3. UI, API и ночной съём — по шаблону этапа 3.1.
+
+### Дополнительные ключи settings
+
+| Ключ | Значения | По умолчанию |
+|------|----------|--------------|
+| `utm_filter_mode` | `source` / `medium` / `campaign` | `source` |
+| `utm_source` | строка (значения через запятую) | `''` |
+| `utm_medium` | строка | `''` |
+| `utm_campaign` | строка | `''` |
+
+`goals` и `goals_metric` общие для всех четырёх источников целей (exclusive-логика в Alpine — одновременно включён только один).
+
+### UI
+
+При включённом `goals_utm` блок обёрнут рамкой (`border-primary/30`) с полями:
+
+1. «Выберите цели…» — общий список с `goals_search_engines`.
+2. «По какому параметру…» — `target_visits` / `goal_reaches`.
+3. «С каких UTM-меток…» — выпадающий список: `source` (default), `medium`, `campaign`.
+4. Условное текстовое поле «Какие цели забираем с меткой UTM_*?» с тултипом.
+5. «Проверить работу интеграции» — по шаблону Callibri. Livewire: `testYandexMetrikaGoalsUtmIntegration()`.
+
+Сохранить без целей нельзя (`canSave` + серверная валидация).
+
+### API
+
+[`YandexMetrikaService::fetchUtmGoalsStats()`](app/Services/YandexMetrikaService.php):
+
+- как отчёт [«Метки UTM»](https://yandex.ru/support/metrica/ru/reports/tags-utm.html) / preset `tags_u_t_m`;
+- группировка: `ym:s:<attribution>UTM{Source|Medium|Campaign},ym:s:date` (под выбранную атрибуцию);
+- фильтр UTM строит [`YandexMetrikaUtmFilterBuilder`](src/Domain/YandexMetrika/YandexMetrikaUtmFilterBuilder.php): пустое поле → «не пусто» на том же attribution-измерении, значения через запятую → OR с `=@` / `=*`;
+- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches`;
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-utm-goals`:
+
+- условия: `is_enabled`, `reports.goals_utm`, токен, счётчик, цели, `sync_enabled_at`;
+- стратегия: удаляет старые строки за период и вставляет свежие в `yandex_metrika_goal_utms`.
+
+## Интеграция Яндекс Метрики (этап 3.3: цели «Конверсии»)
+
+Третий отчёт этапа 3. UI, API и ночной съём — по шаблону этапа 3.1.
+
+### Ключи settings
+
+Новых ключей нет. Используются общие `goals` и `goals_metric`.
+
+`goals_conversions` **без** ограничения по типу проекта (в отличие от `goals_search_engines`).
+
+### UI
+
+При включённом `goals_conversions` блок обёрнут рамкой (`border-primary/30`) с полями:
+
+1. «Выберите цели…» — общий список с `goals_search_engines` и `goals_utm`.
+2. «По какому параметру…» — `target_visits` / `goal_reaches`.
+3. «Проверить работу интеграции» — по шаблону Callibri. Livewire: `testYandexMetrikaGoalsConversionsIntegration()`.
+
+Сохранить без целей нельзя (`canSave` + серверная валидация).
+
+### API
+
+[`YandexMetrikaService::fetchConversionsGoalsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев) — как preset `conversion` ([отчёт «Конверсии»](https://yandex.ru/support/metrica/ru/reports/conversion.html));
+- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям («Целевые визиты» / «Достижения цели»);
+- атрибуция на итог цели не влияет (проверено: automatic/lastsign/last/first дают одно число);
+- в ответе оставляем только строки с `dimensions[0].id` из выбранных целей;
+- имя цели из `dimensions[0].name`;
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-conversions-goals`:
+
+- условия: `is_enabled`, `reports.goals_conversions`, токен, счётчик, цели, `sync_enabled_at`;
+- стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_conversions`.
+
+## Интеграция Яндекс Метрики (этап 3.4: цели «Директ, сводка»)
+
+Четвёртый отчёт этапа 3. UI, API и ночной съём — по шаблону этапа 3.3 (Конверсии).
+
+### Ограничение по типу проекта
+
+`goals_direct_summary` доступен только для типа «Контекстная реклама» (`context_ad`). Реализовано через `$contextOnlyGoalReportKeys` — зеркало `$seoOnlyGoalReportKeys` для SEO.
+
+### Ключи settings
+
+Новых ключей нет. Используются общие `goals` и `goals_metric`.
+
+### UI
+
+При включённом `goals_direct_summary` блок обёрнут рамкой (`border-primary/30`) с полями:
+
+1. «Выберите цели…» — общий список.
+2. «По какому параметру…» — `target_visits` / `goal_reaches`.
+3. «Проверить работу интеграции» — по шаблону Callibri. Livewire: `testYandexMetrikaGoalsDirectSummaryIntegration()`.
+
+Сохранить без целей нельзя (`canSave` + серверная валидация `$needsGoals`).
+
+### API
+
+[`YandexMetrikaService::fetchDirectSummaryGoalsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев);
+- метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям;
+- сегмент как у отчёта [«Директ, сводка»](https://yandex.ru/support/metrica/ru/sources/direct-summary.html) / preset `sources_direct_summary`: фильтр `ym:s:<attribution>DirectClickOrder!n` (учтенный клик Директа / yclid), не `AdvEngine`;
+- в ответе оставляем только строки с `dimensions[0].id` из выбранных целей (API в разрезе `ym:s:goal` может отдать чужие цели);
+- имя цели из `dimensions[0].name`;
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-direct-summary-goals`:
+
+- условия: `is_enabled`, `reports.goals_direct_summary`, токен, счётчик, цели, `sync_enabled_at`;
+- стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary`.
+
+## Интеграция Яндекс Метрики (этап 3.5: переходы «Поисковые системы»)
+
+Пятый отчёт этапа 3. Не цели, а переходы (визиты/посетители).
+
+### Ограничение по типу проекта
+
+`visits_search_engines` доступен только для `seo_promotion` (уже через `$seoOnlyVisitReportKeys`).
+
+### Ключи settings
+
+| Ключ | Значения | По умолчанию |
+|------|----------|--------------|
+| `search_engines_all` | `true` = все ПС (включая будущие); `false` = только `search_engines` | `true` |
+| `search_engines` | массив root-ID (`yandex`, `google`, …) | `[]` |
+| `visits_metric` | `visits` (Визиты) / `users` (Посетители) | `visits` |
+
+При `search_engines_all=true` массив `search_engines` при сохранении очищается. Legacy-ключ `search_engines_display` (textarea) при чтении мигрируется в ID через [`SearchEnginesDisplayList::migrateDisplayTextToIds()`](src/Domain/YandexMetrika/SearchEnginesDisplayList.php); при новом сохранении не пишется.
+
+### UI
+
+При включённом `visits_search_engines` блок обёрнут рамкой с полями:
+
+1. «Выберите поисковые системы для отчётов» — чекбоксы из API (`loadYandexMetrikaSearchEngines` → `listSearchEngineRootOptions`). Первый пункт — **«Все поисковые системы»** (по умолчанию выбран). Снятие одной ПС при активном «Все» переводит в явный список; если отмечены все видимые — снова включается «Все».
+2. «По какому параметру рассчитываем переходы?» — `visits` / `users`.
+3. «Проверить работу интеграции» — по шаблону Callibri. Результат: `Количество переходов из отчета Поисковые системы: N`. Livewire: `testYandexMetrikaVisitsSearchEnginesIntegration()`.
+
+Цели для этого отчёта не требуются.
+
+### API
+
+[`YandexMetrikaService::fetchSearchEnginesVisitsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:<attribution>SearchEngineRoot` или `ym:s:<attribution>SearchEngineRoot,ym:s:month` (при «Автоматической» → `automaticSearchEngineRoot`);
+- метрики: `ym:s:visits` / `ym:s:users`;
+- при `search_engines_all=false` — доп. фильтр `ym:s:<attribution>SearchEngineRoot=@'…'` (через [`SearchEnginesDisplayList::buildSearchEngineRootFilter()`](src/Domain/YandexMetrika/SearchEnginesDisplayList.php));
+- в БД пишется root-ID (`dimensions[0].id`), label из `name` — для отчётов;
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+Список опций для UI: `listSearchEngineRootOptions()` за последние 30 дней, `dimensions=ym:s:<attribution>SearchEngineRoot`, organic + without_robots.
+
+### БД
+
+Колонка `yandex_metrika_search_engines_stats.search_engine` — `VARCHAR(255)`. Goals-синк по-прежнему пишет в `conversions` с ключами `yandex`/`google`/`other`. Visits-синк пишет в `visits` через `upsertSearchEnginesVisits` с root-ID (не затирает `conversions`).
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-search-engines-visits`:
+
+- условия: `is_enabled`, `reports.visits_search_engines`, токен, счётчик, `sync_enabled_at`;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
+- upsert `visits` по `(project_id, search_engine, month)`.
+
+## Интеграция Яндекс Метрики (этап 3.6: переходы «Поисковые запросы»)
+
+Шестой отчёт этапа 3. Переходы по поисковым фразам с исключением минус-слов.
+
+### Ограничение по типу проекта
+
+`visits_search_queries` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
+
+Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`; `visits_geo` снят с UI) можно включать одновременно (условие «И» с фильтрами этапа 2).
+
+### Ключи settings
+
+| Ключ | Значения | По умолчанию |
+|------|----------|--------------|
+| `search_queries_minus` | многострочный текст (каждая минус-фраза на своей строке) | `''` |
+| `visits_metric` | `visits` / `users` (общий с отчётом «Поисковые системы») | `visits` |
+
+### UI
+
+При включённом `visits_search_queries` блок обёрнут рамкой:
+
+1. «Минус-фразы» — textarea + тултип про брендовые запросы; placeholder «Вакансии» / «Реквизиты».
+2. «По какому параметру рассчитываем переходы?» — тот же `visits_metric`.
+3. «Проверить работу интеграции» — результат: `Количество переходов из отчета Поисковые запросы: N`. Livewire: `testYandexMetrikaVisitsSearchQueriesIntegration()`.
+
+### API
+
+[`YandexMetrikaService::fetchSearchQueriesVisitsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:<attribution>SearchPhrase` (+ `ym:s:month` на несколько месяцев) — как официальный preset `sources_search_phrases` (при «Автоматической» → `ym:s:automaticSearchPhrase`);
+- метрики: `ym:s:visits` / `ym:s:users`;
+- минус-фразы → AND-фильтр `ym:s:<attribution>SearchPhrase!@'…'` ([`SearchQueriesMinusList`](src/Domain/YandexMetrika/SearchQueriesMinusList.php), исключение по вхождению);
+- фильтры этапа 2, timezone, attribution — как обычно.
+
+### БД
+
+Таблица `yandex_metrika_visits_search_queries` (`phrase`, `visits`, `visitors`, `goal_reaches`). Upsert через `upsertSearchQueriesVisits` обновляет только выбранную метрику, не затирая вторую и `goal_reaches`.
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync-search-queries-visits`:
+
+- условия: `is_enabled`, `reports.visits_search_queries`, токен, счётчик, `sync_enabled_at`;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
+- upsert по `(project_id, month, phrase)`.
+
+## Интеграция Яндекс Метрики (этап 3.7: переходы «География»)
+
+Отчёт `visits_geo` **снят с UI** интеграции: Reporting API Метрики не отдаёт стабильные данные по `ym:s:regionCity` в режиме «без роботов» (пустой ответ при `ym:s:isRobot=='No'`), сверка с интерфейсом Метрики получается неоднозначной.
+
+Ключ `reports.visits_geo` при сохранении принудительно `false`. Кода съёма «Географии» нет: ни команды, ни отчёта в collector `yandex_metrika`. Таблица `yandex_metrika_visits_geo`, чтение `getVisitsGeoStats` и переменная отчёта `ym.table.visits_geo` остаются для исторических данных и шаблонов. Если отчёт вернут в UI, съём добавляется отчётом в `YandexMetrikaReportsSync::REPORTS`, без отдельной команды и расписания.
+
+## UI-шаблон: проверка работы интеграции
+
+Эталон: блок «Проверить работу интеграции» в [`callibri-integration-modal-body`](resources/views/components/project-form/callibri-integration-modal-body.blade.php). Копировать в другие модалки интеграций, не изобретать заново.
+
+### Где стоит блок
+
+- **Внутри** `x-panel.scroll-panel` и формы, после основных полей. Не между скроллом и подвалом — иначе ссылка «прилипает» к «Сохранить» / «Отменить».
+- При открытии модалки блок **свёрнут** (`testPanelOpen: false`). Видны только ссылка и стрелка вниз.
+
+### Ссылка-аккордеон
+
+- Кнопка `variant="action"` + `wrap` (как «Добавить фильтр…» в Метрике). Не `variant="link"` и не `class="underline"` на всей кнопке: иначе остаются `h-10 px-3.5 inline-flex`, подчёркивание шире текста.
+- Стрелка — та же, что у «Вернуться к отчетам»: `<x-icons.arrow-left />`. Иконка смотрит влево, направление задаём поворотом обёртки:
+  - свёрнуто: `rotate-270` (вниз);
+  - раскрыто: `rotate-90` (вверх);
+  - анимация: `transition-transform duration-300`.
+- Классы поворота брать **уже используемые** в проекте (`rotate-90`, `rotate-270`). `-rotate-90` может отсутствовать в собранном CSS на staging — стрелка останется влево.
+- Клик по строке «текст + стрелка» (обёртка), не по двум обработчикам сразу.
+- После раскрытия прокрутить панель в видимую область: `scrollIntoView({ behavior: 'smooth', block: 'end' })` на `x-ref` блока. Скролл идёт внутри `.scrollpanel-content`, не у окна. Вызывать в `$nextTick` + `requestAnimationFrame`, чтобы `x-show` успел показать DOM.
+
+### Дата и кнопка «Проверить»
+
+- Колонка `w-[305px] flex-col gap-3`, как остальные поля модалки.
+- Дата на всю ширину. Placeholder: «Выберите дату».
+- Кнопка **под** полем, `class="w-full"`, вариант по умолчанию (второстепенная, как «Удалить» у фильтра Метрики), `icon="icons.refresh"`.
+- Disabled, пока дата пустая **или** идёт запрос: `x-bind:disabled="!testDate || testLoading"`.
+- Тултип «Выберите дату» только без даты. Disabled-кнопка не ловит hover — обёртка с `mouseenter`/`mouseleave` + `x-teleport` + `x-anchor` (как `x-permissions.field-guard`).
+
+### PNG-иконка в кнопке
+
+Файл: `public/images/icons/refresh.png`. Компонент [`icons.refresh`](resources/views/components/icons/refresh.blade.php) — не `<img>`: при hover кнопки текст белый, чёрный PNG останется чёрным. Цвет через `background-color: currentColor` и CSS `mask-image` по PNG.
+
+У SVG-иконок в кнопке (`<x-dynamic-component :component="$icon" />`) на корне нужен `{{ $attributes }}`, иначе `iconClasses` не применяются.
+
+### Чего не делать в blade модалок
+
+Не ставить `@if` внутрь атрибутов `<x-form.checkbox>` / других Blade-компонентов — компилятор даёт `ParseError: unexpected token ":"`. Условия disabled/тултипа — в Alpine (`x-bind:disabled`, `x-show`).
 
 ## Каналы: остаток бюджета и расход в Директе
 
@@ -432,10 +830,13 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `yandex_direct_daily_spend` | `yandex_direct` | `yandex_direct_daily_spendings` | Каналы: расход; Статистика: «Рекламный бюджет» |
 | `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
 | `yandex_search_api_daily_positions` | `yandex_search_api` | `serp_positions` + `yandex_search_api_daily_top_percents` | Статистика: «% позиций в ТОП» (SEO + POSITIONS) |
+| `bitrix24_labor` | `bitrix24` | `bitrix24_daily_labor` | Каналы: часы ролей (SEO-специалист, помощник, аналитик, ОРК) |
+| `yandex_metrika` | `yandex_metrika` | `yandex_metrika_*` (суммы за месяц) | Отчёты, переменные `ym.*`. Все включённые отчёты проекта за один item. Ночью: месяц вчерашней даты с 1-го числа по вчера (`YandexMetrikaSyncPeriod::nightly`), прошлые месяцы не перекачиваются; ручное обновление и backfill: все месяцы периода, не раньше месяца `sync_enabled_at` |
+| `google_sheets` | `google_sheets` | `google_sheets_monthly_spendings` | Каналы: «Программинг», «Копирайтер». Ночью только открытый месяц по поясу агентства (в ночь на 1-е это уже новый месяц), закрытые не трогаем; ручное обновление и backfill: месяц конца периода, в том числе закрытый |
 
 **Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни — пересчёт агрегата из уже сохранённых `serp_positions`. Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`.
 
-Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Метрика / 1С / Sheets — отдельные задачи.
+Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Отдельные `Schedule::command` для интеграций не заводим: ночью всё идёт через `integrations:dispatch-due-syncs`. Команды `metrika:sync-*` и `google-sheets:sync-spendings` остались только для ручного запуска.
 
 Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание в `bootstrap/app.php` → `withSchedule()`.
 

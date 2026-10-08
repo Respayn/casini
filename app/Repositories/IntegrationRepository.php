@@ -7,6 +7,7 @@ use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
 use App\Repositories\Interfaces\IntegrationRepositoryInterface;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class IntegrationRepository extends EloquentRepository implements IntegrationRepositoryInterface
@@ -112,6 +113,29 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             $projectIntegrationData->isEnabled = $item->is_enabled;
             return [$item->project_id => $projectIntegrationData];
         });
+    }
+
+    /**
+     * @return \Illuminate\Database\Eloquent\Collection<int, IntegrationProject>
+     */
+    public function getEnabledProjectIntegrationsByCode(string $code): Collection
+    {
+        return $this->enabledProjectIntegrationsQuery($code)->get();
+    }
+
+    public function findEnabledProjectIntegration(int $projectId, string $code): ?IntegrationProject
+    {
+        return $this->enabledProjectIntegrationsQuery($code)
+            ->where('project_id', $projectId)
+            ->first();
+    }
+
+    private function enabledProjectIntegrationsQuery(string $code): Builder
+    {
+        return IntegrationProject::query()
+            ->with(['integration', 'project.specialist.agencies'])
+            ->where('is_enabled', true)
+            ->whereHas('integration', fn (Builder $query) => $query->where('code', $code));
     }
 
     /**

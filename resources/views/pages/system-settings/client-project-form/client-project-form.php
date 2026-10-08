@@ -2,6 +2,7 @@
 
 use App\Data\BonusData;
 use App\Data\Integrations\IntegrationData;
+use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Data\IntervalData;
 use App\Data\ProjectData;
 use App\Data\ProjectForm\ProjectIntegrationData;
@@ -11,6 +12,8 @@ use App\Enums\IntegrationCategory;
 use App\Exceptions\CallibriApiException;
 use App\Factories\IntegrationSettingsFactory;
 use App\Helpers\PhraseDuplicateHelper;
+use App\Livewire\Concerns\WithGoogleSheetsOAuth;
+use App\Livewire\Concerns\WithYandexMetrikaOAuth;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
@@ -18,13 +21,17 @@ use App\Models\Agency;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
+use App\Services\ClientProject\MonthPeriodNormalizer;
+use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
+use App\Services\GoogleSheetsService;
 use App\Services\IntegrationService;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
 use App\Services\UserService;
 use App\Services\YandexDirectService;
+use App\Services\YandexMetrikaService;
 use App\Services\YandexSearchApiPhraseParser;
 use App\Support\Bitrix24ProjectSettingsValidator;
 use App\Support\ClientsAndProjectsPermissions;
@@ -54,6 +61,8 @@ new
 class extends Component
 {
     use WithFileUploads;
+    use WithGoogleSheetsOAuth;
+    use WithYandexMetrikaOAuth;
 
     public CreateClientProjectForm $clientProjectForm;
 
@@ -98,6 +107,13 @@ class extends Component
 
     /** Показать баннер «Изменения сохранены» после редиректа с успешного save */
     public bool $startWithSuccessMessage = false;
+
+    /**
+     * Схемы расчёта параметров (пересобираются при смене интеграций / KPI / типа).
+     *
+     * @var list<array{code: string, label: string, scheme: string}>
+     */
+    public array $parameterCalculationRows = [];
 
     public function boot(
         ClientService $clientService,
@@ -156,25 +172,44 @@ class extends Component
     {
         return $this->canEditClientsAndProjects
             && $this->statisticsRebuildFrom !== null
-            && $this->statisticsRebuildTo !== null;
+            && $this->statisticsRebuildTo !== null
+            && $this->statisticsRebuildFrom->lte($this->statisticsRebuildTo);
+    }
+
+    public function statisticsRebuildFromMax(): string
+    {
+        return MonthPeriodNormalizer::fromMax($this->statisticsRebuildTo);
+    }
+
+    public function statisticsRebuildToMin(): ?string
+    {
+        return MonthPeriodNormalizer::toMin($this->statisticsRebuildFrom);
     }
 
     public function updatedStatisticsRebuildFrom(mixed $value): void
     {
-        if ($this->statisticsRebuildFrom === null) {
-            return;
-        }
-
-        $this->statisticsRebuildFrom = $this->statisticsRebuildFrom->startOfMonth();
+        $this->statisticsRebuildFrom = MonthPeriodNormalizer::clampMonth(
+            $this->statisticsRebuildFrom,
+            false
+        );
+        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = MonthPeriodNormalizer::alignRange(
+            $this->statisticsRebuildFrom,
+            $this->statisticsRebuildTo,
+            'from'
+        );
     }
 
     public function updatedStatisticsRebuildTo(mixed $value): void
     {
-        if ($this->statisticsRebuildTo === null) {
-            return;
-        }
-
-        $this->statisticsRebuildTo = $this->statisticsRebuildTo->endOfMonth()->startOfDay();
+        $this->statisticsRebuildTo = MonthPeriodNormalizer::clampMonth(
+            $this->statisticsRebuildTo,
+            true
+        );
+        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = MonthPeriodNormalizer::alignRange(
+            $this->statisticsRebuildFrom,
+            $this->statisticsRebuildTo,
+            'to'
+        );
     }
 
     public function updatedClientProjectFormIsActive(mixed $value): void
@@ -188,12 +223,12 @@ class extends Component
         }
     }
 
-    private function ensureCanEdit(): void
+    protected function ensureCanEdit(): void
     {
         ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
     }
 
-    private function markPendingChanges(): void
+    protected function markPendingChanges(): void
     {
         if (! $this->canEditClientsAndProjects) {
             return;
@@ -256,7 +291,7 @@ class extends Component
             $this->clientProjectForm->isActive = true;
         }
 
-        if ($request->input('state')) {
+        if ($request->input('state') && ClientsAndProjectsPermissions::userCanEdit(Auth::user())) {
             $state = json_decode(Crypt::decryptString(base64_decode($request->input('state'))), true);
             $cachedData = Cache::pull('integration_data_'.$state['cache_data_id']);
 
@@ -264,7 +299,18 @@ class extends Component
                 $this->restoreFromOAuthCache($cachedData);
             }
 
-            foreach ($state['integrations'] as $setting) {
+            if (
+                ! empty($state['cache_data_id'])
+                && ($state['open_integration'] ?? '') === 'google_sheets'
+            ) {
+                $oauthSettings = Cache::pull('google_sheets_oauth_result_'.$state['cache_data_id']);
+
+                if (is_array($oauthSettings) && $oauthSettings !== []) {
+                    $this->applyGoogleSheetsOAuthTokens($oauthSettings);
+                }
+            }
+
+            foreach ($state['integrations'] ?? [] as $setting) {
                 $integrationData = new ProjectIntegrationData;
                 $integrationData->integration = IntegrationData::from($setting['integration']);
                 $integrationData->settings = $setting['settings'];
@@ -293,6 +339,30 @@ class extends Component
 
         if (session()->pull('client_project_saved')) {
             $this->startWithSuccessMessage = true;
+        }
+
+        $this->rebuildParameterCalculationRows();
+    }
+
+    public function updatedClientProjectFormProjectType(mixed $value): void
+    {
+        $this->rebuildParameterCalculationRows();
+    }
+
+    public function updatedClientProjectFormKpi(mixed $value): void
+    {
+        $this->rebuildParameterCalculationRows();
+    }
+
+    public function updatedIntegrationSettings(mixed $value = null, ?string $key = null): void
+    {
+        // Тогл на карточке: wire:model="integrationSettings.{id}.isEnabled"
+        if ($key === null || str_ends_with($key, 'isEnabled') || str_ends_with($key, '.isEnabled')) {
+            $this->rebuildParameterCalculationRows();
+        }
+
+        if ($key !== null && (str_ends_with($key, 'isEnabled') || str_ends_with($key, '.isEnabled'))) {
+            $this->markPendingChanges();
         }
     }
 
@@ -355,6 +425,50 @@ class extends Component
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
 
         return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function enabledIntegrationCodesForKey(): array
+    {
+        return $this->enabledIntegrationCodes();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function enabledIntegrationCodes(): array
+    {
+        return $this->integrationSettings
+            ->filter(fn ($setting) => (bool) ($setting->isEnabled ?? false))
+            ->map(fn ($setting) => (string) ($setting->integration->code ?? ''))
+            ->filter(fn (string $code) => $code !== '')
+            ->values()
+            ->all();
+    }
+
+    private function rebuildParameterCalculationRows(): void
+    {
+        $projectType = ProjectType::tryFrom((string) $this->clientProjectForm->projectType);
+        $kpi = Kpi::tryFrom((string) $this->clientProjectForm->kpi);
+
+        if ($projectType === null || $kpi === null) {
+            $this->parameterCalculationRows = [];
+
+            return;
+        }
+
+        $this->parameterCalculationRows = app(ParameterCalculationSchemeBuilder::class)->build(
+            $projectType,
+            $kpi,
+            $this->enabledIntegrationCodes()
+        );
+    }
+
+    protected function refreshParameterCalculationRows(): void
+    {
+        $this->rebuildParameterCalculationRows();
     }
 
     #[Computed]
@@ -464,6 +578,8 @@ class extends Component
         return match ($code) {
             'yandex_search_api' => $this->isYandexSearchApiConfigured,
             'yandex_direct' => $this->isYandexDirectOAuthConfigured,
+            'yandex_metrika' => $this->isYandexMetrikaOAuthConfigured,
+            'google_sheets' => $this->isGoogleSheetsOAuthConfigured,
             'bitrix24' => $this->isBitrix24AgencyConfigured,
             default => true,
         };
@@ -517,6 +633,17 @@ class extends Component
         $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
         $projectIntegrationData->settings = $settingsCollection->toArray();
 
+        if ($integration?->code === 'google_sheets') {
+            $documentId = (string) ($projectIntegrationData->settings['document_id'] ?? '');
+            $projectIntegrationData->settings['document_id'] = GoogleSheetsService::extractSpreadsheetId($documentId);
+
+            if (($projectIntegrationData->isEnabled ?? false) && $documentId === '') {
+                throw ValidationException::withMessages([
+                    'document_id' => 'Укажите ID Google таблицы.',
+                ]);
+            }
+        }
+
         if ($integration?->code === 'yandex_search_api' && ($projectIntegrationData->isEnabled ?? false)) {
             $regions = $projectIntegrationData->settings['regions'] ?? [];
 
@@ -525,6 +652,67 @@ class extends Component
                     'regions' => 'Проверьте регионы и фразы: нужны код региона, непустые фразы без дубликатов.',
                 ]);
             }
+        }
+
+        if ($integration?->code === 'yandex_metrika') {
+            $reports = is_array($projectIntegrationData->settings['reports'] ?? null)
+                ? $projectIntegrationData->settings['reports']
+                : [];
+
+            $needsGoals = ($reports['goals_search_engines'] ?? false) || ($reports['goals_utm'] ?? false) || ($reports['goals_conversions'] ?? false) || ($reports['goals_direct_summary'] ?? false);
+
+            if ($needsGoals) {
+                $goals = YandexMetrikaIntegrationSettingsData::normalizeGoalIds(
+                    $projectIntegrationData->settings['goals'] ?? []
+                );
+
+                if ($goals === []) {
+                    throw ValidationException::withMessages([
+                        'goals' => 'Выберите хотя бы одну цель',
+                    ]);
+                }
+
+                $projectIntegrationData->settings['goals'] = $goals;
+                $projectIntegrationData->settings['goals_metric'] = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric(
+                    $projectIntegrationData->settings['goals_metric'] ?? null
+                );
+            }
+
+            if ($reports['goals_utm'] ?? false) {
+                $projectIntegrationData->settings['utm_filter_mode'] = YandexMetrikaIntegrationSettingsData::normalizeUtmFilterMode(
+                    $projectIntegrationData->settings['utm_filter_mode'] ?? null
+                );
+                $projectIntegrationData->settings['utm_source'] = trim((string) ($projectIntegrationData->settings['utm_source'] ?? ''));
+                $projectIntegrationData->settings['utm_medium'] = trim((string) ($projectIntegrationData->settings['utm_medium'] ?? ''));
+                $projectIntegrationData->settings['utm_campaign'] = trim((string) ($projectIntegrationData->settings['utm_campaign'] ?? ''));
+            }
+
+            if ($reports['visits_search_engines'] ?? false) {
+                $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
+                    $projectIntegrationData->settings['visits_metric'] ?? null
+                );
+                $searchEnginesAll = (bool) ($projectIntegrationData->settings['search_engines_all'] ?? true);
+                $projectIntegrationData->settings['search_engines_all'] = $searchEnginesAll;
+                $projectIntegrationData->settings['search_engines'] = $searchEnginesAll
+                    ? []
+                    : YandexMetrikaIntegrationSettingsData::normalizeSearchEngineIds(
+                        $projectIntegrationData->settings['search_engines'] ?? []
+                    );
+                unset($projectIntegrationData->settings['search_engines_display']);
+            }
+
+            if ($reports['visits_search_queries'] ?? false) {
+                $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
+                    $projectIntegrationData->settings['visits_metric'] ?? null
+                );
+                $projectIntegrationData->settings['search_queries_minus'] = (string) (
+                    $projectIntegrationData->settings['search_queries_minus'] ?? ''
+                );
+            }
+
+            // Отчёт «География» снят с UI: API Метрики не даёт стабильной сверки по городам без роботов.
+            $reports['visits_geo'] = false;
+            $projectIntegrationData->settings['reports'] = $reports;
         }
 
         if ($integration?->code === 'bitrix24') {
@@ -546,6 +734,12 @@ class extends Component
         }
 
         $this->integrationSettings[$integrationId] = $projectIntegrationData;
+        // Пересоздаём коллекцию, чтобы Livewire точно увидел изменение для UI схем.
+        $this->integrationSettings = $this->integrationSettings->mapWithKeys(
+            fn ($setting, $id) => [(int) $id => $setting]
+        );
+        unset($this->configuredMoneyIntegrations, $this->configuredAnalyticsIntegrations, $this->configuredToolsIntegrations);
+        $this->refreshParameterCalculationRows();
         $this->markPendingChanges();
     }
 
@@ -617,6 +811,266 @@ class extends Component
             return ['error' => 'Ошибка API Callibri. Проверьте настройки интеграции.'];
         } catch (Throwable $e) {
             return ['error' => 'Не удалось проверить интеграцию.'];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaGoalsSearchEnginesIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_search_engines'] ?? false)) {
+            return ['error' => 'Включите отчёт «Достижение целей из отчета Поисковые системы»'];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []) === []) {
+            return ['error' => 'Выберите хотя бы одну цель'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countSearchEnginesGoalsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaVisitsSearchEnginesIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['visits_search_engines'] ?? false)) {
+            return ['error' => 'Включите отчёт «Переходы из отчета Поисковые системы»'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countSearchEnginesVisitsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaVisitsSearchQueriesIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['visits_search_queries'] ?? false)) {
+            return ['error' => 'Включите отчёт «Переходы из отчета Поисковые запросы»'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countSearchQueriesVisitsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaGoalsUtmIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_utm'] ?? false)) {
+            return ['error' => 'Включите отчёт «Достижение целей из отчета UTM-метки»'];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []) === []) {
+            return ['error' => 'Выберите хотя бы одну цель'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countUtmGoalsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    public function testYandexMetrikaGoalsConversionsIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_conversions'] ?? false)) {
+            return ['error' => 'Включите отчёт «Достижение целей из отчета Конверсии»'];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []) === []) {
+            return ['error' => 'Выберите хотя бы одну цель'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countConversionsGoalsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    public function testYandexMetrikaGoalsDirectSummaryIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_direct_summary'] ?? false)) {
+            return ['error' => 'Включите отчёт «Достижение целей из отчета Директ, сводка»'];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []) === []) {
+            return ['error' => 'Выберите хотя бы одну цель'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countDirectSummaryGoalsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
         }
     }
 
@@ -782,6 +1236,7 @@ class extends Component
             $projectIntegrationData->isEnabled = true;
             $projectIntegrationData->settings = $mergedSettings;
             $this->integrationSettings[$integrationId] = $projectIntegrationData;
+            $this->refreshParameterCalculationRows();
 
             $this->integrationModalBodyRevision++;
             $this->markPendingChanges();
@@ -855,6 +1310,7 @@ class extends Component
                 $projectIntegrationData->isEnabled = $this->selectedIntegration->isEnabled ?? false;
                 $projectIntegrationData->settings = $mergedSettings;
                 $this->integrationSettings[$integrationId] = $projectIntegrationData;
+                $this->refreshParameterCalculationRows();
             }
         }
 
@@ -919,7 +1375,7 @@ class extends Component
         }
     }
 
-    private function buildOAuthCachePayload(): array
+    protected function buildOAuthCachePayload(): array
     {
         return [
             'integrationSettings' => $this->integrationSettings
@@ -991,7 +1447,7 @@ class extends Component
         return ['phrases' => $phrases];
     }
 
-    private function ensureSelectedIntegration(string $code): void
+    protected function ensureSelectedIntegration(string $code): void
     {
         if ($this->selectedIntegration?->integration?->code === $code) {
             return;
@@ -1017,6 +1473,11 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->integrationSettings->forget($integrationId);
+        $this->integrationSettings = $this->integrationSettings->mapWithKeys(
+            fn ($setting, $id) => [(int) $id => $setting]
+        );
+        unset($this->configuredMoneyIntegrations, $this->configuredAnalyticsIntegrations, $this->configuredToolsIntegrations);
+        $this->refreshParameterCalculationRows();
         $this->markPendingChanges();
     }
 
@@ -1025,6 +1486,7 @@ class extends Component
         $this->ensureCanEdit();
 
         $this->integrationSettings[$integrationId]->isEnabled = $isEnabled;
+        $this->refreshParameterCalculationRows();
         $this->markPendingChanges();
     }
 

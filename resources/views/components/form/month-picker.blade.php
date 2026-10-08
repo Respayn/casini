@@ -1,13 +1,31 @@
 @props([
     'borderColor' => '#C4D0E0',
+    'placeholder' => 'Выберите месяц',
+    'min' => null,
+    'max' => null,
     'disableFuture' => false,
 ])
 
+@php
+    if ($disableFuture) {
+        $max ??= now()->toDateString();
+    }
+@endphp
+
 {{-- TODO: объединить этот компонент с компонентом date-picker. Сделать по аналогии с компонентом из библиотеки PrimeVue
 --}}
+<div class="monthpicker-wrap">
+    <span
+        class="monthpicker-bounds"
+        hidden
+        data-min="{{ $min }}"
+        data-max="{{ $max }}"
+    ></span>
 <div
     class="monthpicker"
-    x-data="monthpicker({ disableFuture: {{ $disableFuture ? 'true' : 'false' }} })"
+    data-min="{{ $min }}"
+    data-max="{{ $max }}"
+    x-data="monthpicker({ placeholder: @js($placeholder), min: @js($min), max: @js($max) })"
     x-modelable="value"
     {{ $attributes }}
 >
@@ -16,7 +34,12 @@
         <span class="monthpicker-trigger__icon">
             <x-icons.calendar />
         </span>
-        <span class="monthpicker-trigger__label" x-text="displayValue"></span>
+        <span
+            class="monthpicker-trigger__label"
+            x-bind:class="{ 'monthpicker-trigger__label--placeholder': ! hasValue() }"
+            x-bind:title="displayValue"
+            x-text="displayValue"
+        ></span>
     </button>
 
     {{-- Dropdown --}}
@@ -24,7 +47,12 @@
         x-on:click.outside="close">
         {{-- Year navigation --}}
         <nav class="monthpicker-year-nav">
-            <button type="button" class="monthpicker-btn monthpicker-btn--square" x-on:click="prevYear">
+            <button
+                type="button"
+                class="monthpicker-btn monthpicker-btn--square"
+                x-bind:disabled="! canGoPrevYear()"
+                x-on:click="prevYear"
+            >
                 <x-icons.accordion-arrow class="rotate-90" />
             </button>
 
@@ -33,9 +61,8 @@
             <button
                 type="button"
                 class="monthpicker-btn monthpicker-btn--square"
+                x-bind:disabled="! canGoNextYear()"
                 x-on:click="nextYear"
-                x-bind:disabled="isNextYearDisabled()"
-                x-bind:class="{ 'disabled': isNextYearDisabled() }"
             >
                 <x-icons.accordion-arrow class="rotate-270" />
             </button>
@@ -47,8 +74,8 @@
                 <button
                     type="button"
                     class="monthpicker-btn monthpicker-btn--month"
-                    x-bind:class="{ 'selected': monthSelected(index), 'disabled': isMonthDisabled(index) }"
                     x-bind:disabled="isMonthDisabled(index)"
+                    x-bind:class="{ 'selected': monthSelected(index) }"
                     x-text="monthData.short"
                     x-on:click="selectMonth(index)"
                 ></button>
@@ -56,16 +83,19 @@
         </div>
     </div>
 </div>
+</div>
 
 @once
     @script
     <script>
         Alpine.data('monthpicker', (config = {}) => ({
-            value: new Date().toISOString(),
+            placeholder: config.placeholder || 'Выберите месяц',
+            min: config.min || null,
+            max: config.max || null,
+            value: null,
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
             isOpen: false,
-            disableFuture: config.disableFuture ?? false,
             monthMap: {
                 0: {
                     short: 'Янв.',
@@ -118,10 +148,103 @@
             },
 
             init() {
+                this.normalizeEmptyValue();
                 this.updateDateFromValue();
+                this.$watch('value', () => {
+                    this.normalizeEmptyValue();
+                    this.updateDateFromValue();
+                });
+            },
+
+            parseYearMonth(raw) {
+                if (!raw) {
+                    return null;
+                }
+
+                const parts = String(raw).slice(0, 10).split('-');
+                if (parts.length < 2) {
+                    return null;
+                }
+
+                const year = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                if (Number.isNaN(year) || Number.isNaN(month)) {
+                    return null;
+                }
+
+                return { year, month };
+            },
+
+            parseBound(attribute) {
+                const bounds = this.$root?.parentElement?.querySelector('.monthpicker-bounds');
+                const sources = [bounds, this.$root, this.$el];
+
+                for (const el of sources) {
+                    const parsed = this.parseYearMonth(el?.getAttribute?.(attribute));
+                    if (parsed) {
+                        return parsed;
+                    }
+                }
+
+                const fallback = attribute === 'data-min' ? this.min : this.max;
+
+                return this.parseYearMonth(fallback);
+            },
+
+            get minBound() {
+                return this.parseBound('data-min');
+            },
+
+            get maxBound() {
+                return this.parseBound('data-max');
+            },
+
+            isMonthDisabled(monthIndex) {
+                const min = this.minBound;
+                const max = this.maxBound;
+                const monthIndexNumber = Number(monthIndex);
+
+                if (min && (this.year < min.year || (this.year === min.year && monthIndexNumber < min.month))) {
+                    return true;
+                }
+
+                if (max && (this.year > max.year || (this.year === max.year && monthIndexNumber > max.month))) {
+                    return true;
+                }
+
+                return false;
+            },
+
+            canGoPrevYear() {
+                const min = this.minBound;
+
+                return !min || this.year > min.year;
+            },
+
+            canGoNextYear() {
+                const max = this.maxBound;
+
+                return !max || this.year < max.year;
+            },
+
+            clampYearToBounds() {
+                const min = this.minBound;
+                const max = this.maxBound;
+
+                if (max && this.year > max.year) {
+                    this.year = max.year;
+                }
+
+                if (min && this.year < min.year) {
+                    this.year = min.year;
+                }
             },
 
             toggle() {
+                if (!this.isOpen) {
+                    this.clampYearToBounds();
+                }
+
                 this.isOpen = !this.isOpen;
             },
 
@@ -129,37 +252,53 @@
                 this.isOpen = false;
             },
 
+            /**
+             * Livewire иногда отдаёт null Carbon как эпоху (1970-01-01).
+             * Для UI и модели это «пустое» значение.
+             */
+            isEmptyDate(value) {
+                if (value === null || value === undefined || value === '') {
+                    return true;
+                }
+
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return true;
+                }
+
+                return date.getUTCFullYear() === 1970
+                    && date.getUTCMonth() === 0
+                    && date.getUTCDate() === 1;
+            },
+
+            hasValue() {
+                return ! this.isEmptyDate(this.value);
+            },
+
+            normalizeEmptyValue() {
+                if (this.value !== null && this.isEmptyDate(this.value)) {
+                    this.value = null;
+                }
+            },
+
             updateDateFromValue() {
+                if (! this.hasValue()) {
+                    const now = new Date();
+                    this.year = now.getFullYear();
+                    this.month = now.getMonth();
+                    this.clampYearToBounds();
+
+                    return;
+                }
+
                 const date = new Date(this.value);
                 this.year = date.getFullYear();
                 this.month = date.getMonth();
-            },
-
-            currentMonthStart() {
-                const now = new Date();
-                return new Date(now.getFullYear(), now.getMonth(), 1);
-            },
-
-            isNextYearDisabled() {
-                if (!this.disableFuture) {
-                    return false;
-                }
-
-                return this.year >= this.currentMonthStart().getFullYear();
-            },
-
-            isMonthDisabled(monthIndex) {
-                if (!this.disableFuture) {
-                    return false;
-                }
-
-                const candidate = new Date(this.year, monthIndex, 1);
-
-                return candidate > this.currentMonthStart();
+                this.clampYearToBounds();
             },
 
             nextYear() {
-                if (this.isNextYearDisabled()) {
+                if (! this.canGoNextYear()) {
                     return;
                 }
 
@@ -167,6 +306,10 @@
             },
 
             prevYear() {
+                if (! this.canGoPrevYear()) {
+                    return;
+                }
+
                 this.year--;
             },
 
@@ -186,6 +329,10 @@
             },
 
             get displayValue() {
+                if (! this.hasValue()) {
+                    return this.placeholder;
+                }
+
                 const date = new Date(this.value);
                 const year = date.getFullYear();
                 const month = this.monthMap[date.getMonth()].full;
@@ -193,6 +340,10 @@
             },
 
             monthSelected(monthIndex) {
+                if (! this.hasValue()) {
+                    return false;
+                }
+
                 const date = new Date(this.value);
                 const year = date.getFullYear();
                 const monthVal = date.getMonth();
@@ -203,9 +354,16 @@
     @endscript
 
     <style>
+        .monthpicker-wrap {
+            min-width: 0;
+            max-width: 100%;
+        }
+
         .monthpicker {
             color: #486388;
             position: relative;
+            min-width: 0;
+            max-width: 100%;
         }
 
         .monthpicker-trigger {
@@ -219,6 +377,11 @@
             background: none;
             color: inherit;
             font: inherit;
+            width: 100%;
+            min-width: 0;
+            max-width: 100%;
+            min-height: 42px;
+            box-sizing: border-box;
         }
 
         .monthpicker-trigger__icon {
@@ -236,6 +399,13 @@
         .monthpicker-trigger__label {
             font-size: 14px;
             white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 0;
+        }
+
+        .monthpicker-trigger__label--placeholder {
+            color: #94A8C1;
         }
 
         .monthpicker-dropdown {
@@ -281,17 +451,19 @@
             font-family: inherit;
             transition: background-color .15s, color .15s, border-color .15s;
 
-            &:hover:not(:disabled):not(.disabled),
+            &:hover,
             &.selected {
                 background-color: #599CFF;
                 color: #FFFFFF;
                 border-color: transparent;
             }
 
-            &:disabled,
-            &.disabled {
+            &:disabled {
+                opacity: .35;
                 cursor: not-allowed;
-                opacity: 0.4;
+            }
+
+            &:disabled:hover {
                 background: none;
                 color: inherit;
                 border-color: #C4D0E0;

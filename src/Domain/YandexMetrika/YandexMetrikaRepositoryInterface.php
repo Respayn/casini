@@ -50,4 +50,56 @@ interface YandexMetrikaRepositoryInterface
      * @return YandexMetrikaVisitsSearchQueries[]
      */
     public function getVisitsSearchQueriesStats(int $projectId, DateTimeRange $period): array;
+
+    /**
+     * Сохраняет конверсии из отчёта «Поисковые системы», не затирая визиты.
+     */
+    public function upsertSearchEnginesConversions(int $projectId, string $searchEngine, string $month, int $conversions): void;
+
+    /**
+     * Сохраняет визиты/переходы из отчёта «Поисковые системы», не затирая конверсии.
+     */
+    public function upsertSearchEnginesVisits(int $projectId, string $searchEngine, string $month, int $visits): void;
+
+    /**
+     * Сохраняет визиты или посетителей из отчёта «Поисковые запросы».
+     * Обновляет только выбранную метрику, не затирая вторую и goal_reaches.
+     *
+     * @param  'visits'|'users'  $visitsMetric
+     */
+    public function upsertSearchQueriesVisits(
+        int $projectId,
+        string $phrase,
+        string $month,
+        string $visitsMetric,
+        int $value
+    ): void;
+
+    /**
+     * Заменяет строки UTM-целей за период: удаляет старые и вставляет свежие.
+     *
+     * @param list<array{goal_name: string, achieved_date: string, utm_source: ?string, utm_medium: ?string, utm_campaign: ?string, utm_content: ?string, utm_term: ?string}> $rows
+     */
+    public function replaceGoalUtmRows(int $projectId, string $dateFrom, string $dateTo, array $rows): void;
+
+    /**
+     * Upsert строк конверсий по unique (project_id, goal_name, month).
+     *
+     * @param list<array{goal_name: string, month: string, conversions: int}> $rows
+     */
+    public function upsertGoalConversions(int $projectId, array $rows): void;
+
+    /**
+     * @param int $projectId
+     * @param DateTimeRange $period
+     * @return YandexMetrikaGoalDirectSummary[]
+     */
+    public function getGoalDirectSummaryStats(int $projectId, DateTimeRange $period): array;
+
+    /**
+     * Upsert строк «Директ, сводка» по unique (project_id, goal_name, month).
+     *
+     * @param list<array{goal_name: string, month: string, conversions: int}> $rows
+     */
+    public function upsertGoalDirectSummary(int $projectId, array $rows): void;
 }

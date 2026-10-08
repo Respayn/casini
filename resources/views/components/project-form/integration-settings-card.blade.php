@@ -45,7 +45,7 @@
                         </div>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                             <x-form.toggle-switch
-                                wire:model="integrationSettings.{{ $integration->integration->id }}.isEnabled"
+                                wire:model.live="integrationSettings.{{ $integration->integration->id }}.isEnabled"
                                 :disabled="! $canEdit"
                             />
                         </x-permissions.field-guard>

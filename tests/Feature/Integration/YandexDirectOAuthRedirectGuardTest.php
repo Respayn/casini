@@ -70,7 +70,8 @@ class YandexDirectOAuthRedirectGuardTest extends TestCase
         $this->assertStringContainsString('client_id=test-client-id', $location);
         $this->assertStringContainsString('login%3Aavatar', $location);
         $this->assertStringContainsString('login%3Ainfo', $location);
-        $this->assertStringContainsString('login%3Aemail', $location);
+        $this->assertStringNotContainsString('login%3Aemail', $location);
+        $this->assertStringNotContainsString('login%3Aphone', $location);
         $this->assertStringContainsString('direct%3Aapi', $location);
     }
 }
