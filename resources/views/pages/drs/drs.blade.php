@@ -46,17 +46,6 @@
             </x-overlay.tooltip>
         </div>
 
-        <div class="flex items-center gap-4 text-sm">
-            <span class="flex items-center gap-1">
-                <span class="inline-block h-4 w-4 rounded border border-[#FF7373] bg-[#FFF5F5]"></span>
-                Клиенту выдан кредит
-            </span>
-            <span class="flex items-center gap-1">
-                <span class="inline-block h-4 w-4 rounded border border-green-200 bg-green-50"></span>
-                Клиент вернул кредит
-            </span>
-        </div>
-
         <span class="text-caption-text ml-auto text-sm">
             Последнее поступление: {{ $this->lastImportLabel ?? 'еще не поступали' }}
         </span>
