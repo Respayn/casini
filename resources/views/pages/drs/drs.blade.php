@@ -105,16 +105,18 @@
                             </x-data.table-column>
                         @endif
                         <x-data.table-column><div class="{{ $headerClass }}">Сбор 3%</div></x-data.table-column>
-                        <x-data.table-column><div class="{{ $headerClass }}">Сбор в копилке</div></x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}"><span class="text-center">Сбор<br>в копилке</span></div></x-data.table-column>
                         @if ($this->canSeeInvoice)
                             <x-data.table-column>
                                 <div class="{{ $headerClass }}">
-                                    <span>Счет выставлен</span>
+                                    <span class="text-center">Счет<br>выставлен</span>
                                     <x-overlay.tooltip>Счет из рекламного кабинета передан бухгалтеру</x-overlay.tooltip>
                                 </div>
                             </x-data.table-column>
                         @endif
-                        <x-data.table-column><div class="{{ $headerClass }}">Действия</div></x-data.table-column>
+                        @if ($this->canDelete)
+                            <x-data.table-column><div class="{{ $headerClass }}">Действия</div></x-data.table-column>
+                        @endif
                     </x-data.table-columns>
 
                     <x-data.table-rows>
@@ -127,18 +129,26 @@
                                     default => '#FFFFFF',
                                 };
                             @endphp
-                            <x-data.table-row wire:key="drs-row-{{ $row->id }}" :bg-color="$rowBg">
-                                <x-data.table-cell class="whitespace-nowrap">
-                                    <div class="flex items-center gap-1" title="{{ $row->isManual ? 'Выданный кредит' : 'Поступление на счет' }}">
+                            <x-data.table-row
+                                wire:key="drs-row-{{ $row->id }}"
+                                :bg-color="$rowBg"
+                                class="cursor-pointer"
+                                title="Открыть операцию"
+                                wire:click="openOperation({{ $row->id }})"
+                            >
+                                <x-data.table-cell>
+                                    <div class="flex items-start gap-1" title="{{ $row->isManual ? 'Выданный кредит' : 'Поступление на счет' }}">
                                         @if ($row->isManual)
-                                            <x-icons.send-money class="text-secondary-text size-5" />
+                                            <x-icons.send-money class="text-secondary-text size-5 shrink-0" />
                                         @else
-                                            <x-icons.account-balance class="text-secondary-text size-5" />
+                                            <x-icons.account-balance class="text-secondary-text size-5 shrink-0" />
                                         @endif
-                                        <span>{{ $row->number }}</span>
-                                        @if ($row->isNew)
-                                            <span class="bg-primary rounded px-1.5 text-xs text-white">новая</span>
-                                        @endif
+                                        <span class="min-w-0 break-words">
+                                            {!! str_replace('-', '-<wbr>', e($row->number)) !!}
+                                            @if ($row->isNew)
+                                                <span class="bg-primary rounded px-1.5 text-xs text-white">новая</span>
+                                            @endif
+                                        </span>
                                     </div>
                                 </x-data.table-cell>
                                 <x-data.table-cell class="whitespace-nowrap">
@@ -203,7 +213,7 @@
                                 </x-data.table-cell>
                                 <x-data.table-cell class="whitespace-nowrap text-blue-600">{{ $money($row->adCabinetAmount) }}</x-data.table-cell>
                                 @if ($this->canSeeStatus)
-                                    <x-data.table-cell>
+                                    <x-data.table-cell class="text-center" x-on:click.stop>
                                         <x-overlay.tooltip>
                                             <x-slot:trigger>
                                                 <x-form.checkbox
@@ -217,15 +227,17 @@
                                     </x-data.table-cell>
                                 @endif
                                 <x-data.table-cell class="whitespace-nowrap text-blue-600">{{ $money($row->feeAmount) }}</x-data.table-cell>
-                                <x-data.table-cell>
-                                    <x-form.checkbox
-                                        :checked="$row->isFeeInPiggyBank"
-                                        :disabled="! $this->canEdit"
-                                        x-on:change="$wire.togglePiggyBank({{ $row->id }}, $event.target.checked)"
-                                    />
+                                <x-data.table-cell x-on:click.stop>
+                                    <div class="flex justify-center">
+                                        <x-form.checkbox
+                                            :checked="$row->isFeeInPiggyBank"
+                                            :disabled="! $this->canEdit"
+                                            x-on:change="$wire.togglePiggyBank({{ $row->id }}, $event.target.checked)"
+                                        />
+                                    </div>
                                 </x-data.table-cell>
                                 @if ($this->canSeeInvoice)
-                                    <x-data.table-cell>
+                                    <x-data.table-cell class="text-center" x-on:click.stop>
                                         <x-overlay.tooltip>
                                             <x-slot:trigger>
                                                 <x-form.checkbox
@@ -238,25 +250,16 @@
                                         </x-overlay.tooltip>
                                     </x-data.table-cell>
                                 @endif
-                                <x-data.table-cell class="whitespace-nowrap">
-                                    <div class="flex items-center gap-1">
+                                @if ($this->canDelete)
+                                    <x-data.table-cell class="whitespace-nowrap text-center" x-on:click.stop>
                                         <x-button.button
-                                            icon="icons.edit"
+                                            icon="icons.delete"
                                             variant="ghost"
-                                            title="Открыть операцию"
-                                            wire:click="openOperation({{ $row->id }})"
+                                            title="Удалить из ДРС"
+                                            x-on:click="$dispatch('drs-delete-ask', { id: {{ $row->id }} })"
                                         />
-                                        @if ($this->canDelete)
-                                            <x-button.button
-                                                icon="icons.delete"
-                                                variant="ghost"
-                                                title="Удалить из ДРС"
-                                                wire:click="hideOperation({{ $row->id }})"
-                                                wire:confirm="Удалить операцию из ДРС?"
-                                            />
-                                        @endif
-                                    </div>
-                                </x-data.table-cell>
+                                    </x-data.table-cell>
+                                @endif
                             </x-data.table-row>
                         @endforeach
 
@@ -273,7 +276,7 @@
                                 <x-data.table-cell></x-data.table-cell>
                             @endif
                             <x-data.table-cell class="whitespace-nowrap font-bold">{{ $money($this->totals['fee']) }}</x-data.table-cell>
-                            <x-data.table-cell colspan="{{ $this->canSeeInvoice ? 3 : 2 }}"></x-data.table-cell>
+                            <x-data.table-cell colspan="{{ 1 + (int) $this->canSeeInvoice + (int) $this->canDelete }}"></x-data.table-cell>
                         </x-data.table-row>
                     </x-data.table-rows>
                 </x-data.table>
@@ -502,4 +505,29 @@
             </div>
         </x-slot>
     </x-overlay.modal>
+
+    @if ($this->canDelete)
+        <x-overlay.modal name="drs-delete-confirm" title="Вы уверены?">
+            <x-slot:body>
+                <div
+                    x-data="{ id: null }"
+                    x-on:drs-delete-ask.window="id = $event.detail.id; $dispatch('modal-show', { name: 'drs-delete-confirm' })"
+                >
+                    <p class="text-primary-text">Операция будет удалена из ДРС.</p>
+                    <div class="mt-6 flex justify-between gap-4">
+                        <x-button.button
+                            icon="icons.delete"
+                            label="Удалить"
+                            variant="primary"
+                            x-on:click="$wire.hideOperation(id); $dispatch('modal-hide', { name: 'drs-delete-confirm' })"
+                        />
+                        <x-button.button
+                            label="Отменить"
+                            x-on:click="$dispatch('modal-hide', { name: 'drs-delete-confirm' })"
+                        />
+                    </div>
+                </div>
+            </x-slot>
+        </x-overlay.modal>
+    @endif
 </div>
