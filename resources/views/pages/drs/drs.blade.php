@@ -40,7 +40,7 @@
 
         <div class="flex items-center gap-2">
             <label>Только новые</label>
-            <x-form.checkbox wire:model.live="onlyNew" />
+            <x-form.toggle-switch wire:model.live="onlyNew" />
             <x-overlay.tooltip>
                 Новые: операции, которые еще никто не открывал
             </x-overlay.tooltip>
