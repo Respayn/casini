@@ -129,11 +129,11 @@
                             @endphp
                             <x-data.table-row wire:key="drs-row-{{ $row->id }}" :bg-color="$rowBg">
                                 <x-data.table-cell class="whitespace-nowrap">
-                                    <div class="flex items-center gap-1" title="{{ $row->isManual ? 'Создано вручную' : 'Поступление на счет' }}">
+                                    <div class="flex items-center gap-1" title="{{ $row->isManual ? 'Выданный кредит' : 'Поступление на счет' }}">
                                         @if ($row->isManual)
-                                            <x-icons.edit-form class="text-secondary-text h-4 w-4" />
+                                            <x-icons.send-money class="text-secondary-text size-5" />
                                         @else
-                                            <x-icons.card class="text-secondary-text h-4 w-4" />
+                                            <x-icons.account-balance class="text-secondary-text size-5" />
                                         @endif
                                         <span>{{ $row->number }}</span>
                                         @if ($row->isNew)
