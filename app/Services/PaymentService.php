@@ -107,7 +107,7 @@ class PaymentService
             'projectId' => $operation->project_id,
             'managerId' => $operation->manager_id ?? $client->manager_id,
             'advertisingSystem' => $operation->advertising_system?->value,
-            'feeIncluded' => $isUntouched ? $client->ad_fee_type === FeeType::THREE_PERCENT : $operation->fee_included,
+            'feeIncluded' => $this->clientFeeType($client, $operation->payment->received_date) === FeeType::THREE_PERCENT,
             'topUpAmount' => $isUntouched
                 ? round($operation->bank_received_amount - $operation->credit_amount, 2)
                 : $operation->cabinet_top_up_amount,
@@ -121,14 +121,47 @@ class PaymentService
         ]);
     }
 
-    public function newCreditForm(User $user): DrsOperationFormData
+    public function newCreditForm(): DrsOperationFormData
     {
         return DrsOperationFormData::from([
             'isManual' => true,
             'operationDate' => $this->agencyToday()->toDateString(),
-            'managerId' => $user->id,
             'paymentDetails' => PaymentSource::MANUAL->label(),
         ]);
+    }
+
+    /**
+     * Менеджер операции всегда берется из карточки клиента в «Клиенты и клиенто-проекты».
+     */
+    public function getClientManagerId(int $clientId): ?int
+    {
+        return $this->paymentRepo->findClient($clientId)?->manager_id;
+    }
+
+    /**
+     * Сбор не выбирается в окне: он следует настройке клиента на дату операции.
+     */
+    public function isClientFeeIncluded(int $clientId, CarbonInterface|string|null $operationDate): bool
+    {
+        $client = $this->paymentRepo->findClient($clientId);
+
+        return $client === null || $this->clientFeeType($client, $operationDate) === FeeType::THREE_PERCENT;
+    }
+
+    /**
+     * «Не взимаем сбор» действует с даты изменения расчета; операции до нее остаются со сбором 3%.
+     */
+    private function clientFeeType(Client $client, CarbonInterface|string|null $operationDate): FeeType
+    {
+        if ($client->ad_fee_type !== FeeType::NONE) {
+            return FeeType::THREE_PERCENT;
+        }
+
+        $date = $operationDate === null || $operationDate === '' ? $this->agencyToday() : Carbon::parse($operationDate);
+
+        return $client->ad_fee_changed_at !== null && $date->lt($client->ad_fee_changed_at)
+            ? FeeType::THREE_PERCENT
+            : FeeType::NONE;
     }
 
     /**
@@ -197,6 +230,13 @@ class PaymentService
             $this->validateForm($form, false);
             $isManual = $operation->payment->source === PaymentSource::MANUAL;
             $clientId = $isManual ? (int) $form->clientId : $operation->payment->client_id;
+            $form->managerId = $clientId === $operation->payment->client_id && $operation->manager_id !== null
+                ? $operation->manager_id
+                : $this->getClientManagerId($clientId);
+            $form->feeIncluded = $this->isClientFeeIncluded(
+                $clientId,
+                $isManual && $form->operationDate ? $form->operationDate : $operation->payment->received_date
+            );
             $attributes += $this->moneyAttributes($form, $this->getClientFeeDebt($clientId, $operation->id));
             $attributes += $this->detailAttributes($form);
 
@@ -218,9 +258,11 @@ class PaymentService
      */
     public function createCredit(User $user, DrsOperationFormData $form, array $can): void
     {
+        $form->managerId = $form->clientId === null ? null : $this->getClientManagerId($form->clientId);
         $this->validateForm($form, true);
 
         $clientId = (int) $form->clientId;
+        $form->feeIncluded = $this->isClientFeeIncluded($clientId, $form->operationDate);
         $form->creditAmount = -abs($form->creditAmount);
         $attributes = ['credit_amount' => round($form->creditAmount, 2), 'opened_at' => now()]
             + $this->moneyAttributes($form, $this->getClientFeeDebt($clientId))
@@ -374,7 +416,7 @@ class PaymentService
 
     private function applyDefaultFee(Payment $payment, Client $client): void
     {
-        $feeType = $client->ad_fee_type ?? FeeType::THREE_PERCENT;
+        $feeType = $this->clientFeeType($client, $payment->received_date);
 
         foreach ($this->paymentRepo->getPaymentOperations($payment) as $operation) {
             if ($operation->opened_at !== null || $operation->is_sent_to_cabinet) {
@@ -473,8 +515,8 @@ class PaymentService
             $errors['form.clientId'] = 'Выберите клиента';
         }
 
-        if ($isCredit && $form->managerId === null) {
-            $errors['form.managerId'] = 'Выберите менеджера';
+        if ($isCredit && $form->clientId !== null && $form->managerId === null) {
+            $errors['form.managerId'] = 'У клиента не назначен менеджер в «Клиенты и клиенто-проекты»';
         }
 
         if ($isCredit && AdvertisingSystem::tryFrom((string) $form->advertisingSystem) === null) {

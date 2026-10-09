@@ -6,6 +6,7 @@
     'placeholder' => 'Выберите значение',
     'emptyPlaceholder' => 'Нет доступных вариантов',
     'disabled' => false,
+    'searchable' => false,
 ])
 
 @php
@@ -19,6 +20,7 @@
         options: {{ json_encode($options) }},
         selected: '',
         disabled: {{ $disabled ? 'true' : 'false' }},
+        search: '',
 
         labelKey: '{{ $labelKey }}',
         valueKey: '{{ $valueKey }}',
@@ -29,13 +31,25 @@
             return this.options.length > 0;
         },
 
+        get filteredOptions() {
+            const query = this.search.trim().toLowerCase();
+            if (!query) return this.options;
+
+            return this.options.filter(o => String(o[this.labelKey] ?? '').toLowerCase().includes(query));
+        },
+
         select(value) {
             if (this.disabled || !this.hasOptions) return;
 
             this.selected = value;
-            this.open = false;
+            this.close();
 
             this.$dispatch('change', { value: value });
+        },
+
+        close() {
+            this.open = false;
+            this.search = '';
         },
 
         hasSelectedValue() {
@@ -61,7 +75,12 @@
 
         toggle() {
             if (this.disabled || !this.hasOptions) return;
-            this.open = !this.open;
+            if (this.open) {
+                this.close();
+                return;
+            }
+            this.open = true;
+            this.$nextTick(() => this.$refs.search?.focus());
         }
     }"
     x-modelable="selected"
@@ -90,8 +109,22 @@
                     'opacity-70': !disabled && !hasOptions
                 }"
             >
+                @if ($searchable)
+                    <input
+                        type="text"
+                        class="w-full border-0 bg-transparent p-0 outline-none"
+                        placeholder="Начните вводить"
+                        x-ref="search"
+                        x-model="search"
+                        x-show="open"
+                        x-on:click.stop
+                        x-on:keydown.escape.stop="close()"
+                        x-on:keydown.enter.prevent="filteredOptions.length && select(filteredOptions[0][valueKey])"
+                    />
+                @endif
                 <span
                     x-text="getDisplayText()"
+                    @if ($searchable) x-show="!open" @endif
                     class="overflow-hidden"
                     x-bind:class="{
                         'opacity-50': !hasSelectedValue() && hasOptions,
@@ -118,10 +151,16 @@
             x-show="open && hasOptions"
             x-anchor.no-style="$refs.buttonContainer"
             x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-            x-on:click.outside="open = false"
+            x-on:click.outside="close()"
         >
+            @if ($searchable)
+                <div
+                    class="flex min-h-[42px] items-center bg-white px-4 text-sm italic text-gray-400"
+                    x-show="filteredOptions.length === 0"
+                >Ничего не найдено</div>
+            @endif
             <template
-                x-for="option in options"
+                x-for="option in filteredOptions"
                 :key="option['{{ $valueKey }}']"
             >
                 <div

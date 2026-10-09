@@ -3,6 +3,7 @@
     'name',
     'body' => null,
     'sidebar' => null,
+    'pinTop' => false,
 ])
 
 <div
@@ -21,7 +22,9 @@
         x-on:click="show = false"
     ></div>
     <div @class([
-        'min-w-1/4 relative inset-0 m-auto flex max-w-full',
+        'min-w-1/4 relative inset-0 flex max-w-full',
+        'm-auto' => ! $pinTop,
+        'mx-auto mt-6 self-start' => $pinTop,
         'w-fit' => ! empty($sidebar),
     ])>
         <div @class([

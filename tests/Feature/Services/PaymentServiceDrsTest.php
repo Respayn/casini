@@ -6,6 +6,7 @@ use App\Data\Payment\DrsOperationFormData;
 use App\Data\Payment\InvoiceData;
 use App\Data\Payment\PaymentData;
 use App\Enums\AdvertisingSystem;
+use App\Enums\FeeType;
 use App\Enums\PaymentSource;
 use App\Enums\PermissionGroup;
 use App\Models\Client;
@@ -46,8 +47,9 @@ class PaymentServiceDrsTest extends TestCase
         $service = app(PaymentService::class);
         $service->processPayments([$this->paymentData('TEST-DRS-2', 415000)]);
         $clientId = $this->operationByNumber('TEST-DRS-2')->payment->client_id;
+        Client::query()->whereKey($clientId)->update(['manager_id' => $user->id]);
 
-        $credit = $service->newCreditForm($user);
+        $credit = $service->newCreditForm();
         $credit->clientId = $clientId;
         $credit->creditAmount = 100000;
         $credit->topUpAmount = 100000;
@@ -85,7 +87,7 @@ class PaymentServiceDrsTest extends TestCase
         $this->assertNotNull(Payment::query()->find($operation->payment_id));
     }
 
-    public function test_skipped_fee_becomes_client_fee_debt(): void
+    public function test_fee_follows_client_fee_type_not_form(): void
     {
         $user = User::factory()->create();
         $service = app(PaymentService::class);
@@ -96,7 +98,10 @@ class PaymentServiceDrsTest extends TestCase
         $form->feeIncluded = false;
         $service->saveOperation($user, $form, self::CAN_ALL);
 
-        $this->assertSame(300.0, $service->getClientFeeDebt($operation->payment->client_id));
+        $operation->refresh();
+        $this->assertTrue($operation->fee_included);
+        $this->assertSame(300.0, $operation->fee_amount);
+        $this->assertSame(0.0, $service->getClientFeeDebt($operation->payment->client_id));
     }
 
     public function test_credits_and_bank_payments_have_separate_numbering(): void
@@ -106,8 +111,8 @@ class PaymentServiceDrsTest extends TestCase
         $bankNumber = (string) (Payment::withTrashed()->where('source', PaymentSource::MANUAL)->get()
             ->max(fn (Payment $payment) => (int) $payment->number) + 1);
 
-        $credit = $service->newCreditForm($user);
-        $credit->clientId = Client::query()->create(['name' => 'Тест ДРС нумерация'])->id;
+        $credit = $service->newCreditForm();
+        $credit->clientId = Client::query()->create(['name' => 'Тест ДРС нумерация', 'manager_id' => $user->id])->id;
         $credit->creditAmount = 1000;
         $credit->topUpAmount = 1000;
         $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
@@ -139,6 +144,35 @@ class PaymentServiceDrsTest extends TestCase
 
         $user->givePermissionTo(Permission::findOrCreate('full '.PermissionGroup::ADVERTISING_FUNDS_MOVEMENT->value));
         $this->assertContains($operation->id, $visibleIds());
+    }
+
+    public function test_client_without_fee_keeps_fee_before_change_date(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create([
+            'name' => 'Тест ДРС без сбора',
+            'manager_id' => $user->id,
+            'ad_fee_type' => FeeType::NONE,
+            'ad_fee_changed_at' => today(),
+        ]);
+
+        foreach ([today()->subDay(), today()] as $date) {
+            $credit = $service->newCreditForm();
+            $credit->clientId = $client->id;
+            $credit->operationDate = $date->toDateString();
+            $credit->creditAmount = 10300;
+            $credit->topUpAmount = 10300;
+            $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
+            $service->createCredit($user, $credit, self::CAN_ALL);
+        }
+
+        $fees = PaymentOperation::query()
+            ->whereHas('payment', fn ($query) => $query->where('client_id', $client->id))
+            ->orderBy('id')
+            ->pluck('fee_amount')
+            ->all();
+        $this->assertSame([300.0, 0.0], $fees);
     }
 
     private function operationByNumber(string $number): PaymentOperation

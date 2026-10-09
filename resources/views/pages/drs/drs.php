@@ -31,6 +31,9 @@ class extends Component
     /** edit - правка операции, credit - новый кредит */
     public string $modalMode = 'edit';
 
+    /** Поля окна на момент открытия: с ними сравниваем, есть ли изменения */
+    public array $formSnapshot = [];
+
     public ?string $actionMessage = null;
 
     public string $actionMessageType = 'success';
@@ -67,8 +70,23 @@ class extends Component
     public function updatedFormClientId(): void
     {
         $this->form->projectId = null;
+        $this->form->managerId = $this->form->clientId === null
+            ? null
+            : $this->paymentService->getClientManagerId($this->form->clientId);
+        $this->syncClientFee();
         $this->form->includeFeeDebt = false;
         unset($this->projectOptions, $this->creditDebt, $this->feeDebt);
+    }
+
+    public function updatedFormOperationDate(): void
+    {
+        $this->syncClientFee();
+    }
+
+    private function syncClientFee(): void
+    {
+        $this->form->feeIncluded = $this->form->clientId === null
+            || $this->paymentService->isClientFeeIncluded($this->form->clientId, $this->form->operationDate);
     }
 
     public function updatedFormProjectId(): void
@@ -239,6 +257,7 @@ class extends Component
         $this->resetErrorBag();
         $this->modalMode = 'edit';
         $this->form = $form;
+        $this->formSnapshot = $form->toArray();
         $this->forgetFormComputed();
         unset($this->operations);
         $this->dispatch('modal-show', name: 'drs-operation-modal');
@@ -250,12 +269,8 @@ class extends Component
 
         $this->resetErrorBag();
         $this->modalMode = 'credit';
-        $this->form = $this->paymentService->newCreditForm(Auth::user());
-
-        if (! $this->managerOptions->contains('id', $this->form->managerId)) {
-            $this->form->managerId = null;
-        }
-
+        $this->form = $this->paymentService->newCreditForm();
+        $this->formSnapshot = $this->form->toArray();
         $this->forgetFormComputed();
         $this->dispatch('modal-show', name: 'drs-operation-modal');
     }
