@@ -4,6 +4,7 @@
     $loadingTargets = 'month, onlyNew, save, hideOperation, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
     $isCredit = $modalMode === 'credit';
     $calc = $this->calculation;
+    $headerClass = 'flex w-full items-center justify-center gap-2';
 @endphp
 
 <div>
@@ -69,30 +70,51 @@
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                 <x-data.table>
                     <x-data.table-columns>
-                        <x-data.table-column>№</x-data.table-column>
-                        <x-data.table-column>Дата</x-data.table-column>
-                        <x-data.table-column>Сумма</x-data.table-column>
-                        <x-data.table-column>Детали</x-data.table-column>
-                        <x-data.table-column>Клиент / клиенто-проект</x-data.table-column>
                         <x-data.table-column>
-                            <span>Поступит в рекламный кабинет</span>
-                            <x-overlay.tooltip>Сбор учтен: пополнение / 1,03</x-overlay.tooltip>
+                            <div class="{{ $headerClass }}">
+                                <span>№</span>
+                                <x-overlay.tooltip>Номер операции в банке или номер выданного кредита</x-overlay.tooltip>
+                            </div>
+                        </x-data.table-column>
+                        <x-data.table-column>
+                            <div class="{{ $headerClass }}">
+                                <span>Дата</span>
+                                <x-overlay.tooltip>Первая дата - это дата поступления платежа или выданного кредита, вторая дата - дата отправки средств в рекламный кабинет</x-overlay.tooltip>
+                            </div>
+                        </x-data.table-column>
+                        <x-data.table-column>
+                            <div class="{{ $headerClass }}">
+                                <span>Сумма</span>
+                                <x-overlay.tooltip>Первая строка - сумма поступления от клиента, вторая - сумма выданного или возвращенного кредита</x-overlay.tooltip>
+                            </div>
+                        </x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}">Детали</div></x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}">Клиент / клиенто-проект</div></x-data.table-column>
+                        <x-data.table-column>
+                            <div class="{{ $headerClass }}">
+                                <span>Поступит в рекламный кабинет</span>
+                                <x-overlay.tooltip>Сбор учтен: пополнение / 1,03</x-overlay.tooltip>
+                            </div>
                         </x-data.table-column>
                         @if ($this->canSeeStatus)
                             <x-data.table-column>
-                                <span>Статус</span>
-                                <x-overlay.tooltip>Галочка: деньги отправлены в рекламный кабинет</x-overlay.tooltip>
+                                <div class="{{ $headerClass }}">
+                                    <span>Статус</span>
+                                    <x-overlay.tooltip>Галочка: деньги отправлены в рекламный кабинет</x-overlay.tooltip>
+                                </div>
                             </x-data.table-column>
                         @endif
-                        <x-data.table-column>Сбор 3%</x-data.table-column>
-                        <x-data.table-column>Сбор в копилке</x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}">Сбор 3%</div></x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}">Сбор в копилке</div></x-data.table-column>
                         @if ($this->canSeeInvoice)
                             <x-data.table-column>
-                                <span>Счет выставлен</span>
-                                <x-overlay.tooltip>Счет из рекламного кабинета передан бухгалтеру</x-overlay.tooltip>
+                                <div class="{{ $headerClass }}">
+                                    <span>Счет выставлен</span>
+                                    <x-overlay.tooltip>Счет из рекламного кабинета передан бухгалтеру</x-overlay.tooltip>
+                                </div>
                             </x-data.table-column>
                         @endif
-                        <x-data.table-column>Действия</x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}">Действия</div></x-data.table-column>
                     </x-data.table-columns>
 
                     <x-data.table-rows>
@@ -128,11 +150,15 @@
                                 <x-data.table-cell class="whitespace-nowrap">
                                     @if ($row->bankAmount != 0)
                                         <div class="text-green-700">{{ $money($row->bankAmount) }}</div>
+                                    @else
+                                        <div class="text-caption-text">-</div>
                                     @endif
                                     @if ($row->creditAmount != 0)
                                         <div @class(['text-[#FF7373]' => $row->creditAmount < 0, 'text-green-700' => $row->creditAmount > 0])>
                                             {{ $signedMoney($row->creditAmount) }}
                                         </div>
+                                    @else
+                                        <div class="text-caption-text">-</div>
                                     @endif
                                 </x-data.table-cell>
                                 <x-data.table-cell class="min-w-52 text-sm">
@@ -222,9 +248,7 @@
                             <x-data.table-cell class="font-bold" colspan="2">Итого</x-data.table-cell>
                             <x-data.table-cell class="whitespace-nowrap font-bold">
                                 <div>{{ $money($this->totals['bank']) }}</div>
-                                @if ($this->totals['credit'] != 0)
-                                    <div>{{ $signedMoney($this->totals['credit']) }}</div>
-                                @endif
+                                <div>{{ $signedMoney($this->totals['credit']) }}</div>
                             </x-data.table-cell>
                             <x-data.table-cell colspan="2"></x-data.table-cell>
                             <x-data.table-cell class="whitespace-nowrap font-bold">{{ $money($this->totals['cabinet']) }}</x-data.table-cell>
@@ -289,12 +313,14 @@
 
                 {{-- Суммы поступления и кредита --}}
                 <div class="grid grid-cols-2 gap-4">
-                    @unless ($form->isManual)
-                        <div class="flex flex-col gap-2">
-                            <label class="text-primary-text text-sm font-semibold">Сумма поступления</label>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-primary-text text-sm font-semibold">Сумма поступления</label>
+                        @if ($form->isManual)
+                            <span class="text-caption-text flex min-h-[42px] items-center">-</span>
+                        @else
                             <span class="flex min-h-[42px] items-center text-green-700">{{ $money($form->bankAmount) }}</span>
-                        </div>
-                    @endunless
+                        @endif
+                    </div>
                     @if ($isCredit)
                         <x-form.input-number
                             label="Сумма кредита *"
