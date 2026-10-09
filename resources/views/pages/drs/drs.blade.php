@@ -92,7 +92,7 @@
                         <x-data.table-column><div class="{{ $headerClass }}">Клиент / клиенто-проект</div></x-data.table-column>
                         <x-data.table-column>
                             <div class="{{ $headerClass }}">
-                                <span>Поступит в рекламный кабинет</span>
+                                <span class="text-center">Поступит в<br>рекламный кабинет</span>
                                 <x-overlay.tooltip>Сбор учтен: пополнение / 1,03</x-overlay.tooltip>
                             </div>
                         </x-data.table-column>
@@ -148,18 +148,30 @@
                                     @endif
                                 </x-data.table-cell>
                                 <x-data.table-cell class="whitespace-nowrap">
-                                    @if ($row->bankAmount != 0)
-                                        <div class="text-green-700">{{ $money($row->bankAmount) }}</div>
-                                    @else
-                                        <div class="text-caption-text">-</div>
-                                    @endif
-                                    @if ($row->creditAmount != 0)
-                                        <div @class(['text-blue-600' => $row->creditAmount < 0, 'text-green-700' => $row->creditAmount > 0])>
-                                            {{ $signedMoney($row->creditAmount) }}
+                                    <div class="flex items-center gap-2">
+                                        <div>
+                                            @if ($row->bankAmount != 0)
+                                                <div class="text-green-700">{{ $money($row->bankAmount) }}</div>
+                                            @else
+                                                <div class="text-caption-text">-</div>
+                                            @endif
+                                            @if ($row->creditAmount != 0)
+                                                <div @class(['text-blue-600' => $row->creditAmount < 0, 'text-green-700' => $row->creditAmount > 0])>
+                                                    {{ $signedMoney($row->creditAmount) }}
+                                                </div>
+                                            @else
+                                                <div class="text-caption-text">-</div>
+                                            @endif
                                         </div>
-                                    @else
-                                        <div class="text-caption-text">-</div>
-                                    @endif
+                                        @if ($row->comment)
+                                            <x-overlay.tooltip>
+                                                <x-slot:trigger>
+                                                    <x-icons.chat class="text-secondary-text cursor-pointer" />
+                                                </x-slot:trigger>
+                                                {{ $row->comment }}
+                                            </x-overlay.tooltip>
+                                        @endif
+                                    </div>
                                 </x-data.table-cell>
                                 <x-data.table-cell class="min-w-52 text-sm">
                                     @if ($row->paymentDetails)
@@ -176,10 +188,12 @@
                                             <div>Счет: {{ $row->invoiceNumber }}</div>
                                         @endif
                                         @if ($row->managerName)
-                                            <div>Менеджер: {{ $row->managerName }}</div>
-                                        @endif
-                                        @if ($row->comment)
-                                            <div>Комментарий: {{ $row->comment }}</div>
+                                            <div class="flex items-start gap-1">
+                                                <span class="flex h-5 shrink-0 items-center">
+                                                    <x-icons.card class="text-secondary-text h-4 w-4" />
+                                                </span>
+                                                <span class="whitespace-nowrap">Менеджер: {{ $row->managerName }}</span>
+                                            </div>
                                         @endif
                                     </div>
                                 </x-data.table-cell>
@@ -187,7 +201,7 @@
                                     <div class="font-semibold">{{ $row->clientName }}</div>
                                     <div class="text-caption-text text-sm">{{ $row->projectName ?? 'Клиенто-проект не выбран' }}</div>
                                 </x-data.table-cell>
-                                <x-data.table-cell class="whitespace-nowrap">{{ $money($row->adCabinetAmount) }}</x-data.table-cell>
+                                <x-data.table-cell class="whitespace-nowrap text-blue-600">{{ $money($row->adCabinetAmount) }}</x-data.table-cell>
                                 @if ($this->canSeeStatus)
                                     <x-data.table-cell>
                                         <x-overlay.tooltip>
@@ -202,7 +216,7 @@
                                         </x-overlay.tooltip>
                                     </x-data.table-cell>
                                 @endif
-                                <x-data.table-cell class="whitespace-nowrap">{{ $money($row->feeAmount) }}</x-data.table-cell>
+                                <x-data.table-cell class="whitespace-nowrap text-blue-600">{{ $money($row->feeAmount) }}</x-data.table-cell>
                                 <x-data.table-cell>
                                     <x-form.checkbox
                                         :checked="$row->isFeeInPiggyBank"
