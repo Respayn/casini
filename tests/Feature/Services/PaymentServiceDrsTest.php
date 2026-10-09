@@ -6,6 +6,7 @@ use App\Data\Payment\DrsOperationFormData;
 use App\Data\Payment\InvoiceData;
 use App\Data\Payment\PaymentData;
 use App\Enums\AdvertisingSystem;
+use App\Enums\PaymentSource;
 use App\Enums\PermissionGroup;
 use App\Models\Client;
 use App\Models\Payment;
@@ -96,6 +97,33 @@ class PaymentServiceDrsTest extends TestCase
         $service->saveOperation($user, $form, self::CAN_ALL);
 
         $this->assertSame(300.0, $service->getClientFeeDebt($operation->payment->client_id));
+    }
+
+    public function test_credits_and_bank_payments_have_separate_numbering(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $bankNumber = (string) (Payment::withTrashed()->where('source', PaymentSource::MANUAL)->get()
+            ->max(fn (Payment $payment) => (int) $payment->number) + 1);
+
+        $credit = $service->newCreditForm($user);
+        $credit->clientId = Client::query()->create(['name' => 'Тест ДРС нумерация'])->id;
+        $credit->creditAmount = 1000;
+        $credit->topUpAmount = 1000;
+        $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $service->createCredit($user, $credit, self::CAN_ALL);
+
+        $manual = Payment::query()->where('source', PaymentSource::MANUAL)->latest('id')->first();
+        $this->assertSame($bankNumber, $manual->number);
+
+        $service->processPayments([$this->paymentData($bankNumber, 5000)]);
+        $service->processPayments([$this->paymentData($bankNumber, 5000)]);
+
+        $this->assertSame(1, Payment::query()->where('number', $bankNumber)->where('source', PaymentSource::FROM_1C)->count());
+        $this->assertSame(1000.0, $manual->operations()->first()->cabinet_top_up_amount);
+
+        $service->createCredit($user, $credit, self::CAN_ALL);
+        $this->assertSame((string) ((int) $bankNumber + 1), Payment::query()->where('source', PaymentSource::MANUAL)->latest('id')->value('number'));
     }
 
     public function test_full_access_sees_operations_of_other_managers(): void

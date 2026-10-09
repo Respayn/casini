@@ -23,6 +23,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\ConnectionInterface;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Log;
 use Spatie\LaravelData\DataCollection;
@@ -220,17 +221,20 @@ class PaymentService
             + $this->moneyAttributes($form, $this->getClientFeeDebt($clientId))
             + $this->detailAttributes($form);
 
-        $this->db->transaction(function () use ($user, $form, $can, $clientId, $attributes) {
-            $operation = $this->paymentRepo->createManualOperation(
-                $clientId,
-                Carbon::parse($form->operationDate ?: today()),
-                $attributes
-            );
-            $this->paymentRepo->updateOperation(
-                $operation,
-                $this->checkboxAttributes($operation, $user, $form, $can)
-            );
-        });
+        // Номер кредита = максимум + 1: без блокировки два одновременных сохранения получат один номер.
+        Cache::lock('drs:manual-payment-number', 10)->block(5, fn () => $this->db->transaction(
+            function () use ($user, $form, $can, $clientId, $attributes) {
+                $operation = $this->paymentRepo->createManualOperation(
+                    $clientId,
+                    Carbon::parse($form->operationDate ?: today()),
+                    $attributes
+                );
+                $this->paymentRepo->updateOperation(
+                    $operation,
+                    $this->checkboxAttributes($operation, $user, $form, $can)
+                );
+            }
+        ));
     }
 
     public function toggleFlag(User $user, int $operationId, string $flag, bool $value): void
