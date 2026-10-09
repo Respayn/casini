@@ -110,7 +110,7 @@ else
 fi
 
 echo "==> Route users.edit exists"
-route_list="$(php artisan route:list --path='users/{user}/edit' --columns=method,uri,name,middleware 2>/dev/null || true)"
+route_list="$(php artisan route:list --name=users.edit --json 2>/dev/null || true)"
 if ! printf '%s' "${route_list}" | grep -qE 'users\.edit|users/\{user\}/edit'; then
   echo "FAIL: маршрут users/{user}/edit (users.edit) не найден"
   printf '%s\n' "${route_list}"
