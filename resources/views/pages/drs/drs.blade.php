@@ -14,11 +14,7 @@
     <div class="flex flex-wrap justify-between gap-3">
         <div class="mb-7 flex items-center gap-2">
             <h1>ДРС</h1>
-            <span class="text-caption-text text-sm">(движение рекламных средств)</span>
-            <x-overlay.tooltip>
-                Движение рекламных средств: поступления на счет и кредиты клиентам. Здесь решаем, сколько отправить в рекламный кабинет и сколько отложить на сбор 3%.
-            </x-overlay.tooltip>
-        </div>
+            <span class="text-caption-text text-sm">(движение рекламных средств)</span>        </div>
         @if ($this->canEdit)
             <div>
                 <x-button.button
@@ -47,8 +43,12 @@
             </x-overlay.tooltip>
         </div>
 
-        <span class="text-caption-text ml-auto text-sm">
-            Последнее поступление: {{ $this->lastImportLabel ?? 'еще не поступали' }}
+        <span class="text-caption-text ml-auto flex items-center gap-1 text-sm">
+            Последнее поступление:
+            <span class="italic">{{ $this->lastImportLabel ?? 'еще не поступали' }}</span>
+            <x-overlay.tooltip>
+                Часовой пояс агентства: {{ $this->timezoneLabel }}. Изменить можно в настройках агентства
+            </x-overlay.tooltip>
         </span>
     </div>
 
@@ -100,7 +100,7 @@
                             <x-data.table-column>
                                 <div class="{{ $headerClass }}">
                                     <span>Статус</span>
-                                    <x-overlay.tooltip>Галочка: деньги отправлены в рекламный кабинет</x-overlay.tooltip>
+                                    <x-overlay.tooltip>Отметьте, если платеж отправлен в рекламный кабинет</x-overlay.tooltip>
                                 </div>
                             </x-data.table-column>
                         @endif

@@ -126,6 +126,12 @@ class extends Component
     }
 
     #[Computed]
+    public function timezoneLabel(): string
+    {
+        return $this->paymentService->getAgencyTimezoneLabel();
+    }
+
+    #[Computed]
     public function canEdit(): bool
     {
         return $this->hasAnyLevel(PermissionGroup::ADVERTISING_FUNDS_MOVEMENT, ['edit', 'full']);

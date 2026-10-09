@@ -6,6 +6,7 @@ use App\Data\Payment\DrsOperationData;
 use App\Data\Payment\DrsOperationFormData;
 use App\Data\Payment\InvoiceData;
 use App\Data\Payment\PaymentData;
+use App\Dictionaries\TimeZoneDictionary;
 use App\Enums\AdvertisingSystem;
 use App\Enums\FeeType;
 use App\Enums\PaymentSource;
@@ -17,6 +18,7 @@ use App\Models\Payment;
 use App\Models\PaymentOperation;
 use App\Models\Project;
 use App\Models\User;
+use App\Repositories\AgencyRepository;
 use App\Repositories\Interfaces\PaymentRepositoryInterface;
 use App\Support\ClientsAndProjectsPermissions;
 use Carbon\Carbon;
@@ -34,9 +36,12 @@ class PaymentService
 
     public const UNPROCESSED_WORKING_DAYS = 3;
 
+    private ?string $agencyTimezone = null;
+
     public function __construct(
         private PaymentRepositoryInterface $paymentRepo,
-        private ConnectionInterface $db
+        private ConnectionInterface $db,
+        private AgencyRepository $agencyRepository
     ) {}
 
     public function processPayments(iterable $payments): void
@@ -120,7 +125,7 @@ class PaymentService
     {
         return DrsOperationFormData::from([
             'isManual' => true,
-            'operationDate' => today()->toDateString(),
+            'operationDate' => $this->agencyToday()->toDateString(),
             'managerId' => $user->id,
             'paymentDetails' => PaymentSource::MANUAL->label(),
         ]);
@@ -226,7 +231,7 @@ class PaymentService
             function () use ($user, $form, $can, $clientId, $attributes) {
                 $operation = $this->paymentRepo->createManualOperation(
                     $clientId,
-                    Carbon::parse($form->operationDate ?: today()),
+                    Carbon::parse($form->operationDate ?: $this->agencyToday()->toDateString()),
                     $attributes
                 );
                 $this->paymentRepo->updateOperation(
@@ -291,7 +296,8 @@ class PaymentService
 
     public function getLastImportAt(): ?CarbonInterface
     {
-        return $this->paymentRepo->getLastImportAt();
+        return $this->paymentRepo->getLastImportAt()
+            ?->timezone($this->agencyTimezone());
     }
 
     /**
@@ -548,7 +554,7 @@ class PaymentService
         $attributes = ['status_changed_at' => now(), 'status_changed_by' => $user->id];
 
         if ($isSent && ! filled($sentDate) && $operation->ad_cabinet_sent_date === null) {
-            $attributes['ad_cabinet_sent_date'] = today()->toDateString();
+            $attributes['ad_cabinet_sent_date'] = $this->agencyToday()->toDateString();
         }
 
         return $attributes;
@@ -593,7 +599,25 @@ class PaymentService
 
         $name = $this->userName($by);
 
-        return 'Изменено: '.$at->format('d.m.Y, H:i').($name !== null ? " ({$name})" : '');
+        return 'Изменено: '.$at->copy()->timezone($this->agencyTimezone())->format('d.m.Y, H:i')
+            .($name !== null ? " ({$name})" : '');
+    }
+
+    public function getAgencyTimezoneLabel(): string
+    {
+        $timezone = $this->agencyTimezone();
+
+        return TimeZoneDictionary::byIdentifier($timezone)['label'] ?? $timezone;
+    }
+
+    private function agencyTimezone(): string
+    {
+        return $this->agencyTimezone ??= $this->agencyRepository->getPrimaryTimeZone();
+    }
+
+    private function agencyToday(): Carbon
+    {
+        return Carbon::today($this->agencyTimezone());
     }
 
     private function userName(?User $user): ?string
