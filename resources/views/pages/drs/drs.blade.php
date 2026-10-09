@@ -13,6 +13,7 @@
     <div class="flex flex-wrap justify-between gap-3">
         <div class="mb-7 flex items-center gap-2">
             <h1>ДРС</h1>
+            <span class="text-caption-text text-sm">(движение рекламных средств)</span>
             <x-overlay.tooltip>
                 Движение рекламных средств: поступления на счет и кредиты клиентам. Здесь решаем, сколько отправить в рекламный кабинет и сколько отложить на сбор 3%.
             </x-overlay.tooltip>
