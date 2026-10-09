@@ -1,0 +1,75 @@
+@startuml DRS - Code Components
+
+hide empty members
+
+enum FeeType {
+    THREE_PERCENT
+    NONE
+    + feeFrom(float $topUpAmount): float
+}
+
+enum PaymentSource {
+    MANUAL
+    FROM_1C
+}
+
+class "pages::drs" as DrsPage <<Livewire full-page>> {
+    + Carbon $month
+    + bool $onlyNew
+    + DrsOperationFormData $form
+    + string $modalMode
+    + openOperation(int $id)
+    + openCredit()
+    + save()
+    + toggleStatus() / togglePiggyBank() / toggleInvoice()
+    + hideOperation(int $id)
+}
+
+class WithSidebarProjectFilter <<trait>>
+
+class DrsOperationData <<DTO строки>>
+class DrsOperationFormData <<DTO окна>>
+
+class PaymentService {
+    + processPayments(iterable $payments)
+    + getMonthOperations(User, month, ?projectId, onlyNew): Collection<DrsOperationData>
+    + openOperation(User, id): ?DrsOperationFormData
+    + newCreditForm(User): DrsOperationFormData
+    + saveOperation(User, form, can)
+    + createCredit(User, form, can)
+    + calculate(form, feeDebt): array
+    + getClientCreditDebt(clientId): float
+    + getClientFeeDebt(clientId, ?exceptId): float
+    + notifyUnprocessed(): int
+}
+
+interface PaymentRepositoryInterface
+class PaymentRepository
+
+class Payment <<Model>>
+class PaymentOperation <<Model, SoftDeletes>>
+class Client <<Model>> {
+    + FeeType ad_fee_type
+}
+
+class NotifyUnprocessedFundsCommand <<drs:notify-unprocessed>>
+class FundsReceived <<Event>>
+class FundsIncomeUnprocessed <<Event>>
+
+DrsPage ..> WithSidebarProjectFilter
+DrsPage --> PaymentService
+DrsPage ..> DrsOperationData
+DrsPage ..> DrsOperationFormData
+PaymentService --> PaymentRepositoryInterface
+PaymentRepository ..|> PaymentRepositoryInterface
+PaymentRepository --> Payment
+PaymentRepository --> PaymentOperation
+Payment --> Client
+Payment --> PaymentSource
+Payment "1" *-- "many" PaymentOperation
+PaymentService ..> FeeType
+PaymentService ..> FundsReceived
+PaymentService ..> FundsIncomeUnprocessed
+NotifyUnprocessedFundsCommand --> PaymentService
+
+@enduml

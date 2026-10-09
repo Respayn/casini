@@ -33,6 +33,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('integrations:dispatch-due-syncs')->everyMinute();
         $schedule->command('channels:dispatch-due-budget-refresh')->everyMinute();
+        $schedule->command('drs:notify-unprocessed')->dailyAt('09:00');
     })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->append(DisableSessionAuthForApi::class);

@@ -38,6 +38,7 @@
         <x-menu.navbar :items="collect([
             ['label' => 'Каналы', 'route' => 'channels', 'permissions' => ['read channels', 'full channels']],
             ['label' => 'Статистика', 'route' => 'statistics', 'permissions' => ['read statistics', 'full statistics']],
+            ['label' => 'ДРС', 'route' => 'drs', 'permissions' => ['read advertising funds movement', 'edit advertising funds movement', 'full advertising funds movement']],
             ['label' => 'Планирование', 'route' => 'planning', 'permissions' => ['read planning', 'full planning']],
             ['label' => 'Отчеты', 'route' => 'reports', 'permissions' => ['read reports', 'full reports']],
         ])->map(function (array $item) {

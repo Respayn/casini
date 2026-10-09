@@ -66,6 +66,10 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('/statistics', 'pages::statistics')->name('statistics');
     });
 
+    Route::middleware(['permission:read advertising funds movement|edit advertising funds movement|full advertising funds movement'])->group(function () {
+        Route::livewire('/drs', 'pages::drs')->name('drs');
+    });
+
     Route::middleware(['permission:read reports|full reports'])->group(function () {
         Route::livewire('/reports', 'pages::reports')->name('reports');
         Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
