@@ -16,6 +16,7 @@ use Illuminate\Support\Collection;
  * @property float $initial_balance
  * @property int $manager_id
  * @property FeeType $ad_fee_type
+ * @property \DateTime|null $ad_fee_changed_at
  * @property \DateTime $created_at
  * @property \DateTime $updated_at
  * @property User $manager
@@ -32,11 +33,13 @@ class Client extends Model
         'initial_balance',
         'manager_id',
         'ad_fee_type',
+        'ad_fee_changed_at',
     ];
 
     protected $casts = [
         'initial_balance' => 'decimal:2',
         'ad_fee_type' => FeeType::class,
+        'ad_fee_changed_at' => 'date',
     ];
 
     public function manager(): BelongsTo

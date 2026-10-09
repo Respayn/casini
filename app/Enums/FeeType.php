@@ -10,8 +10,8 @@ enum FeeType: string
     public function label(): string
     {
         return match ($this) {
-            self::THREE_PERCENT => 'Сбор 3%',
-            self::NONE => 'Без сбора',
+            self::THREE_PERCENT => 'Взимаем сбор 3%',
+            self::NONE => 'Не взимаем сбор',
         };
     }
 

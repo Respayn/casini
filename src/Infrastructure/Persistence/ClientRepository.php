@@ -2,6 +2,7 @@
 
 namespace Src\Infrastructure\Persistence;
 
+use App\Enums\FeeType;
 use App\Models\Client as EloquentClient;
 use Src\Domain\Clients\Client;
 use Src\Domain\Clients\ClientRepositoryInterface;
@@ -22,7 +23,9 @@ class ClientRepository implements ClientRepositoryInterface
             'name' => $client->getName(),
             'manager_id' => $client->getManagerId(),
             'inn' => $client->getInn(),
-            'initial_balance' => $client->getInitialBalance()
+            'initial_balance' => $client->getInitialBalance(),
+            'ad_fee_type' => $client->chargesAdFee() ? FeeType::THREE_PERCENT : FeeType::NONE,
+            'ad_fee_changed_at' => $client->getAdFeeChangedAt()?->format('Y-m-d'),
         ];
 
         if ($clientId === null) {
@@ -52,7 +55,9 @@ class ClientRepository implements ClientRepositoryInterface
             $client->name,
             $client->manager_id,
             $client->inn,
-            $client->initial_balance
+            $client->initial_balance,
+            $client->ad_fee_type !== FeeType::NONE,
+            $client->ad_fee_changed_at?->toDateTimeImmutable()
         );
     }
 }
