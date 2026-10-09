@@ -43,9 +43,11 @@
             </x-overlay.tooltip>
         </div>
 
-        <span class="text-caption-text ml-auto flex items-center gap-1 text-sm">
-            Последнее поступление:
-            <span class="italic">{{ $this->lastImportLabel ?? 'еще не поступали' }}</span>
+        <span class="text-caption-text ml-auto flex items-center gap-2 text-sm">
+            <span>
+                Последнее поступление:
+                <span class="italic">{{ $this->lastImportLabel ?? 'еще не поступали' }}</span>
+            </span>
             <x-overlay.tooltip>
                 Часовой пояс агентства: {{ $this->timezoneLabel }}. Изменить можно в настройках агентства
             </x-overlay.tooltip>
@@ -154,7 +156,7 @@
                                 <x-data.table-cell class="whitespace-nowrap">
                                     <div>{{ $row->operationDate }}</div>
                                     @if ($row->sentDate)
-                                        <div class="text-caption-text text-xs">В кабинет: {{ $row->sentDate }}</div>
+                                        <div class="text-caption-text text-xs">{{ $row->sentDate }}</div>
                                     @endif
                                 </x-data.table-cell>
                                 <x-data.table-cell class="whitespace-nowrap">
