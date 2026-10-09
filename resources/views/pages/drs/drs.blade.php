@@ -39,7 +39,7 @@
         <x-form.month-picker wire:model.live="month" />
 
         <div class="flex items-center gap-2">
-            <label>Только новые</label>
+            <label>{{ $onlyNew ? 'Только новые' : 'Все операции' }}</label>
             <x-form.toggle-switch wire:model.live="onlyNew" />
             <x-overlay.tooltip>
                 Новые: операции, которые еще никто не открывал
