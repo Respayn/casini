@@ -154,7 +154,7 @@
                                         <div class="text-caption-text">-</div>
                                     @endif
                                     @if ($row->creditAmount != 0)
-                                        <div @class(['text-[#FF7373]' => $row->creditAmount < 0, 'text-green-700' => $row->creditAmount > 0])>
+                                        <div @class(['text-blue-600' => $row->creditAmount < 0, 'text-green-700' => $row->creditAmount > 0])>
                                             {{ $signedMoney($row->creditAmount) }}
                                         </div>
                                     @else
@@ -167,7 +167,10 @@
                                     @endif
                                     <div class="text-caption-text mt-1">
                                         @if ($row->advertisingSystem)
-                                            <div>Канал: {{ $row->advertisingSystem }}</div>
+                                            <div class="flex items-center gap-1">
+                                                <x-icons.ads-click class="text-secondary-text shrink-0" width="16" height="16" />
+                                                Канал: {{ $row->advertisingSystem }}
+                                            </div>
                                         @endif
                                         @if ($row->invoiceNumber)
                                             <div>Счет: {{ $row->invoiceNumber }}</div>
