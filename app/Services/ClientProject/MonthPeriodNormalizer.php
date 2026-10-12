@@ -7,20 +7,9 @@ use Carbon\CarbonInterface;
 
 final class MonthPeriodNormalizer
 {
-    public static function isEmpty(?CarbonInterface $date): bool
+    public function clampMonth(?CarbonInterface $date, bool $toEndOfMonth): ?Carbon
     {
-        if ($date === null) {
-            return true;
-        }
-
-        return $date->year === 1970
-            && $date->month === 1
-            && $date->day === 1;
-    }
-
-    public static function clampMonth(?CarbonInterface $date, bool $toEndOfMonth): ?Carbon
-    {
-        if (self::isEmpty($date)) {
+        if ($this->isEmpty($date)) {
             return null;
         }
 
@@ -39,9 +28,9 @@ final class MonthPeriodNormalizer
     /**
      * @return array{0: ?CarbonInterface, 1: ?CarbonInterface}
      */
-    public static function alignRange(?CarbonInterface $from, ?CarbonInterface $to, string $changed): array
+    public function alignRange(?CarbonInterface $from, ?CarbonInterface $to, string $changed): array
     {
-        if (self::isEmpty($from) || self::isEmpty($to)) {
+        if ($this->isEmpty($from) || $this->isEmpty($to)) {
             return [$from, $to];
         }
 
@@ -58,23 +47,34 @@ final class MonthPeriodNormalizer
         return [$from, $to];
     }
 
-    public static function fromMax(?CarbonInterface $to): string
+    public function fromMax(?CarbonInterface $to): string
     {
         $max = Carbon::now()->startOfMonth();
 
-        if (! self::isEmpty($to) && $to->copy()->startOfMonth()->lt($max)) {
+        if (! $this->isEmpty($to) && $to->copy()->startOfMonth()->lt($max)) {
             $max = $to->copy()->startOfMonth();
         }
 
         return $max->toDateString();
     }
 
-    public static function toMin(?CarbonInterface $from): ?string
+    public function toMin(?CarbonInterface $from): ?string
     {
-        if (self::isEmpty($from)) {
+        if ($this->isEmpty($from)) {
             return null;
         }
 
         return $from->copy()->startOfMonth()->toDateString();
+    }
+
+    private function isEmpty(?CarbonInterface $date): bool
+    {
+        if ($date === null) {
+            return true;
+        }
+
+        return $date->year === 1970
+            && $date->month === 1
+            && $date->day === 1;
     }
 }

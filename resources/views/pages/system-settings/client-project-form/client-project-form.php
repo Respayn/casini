@@ -178,21 +178,21 @@ class extends Component
 
     public function statisticsRebuildFromMax(): string
     {
-        return MonthPeriodNormalizer::fromMax($this->statisticsRebuildTo);
+        return $this->monthPeriod()->fromMax($this->statisticsRebuildTo);
     }
 
     public function statisticsRebuildToMin(): ?string
     {
-        return MonthPeriodNormalizer::toMin($this->statisticsRebuildFrom);
+        return $this->monthPeriod()->toMin($this->statisticsRebuildFrom);
     }
 
     public function updatedStatisticsRebuildFrom(mixed $value): void
     {
-        $this->statisticsRebuildFrom = MonthPeriodNormalizer::clampMonth(
+        $this->statisticsRebuildFrom = $this->monthPeriod()->clampMonth(
             $this->statisticsRebuildFrom,
             false
         );
-        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = MonthPeriodNormalizer::alignRange(
+        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = $this->monthPeriod()->alignRange(
             $this->statisticsRebuildFrom,
             $this->statisticsRebuildTo,
             'from'
@@ -201,15 +201,20 @@ class extends Component
 
     public function updatedStatisticsRebuildTo(mixed $value): void
     {
-        $this->statisticsRebuildTo = MonthPeriodNormalizer::clampMonth(
+        $this->statisticsRebuildTo = $this->monthPeriod()->clampMonth(
             $this->statisticsRebuildTo,
             true
         );
-        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = MonthPeriodNormalizer::alignRange(
+        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = $this->monthPeriod()->alignRange(
             $this->statisticsRebuildFrom,
             $this->statisticsRebuildTo,
             'to'
         );
+    }
+
+    private function monthPeriod(): MonthPeriodNormalizer
+    {
+        return app(MonthPeriodNormalizer::class);
     }
 
     public function updatedClientProjectFormIsActive(mixed $value): void

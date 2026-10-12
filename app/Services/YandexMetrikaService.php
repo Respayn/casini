@@ -6,9 +6,9 @@ use App\Contracts\YandexMetrikaClientInterface;
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Data\YandexMetrika\GoalDTO;
 use App\Data\YandexMetrika\VisitReportDTO;
+use App\Enums\YandexMetrikaSearchEngine;
 use App\Factories\YandexMetrikaClientFactory;
 use App\Repositories\AgencyRepository;
-use App\Support\YandexMetrikaSearchEngine;
 use App\Support\YandexMetrikaTimezone;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -775,7 +775,7 @@ class YandexMetrikaService
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $value = (int) round(array_sum(array_map('floatval', $metrics)));
 
-            $engine = YandexMetrikaSearchEngine::normalize($engineName);
+            $engine = YandexMetrikaSearchEngine::fromApiName($engineName)->value;
             $month = $this->parseMonthDimension($monthName, $fallbackDate);
             $key = $engine.'|'.$month;
 

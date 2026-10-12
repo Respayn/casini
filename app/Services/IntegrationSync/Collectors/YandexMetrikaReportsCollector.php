@@ -11,6 +11,7 @@ use App\Services\IntegrationSync\YandexMetrikaSyncPeriod;
 use App\Services\YandexMetrika\YandexMetrikaReportsSync;
 use App\Support\SafeLogger;
 use Illuminate\Support\Carbon;
+use Src\Domain\ValueObjects\DateTimeRange;
 use Throwable;
 
 class YandexMetrikaReportsCollector implements IntegrationSyncCollector
@@ -22,6 +23,7 @@ class YandexMetrikaReportsCollector implements IntegrationSyncCollector
     public function __construct(
         private readonly IntegrationProjectCredentials $credentials,
         private readonly YandexMetrikaReportsSync $reportsSync,
+        private readonly YandexMetrikaSyncPeriod $syncPeriod,
     ) {}
 
     public function key(): string
@@ -49,7 +51,7 @@ class YandexMetrikaReportsCollector implements IntegrationSyncCollector
     {
         return $this->sync(
             $context->projectId,
-            fn (string $syncEnabledAt) => YandexMetrikaSyncPeriod::nightly($context->targetDate, $syncEnabledAt),
+            fn (string $syncEnabledAt) => $this->syncPeriod->nightly($context->targetDate, $syncEnabledAt),
         );
     }
 
@@ -57,12 +59,12 @@ class YandexMetrikaReportsCollector implements IntegrationSyncCollector
     {
         return $this->sync(
             $projectId,
-            fn (string $syncEnabledAt) => YandexMetrikaSyncPeriod::range($from, $to, $syncEnabledAt),
+            fn (string $syncEnabledAt) => $this->syncPeriod->range($from, $to, $syncEnabledAt),
         );
     }
 
     /**
-     * @param  callable(string): (array{0: Carbon, 1: Carbon}|null)  $resolvePeriod
+     * @param  callable(string): ?DateTimeRange  $resolvePeriod
      */
     private function sync(int $projectId, callable $resolvePeriod): IntegrationSyncResult
     {
@@ -79,7 +81,8 @@ class YandexMetrikaReportsCollector implements IntegrationSyncCollector
             return IntegrationSyncResult::success();
         }
 
-        [$from, $to] = $period;
+        $from = Carbon::instance($period->getStart());
+        $to = Carbon::instance($period->getEnd());
 
         foreach ($reports as $report) {
             try {

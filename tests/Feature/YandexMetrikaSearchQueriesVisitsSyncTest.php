@@ -58,7 +58,7 @@ class YandexMetrikaSearchQueriesVisitsSyncTest extends TestCase
             ]);
         });
 
-        $this->artisan('metrika:sync-search-queries-visits')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'visits_search_queries'])->assertSuccessful();
 
         $row = YandexMetrikaVisitsSearchQueries::query()
             ->where('project_id', $project->id)
@@ -91,7 +91,7 @@ class YandexMetrikaSearchQueriesVisitsSyncTest extends TestCase
             ],
         ]);
 
-        $this->artisan('metrika:sync-search-queries-visits')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'visits_search_queries'])->assertSuccessful();
 
         $this->assertSame(0, YandexMetrikaVisitsSearchQueries::query()
             ->where('project_id', $project->id)

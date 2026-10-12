@@ -52,7 +52,7 @@ class YandexMetrikaDirectSummaryGoalsSyncTest extends TestCase
             ]);
         });
 
-        $this->artisan('metrika:sync-direct-summary-goals')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'goals_direct_summary'])->assertSuccessful();
 
         $this->assertSame(1, YandexMetrikaGoalDirectSummary::query()
             ->where('project_id', $project->id)
@@ -87,7 +87,7 @@ class YandexMetrikaDirectSummaryGoalsSyncTest extends TestCase
             ],
         ]);
 
-        $this->artisan('metrika:sync-direct-summary-goals')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'goals_direct_summary'])->assertSuccessful();
 
         $this->assertSame(0, YandexMetrikaGoalDirectSummary::query()
             ->where('project_id', $project->id)

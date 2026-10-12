@@ -9,14 +9,6 @@ use Tests\TestCase;
 class SearchQueriesMinusListTest extends TestCase
 {
     #[Test]
-    public function test_parse_splits_lines_and_trims(): void
-    {
-        $list = SearchQueriesMinusList::parse("Вакансии\n Реквизиты \n\nбренд\n");
-
-        $this->assertSame(['Вакансии', 'Реквизиты', 'бренд'], $list);
-    }
-
-    #[Test]
     public function test_build_filter_returns_null_for_empty(): void
     {
         $this->assertNull(SearchQueriesMinusList::buildFilter(''));
@@ -37,7 +29,7 @@ class SearchQueriesMinusListTest extends TestCase
     {
         $this->assertSame(
             "(ym:s:<attribution>SearchPhrase!@'Вакансии' AND ym:s:<attribution>SearchPhrase!@'Реквизиты')",
-            SearchQueriesMinusList::buildFilter("Вакансии\nРеквизиты")
+            SearchQueriesMinusList::buildFilter(" Вакансии \n\nРеквизиты\nВакансии\n")
         );
     }
 

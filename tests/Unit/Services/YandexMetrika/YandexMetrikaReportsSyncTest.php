@@ -4,6 +4,7 @@ namespace Tests\Unit\Services\YandexMetrika;
 
 use App\Repositories\AgencyRepository;
 use App\Repositories\IntegrationRepository;
+use App\Services\IntegrationSync\YandexMetrikaSyncPeriod;
 use App\Services\YandexMetrika\YandexMetrikaReportsSync;
 use App\Services\YandexMetrikaService;
 use Illuminate\Support\Carbon;
@@ -59,6 +60,7 @@ class YandexMetrikaReportsSyncTest extends TestCase
             $this->createStub(YandexMetrikaRepositoryInterface::class),
             $this->createStub(IntegrationRepository::class),
             $agencyRepository,
+            new YandexMetrikaSyncPeriod,
         );
 
         $sync->syncReport(

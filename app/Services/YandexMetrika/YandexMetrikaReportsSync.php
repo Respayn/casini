@@ -13,7 +13,7 @@ use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
 use Throwable;
 
 /**
- * Съём отчётов Метрики в БД. Общий код для ночного collector и ручных команд metrika:sync-*.
+ * Съём отчётов Метрики в БД. Общий код для ночного collector и ручной команды metrika:sync.
  */
 class YandexMetrikaReportsSync
 {
@@ -56,6 +56,7 @@ class YandexMetrikaReportsSync
         private readonly YandexMetrikaRepositoryInterface $repository,
         private readonly IntegrationRepository $integrationRepository,
         private readonly AgencyRepository $agencyRepository,
+        private readonly YandexMetrikaSyncPeriod $syncPeriod,
     ) {}
 
     /**
@@ -104,7 +105,7 @@ class YandexMetrikaReportsSync
             }
 
             $syncEnabledAt = (string) $settings['sync_enabled_at'];
-            $period = YandexMetrikaSyncPeriod::range(Carbon::parse($syncEnabledAt), Carbon::now(), $syncEnabledAt);
+            $period = $this->syncPeriod->range(Carbon::parse($syncEnabledAt), Carbon::now(), $syncEnabledAt);
 
             if ($period === null) {
                 $stats['skipped']++;
@@ -113,7 +114,13 @@ class YandexMetrikaReportsSync
             }
 
             try {
-                $this->syncReport((int) $integrationProject->project_id, $settings, $report, $period[0], $period[1]);
+                $this->syncReport(
+                    (int) $integrationProject->project_id,
+                    $settings,
+                    $report,
+                    Carbon::instance($period->getStart()),
+                    Carbon::instance($period->getEnd()),
+                );
                 $stats['synced']++;
             } catch (Throwable $e) {
                 $stats['failed']++;

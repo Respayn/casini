@@ -3,6 +3,7 @@
 namespace App\Services\IntegrationSync;
 
 use Illuminate\Support\Carbon;
+use Src\Domain\ValueObjects\DateTimeRange;
 
 /**
  * Период запроса к API Метрики. В БД Метрики лежат суммы за месяц,
@@ -12,22 +13,18 @@ class YandexMetrikaSyncPeriod
 {
     /**
      * Ночной съём: месяц вчерашней даты, с 1-го числа по вчера.
-     *
-     * @return array{0: Carbon, 1: Carbon}|null
      */
-    public static function nightly(Carbon $targetDate, string $syncEnabledAt): ?array
+    public function nightly(Carbon $targetDate, string $syncEnabledAt): ?DateTimeRange
     {
-        return self::range($targetDate->copy()->startOfMonth(), $targetDate, $syncEnabledAt);
+        return $this->range($targetDate->copy()->startOfMonth(), $targetDate, $syncEnabledAt);
     }
 
     /**
      * Ручное обновление и backfill: все месяцы периода, но не раньше месяца включения съёма.
-     *
-     * @return array{0: Carbon, 1: Carbon}|null
      */
-    public static function range(Carbon $from, Carbon $to, string $syncEnabledAt): ?array
+    public function range(Carbon $from, Carbon $to, string $syncEnabledAt): ?DateTimeRange
     {
-        $enabledAt = self::parseDate($syncEnabledAt);
+        $enabledAt = $this->parseDate($syncEnabledAt);
 
         if ($enabledAt === null) {
             return null;
@@ -46,10 +43,10 @@ class YandexMetrikaSyncPeriod
             $from = $enabledMonth;
         }
 
-        return [$from, $to];
+        return new DateTimeRange($from->toDateTimeImmutable(), $to->toDateTimeImmutable());
     }
 
-    private static function parseDate(string $value): ?Carbon
+    private function parseDate(string $value): ?Carbon
     {
         $value = trim($value);
 

@@ -9,17 +9,9 @@ use Tests\TestCase;
 class SearchEnginesDisplayListTest extends TestCase
 {
     #[Test]
-    public function test_parse_splits_lines_and_trims(): void
-    {
-        $list = SearchEnginesDisplayList::parse("Яндекс\n Google \n\nBing\n");
-
-        $this->assertSame(['Яндекс', 'Google', 'Bing'], $list);
-    }
-
-    #[Test]
     public function test_migrate_display_text_to_root_ids(): void
     {
-        $ids = SearchEnginesDisplayList::migrateDisplayTextToIds("Яндекс\nGoogle\nBing\nUnknown Engine\n");
+        $ids = SearchEnginesDisplayList::migrateDisplayTextToIds("Яндекс\n Google \n\nBing\nUnknown Engine\nЯндекс\n");
 
         $this->assertSame(['yandex', 'google', 'bing'], $ids);
     }

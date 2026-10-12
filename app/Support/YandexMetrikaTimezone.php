@@ -12,7 +12,7 @@ class YandexMetrikaTimezone
      * Смещение пояса для параметра timezone Reporting API (±hh:mm).
      * Пустой или неизвестный IANA-пояс не ломает запрос: возвращаем null.
      */
-    public static function offsetFor(?string $iana, ?Carbon $at = null): ?string
+    private static function offsetFor(?string $iana, ?Carbon $at = null): ?string
     {
         $iana = trim((string) $iana);
         if ($iana === '') {

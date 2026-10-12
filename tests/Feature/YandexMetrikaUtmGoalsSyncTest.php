@@ -54,7 +54,7 @@ class YandexMetrikaUtmGoalsSyncTest extends TestCase
             ]);
         });
 
-        $this->artisan('metrika:sync-utm-goals')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'goals_utm'])->assertSuccessful();
 
         $this->assertSame(3, YandexMetrikaGoalUtm::query()
             ->where('project_id', $project->id)
@@ -89,7 +89,7 @@ class YandexMetrikaUtmGoalsSyncTest extends TestCase
             ],
         ]);
 
-        $this->artisan('metrika:sync-utm-goals')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'goals_utm'])->assertSuccessful();
 
         $this->assertSame(0, YandexMetrikaGoalUtm::query()
             ->where('project_id', $project->id)

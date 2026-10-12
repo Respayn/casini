@@ -52,7 +52,7 @@ class YandexMetrikaConversionsGoalsSyncTest extends TestCase
             ]);
         });
 
-        $this->artisan('metrika:sync-conversions-goals')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'goals_conversions'])->assertSuccessful();
 
         $this->assertSame(1, YandexMetrikaGoalConversion::query()
             ->where('project_id', $project->id)
@@ -87,7 +87,7 @@ class YandexMetrikaConversionsGoalsSyncTest extends TestCase
             ],
         ]);
 
-        $this->artisan('metrika:sync-conversions-goals')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'goals_conversions'])->assertSuccessful();
 
         $this->assertSame(0, YandexMetrikaGoalConversion::query()
             ->where('project_id', $project->id)

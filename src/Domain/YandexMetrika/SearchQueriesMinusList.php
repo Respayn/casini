@@ -15,7 +15,7 @@ class SearchQueriesMinusList
     /**
      * @return list<string>
      */
-    public static function parse(string $text): array
+    private static function parse(string $text): array
     {
         $lines = preg_split('/\R/u', $text) ?: [];
         $result = [];

@@ -84,7 +84,7 @@ class YandexMetrikaSearchEnginesGoalsSyncTest extends TestCase
             ]);
         });
 
-        $this->artisan('metrika:sync-search-engines-goals')->assertSuccessful();
+        $this->artisan('metrika:sync', ['report' => 'goals_search_engines'])->assertSuccessful();
 
         $this->assertSame(8, YandexMetrikaSearchEnginesStats::query()
             ->where('project_id', $project->id)

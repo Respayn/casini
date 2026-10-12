@@ -20,7 +20,7 @@ class SearchEnginesDisplayList
     /**
      * @return list<string>
      */
-    public static function parse(string $text): array
+    private static function parse(string $text): array
     {
         $lines = preg_split('/\R/u', $text) ?: [];
         $result = [];
@@ -54,7 +54,7 @@ class SearchEnginesDisplayList
         return array_values(array_unique($ids));
     }
 
-    public static function mapDisplayNameToRootId(string $name): ?string
+    private static function mapDisplayNameToRootId(string $name): ?string
     {
         $normalized = mb_strtolower(trim($name));
 
