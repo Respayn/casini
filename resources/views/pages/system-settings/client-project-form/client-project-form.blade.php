@@ -47,7 +47,7 @@
                     <div>
                         <div class="flex items-center justify-end gap-3">
                             <label>
-                                Активен
+                                {{ $clientProjectForm->isActive ? 'Активен' : 'Неактивный' }}
                             </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                                 <x-form.toggle-switch wire:model.live="clientProjectForm.isActive" :disabled="! $canEdit">
@@ -247,9 +247,9 @@
                 <x-form.form-field>
                     <x-form.form-label class="self-baseline">Свой проект</x-form.form-label>
                     <div class="flex items-center justify-end gap-3">
-                        <label>Проект клиента</label>
+                        <label>{{ $clientProjectForm->isInternal ? 'Свой проект' : 'Проект клиента' }}</label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch wire:model="clientProjectForm.isInternal" :disabled="! $canEdit"></x-form.toggle-switch>
+                            <x-form.toggle-switch wire:model.live="clientProjectForm.isInternal" :disabled="! $canEdit"></x-form.toggle-switch>
                         </x-permissions.field-guard>
                     </div>
                 </x-form.form-field>
@@ -373,7 +373,7 @@
                         В договоре предусмотрены бонусы и/или гарантии
                     </x-form.form-label>
                     <div class="flex items-center justify-end gap-3">
-                        <label>Да</label>
+                        <label>{{ $bonusGuaranteeForm->bonusesEnabled ? 'Есть бонусы' : 'Нет бонусов' }}</label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                             <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.bonusesEnabled" :disabled="! $canEdit" />
                         </x-permissions.field-guard>
@@ -387,7 +387,7 @@
                             Бонус и/или гарантия рассчитывается в % от суммы чека клиента
                         </x-form.form-label>
                         <div class="flex items-center justify-end gap-3">
-                            <label>Да</label>
+                            <label>{{ $bonusGuaranteeForm->calculateInPercentage ? 'Да' : 'Нет' }}</label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
                                 <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.calculateInPercentage" :disabled="! $canEdit" />
                             </x-permissions.field-guard>
@@ -558,8 +558,16 @@
                 </div>
             </div>
 
-            <div class="mt-4 flex flex-col gap-4">
-                <h1>Настройка параметров</h1>
+            <div
+                class="mt-4 flex flex-col gap-4"
+                wire:key="parameter-schemes-{{ $clientProjectForm->projectType }}-{{ $clientProjectForm->kpi }}-{{ md5(json_encode($parameterCalculationRows)) }}"
+            >
+                <div class="flex items-center gap-3">
+                    <h1>Настройка параметров</h1>
+                    <x-overlay.tooltip>
+                        Блок носит информационный характер - для понимания логики расчета параметров в отчетах. Изменить логику расчета параметров вы можете включив или выключив интеграции. После внесения изменений - пересоберите статистику в клиенто-проекте
+                    </x-overlay.tooltip>
+                </div>
 
                 <x-form.form-field>
                     <x-form.form-label class="font-bold">Фактические параметры</x-form.form-label>
@@ -570,138 +578,27 @@
                     <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
                         Выберите KPI и Тип клиенто-проекта
                     </span>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::TRAFFIC->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
-                    <x-form.form-field>
-                        <x-form.form-label>CPС</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы / Яндекс Директ, клики'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Рекламный бюджет</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Визитов</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, клики'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::LEADS->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
-                    <x-form.form-field>
-                        <x-form.form-label>CPL</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы / (Calibri, ЕЖЛ + Яндекс Метрика, достижение целей из отчета UTM-метки)'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Рекламный бюджет</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Директ, расходы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Лиды</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, достижение целей из отчета UTM-метки, ЕЖЛ'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::POSITIONS->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::SEO_PROMOTION->value)
-                    <x-form.form-field>
-                        <x-form.form-label>% позиций в топ 10</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Yandex Search API'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Конверсии</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, достижение целей из отчета Поисковые системы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                @elseif(
-                    $clientProjectForm->kpi === \Src\Domain\ValueObjects\Kpi::TRAFFIC->value &&
-                        $clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::SEO_PROMOTION->value)
-                    <x-form.form-field>
-                        <x-form.form-label>Объем визитов</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, переходы из отчета Поисковые системы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
-                    <x-form.form-field>
-                        <x-form.form-label>Конверсии</x-form.form-label>
-                        <div class="w-full max-w-[489px]">
-                            <span class="text-[14px]">
-                                Данные из интеграций поступают с учетом заданных настроек
-                            </span>
-                            <x-form.input-text
-                                :value="'Яндекс Метрика, достижение целей из отчета Поисковые системы'"
-                                disabled
-                            />
-                        </div>
-                    </x-form.form-field>
+                @elseif ($parameterCalculationRows === [])
+                    <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
+                        Для выбранных KPI и типа нет схемы параметров
+                    </span>
+                @else
+                    @foreach ($parameterCalculationRows as $row)
+                        <x-form.form-field wire:key="parameter-scheme-{{ $row['code'] }}-{{ md5($row['scheme']) }}">
+                            <x-form.form-label tooltip="Данные из интеграций поступают с учетом заданных настроек">
+                                {{ $row['label'] }}
+                            </x-form.form-label>
+                            <div class="w-full max-w-[489px]">
+                                <textarea
+                                    class="border-input-border text-primary-text disabled:bg-secondary min-h-[72px] w-full resize-none rounded-[5px] border px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap"
+                                    rows="3"
+                                    disabled
+                                    readonly
+                                    title="{{ $row['scheme'] }}"
+                                >{{ $row['scheme'] }}</textarea>
+                            </div>
+                        </x-form.form-field>
+                    @endforeach
                 @endif
             </div>
 
@@ -712,10 +609,21 @@
                         tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций"
                     >Выберите период</x-form.form-label>
                     <div class="flex flex-col gap-2">
-                        <div class="flex flex-row items-center gap-2">
-                            <x-form.month-picker wire:model.live="statisticsRebuildFrom" />
-                            <span>-</span>
-                            <x-form.month-picker wire:model.live="statisticsRebuildTo" />
+                        <div class="flex w-full min-w-0 flex-row items-center gap-2">
+                            <div class="min-w-0 flex-1">
+                                <x-form.month-picker
+                                    wire:model.live="statisticsRebuildFrom"
+                                    :max="$this->statisticsRebuildFromMax()"
+                                />
+                            </div>
+                            <span class="shrink-0">-</span>
+                            <div class="min-w-0 flex-1">
+                                <x-form.month-picker
+                                    wire:model.live="statisticsRebuildTo"
+                                    :min="$this->statisticsRebuildToMin()"
+                                    :max="now()->toDateString()"
+                                />
+                            </div>
                         </div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <div

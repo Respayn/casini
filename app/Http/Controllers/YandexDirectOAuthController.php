@@ -50,7 +50,6 @@ class YandexDirectOAuthController
         $state = base64_encode($encryptedState);
 
         $scopes = [
-            'login:email',
             'login:info',
             'login:avatar',
             'direct:api',

@@ -6,6 +6,7 @@ use App\Data\AgencyData;
 use App\Helpers\StringHelper;
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Models\Agency;
+use App\Models\Project;
 use App\Repositories\Interfaces\AgencyRepositoryInterface;
 use App\Services\Agency\AgencyIdGenerator;
 use Illuminate\Support\Facades\Auth;
@@ -179,6 +180,24 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         $timezone = Agency::query()->orderBy('id')->value('time_zone');
 
         return filled($timezone) ? (string) $timezone : (string) config('app.timezone', 'UTC');
+    }
+
+    public function getTimeZone(int $agencyId): ?string
+    {
+        $timezone = Agency::query()->whereKey($agencyId)->value('time_zone');
+
+        return filled($timezone) ? (string) $timezone : null;
+    }
+
+    /**
+     * Пояс первого агентства специалиста проекта.
+     */
+    public function getProjectTimeZone(int $projectId): ?string
+    {
+        $timezone = Project::query()->with('specialist.agencies')->find($projectId)
+            ?->specialist?->agencies->first()?->time_zone;
+
+        return filled($timezone) ? (string) $timezone : null;
     }
 
     public function getPrimaryDirectBudgetRefreshTime(): ?string

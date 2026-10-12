@@ -17,6 +17,12 @@
         'yandex_direct' => filled($projectIntegration->settings['oauth_token'] ?? $projectIntegration->settings['encryptedOauthToken'] ?? null)
             || filled($projectIntegration->settings['client_login'] ?? $projectIntegration->settings['clientLogin'] ?? null)
             || ($projectIntegration->isEnabled ?? false),
+        'yandex_metrika' => filled($projectIntegration->settings['oauth_token'] ?? $projectIntegration->settings['encryptedOauthToken'] ?? null)
+            || filled($projectIntegration->settings['counter_id'] ?? $projectIntegration->settings['counterId'] ?? null)
+            || ($projectIntegration->isEnabled ?? false),
+        'google_sheets' => filled($projectIntegration->settings['oauth_token'] ?? null)
+            || filled($projectIntegration->settings['document_id'] ?? $projectIntegration->settings['documentId'] ?? null)
+            || ($projectIntegration->isEnabled ?? false),
         default => false,
     };
 
