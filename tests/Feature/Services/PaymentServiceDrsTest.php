@@ -15,6 +15,7 @@ use App\Models\PaymentOperation;
 use App\Models\User;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
@@ -173,6 +174,29 @@ class PaymentServiceDrsTest extends TestCase
             ->pluck('fee_amount')
             ->all();
         $this->assertSame([300.0, 0.0], $fees);
+    }
+
+    public function test_credit_with_future_dates_is_rejected(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create(['name' => 'Тест ДРС будущая дата', 'manager_id' => $user->id]);
+        $tomorrow = $service->agencyToday()->addDay()->toDateString();
+
+        $credit = $service->newCreditForm();
+        $credit->clientId = $client->id;
+        $credit->operationDate = $tomorrow;
+        $credit->sentDate = $tomorrow;
+        $credit->creditAmount = 10300;
+        $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
+
+        try {
+            $service->createCredit($user, $credit, self::CAN_ALL);
+            $this->fail('Кредит с будущей датой не должен создаваться');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('form.operationDate', $e->errors());
+            $this->assertArrayHasKey('form.sentDate', $e->errors());
+        }
     }
 
     private function operationByNumber(string $number): PaymentOperation

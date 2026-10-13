@@ -150,6 +150,12 @@ class extends Component
     }
 
     #[Computed]
+    public function maxDate(): string
+    {
+        return $this->paymentService->agencyToday()->toDateString();
+    }
+
+    #[Computed]
     public function canEdit(): bool
     {
         return $this->hasAnyLevel(PermissionGroup::ADVERTISING_FUNDS_MOVEMENT, ['edit', 'full']);

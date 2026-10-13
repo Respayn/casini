@@ -296,6 +296,12 @@
             <div>
             <x-panel.scroll-panel style="max-height: calc(100vh - 220px)">
             <div class="flex w-[700px] max-w-full flex-col gap-3 pe-3" wire:key="drs-form-{{ $modalMode }}-{{ $form->id ?? 'new' }}">
+                @if ($this->creditDebt < 0)
+                    <x-feedback.notice variant="error" class="mb-0">
+                        Сумма задолженности {{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? 'клиента' }} составляет <span class="font-semibold">{{ $money(abs($this->creditDebt)) }}</span>
+                    </x-feedback.notice>
+                @endif
+
                 {{-- Галочки --}}
                 <div class="flex flex-wrap gap-x-3 gap-y-2">
                     @if ($this->canSeeStatus)
@@ -347,10 +353,13 @@
 
                 {{-- Даты --}}
                 <div class="grid grid-cols-2 gap-4">
-                    @if ($form->isManual && $this->canEdit)
+                    @if ($isCredit)
                         <div class="flex flex-col gap-2">
                             <label class="text-primary-text text-sm font-semibold">Дата операции</label>
-                            <x-form.date-picker wire:model="form.operationDate" placeholder="дд.мм.гггг" />
+                            <x-form.date-picker wire:model="form.operationDate" placeholder="дд.мм.гггг" :max="$this->maxDate" />
+                            @error('form.operationDate')
+                                <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                            @enderror
                         </div>
                     @else
                         <x-form.input-text
@@ -362,7 +371,10 @@
                     <div class="flex flex-col gap-2">
                         <label class="text-primary-text text-sm font-semibold">Дата отправки в кабинет</label>
                         @if ($this->canEdit)
-                            <x-form.date-picker wire:model="form.sentDate" placeholder="дд.мм.гггг" />
+                            <x-form.date-picker wire:model="form.sentDate" placeholder="дд.мм.гггг" :max="$this->maxDate" />
+                            @error('form.sentDate')
+                                <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                            @enderror
                         @else
                             <span class="flex min-h-[42px] items-center">{{ $form->sentDate ? \Carbon\Carbon::parse($form->sentDate)->format('d.m.Y') : '' }}</span>
                         @endif
@@ -388,10 +400,13 @@
                             wire:model.live.blur="form.creditAmount"
                         />
                     @elseif ($form->isManual || ! $this->canEdit)
-                        <div class="flex flex-col gap-2">
-                            <label class="text-primary-text text-sm font-semibold">Кредит</label>
-                            <span class="flex min-h-[42px] items-center">{{ $signedMoney($form->creditAmount) }}</span>
-                        </div>
+                        <x-form.input-number
+                            label="Кредит"
+                            suffix="₽"
+                            allow-negative
+                            disabled
+                            wire:model="form.creditAmount"
+                        />
                     @else
                         <div class="flex flex-col gap-1">
                             <x-form.input-number
@@ -473,12 +488,6 @@
                         searchable
                     />
                 </div>
-
-                @if ($this->creditDebt < 0)
-                    <x-feedback.notice variant="error" class="mb-0">
-                        Сумма задолженности {{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? 'клиента' }} составляет {{ $money(abs($this->creditDebt)) }}
-                    </x-feedback.notice>
-                @endif
 
                 {{-- Пополнение и сбор --}}
                 <div class="grid grid-cols-2 gap-4">

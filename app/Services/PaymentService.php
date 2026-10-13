@@ -233,17 +233,13 @@ class PaymentService
             $form->managerId = $clientId === $operation->payment->client_id && $operation->manager_id !== null
                 ? $operation->manager_id
                 : $this->getClientManagerId($clientId);
-            $form->feeIncluded = $this->isClientFeeIncluded(
-                $clientId,
-                $isManual && $form->operationDate ? $form->operationDate : $operation->payment->received_date
-            );
+            $form->feeIncluded = $this->isClientFeeIncluded($clientId, $operation->payment->received_date);
             $attributes += $this->moneyAttributes($form, $this->getClientFeeDebt($clientId, $operation->id));
             $attributes += $this->detailAttributes($form);
 
             if ($isManual) {
                 $this->paymentRepo->updateManualPayment($operation->payment, [
                     'client_id' => $clientId,
-                    'received_date' => $form->operationDate ?: $operation->payment->received_date,
                 ]);
             } else {
                 $attributes['credit_amount'] = round($form->creditAmount, 2);
@@ -532,6 +528,16 @@ class PaymentService
             $errors['form.projectId'] = 'Клиенто-проект не относится к клиенту';
         }
 
+        $today = $this->agencyToday()->toDateString();
+
+        if ($isCredit && $form->operationDate && Carbon::parse($form->operationDate)->toDateString() > $today) {
+            $errors['form.operationDate'] = 'Дата операции не может быть в будущем';
+        }
+
+        if ($form->sentDate && Carbon::parse($form->sentDate)->toDateString() > $today) {
+            $errors['form.sentDate'] = 'Дата отправки в кабинет не может быть в будущем';
+        }
+
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
@@ -657,7 +663,7 @@ class PaymentService
         return $this->agencyTimezone ??= $this->agencyRepository->getPrimaryTimeZone();
     }
 
-    private function agencyToday(): Carbon
+    public function agencyToday(): Carbon
     {
         return Carbon::today($this->agencyTimezone());
     }
