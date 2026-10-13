@@ -78,7 +78,8 @@ class extends Component
             : $this->paymentService->getClientManagerId($this->form->clientId);
         $this->syncClientFee();
         $this->form->includeFeeDebt = false;
-        unset($this->projectOptions, $this->creditDebt, $this->feeDebt);
+        $this->form->includedFeeDebt = 0;
+        unset($this->projectOptions, $this->creditDebt, $this->feeDebt, $this->feeDebtTotal);
         $this->resetFeeDebtAnswer();
     }
 
@@ -122,6 +123,12 @@ class extends Component
         if ($value && ! filled($this->form->sentDate)) {
             $this->form->sentDate = today()->toDateString();
         }
+
+        if ($value) {
+            $this->form->includeFeeDebt = (bool) ($this->formSnapshot['includeFeeDebt'] ?? false);
+        }
+
+        $this->resetFeeDebtAnswer();
     }
 
     #[Computed]
@@ -254,6 +261,20 @@ class extends Component
     }
 
     /**
+     * Задолженность клиента для текста уведомления: одна сумма в окне любой его операции.
+     * Вычет «Да, учесть» этой операции возвращаем: вопрос задается про долг до ответа.
+     */
+    #[Computed]
+    public function feeDebtTotal(): float
+    {
+        if ($this->form->clientId === null) {
+            return 0.0;
+        }
+
+        return round($this->paymentService->getClientFeeDebt($this->form->clientId) + $this->form->includedFeeDebt, 2);
+    }
+
+    /**
      * @return array{fee: float, cabinet: float, includedFeeDebt: float}
      */
     #[Computed]
@@ -376,13 +397,26 @@ class extends Component
 
     private function forgetFormComputed(): void
     {
-        unset($this->projectOptions, $this->creditDebt, $this->feeDebt, $this->calculation);
+        unset($this->projectOptions, $this->creditDebt, $this->feeDebt, $this->feeDebtTotal, $this->calculation);
         $this->resetFeeDebtAnswer();
+    }
+
+    /**
+     * Вопрос о долге задается, только если есть долг других платежей (свой сбор уже в «Сбор 3%»)
+     * и платеж еще не отправлен в кабинет: после отправки вычитать из него уже нечего.
+     */
+    #[Computed]
+    public function asksFeeDebt(): bool
+    {
+        return $this->canEdit
+            && ! $this->form->isSentToCabinet
+            && ($this->feeDebt > 0 || $this->form->includeFeeDebt);
     }
 
     private function resetFeeDebtAnswer(): void
     {
-        $this->feeDebtAnswered = $this->form->includeFeeDebt || ! ($this->feeDebt > 0 && $this->canEdit);
+        unset($this->asksFeeDebt);
+        $this->feeDebtAnswered = $this->form->includeFeeDebt || ! $this->asksFeeDebt;
     }
 
     private function setActionMessage(string $message, string $type): void

@@ -139,6 +139,7 @@ class PaymentRepository implements PaymentRepositoryInterface
         if ($settledOperationIds !== []) {
             PaymentOperation::query()
                 ->whereKey($settledOperationIds)
+                ->whereKeyNot($operationId)
                 ->update(['fee_settled_in_operation_id' => $operationId]);
         }
     }

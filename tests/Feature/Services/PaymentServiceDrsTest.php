@@ -160,6 +160,14 @@ class PaymentServiceDrsTest extends TestCase
             $service->openOperation($user, $first->id)->feeSettledLabel
         );
 
+        $third = $credit(false);
+        $form = $service->openOperation($user, $second->id);
+        $form->includeFeeDebt = true;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+        $this->assertNull($settling->fresh()->fee_settled_in_operation_id, 'операции не блокируют друг друга');
+        $this->assertSame($second->id, $third->fresh()->fee_settled_in_operation_id);
+
         $form = $service->openOperation($user, $settling->id);
         $form->includeFeeDebt = false;
         $service->saveOperation($user, $form, self::CAN_ALL);

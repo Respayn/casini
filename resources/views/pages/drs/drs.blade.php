@@ -321,11 +321,23 @@
                         </div>
                     @endif
                     <div class="flex items-center gap-2">
-                        <label class="flex items-center gap-2">
-                            <x-form.checkbox wire:model="form.isFeeInPiggyBank" :disabled="! $this->canEdit || $form->feeSettledLabel" />
-                            Сбор в копилке
-                        </label>
-                        <x-overlay.tooltip>{{ $form->feeSettledLabel ?? 'Отметьте, если сбор с рекламного бюджета был отправлен в копилку' }}</x-overlay.tooltip>
+                        @if ($form->feeSettledLabel)
+                            <x-overlay.tooltip>
+                                <x-slot:trigger>
+                                    <label class="flex items-center gap-2">
+                                        <x-form.checkbox :checked="$form->isFeeInPiggyBank" disabled />
+                                        Сбор в копилке
+                                    </label>
+                                </x-slot:trigger>
+                                {{ $form->feeSettledLabel }}
+                            </x-overlay.tooltip>
+                        @else
+                            <label class="flex items-center gap-2">
+                                <x-form.checkbox wire:model="form.isFeeInPiggyBank" :disabled="! $this->canEdit" />
+                                Сбор в копилке
+                            </label>
+                        @endif
+                        <x-overlay.tooltip>Отметьте, если сбор с рекламного бюджета был отправлен в копилку</x-overlay.tooltip>
                     </div>
                     @if ($this->canSeeInvoice)
                         <div class="flex items-center gap-2">
@@ -503,12 +515,12 @@
 
                 {{-- Пополнение и сбор --}}
                 <span class="text-caption-text mt-2 text-sm font-semibold">Итог</span>
-                @if ($this->feeDebt > 0 && $this->canEdit)
+                @if ($this->asksFeeDebt)
                     <x-feedback.notice variant="error" class="mb-0">
                         <div class="flex items-start justify-between gap-2">
                             <div>
                                 По <span class="font-semibold">{{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? 'клиенту' }}</span>
-                                есть задолженность по сбору 3% на сумму {{ $money($this->feeDebt) }}, вычесть её в этом платеже?
+                                есть задолженность по сбору 3% на сумму {{ $money($this->feeDebtTotal) }}, вычесть её в этом платеже?
                             </div>
                             <x-overlay.tooltip panel-max-width="24rem">
                                 Задолженность - это сбор 3% по прошлым платежам клиента, где не стоит галочка «Сбор в копилке».

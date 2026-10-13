@@ -262,7 +262,7 @@ class PaymentService
             $this->paymentRepo->updateOperation($operation, $attributes);
 
             if ($can['edit']) {
-                $this->settleFeeDebt($operation->id, $operation->payment->client_id, $attributes['included_fee_debt']);
+                $this->settleFeeDebt($operation, $operation->payment->client_id, $attributes['included_fee_debt']);
             }
         });
     }
@@ -295,7 +295,7 @@ class PaymentService
                     $operation,
                     $this->checkboxAttributes($operation, $user, $form, $can)
                 );
-                $this->settleFeeDebt($operation->id, $clientId, $attributes['included_fee_debt']);
+                $this->settleFeeDebt($operation, $clientId, $attributes['included_fee_debt']);
             }
         ));
     }
@@ -574,15 +574,17 @@ class PaymentService
     /**
      * Платежи, чей сбор вошел в «Да, учесть», от старых к новым; на них галочка «Сбор в копилке» блокируется.
      * Платеж, вошедший частично, тоже блокируется: остаток его сбора остается в задолженности.
+     * Операцию, в которой учтен сбор этой, не отмечаем: иначе две операции заблокируют друг друга.
      */
-    private function settleFeeDebt(int $operationId, int $clientId, float $includedFeeDebt): void
+    private function settleFeeDebt(PaymentOperation $settling, int $clientId, float $includedFeeDebt): void
     {
         $left = $includedFeeDebt;
         $settledIds = [];
 
-        $candidates = $this->paymentRepo->getClientOperations($clientId, $operationId)
+        $candidates = $this->paymentRepo->getClientOperations($clientId, $settling->id)
             ->filter(fn (PaymentOperation $operation) => ! $operation->is_fee_in_piggy_bank
-                && in_array($operation->fee_settled_in_operation_id, [null, $operationId], true)
+                && $operation->id !== $settling->fee_settled_in_operation_id
+                && in_array($operation->fee_settled_in_operation_id, [null, $settling->id], true)
                 && $this->ownFee($operation) > 0)
             ->sortBy(fn (PaymentOperation $operation) => [
                 $operation->payment->received_date->toDateString(),
@@ -598,7 +600,7 @@ class PaymentService
             $left = round($left - $this->ownFee($operation), 2);
         }
 
-        $this->paymentRepo->settleFeeDebt($operationId, $settledIds);
+        $this->paymentRepo->settleFeeDebt($settling->id, $settledIds);
     }
 
     private function feeSettledLabel(PaymentOperation $operation): ?string
