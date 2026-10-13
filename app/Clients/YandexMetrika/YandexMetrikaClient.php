@@ -5,6 +5,7 @@ namespace App\Clients\YandexMetrika;
 use App\Contracts\YandexMetrikaClientInterface;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\Psr7\Query;
 use GuzzleHttp\Psr7\Response;
 use Log;
 
@@ -40,7 +41,10 @@ class YandexMetrikaClient implements YandexMetrikaClientInterface
     ): array {
         try {
             $response = $this->client->request($method, $endpoint, [
-                'query' => array_merge(['ids' => $this->counterId], $params)
+                'query' => Query::build(
+                    array_merge(['ids' => $this->counterId], $params),
+                    PHP_QUERY_RFC3986
+                ),
             ]);
 
             return $this->processResponse($response);

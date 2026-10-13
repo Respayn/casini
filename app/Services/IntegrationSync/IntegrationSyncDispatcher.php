@@ -12,7 +12,9 @@ use App\Models\Project;
 use App\Repositories\AgencyRepository;
 use App\Services\IntegrationSync\Collectors\Bitrix24LaborCollector;
 use App\Services\IntegrationSync\Collectors\CallibriDailyLeadsCollector;
+use App\Services\IntegrationSync\Collectors\GoogleSheetsSpendingsCollector;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
+use App\Services\IntegrationSync\Collectors\YandexMetrikaReportsCollector;
 use App\Services\IntegrationSync\Collectors\YandexSearchApiDailyPositionsCollector;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -200,6 +202,8 @@ class IntegrationSyncDispatcher
             app(CallibriDailyLeadsCollector::class),
             app(YandexSearchApiDailyPositionsCollector::class),
             app(Bitrix24LaborCollector::class),
+            app(YandexMetrikaReportsCollector::class),
+            app(GoogleSheetsSpendingsCollector::class),
         ];
     }
 }

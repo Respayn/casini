@@ -173,4 +173,97 @@ class ClientProjectAccessPermissionsTest extends TestCase
             ->call('saveClient')
             ->assertForbidden();
     }
+
+    public function test_project_form_read_only_shows_disabled_submit(): void
+    {
+        $user = $this->actingManagerWithPermissions([
+            'read clients and projects all',
+        ]);
+
+        $client = Client::factory()->create(['manager_id' => $user->id]);
+        $project = Project::factory()->create([
+            'client_id' => $client->id,
+            'specialist_id' => $user->id,
+            'project_type' => ProjectType::SEO_PROMOTION,
+            'kpi' => Kpi::TRAFFIC,
+            'is_active' => true,
+            'is_internal' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('system-settings.clients-and-projects.projects.manage', $project->id))
+            ->assertOk()
+            ->assertSee(__('permissions.denied'), false);
+    }
+
+    public function test_project_form_save_without_edit_is_forbidden(): void
+    {
+        $user = $this->actingManagerWithPermissions([
+            'read clients and projects all',
+        ]);
+
+        $client = Client::factory()->create(['manager_id' => $user->id]);
+        $project = Project::factory()->create([
+            'client_id' => $client->id,
+            'specialist_id' => $user->id,
+            'project_type' => ProjectType::SEO_PROMOTION,
+            'kpi' => Kpi::TRAFFIC,
+            'is_active' => true,
+            'is_internal' => false,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test('pages::system-settings.client-project-form', ['projectId' => $project->id])
+            ->call('save')
+            ->assertForbidden();
+    }
+
+    public function test_project_form_add_region_without_edit_is_forbidden(): void
+    {
+        $user = $this->actingManagerWithPermissions([
+            'read clients and projects all',
+        ]);
+
+        $client = Client::factory()->create(['manager_id' => $user->id]);
+        $project = Project::factory()->create([
+            'client_id' => $client->id,
+            'specialist_id' => $user->id,
+            'project_type' => ProjectType::SEO_PROMOTION,
+            'kpi' => Kpi::TRAFFIC,
+            'is_active' => true,
+            'is_internal' => false,
+        ]);
+
+        $this->actingAs($user);
+
+        Livewire::test('pages::system-settings.client-project-form', ['projectId' => $project->id])
+            ->call('addRegion')
+            ->assertForbidden();
+    }
+
+    public function test_project_form_with_edit_permission_allows_save_attempt(): void
+    {
+        $user = $this->actingManagerWithPermissions([
+            'read clients and projects all',
+            'edit clients and projects all',
+        ]);
+
+        $client = Client::factory()->create(['manager_id' => $user->id]);
+        $project = Project::factory()->create([
+            'client_id' => $client->id,
+            'specialist_id' => $user->id,
+            'project_type' => ProjectType::SEO_PROMOTION,
+            'kpi' => Kpi::TRAFFIC,
+            'is_active' => true,
+            'is_internal' => false,
+        ]);
+
+        $this->actingAs($user);
+
+        $result = Livewire::test('pages::system-settings.client-project-form', ['projectId' => $project->id])
+            ->call('addRegion');
+
+        $this->assertNotSame(403, $result->status());
+    }
 }
