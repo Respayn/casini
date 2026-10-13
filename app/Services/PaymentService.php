@@ -107,7 +107,8 @@ class PaymentService
             'projectId' => $operation->project_id,
             'managerId' => $operation->manager_id ?? $client->manager_id,
             'advertisingSystem' => $operation->advertising_system?->value,
-            'feeIncluded' => $this->clientFeeType($client, $operation->payment->received_date) === FeeType::THREE_PERCENT,
+            'feeIncluded' => ($operation->advertising_system?->chargesAdFee() ?? true)
+                && $this->clientFeeType($client, $operation->payment->received_date) === FeeType::THREE_PERCENT,
             'topUpAmount' => $isUntouched
                 ? round($operation->bank_received_amount - $operation->credit_amount, 2)
                 : $operation->cabinet_top_up_amount,
@@ -139,11 +140,15 @@ class PaymentService
     }
 
     /**
-     * Сбор не выбирается в окне: он следует настройке клиента на дату операции.
+     * Сбор не выбирается в окне: он следует каналу и настройке клиента на дату операции.
      */
-    public function isClientFeeIncluded(int $clientId, CarbonInterface|string|null $operationDate): bool
+    public function isFeeIncluded(?int $clientId, CarbonInterface|string|null $operationDate, ?string $advertisingSystem): bool
     {
-        $client = $this->paymentRepo->findClient($clientId);
+        if (AdvertisingSystem::tryFrom((string) $advertisingSystem)?->chargesAdFee() === false) {
+            return false;
+        }
+
+        $client = $clientId === null ? null : $this->paymentRepo->findClient($clientId);
 
         return $client === null || $this->clientFeeType($client, $operationDate) === FeeType::THREE_PERCENT;
     }
@@ -190,7 +195,8 @@ class PaymentService
         }
 
         $missed = $operations
-            ->reject(fn (PaymentOperation $operation) => $operation->fee_included)
+            ->reject(fn (PaymentOperation $operation) => $operation->fee_included
+                || $operation->advertising_system?->chargesAdFee() === false)
             ->sum(fn (PaymentOperation $operation) => FeeType::THREE_PERCENT->feeFrom($operation->cabinet_top_up_amount));
         $included = $operations->sum('included_fee_debt');
 
@@ -233,7 +239,7 @@ class PaymentService
             $form->managerId = $clientId === $operation->payment->client_id && $operation->manager_id !== null
                 ? $operation->manager_id
                 : $this->getClientManagerId($clientId);
-            $form->feeIncluded = $this->isClientFeeIncluded($clientId, $operation->payment->received_date);
+            $form->feeIncluded = $this->isFeeIncluded($clientId, $operation->payment->received_date, $form->advertisingSystem);
             $attributes += $this->moneyAttributes($form, $this->getClientFeeDebt($clientId, $operation->id));
             $attributes += $this->detailAttributes($form);
 
@@ -258,7 +264,7 @@ class PaymentService
         $this->validateForm($form, true);
 
         $clientId = (int) $form->clientId;
-        $form->feeIncluded = $this->isClientFeeIncluded($clientId, $form->operationDate);
+        $form->feeIncluded = $this->isFeeIncluded($clientId, $form->operationDate, $form->advertisingSystem);
         $form->creditAmount = -abs($form->creditAmount);
         $attributes = ['credit_amount' => round($form->creditAmount, 2), 'opened_at' => now()]
             + $this->moneyAttributes($form, $this->getClientFeeDebt($clientId))
@@ -344,7 +350,7 @@ class PaymentService
     public function getAdvertisingSystemOptions(): array
     {
         return array_map(
-            fn (AdvertisingSystem $system) => ['value' => $system->value, 'label' => $system->value],
+            fn (AdvertisingSystem $system) => ['value' => $system->value, 'label' => $system->label()],
             AdvertisingSystem::cases()
         );
     }
@@ -621,7 +627,7 @@ class PaymentService
             bankAmount: $operation->bank_received_amount,
             creditAmount: $operation->credit_amount,
             paymentDetails: $operation->payment_details,
-            advertisingSystem: $operation->advertising_system?->value,
+            advertisingSystem: $operation->advertising_system?->label(),
             invoiceNumber: $operation->invoice_number,
             managerName: $this->userName($operation->manager),
             clientId: $payment->client_id,

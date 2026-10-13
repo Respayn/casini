@@ -83,10 +83,18 @@ class extends Component
         $this->syncClientFee();
     }
 
+    public function updatedFormAdvertisingSystem(): void
+    {
+        $this->syncClientFee();
+    }
+
     private function syncClientFee(): void
     {
-        $this->form->feeIncluded = $this->form->clientId === null
-            || $this->paymentService->isClientFeeIncluded($this->form->clientId, $this->form->operationDate);
+        $this->form->feeIncluded = $this->paymentService->isFeeIncluded(
+            $this->form->clientId,
+            $this->form->operationDate,
+            $this->form->advertisingSystem
+        );
     }
 
     public function updatedFormProjectId(): void

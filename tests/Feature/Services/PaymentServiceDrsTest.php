@@ -176,6 +176,31 @@ class PaymentServiceDrsTest extends TestCase
         $this->assertSame([300.0, 0.0], $fees);
     }
 
+    public function test_google_ads_credit_has_no_fee_and_no_fee_debt(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create([
+            'name' => 'Тест ДРС Google Ads',
+            'manager_id' => $user->id,
+            'ad_fee_type' => FeeType::THREE_PERCENT,
+        ]);
+
+        $credit = $service->newCreditForm();
+        $credit->clientId = $client->id;
+        $credit->creditAmount = 10300;
+        $credit->topUpAmount = 10300;
+        $credit->advertisingSystem = AdvertisingSystem::Google->value;
+        $service->createCredit($user, $credit, self::CAN_ALL);
+
+        $operation = PaymentOperation::query()
+            ->whereHas('payment', fn ($query) => $query->where('client_id', $client->id))
+            ->firstOrFail();
+        $this->assertSame(0.0, $operation->fee_amount);
+        $this->assertSame(10300.0, $operation->ad_cabinet_amount);
+        $this->assertSame(0.0, $service->getClientFeeDebt($client->id));
+    }
+
     public function test_credit_with_future_dates_is_rejected(): void
     {
         $user = User::factory()->create();
