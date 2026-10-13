@@ -75,6 +75,21 @@ class PaymentServiceDrsTest extends TestCase
         $this->assertSame(-20000.0, $service->getClientCreditDebt($clientId));
     }
 
+    public function test_top_up_is_bank_amount_minus_credit_return(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $service->processPayments([$this->paymentData('TEST-DRS-6', 77500)]);
+        $operation = $this->operationByNumber('TEST-DRS-6');
+
+        $form = $service->openOperation($user, $operation->id);
+        $form->creditAmount = 5000;
+        $form->topUpAmount = 30000;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+
+        $this->assertSame(72500.0, $operation->fresh()->cabinet_top_up_amount);
+    }
+
     public function test_hidden_operation_keeps_1c_payment(): void
     {
         $user = User::factory()->create();

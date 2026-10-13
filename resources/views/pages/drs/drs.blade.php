@@ -122,12 +122,11 @@
                     </x-data.table-columns>
 
                     <x-data.table-rows>
-                        @foreach ($this->operations as $index => $row)
+                        @foreach ($this->operations as $row)
                             @php
                                 $rowBg = match (true) {
                                     $row->creditAmount < 0 => '#FFF5F5',
                                     $row->creditAmount > 0 => '#F0FDF4',
-                                    $index % 2 === 0 => '#F9F9F9',
                                     default => '#FFFFFF',
                                 };
                             @endphp
@@ -145,12 +144,12 @@
                                         @else
                                             <x-icons.account-balance class="text-secondary-text size-5 shrink-0" />
                                         @endif
-                                        <span class="min-w-0 break-words">
-                                            {!! str_replace('-', '-<wbr>', e($row->number)) !!}
+                                        <div class="min-w-0">
+                                            <div class="break-words">{!! str_replace('-', '-<wbr>', e($row->number)) !!}</div>
                                             @if ($row->isNew)
-                                                <span class="bg-primary rounded px-1.5 text-xs text-white">новая</span>
+                                                <span class="bg-primary mt-1 inline-block rounded px-1.5 text-xs leading-5 text-white">новая</span>
                                             @endif
-                                        </span>
+                                        </div>
                                     </div>
                                 </x-data.table-cell>
                                 <x-data.table-cell class="whitespace-nowrap">
@@ -187,7 +186,7 @@
                                 </x-data.table-cell>
                                 <x-data.table-cell class="min-w-52 text-sm">
                                     @if ($row->paymentDetails)
-                                        <div title="{{ $row->paymentDetails }}">{{ $row->paymentDetails }}</div>
+                                        <div class="break-words" title="{{ $row->paymentDetails }}">{{ \Illuminate\Support\Str::limit($row->paymentDetails, 100) }}</div>
                                     @endif
                                     <div class="text-caption-text mt-1">
                                         @if ($row->advertisingSystem)
@@ -294,8 +293,7 @@
     >
         <x-slot:body>
             <div>
-            <x-panel.scroll-panel style="max-height: calc(100vh - 220px)">
-            <div class="flex w-[700px] max-w-full flex-col gap-3 pe-3" wire:key="drs-form-{{ $modalMode }}-{{ $form->id ?? 'new' }}">
+            <div class="mb-3 flex w-[700px] max-w-full flex-col gap-3 pe-3">
                 @if ($this->creditDebt < 0)
                     <x-feedback.notice variant="error" class="mb-0">
                         Сумма задолженности {{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? 'клиента' }} составляет <span class="font-semibold">{{ $money(abs($this->creditDebt)) }}</span>
@@ -330,7 +328,9 @@
                         </div>
                     @endif
                 </div>
-
+            </div>
+            <x-panel.scroll-panel style="max-height: calc(100vh - {{ $this->creditDebt < 0 ? 350 : 260 }}px)">
+            <div class="flex w-[700px] max-w-full flex-col gap-3 pe-3" wire:key="drs-form-{{ $modalMode }}-{{ $form->id ?? 'new' }}">
                 <div class="flex flex-col gap-2">
                     <label class="text-primary-text text-sm font-semibold">Комментарий</label>
                     <textarea
@@ -343,15 +343,18 @@
                 </div>
 
                 @if ($form->paymentDetails && ! $isCredit)
-                    <x-form.input-text
-                        label="Назначение платежа"
-                        :value="$form->paymentDetails"
-                        :title="$form->paymentDetails"
-                        disabled
-                    />
+                    <div class="flex flex-col gap-2">
+                        <label class="text-primary-text text-sm font-semibold">Назначение платежа</label>
+                        <textarea
+                            class="border-input-border bg-secondary text-input-text w-full rounded-[5px] border px-3 py-2"
+                            rows="{{ min(5, max(1, (int) ceil(mb_strlen($form->paymentDetails) / 80))) }}"
+                            disabled
+                        >{{ $form->paymentDetails }}</textarea>
+                    </div>
                 @endif
 
                 {{-- Даты --}}
+                <span class="text-caption-text mt-2 text-sm font-semibold">Откуда</span>
                 <div class="grid grid-cols-2 gap-4">
                     @if ($isCredit)
                         <div class="flex flex-col gap-2">
@@ -383,16 +386,18 @@
 
                 {{-- Суммы поступления и кредита --}}
                 <div class="grid grid-cols-2 gap-4">
-                    @if ($form->isManual)
-                        <x-form.input-number label="Сумма поступления" suffix="₽" placeholder="-" disabled />
-                    @else
-                        <x-form.input-number
-                            label="Сумма поступления"
-                            suffix="₽"
-                            disabled
-                            wire:model="form.bankAmount"
-                        />
-                    @endif
+                    @unless ($isCredit)
+                        @if ($form->isManual)
+                            <x-form.input-number label="Сумма поступления" suffix="₽" placeholder="-" disabled />
+                        @else
+                            <x-form.input-number
+                                label="Сумма поступления"
+                                suffix="₽"
+                                disabled
+                                wire:model="form.bankAmount"
+                            />
+                        @endif
+                    @endunless
                     @if ($isCredit)
                         <x-form.input-number
                             label="Сумма кредита *"
@@ -408,19 +413,17 @@
                             wire:model="form.creditAmount"
                         />
                     @else
-                        <div class="flex flex-col gap-1">
-                            <x-form.input-number
-                                label="Возврат кредита"
-                                suffix="₽"
-                                allow-negative
-                                wire:model.live.blur="form.creditAmount"
-                            />
-                            <span class="text-caption-text text-xs">Плюс: клиент вернул кредит из этого поступления</span>
-                        </div>
+                        <x-form.input-number
+                            label="Возврат кредита"
+                            suffix="₽"
+                            allow-negative
+                            wire:model.live.blur="form.creditAmount"
+                        />
                     @endif
                 </div>
 
                 {{-- Клиент и детали --}}
+                <span class="text-caption-text mt-2 text-sm font-semibold">Куда</span>
                 <div class="grid grid-cols-2 gap-4">
                     @if ($form->isManual && $this->canEdit)
                         <x-form.select
@@ -481,7 +484,7 @@
                     </div>
                     <x-form.select
                         :label="$isCredit ? 'Канал *' : 'Канал'"
-                        wire:model="form.advertisingSystem"
+                        wire:model.live="form.advertisingSystem"
                         :options="$this->advertisingSystemOptions"
                         placeholder="Выберите рекламную систему"
                         :disabled="! $this->canEdit"
@@ -490,29 +493,32 @@
                 </div>
 
                 {{-- Пополнение и сбор --}}
-                <div class="grid grid-cols-2 gap-4">
-                    @if ($this->canEdit)
-                        <x-form.input-number
-                            label="Пополнение кабинета (без учета сбора)"
-                            suffix="₽"
-                            wire:model.live.blur="form.topUpAmount"
-                        />
-                    @else
-                        <div class="flex flex-col gap-2">
-                            <label class="text-primary-text text-sm font-semibold">Пополнение кабинета</label>
-                            <span class="flex min-h-[42px] items-center">{{ $money($form->topUpAmount) }}</span>
+                <span class="text-caption-text mt-2 text-sm font-semibold">Итог</span>
+                @unless ($isCredit)
+                    <x-form.input-text
+                        label="Пополнение кабинета (без учета сбора)"
+                        :value="$money($form->topUpAmount)"
+                        wire:key="drs-top-up-{{ $form->topUpAmount }}"
+                        disabled
+                    />
+                    @error('form.topUpAmount')
+                        <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                    @enderror
+                @endunless
+                <div class="border-input-border bg-secondary flex flex-col gap-2 rounded-lg border p-4">
+                    <div class="flex justify-between gap-4">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-primary-text text-sm font-semibold">Поступит в кабинет</span>
+                            <span class="text-primary-text text-2xl font-semibold">{{ $money($calc['cabinet']) }}</span>
                         </div>
-                    @endif
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="flex flex-col gap-2">
-                            <label class="text-primary-text text-sm font-semibold">Поступит в кабинет</label>
-                            <span class="flex min-h-[42px] items-center font-semibold">{{ $money($calc['cabinet']) }}</span>
-                        </div>
-                        <div class="flex flex-col gap-2">
-                            <label class="text-primary-text text-sm font-semibold">Сбор 3%</label>
-                            <span class="flex min-h-[42px] items-center font-semibold">{{ $money($calc['fee']) }}</span>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-secondary-text text-sm">Сбор 3%</span>
+                            <span class="text-secondary-text text-sm">{{ $money($calc['fee']) }}</span>
                         </div>
                     </div>
+                    <span class="text-caption-text text-xs">
+                        {{ $money(max(0, round($form->topUpAmount, 2))) }} - {{ $money($calc['fee']) }} = {{ $money($calc['cabinet']) }}
+                    </span>
                 </div>
 
                 @if ($this->feeDebt > 0 && $this->canEdit)

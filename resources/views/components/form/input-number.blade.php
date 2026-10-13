@@ -96,6 +96,13 @@
                             queueMicrotask(() => this.format());
                         }
                     });
+                    Livewire.hook('commit', ({ component, succeed }) => {
+                        if (! component.el.contains(this.$el)) {
+                            return;
+                        }
+                        // wire:model подставляет значение с сервера уже после morph
+                        succeed(() => setTimeout(() => this.format()));
+                    });
                 }
             },
         }"

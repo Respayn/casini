@@ -109,9 +109,7 @@ class PaymentService
             'advertisingSystem' => $operation->advertising_system?->value,
             'feeIncluded' => ($operation->advertising_system?->chargesAdFee() ?? true)
                 && $this->clientFeeType($client, $operation->payment->received_date) === FeeType::THREE_PERCENT,
-            'topUpAmount' => $isUntouched
-                ? round($operation->bank_received_amount - $operation->credit_amount, 2)
-                : $operation->cabinet_top_up_amount,
+            'topUpAmount' => $this->topUpAmount($operation->bank_received_amount, $operation->credit_amount),
             'includeFeeDebt' => $operation->included_fee_debt > 0,
             'includedFeeDebt' => $operation->included_fee_debt,
             'isSentToCabinet' => $operation->is_sent_to_cabinet,
@@ -167,6 +165,14 @@ class PaymentService
         return $client->ad_fee_changed_at !== null && $date->lt($client->ad_fee_changed_at)
             ? FeeType::THREE_PERCENT
             : FeeType::NONE;
+    }
+
+    /**
+     * Пополнение кабинета не вводится: поступление минус кредит (возврат кредита уменьшает пополнение).
+     */
+    private function topUpAmount(float $bankAmount, float $creditAmount): float
+    {
+        return round($bankAmount - $creditAmount, 2);
     }
 
     /**
@@ -233,8 +239,12 @@ class PaymentService
         $attributes = $this->checkboxAttributes($operation, $user, $form, $can);
 
         if ($can['edit']) {
-            $this->validateForm($form, false);
             $isManual = $operation->payment->source === PaymentSource::MANUAL;
+            $form->topUpAmount = $this->topUpAmount(
+                $operation->bank_received_amount,
+                $isManual ? $operation->credit_amount : $form->creditAmount
+            );
+            $this->validateForm($form, false);
             $clientId = $isManual ? (int) $form->clientId : $operation->payment->client_id;
             $form->managerId = $clientId === $operation->payment->client_id && $operation->manager_id !== null
                 ? $operation->manager_id
@@ -266,6 +276,7 @@ class PaymentService
         $clientId = (int) $form->clientId;
         $form->feeIncluded = $this->isFeeIncluded($clientId, $form->operationDate, $form->advertisingSystem);
         $form->creditAmount = -abs($form->creditAmount);
+        $form->topUpAmount = $this->topUpAmount(0, $form->creditAmount);
         $attributes = ['credit_amount' => round($form->creditAmount, 2), 'opened_at' => now()]
             + $this->moneyAttributes($form, $this->getClientFeeDebt($clientId))
             + $this->detailAttributes($form);
@@ -425,7 +436,7 @@ class PaymentService
                 continue;
             }
 
-            $topUp = round($operation->bank_received_amount - $operation->credit_amount, 2);
+            $topUp = $this->topUpAmount($operation->bank_received_amount, $operation->credit_amount);
             $fee = $feeType->feeFrom($topUp);
 
             $this->paymentRepo->updateOperation($operation, [
