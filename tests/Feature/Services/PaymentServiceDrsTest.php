@@ -64,6 +64,7 @@ class PaymentServiceDrsTest extends TestCase
         $this->assertInstanceOf(DrsOperationFormData::class, $form);
         $form->creditAmount = 80000;
         $form->topUpAmount = 415000 - 80000;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
         $form->isSentToCabinet = true;
         $service->saveOperation($user, $form, self::CAN_ALL);
 
@@ -85,6 +86,7 @@ class PaymentServiceDrsTest extends TestCase
         $form = $service->openOperation($user, $operation->id);
         $form->creditAmount = 5000;
         $form->topUpAmount = 30000;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
         $service->saveOperation($user, $form, self::CAN_ALL);
 
         $this->assertSame(72500.0, $operation->fresh()->cabinet_top_up_amount);
@@ -112,12 +114,59 @@ class PaymentServiceDrsTest extends TestCase
 
         $form = $service->openOperation($user, $operation->id);
         $form->feeIncluded = false;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
         $service->saveOperation($user, $form, self::CAN_ALL);
 
         $operation->refresh();
         $this->assertTrue($operation->fee_included);
         $this->assertSame(300.0, $operation->fee_amount);
-        $this->assertSame(0.0, $service->getClientFeeDebt($operation->payment->client_id));
+    }
+
+    public function test_fee_debt_follows_piggy_bank_and_settled_payments_are_locked(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create(['name' => 'Тест ДРС копилка', 'manager_id' => $user->id]);
+        $credit = function (bool $includeFeeDebt) use ($service, $user, $client): PaymentOperation {
+            $form = $service->newCreditForm();
+            $form->clientId = $client->id;
+            $form->creditAmount = 10300;
+            $form->advertisingSystem = AdvertisingSystem::Yandex->value;
+            $form->includeFeeDebt = $includeFeeDebt;
+            $service->createCredit($user, $form, self::CAN_ALL);
+
+            return PaymentOperation::query()->with('payment')->latest('id')->firstOrFail();
+        };
+
+        $first = $credit(false);
+        $second = $credit(false);
+        $this->assertSame(600.0, $service->getClientFeeDebt($client->id));
+
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', true);
+        $this->assertSame(300.0, $service->getClientFeeDebt($client->id));
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', false);
+
+        $settling = $credit(true);
+        $this->assertSame(600.0, $settling->included_fee_debt);
+        $this->assertSame($settling->id, $first->fresh()->fee_settled_in_operation_id);
+        $this->assertSame($settling->id, $second->fresh()->fee_settled_in_operation_id);
+        // Учтенные 600 ₽ второй раз не просятся: в долге только сбор самой третьей операции
+        $this->assertSame(300.0, $service->getClientFeeDebt($client->id));
+
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', true);
+        $this->assertFalse($first->fresh()->is_fee_in_piggy_bank);
+        $this->assertStringContainsString(
+            'учтен в операции №'.$settling->payment->number,
+            $service->openOperation($user, $first->id)->feeSettledLabel
+        );
+
+        $form = $service->openOperation($user, $settling->id);
+        $form->includeFeeDebt = false;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+
+        $this->assertNull($first->fresh()->fee_settled_in_operation_id);
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', true);
+        $this->assertTrue($first->fresh()->is_fee_in_piggy_bank);
     }
 
     public function test_credits_and_bank_payments_have_separate_numbering(): void

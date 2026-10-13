@@ -53,6 +53,9 @@ class DrsOperationFormData extends Data implements Wireable
 
     public bool $isFeeInPiggyBank = false;
 
+    /** Сбор учтен кнопкой «Да, учесть» в другой операции: галочку «Сбор в копилке» менять нельзя */
+    public ?string $feeSettledLabel = null;
+
     public bool $isInvoiceIssued = false;
 
     public ?string $comment = null;

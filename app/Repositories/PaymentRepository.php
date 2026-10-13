@@ -83,7 +83,7 @@ class PaymentRepository implements PaymentRepositoryInterface
         bool $onlyNew
     ): Collection {
         return PaymentOperation::query()
-            ->with(['payment.client', 'project', 'manager', 'statusChangedBy', 'invoiceChangedBy'])
+            ->with(['payment.client', 'project', 'manager', 'statusChangedBy', 'invoiceChangedBy', 'feeSettledIn.payment'])
             ->whereHas('payment', function (Builder $query) use ($from, $to, $visibleForUserId, $projectId) {
                 $query->whereBetween('received_date', [$from->toDateString(), $to->toDateString()]);
 
@@ -110,7 +110,7 @@ class PaymentRepository implements PaymentRepositoryInterface
     public function findOperation(int $operationId, ?int $visibleForUserId): ?PaymentOperation
     {
         return PaymentOperation::query()
-            ->with(['payment.client', 'statusChangedBy', 'invoiceChangedBy'])
+            ->with(['payment.client', 'statusChangedBy', 'invoiceChangedBy', 'feeSettledIn.payment'])
             ->when($visibleForUserId !== null, fn (Builder $query) => $query->whereHas(
                 'payment.client',
                 fn (Builder $client) => $this->whereClientVisibleFor($client, $visibleForUserId)
@@ -124,9 +124,23 @@ class PaymentRepository implements PaymentRepositoryInterface
     public function getClientOperations(int $clientId, ?int $exceptOperationId = null): Collection
     {
         return PaymentOperation::query()
+            ->with('payment')
             ->whereHas('payment', fn (Builder $query) => $query->where('client_id', $clientId))
             ->when($exceptOperationId !== null, fn (Builder $query) => $query->whereKeyNot($exceptOperationId))
             ->get();
+    }
+
+    public function settleFeeDebt(int $operationId, array $settledOperationIds): void
+    {
+        PaymentOperation::query()
+            ->where('fee_settled_in_operation_id', $operationId)
+            ->update(['fee_settled_in_operation_id' => null]);
+
+        if ($settledOperationIds !== []) {
+            PaymentOperation::query()
+                ->whereKey($settledOperationIds)
+                ->update(['fee_settled_in_operation_id' => $operationId]);
+        }
     }
 
     public function updateOperation(PaymentOperation $operation, array $attributes): void
@@ -136,6 +150,7 @@ class PaymentRepository implements PaymentRepositoryInterface
 
     public function hideOperation(PaymentOperation $operation): void
     {
+        $this->settleFeeDebt($operation->id, []);
         $operation->delete();
     }
 

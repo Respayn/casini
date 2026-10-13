@@ -29,6 +29,8 @@ class DrsOperationData extends Data
         public bool $isSentToCabinet,
         public ?string $statusChangedLabel,
         public bool $isFeeInPiggyBank,
+        /** Сбор учтен кнопкой «Да, учесть» в другой операции: галочку «Сбор в копилке» менять нельзя */
+        public ?string $feeSettledLabel,
         public bool $isInvoiceIssued,
         public ?string $invoiceChangedLabel,
         public bool $isNew,

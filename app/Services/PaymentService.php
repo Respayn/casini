@@ -114,6 +114,7 @@ class PaymentService
             'includedFeeDebt' => $operation->included_fee_debt,
             'isSentToCabinet' => $operation->is_sent_to_cabinet,
             'isFeeInPiggyBank' => $operation->is_fee_in_piggy_bank,
+            'feeSettledLabel' => $this->feeSettledLabel($operation),
             'isInvoiceIssued' => $operation->is_invoice_issued,
             'comment' => $operation->comment,
             'paymentDetails' => $operation->payment_details,
@@ -184,7 +185,7 @@ class PaymentService
     }
 
     /**
-     * Несобранный сбор 3%: операции, где сбор не удержали, минус уже вычтенный долг.
+     * Задолженность по сбору: сбор 3% платежей без галочки «Сбор в копилке» минус долг, уже вычтенный кнопкой «Да, учесть».
      */
     public function getClientFeeDebt(int $clientId, ?int $exceptOperationId = null): float
     {
@@ -196,17 +197,12 @@ class PaymentService
 
         $operations = $this->paymentRepo->getClientOperations($clientId, $exceptOperationId);
 
-        if ($operations->isEmpty()) {
-            return 0.0;
-        }
-
-        $missed = $operations
-            ->reject(fn (PaymentOperation $operation) => $operation->fee_included
-                || $operation->advertising_system?->chargesAdFee() === false)
-            ->sum(fn (PaymentOperation $operation) => FeeType::THREE_PERCENT->feeFrom($operation->cabinet_top_up_amount));
+        $notInPiggyBank = $operations
+            ->reject(fn (PaymentOperation $operation) => $operation->is_fee_in_piggy_bank)
+            ->sum(fn (PaymentOperation $operation) => $this->ownFee($operation));
         $included = $operations->sum('included_fee_debt');
 
-        return round(max(0, $missed - $included), 2);
+        return round(max(0, $notInPiggyBank - $included), 2);
     }
 
     /**
@@ -262,7 +258,13 @@ class PaymentService
             }
         }
 
-        $this->paymentRepo->updateOperation($operation, $attributes);
+        $this->db->transaction(function () use ($operation, $attributes, $can) {
+            $this->paymentRepo->updateOperation($operation, $attributes);
+
+            if ($can['edit']) {
+                $this->settleFeeDebt($operation->id, $operation->payment->client_id, $attributes['included_fee_debt']);
+            }
+        });
     }
 
     /**
@@ -293,6 +295,7 @@ class PaymentService
                     $operation,
                     $this->checkboxAttributes($operation, $user, $form, $can)
                 );
+                $this->settleFeeDebt($operation->id, $clientId, $attributes['included_fee_debt']);
             }
         ));
     }
@@ -305,7 +308,7 @@ class PaymentService
 
         $operation = $this->paymentRepo->findOperation($operationId, $this->visibleForUserId($user));
 
-        if ($operation === null) {
+        if ($operation === null || ($flag === 'is_fee_in_piggy_bank' && $operation->feeSettledIn !== null)) {
             return;
         }
 
@@ -532,7 +535,7 @@ class PaymentService
             $errors['form.managerId'] = 'У клиента не назначен менеджер в «Клиенты и клиенто-проекты»';
         }
 
-        if ($isCredit && AdvertisingSystem::tryFrom((string) $form->advertisingSystem) === null) {
+        if (AdvertisingSystem::tryFrom((string) $form->advertisingSystem) === null) {
             $errors['form.advertisingSystem'] = 'Выберите канал';
         }
 
@@ -558,6 +561,56 @@ class PaymentService
         if ($errors !== []) {
             throw ValidationException::withMessages($errors);
         }
+    }
+
+    /**
+     * Сбор самого платежа, без долга по прошлым платежам, вычтенного в нем.
+     */
+    private function ownFee(PaymentOperation $operation): float
+    {
+        return max(0, round($operation->fee_amount - $operation->included_fee_debt, 2));
+    }
+
+    /**
+     * Платежи, чей сбор вошел в «Да, учесть», от старых к новым; на них галочка «Сбор в копилке» блокируется.
+     * Платеж, вошедший частично, тоже блокируется: остаток его сбора остается в задолженности.
+     */
+    private function settleFeeDebt(int $operationId, int $clientId, float $includedFeeDebt): void
+    {
+        $left = $includedFeeDebt;
+        $settledIds = [];
+
+        $candidates = $this->paymentRepo->getClientOperations($clientId, $operationId)
+            ->filter(fn (PaymentOperation $operation) => ! $operation->is_fee_in_piggy_bank
+                && in_array($operation->fee_settled_in_operation_id, [null, $operationId], true)
+                && $this->ownFee($operation) > 0)
+            ->sortBy(fn (PaymentOperation $operation) => [
+                $operation->payment->received_date->toDateString(),
+                $operation->id,
+            ]);
+
+        foreach ($candidates as $operation) {
+            if ($left <= 0) {
+                break;
+            }
+
+            $settledIds[] = $operation->id;
+            $left = round($left - $this->ownFee($operation), 2);
+        }
+
+        $this->paymentRepo->settleFeeDebt($operationId, $settledIds);
+    }
+
+    private function feeSettledLabel(PaymentOperation $operation): ?string
+    {
+        $settledIn = $operation->feeSettledIn;
+
+        if ($settledIn === null) {
+            return null;
+        }
+
+        return "Сбор по этому платежу был учтен в операции №{$settledIn->payment->number}, "
+            .$settledIn->payment->received_date->format('d.m.Y');
     }
 
     private function projectBelongsToClient(int $projectId, int $clientId): bool
@@ -596,7 +649,7 @@ class PaymentService
     {
         $attributes = [];
 
-        if ($can['edit']) {
+        if ($can['edit'] && $operation->feeSettledIn === null) {
             $attributes['is_fee_in_piggy_bank'] = $form->isFeeInPiggyBank;
         }
 
@@ -649,6 +702,7 @@ class PaymentService
             isSentToCabinet: $operation->is_sent_to_cabinet,
             statusChangedLabel: $this->changedLabel($operation->status_changed_at, $operation->statusChangedBy),
             isFeeInPiggyBank: $operation->is_fee_in_piggy_bank,
+            feeSettledLabel: $this->feeSettledLabel($operation),
             isInvoiceIssued: $operation->is_invoice_issued,
             invoiceChangedLabel: $this->changedLabel($operation->invoice_changed_at, $operation->invoiceChangedBy),
             isNew: $operation->opened_at === null,

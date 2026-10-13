@@ -34,6 +34,9 @@ class extends Component
     /** Поля окна на момент открытия: с ними сравниваем, есть ли изменения */
     public array $formSnapshot = [];
 
+    /** Пользователь ответил на вопрос о задолженности по сбору (или вопроса нет): без этого «Сохранить» недоступна */
+    public bool $feeDebtAnswered = true;
+
     public ?string $actionMessage = null;
 
     public string $actionMessageType = 'success';
@@ -76,6 +79,7 @@ class extends Component
         $this->syncClientFee();
         $this->form->includeFeeDebt = false;
         unset($this->projectOptions, $this->creditDebt, $this->feeDebt);
+        $this->resetFeeDebtAnswer();
     }
 
     public function updatedFormOperationDate(): void
@@ -292,10 +296,17 @@ class extends Component
     public function setIncludeFeeDebt(bool $value): void
     {
         $this->form->includeFeeDebt = $value;
+        $this->feeDebtAnswered = true;
     }
 
     public function save(): void
     {
+        if (! $this->feeDebtAnswered) {
+            $this->addError('form', 'Выберите, вычитать ли задолженность по сбору в этом платеже');
+
+            return;
+        }
+
         $can = $this->permissionsForSave();
 
         if ($this->modalMode === 'credit') {
@@ -366,6 +377,12 @@ class extends Component
     private function forgetFormComputed(): void
     {
         unset($this->projectOptions, $this->creditDebt, $this->feeDebt, $this->calculation);
+        $this->resetFeeDebtAnswer();
+    }
+
+    private function resetFeeDebtAnswer(): void
+    {
+        $this->feeDebtAnswered = $this->form->includeFeeDebt || ! ($this->feeDebt > 0 && $this->canEdit);
     }
 
     private function setActionMessage(string $message, string $type): void

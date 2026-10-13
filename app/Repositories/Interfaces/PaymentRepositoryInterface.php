@@ -39,6 +39,13 @@ interface PaymentRepositoryInterface
      */
     public function getClientOperations(int $clientId, ?int $exceptOperationId = null): Collection;
 
+    /**
+     * Отмечает платежи, чей сбор учтен в операции; прежние отметки этой операции снимаются.
+     *
+     * @param  list<int>  $settledOperationIds
+     */
+    public function settleFeeDebt(int $operationId, array $settledOperationIds): void;
+
     public function updateOperation(PaymentOperation $operation, array $attributes): void;
 
     public function hideOperation(PaymentOperation $operation): void;

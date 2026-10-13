@@ -228,14 +228,23 @@
                                     </x-data.table-cell>
                                 @endif
                                 <x-data.table-cell class="whitespace-nowrap text-blue-600">{{ $money($row->feeAmount) }}</x-data.table-cell>
-                                <x-data.table-cell x-on:click.stop>
-                                    <div class="flex justify-center">
-                                        <x-form.checkbox
-                                            :checked="$row->isFeeInPiggyBank"
-                                            :disabled="! $this->canEdit"
-                                            x-on:change="$wire.togglePiggyBank({{ $row->id }}, $event.target.checked)"
-                                        />
-                                    </div>
+                                <x-data.table-cell class="text-center" x-on:click.stop>
+                                    @if ($row->feeSettledLabel)
+                                        <x-overlay.tooltip>
+                                            <x-slot:trigger>
+                                                <x-form.checkbox :checked="$row->isFeeInPiggyBank" disabled />
+                                            </x-slot:trigger>
+                                            {{ $row->feeSettledLabel }}
+                                        </x-overlay.tooltip>
+                                    @else
+                                        <div class="flex justify-center">
+                                            <x-form.checkbox
+                                                :checked="$row->isFeeInPiggyBank"
+                                                :disabled="! $this->canEdit"
+                                                x-on:change="$wire.togglePiggyBank({{ $row->id }}, $event.target.checked)"
+                                            />
+                                        </div>
+                                    @endif
                                 </x-data.table-cell>
                                 @if ($this->canSeeInvoice)
                                     <x-data.table-cell class="text-center" x-on:click.stop>
@@ -313,10 +322,10 @@
                     @endif
                     <div class="flex items-center gap-2">
                         <label class="flex items-center gap-2">
-                            <x-form.checkbox wire:model="form.isFeeInPiggyBank" :disabled="! $this->canEdit" />
+                            <x-form.checkbox wire:model="form.isFeeInPiggyBank" :disabled="! $this->canEdit || $form->feeSettledLabel" />
                             Сбор в копилке
                         </label>
-                        <x-overlay.tooltip>Отметьте, если сбор с рекламного бюджета был отправлен в копилку</x-overlay.tooltip>
+                        <x-overlay.tooltip>{{ $form->feeSettledLabel ?? 'Отметьте, если сбор с рекламного бюджета был отправлен в копилку' }}</x-overlay.tooltip>
                     </div>
                     @if ($this->canSeeInvoice)
                         <div class="flex items-center gap-2">
@@ -483,7 +492,7 @@
                         @enderror
                     </div>
                     <x-form.select
-                        :label="$isCredit ? 'Канал *' : 'Канал'"
+                        label="Канал *"
                         wire:model.live="form.advertisingSystem"
                         :options="$this->advertisingSystemOptions"
                         placeholder="Выберите рекламную систему"
@@ -494,6 +503,34 @@
 
                 {{-- Пополнение и сбор --}}
                 <span class="text-caption-text mt-2 text-sm font-semibold">Итог</span>
+                @if ($this->feeDebt > 0 && $this->canEdit)
+                    <x-feedback.notice variant="error" class="mb-0">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                По <span class="font-semibold">{{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? 'клиенту' }}</span>
+                                есть задолженность по сбору 3% на сумму {{ $money($this->feeDebt) }}, вычесть её в этом платеже?
+                            </div>
+                            <x-overlay.tooltip panel-max-width="24rem">
+                                Задолженность - это сбор 3% по прошлым платежам клиента, где не стоит галочка «Сбор в копилке».
+                                Чтобы её закрыть, нажмите «Да, учесть»: сумма вычтется из того, что поступит в кабинет, а галочка на тех платежах заблокируется.
+                                Если сбор уже отложили, откройте прошлый платеж и поставьте галочку «Сбор в копилке».
+                                «Не нужно» оставит задолженность на следующие платежи.
+                            </x-overlay.tooltip>
+                        </div>
+                        <div class="mt-2 flex gap-2">
+                            <x-button.button
+                                :icon="$feeDebtAnswered && $form->includeFeeDebt ? 'icons.check' : null"
+                                label="Да, учесть"
+                                wire:click="setIncludeFeeDebt(true)"
+                            />
+                            <x-button.button
+                                :icon="$feeDebtAnswered && ! $form->includeFeeDebt ? 'icons.check' : null"
+                                label="Не нужно"
+                                wire:click="setIncludeFeeDebt(false)"
+                            />
+                        </div>
+                    </x-feedback.notice>
+                @endif
                 @unless ($isCredit)
                     <x-form.input-text
                         label="Пополнение кабинета (без учета сбора)"
@@ -521,24 +558,6 @@
                     </span>
                 </div>
 
-                @if ($this->feeDebt > 0 && $this->canEdit)
-                    <x-feedback.notice variant="error" class="mb-0">
-                        <div>По клиенту есть задолженность по сбору {{ $money($this->feeDebt) }}. Вычесть ее в этом платеже?</div>
-                        <div class="mt-2 flex gap-2">
-                            <x-button.button
-                                :variant="$form->includeFeeDebt ? 'primary' : null"
-                                label="Да, учесть"
-                                wire:click="setIncludeFeeDebt(true)"
-                            />
-                            <x-button.button
-                                :variant="$form->includeFeeDebt ? null : 'primary'"
-                                label="Не нужно"
-                                wire:click="setIncludeFeeDebt(false)"
-                            />
-                        </div>
-                    </x-feedback.notice>
-                @endif
-
                 @error('form')
                     <span class="text-warning-red text-[12px]">{{ $message }}</span>
                 @enderror
@@ -556,10 +575,11 @@
                     },
                     get filled() {
                         const form = $wire.form ?? {};
-                        if (! form.clientId) return false;
+                        if (! form.clientId || ! $wire.feeDebtAnswered) return false;
+                        if ({{ $this->canEdit ? 'true' : 'false' }} && ! form.advertisingSystem) return false;
                         if ($wire.modalMode !== 'credit') return true;
                         const credit = Number(String(form.creditAmount ?? '').replace(/[^\d,.-]/g, '').replace(',', '.'));
-                        return credit !== 0 && ! Number.isNaN(credit) && !! form.managerId && !! form.advertisingSystem;
+                        return credit !== 0 && ! Number.isNaN(credit) && !! form.managerId;
                     },
                 }"
                 x-bind:class="{ 'invisible': ! dirty }"

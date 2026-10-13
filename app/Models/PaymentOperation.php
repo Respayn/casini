@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property bool $fee_included
  * @property float $fee_amount
  * @property float $included_fee_debt
+ * @property int|null $fee_settled_in_operation_id
  * @property float $ad_cabinet_amount
  * @property Carbon|null $ad_cabinet_sent_date
  * @property bool $is_sent_to_cabinet
@@ -41,6 +42,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property User|null $manager
  * @property User|null $statusChangedBy
  * @property User|null $invoiceChangedBy
+ * @property PaymentOperation|null $feeSettledIn
  */
 class PaymentOperation extends Model
 {
@@ -58,6 +60,7 @@ class PaymentOperation extends Model
         'fee_included',
         'fee_amount',
         'included_fee_debt',
+        'fee_settled_in_operation_id',
         'ad_cabinet_amount',
         'ad_cabinet_sent_date',
         'is_sent_to_cabinet',
@@ -118,5 +121,10 @@ class PaymentOperation extends Model
     public function invoiceChangedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invoice_changed_by');
+    }
+
+    public function feeSettledIn(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'fee_settled_in_operation_id');
     }
 }

@@ -67,6 +67,7 @@ PaymentRepository --> PaymentOperation
 Payment --> Client
 Payment --> PaymentSource
 Payment "1" *-- "many" PaymentOperation
+PaymentOperation "many" --> "0..1" PaymentOperation : feeSettledIn\n(сбор учтен в операции)
 PaymentService ..> FeeType
 PaymentService ..> FundsReceived
 PaymentService ..> FundsIncomeUnprocessed
