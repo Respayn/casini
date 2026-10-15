@@ -11,8 +11,6 @@ use Src\Application\Reports\Download\DownloadReportFileQuery;
 use Src\Application\Reports\Download\DownloadReportFileQueryHandler;
 use Src\Application\Reports\GetList\GetReportsListQuery;
 use Src\Application\Reports\GetList\GetReportsListQueryHandler;
-use Src\Application\Reports\Update\UpdateReportCommand;
-use Src\Application\Reports\Update\UpdateReportCommandHandler;
 use Src\Presentation\Livewire\Traits\WithColumnSettings;
 
 new
@@ -45,15 +43,15 @@ new
                 ['key' => 'specialist', 'label' => 'Специалист'],
                 ['key' => 'format', 'label' => 'Формат'],
                 ['key' => 'download', 'label' => 'Скачать'],
-                ['key' => 'is_ready', 'label' => 'Отчет готов?'],
-                ['key' => 'is_accepted', 'label' => 'Отчет принят менеджером?'],
-                ['key' => 'is_sent', 'label' => 'Отчет отправлен клиенту?'],
             ];
         }
 
         public ?int $pendingDownloadId = null;
+
         public bool $showInactiveProjects = false;
+
         public Carbon $periodFrom;
+
         public Carbon $periodTo;
 
         public array $columnSettings = [];
@@ -67,18 +65,41 @@ new
                 $this->pendingDownloadId = Session::get('download');
             }
 
-            $this->periodFrom = Carbon::now()->subMonth()->startOfMonth();
-            $this->periodTo = Carbon::now()->endOfMonth()->startOfDay();
+            $this->periodFrom = Carbon::now()->startOfMonth()->startOfDay();
+            $this->periodTo = $this->periodFrom->copy();
         }
 
-        public function updatedPeriodFrom()
+        public function updatedPeriodFrom(): void
         {
-            $this->periodFrom = $this->periodFrom->startOfMonth();
+            $this->clampPeriodToPresent();
         }
 
-        public function updatedPeriodTo()
+        public function updatedPeriodTo(): void
         {
-            $this->periodTo = $this->periodTo->endOfMonth()->startOfDay();
+            $this->clampPeriodToPresent();
+        }
+
+        /**
+         * Нормализация: начало месяца, не позже текущего месяца, periodFrom <= periodTo.
+         */
+        private function clampPeriodToPresent(): void
+        {
+            $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+
+            $this->periodFrom = $this->periodFrom->copy()->startOfMonth()->startOfDay();
+            $this->periodTo = $this->periodTo->copy()->startOfMonth()->startOfDay();
+
+            if ($this->periodFrom->greaterThan($currentMonth)) {
+                $this->periodFrom = $currentMonth->copy();
+            }
+
+            if ($this->periodTo->greaterThan($currentMonth)) {
+                $this->periodTo = $currentMonth->copy();
+            }
+
+            if ($this->periodFrom->greaterThan($this->periodTo)) {
+                $this->periodTo = $this->periodFrom->copy();
+            }
         }
 
         #[Computed]
@@ -86,8 +107,8 @@ new
         {
             return app(GetReportsListQueryHandler::class)->handle(new GetReportsListQuery(
                 $this->showInactiveProjects,
-                $this->periodFrom,
-                $this->periodTo,
+                $this->periodFrom->copy(),
+                $this->periodTo->copy()->endOfMonth(),
                 Auth::id(),
                 $this->sidebarProjectId,
             ));
@@ -104,29 +125,5 @@ new
             $file = $queryHandler->handle($query);
 
             return response()->download($file->path, $file->name);
-        }
-
-        public function updateIsReady(UpdateReportCommandHandler $command, int $reportId, bool $value)
-        {
-            $command->handle(new UpdateReportCommand(
-                reportId: $reportId,
-                isReady: $value
-            ));
-        }
-
-        public function updateIsAccepted(UpdateReportCommandHandler $command, int $reportId, bool $value)
-        {
-            $command->handle(new UpdateReportCommand(
-                reportId: $reportId,
-                isAccepted: $value
-            ));
-        }
-
-        public function updateIsSent(UpdateReportCommandHandler $command, int $reportId, bool $value)
-        {
-            $command->handle(new UpdateReportCommand(
-                reportId: $reportId,
-                isSent: $value
-            ));
         }
     };

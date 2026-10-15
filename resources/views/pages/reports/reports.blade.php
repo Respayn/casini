@@ -9,22 +9,23 @@
     <div class="flex justify-between">
         <h1 class="mb-7">Отчеты</h1>
         <div>
+            <x-button.button href="{{ route('templates') }}" label="Шаблоны отчетов" />
             <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
                 variant="primary" />
-            <x-button.button href="{{ route('templates') }}" label="Шаблоны отчетов" variant="primary" />
         </div>
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex items-center">
-        <div class="mr-3.5">
+    <div class="flex flex-wrap items-center gap-y-3">
+        <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="showInactiveProjects" />
         </div>
 
-        <div class="flex gap-2">
-            <x-form.month-picker wire:model.live="periodFrom" />
-            <x-form.month-picker wire:model.live="periodTo" />
+        <div class="mr-[26px] flex items-center gap-2">
+            <x-form.month-picker wire:model.live="periodFrom" disable-future />
+            <span class="text-secondary-text">-</span>
+            <x-form.month-picker wire:model.live="periodTo" disable-future />
         </div>
 
         <div class="flex-end ml-auto">
@@ -38,8 +39,8 @@
         <div class="mt-20 flex flex-col items-center gap-4">
             <span class="text-caption-text">Нет отчетов для отображения</span>
             <div>
-                <x-button.button href="{{ route('system-settings.clients-and-projects') }}" target="_blank"
-                    icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
+                <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
+                    variant="primary" />
             </div>
         </div>
     @else
@@ -112,33 +113,6 @@
                                                 wire:click="download({{ $report->reportId }})">
                                                 <div class="flex justify-center">
                                                     <x-icons.download />
-                                                </div>
-                                            </x-data.table-cell>
-                                        @break
-
-                                        @case('is_ready')
-                                            <x-data.table-cell>
-                                                <div class="flex justify-center">
-                                                    <x-form.checkbox checked="{{ $report->isReady }}" disabled
-                                                        wire:change.renderless="updateIsReady({{ $report->reportId }}, $event.target.checked)" />
-                                                </div>
-                                            </x-data.table-cell>
-                                        @break
-
-                                        @case('is_accepted')
-                                            <x-data.table-cell>
-                                                <div class="flex justify-center">
-                                                    <x-form.checkbox checked="{{ $report->isAccepted }}"
-                                                        wire:change.renderless="updateIsAccepted({{ $report->reportId }}, $event.target.checked)" />
-                                                </div>
-                                            </x-data.table-cell>
-                                        @break
-
-                                        @case('is_sent')
-                                            <x-data.table-cell>
-                                                <div class="flex justify-center">
-                                                    <x-form.checkbox checked="{{ $report->isSent }}"
-                                                        wire:change.renderless="updateIsSent({{ $report->reportId }}, $event.target.checked)" />
                                                 </div>
                                             </x-data.table-cell>
                                         @break
