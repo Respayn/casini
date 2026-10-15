@@ -296,6 +296,71 @@ class PaymentServiceDrsTest extends TestCase
         }
     }
 
+    public function test_1c_api_accepts_sao_payload(): void
+    {
+        $user = User::factory()->create();
+        $number = 'TEST-DRS-API-'.uniqid();
+        $inn = sprintf('%012d', crc32($number));
+        $payment = [
+            'PaymentNumber' => $number,
+            'PaymentDate' => today()->toIso8601String(),
+            'Payer' => 'ИП Тест ДРС',
+            'InnPayer' => substr($inn, 0, 4).'-'.substr($inn, 4),
+            'ContractNumber' => null,
+            'Total' => 5000,
+            'Canceled' => false,
+            'Purpose' => '',
+            'invoices' => [
+                ['order' => 2, 'invoiceNumber' => 'СЧ-2', 'invoiceDate' => today()->toIso8601String(), 'sum' => 5000],
+            ],
+        ];
+        $send = fn (array $data) => $this->postJson('/api/processOperations', [
+            'login' => $user->login,
+            'password' => 'password',
+            'data' => $data,
+        ]);
+
+        $send([])->assertOk();
+        $send([$payment])->assertOk();
+
+        $operation = $this->operationByNumber($number);
+        $this->assertSame($inn, $operation->payment->client->inn);
+        $this->assertSame(2, $operation->order);
+
+        $send([['PaymentNumber' => $number, 'PaymentDate' => $payment['PaymentDate'], 'Payer' => 'ИП Тест ДРС',
+            'InnPayer' => $inn, 'Total' => 0, 'Canceled' => true, 'Purpose' => '']])->assertOk();
+
+        $this->assertSoftDeleted($operation->payment);
+    }
+
+    public function test_1c_payment_number_is_unique_within_year(): void
+    {
+        $service = app(PaymentService::class);
+        $number = 'TEST-DRS-YEAR-'.uniqid();
+        $lastYear = new \DateTimeImmutable('-1 year');
+
+        $service->processPayments([$this->paymentData($number, 1000, $lastYear)]);
+        $service->processPayments([$this->paymentData($number, 2000)]);
+
+        $payments = Payment::query()->where('number', $number)->where('source', PaymentSource::FROM_1C)->get();
+        $this->assertCount(2, $payments);
+
+        $service->processPayments([PaymentData::from([
+            'PaymentNumber' => $number,
+            'PaymentDate' => new \DateTimeImmutable('today'),
+            'Payer' => 'Тест ДРС',
+            'InnPayer' => '1234567890',
+            'ContractNumber' => null,
+            'Total' => 0,
+            'Canceled' => true,
+            'Purpose' => '',
+        ])]);
+
+        $left = Payment::query()->where('number', $number)->where('source', PaymentSource::FROM_1C)->get();
+        $this->assertCount(1, $left);
+        $this->assertSame($lastYear->format('Y'), $left->first()->received_date->format('Y'));
+    }
+
     private function operationByNumber(string $number): PaymentOperation
     {
         return PaymentOperation::query()
@@ -304,7 +369,7 @@ class PaymentServiceDrsTest extends TestCase
             ->firstOrFail();
     }
 
-    private function paymentData(string $number, float $sum): PaymentData
+    private function paymentData(string $number, float $sum, \DateTimeImmutable $date = new \DateTimeImmutable('today')): PaymentData
     {
         $client = Client::query()->firstOrCreate(
             ['inn' => sprintf('%010d', crc32($number) % 10000000000)],
@@ -313,7 +378,7 @@ class PaymentServiceDrsTest extends TestCase
 
         return PaymentData::from([
             'PaymentNumber' => $number,
-            'PaymentDate' => new \DateTimeImmutable('today'),
+            'PaymentDate' => $date,
             'Payer' => $client->name,
             'InnPayer' => $client->inn,
             'ContractNumber' => null,
@@ -322,7 +387,7 @@ class PaymentServiceDrsTest extends TestCase
             'Purpose' => 'Оплата рекламы',
             'invoices' => InvoiceData::collection([[
                 'invoice_number' => 'СЧ-'.$number,
-                'invoice_date' => new \DateTimeImmutable('today'),
+                'invoice_date' => $date,
                 'sum' => $sum,
             ]]),
         ]);

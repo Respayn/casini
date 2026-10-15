@@ -16,7 +16,7 @@ interface PaymentRepositoryInterface
 
     public function syncInvoices(Payment $payment, DataCollection $invoices, string $purpose): void;
 
-    public function findByNumber(string $number): ?Payment;
+    public function findByNumber(string $number, \DateTimeInterface $paymentDate): ?Payment;
 
     public function deleteWithOperations(Payment $payment): void;
 

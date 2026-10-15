@@ -18,13 +18,15 @@ class PaymentRepository implements PaymentRepositoryInterface
 {
     public function upsertPayment(string $paymentNumber, \DateTimeInterface $paymentDate, int $clientId): Payment
     {
-        return Payment::updateOrCreate(
-            ['number' => $paymentNumber, 'source' => PaymentSource::FROM_1C],
-            [
-                'received_date' => $paymentDate,
-                'client_id' => $clientId,
-            ]
-        );
+        $payment = $this->findByNumber($paymentNumber, $paymentDate)
+            ?? new Payment(['number' => $paymentNumber, 'source' => PaymentSource::FROM_1C]);
+
+        $payment->fill([
+            'received_date' => $paymentDate,
+            'client_id' => $clientId,
+        ])->save();
+
+        return $payment;
     }
 
     public function syncInvoices(Payment $payment, DataCollection $invoices, string $purpose): void
@@ -33,7 +35,7 @@ class PaymentRepository implements PaymentRepositoryInterface
         $orders = [];
 
         foreach ($invoices as $index => $invoice) {
-            $order = $index + 1;
+            $order = $invoice->order ?? $index + 1;
             $orders[] = $order;
             $attributes = [
                 'invoice_number' => $invoice->invoiceNumber,
@@ -62,10 +64,11 @@ class PaymentRepository implements PaymentRepositoryInterface
         $payment->operations()->whereNotIn('order', $orders)->delete();
     }
 
-    public function findByNumber(string $number): ?Payment
+    public function findByNumber(string $number, \DateTimeInterface $paymentDate): ?Payment
     {
         return Payment::where('number', $number)
             ->where('source', PaymentSource::FROM_1C)
+            ->whereYear('received_date', (int) $paymentDate->format('Y'))
             ->first();
     }
 

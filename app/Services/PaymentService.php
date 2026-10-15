@@ -420,7 +420,7 @@ class PaymentService
         $this->paymentRepo->syncInvoices(
             $payment,
             $this->parseInvoices($data->invoices),
-            $data->Purpose
+            $data->Purpose ?? ''
         );
 
         $this->applyDefaultFee($payment, $client);
@@ -491,6 +491,7 @@ class PaymentService
                     'invoice_number' => $invoice->invoiceNumber,
                     'invoice_date' => $invoice->invoiceDate,
                     'sum' => $invoice->sum,
+                    'order' => $invoice->order,
                 ];
             })->all()
         );
@@ -506,7 +507,7 @@ class PaymentService
 
     private function cancelPayment(PaymentData $data): void
     {
-        if ($payment = $this->paymentRepo->findByNumber($data->PaymentNumber)) {
+        if ($payment = $this->paymentRepo->findByNumber($data->PaymentNumber, $data->PaymentDate)) {
             $this->paymentRepo->deleteWithOperations($payment);
         }
     }
