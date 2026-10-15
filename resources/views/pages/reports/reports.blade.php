@@ -28,11 +28,7 @@
             <x-form.month-picker wire:model.live="periodTo" disable-future />
         </div>
 
-        <div class="flex-end ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal">
-                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link" />
-            </x-overlay.modal-trigger>
-        </div>
+        <x-report.table-toolbar :refreshable="false" :column-trigger-action="false" />
     </div>
 
     @if (empty($this->reports))

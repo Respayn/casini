@@ -1,6 +1,8 @@
 @props([
     'columnModal' => 'column-settings-modal',
     'lastRefreshLabel' => null,
+    'refreshable' => true,
+    'columnTriggerAction' => 'saveSettingsSnapshot',
 ])
 
 @php
@@ -18,10 +20,11 @@
         @mouseenter="open = true"
         @mouseleave="open = false"
     >
-        <x-overlay.modal-trigger :name="$columnModal" wire:click="saveSettingsSnapshot">
+        <x-overlay.modal-trigger :name="$columnModal" :wire:click="$columnTriggerAction">
             <x-button.button
                 icon="icons.columns"
                 variant="link"
+                size="sm"
                 aria-label="Настроить колонки"
             />
         </x-overlay.modal-trigger>
@@ -38,6 +41,7 @@
         </div>
     </div>
 
+    @if ($refreshable)
     <div
         class="relative inline-flex"
         x-data="{ open: false }"
@@ -46,7 +50,7 @@
     >
         <button
             type="button"
-            class="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg text-primary-text transition hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
+            class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-primary-text transition hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
             wire:click="refreshAllData"
             wire:loading.attr="disabled"
             wire:target="refreshAllData"
@@ -75,4 +79,5 @@
             {{ $refreshTooltip }}
         </div>
     </div>
+    @endif
 </div>
