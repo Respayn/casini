@@ -90,7 +90,7 @@ class ReportsListPageTest extends TestCase
     {
         $html = Livewire::test('pages::reports')->html();
 
-        $this->assertStringNotContainsString('bg-primary', $this->linkClasses($html, route('templates')));
+        $this->assertStringNotContainsString('bg-primary', $this->linkClasses($html, route('reports.templates')));
         $this->assertStringContainsString('bg-primary', $this->linkClasses($html, route('reports.create')));
     }
 

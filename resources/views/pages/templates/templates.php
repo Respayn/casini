@@ -24,8 +24,14 @@ new
 
         public function updatedNewTemplate()
         {
+            $this->resetErrorBag();
+
             $this->validate([
                 'newTemplate' => 'required|file|mimes:docx'
+            ], [
+                'newTemplate.required' => 'Выберите файл шаблона.',
+                'newTemplate.file' => 'Не удалось загрузить файл шаблона.',
+                'newTemplate.mimes' => 'Шаблон должен быть файлом Word в формате .docx.',
             ]);
 
             app(CreateTemplateCommandHandler::class)->handle(
@@ -54,6 +60,8 @@ new
 
         public function delete(DeleteTemplateCommandHandler $command, int $templateId)
         {
+            $this->resetErrorBag();
+
             try {
                 $command->handle(new DeleteTemplateCommand($templateId));
             } catch (TemplateInUseException $e) {

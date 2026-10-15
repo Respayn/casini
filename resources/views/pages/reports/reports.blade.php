@@ -9,7 +9,7 @@
     <div class="flex justify-between">
         <h1 class="mb-7">Отчеты</h1>
         <div>
-            <x-button.button href="{{ route('templates') }}" label="Шаблоны отчетов" />
+            <x-button.button href="{{ route('reports.templates') }}" label="Шаблоны отчетов" />
             <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
                 variant="primary" />
         </div>

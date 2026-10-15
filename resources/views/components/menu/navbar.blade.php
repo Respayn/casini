@@ -19,8 +19,13 @@
             $routeName = $isArrayRoute ? $routeValue[0] : $routeValue;
             $routeParams = $isArrayRoute ? array_slice($routeValue, 1) : [];
             $canAccess = $item['canAccess'] ?? true;
-            $isActive = $canAccess && $currentRoute === $routeName;
-            $routeHref = $isActive ? '' : ($isArrayRoute ? route($routeName, ...$routeParams) : route($routeName));
+            $isActive = $canAccess && (
+                $currentRoute === $routeName
+                || str_starts_with((string) $currentRoute, $routeName . '.')
+            );
+            $routeHref = $isArrayRoute
+                ? route($routeName, ...$routeParams)
+                : route($routeName);
         @endphp
 
         @if ($canAccess)
