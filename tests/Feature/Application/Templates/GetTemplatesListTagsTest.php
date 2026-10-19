@@ -27,11 +27,11 @@ class GetTemplatesListTagsTest extends TestCase
     {
         $phpWord = new PhpWord;
         $section = $phpWord->addSection();
-        $section->addText('Клиент: ${client_name}');
-        $section->addText('${seo_block}');
+        $section->addText('Клиент: {{client_name}}');
+        $section->addText('{{seo_block}}');
         $section->addText('Текст блока');
-        $section->addText('${/seo_block}');
-        $section->addText('Еще раз: ${client_name}');
+        $section->addText('{{/seo_block}}');
+        $section->addText('Еще раз: {{client_name}}');
 
         $tmp = tempnam(sys_get_temp_dir(), 'tpl');
         IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);

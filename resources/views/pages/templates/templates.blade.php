@@ -7,16 +7,20 @@
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <h1 class="mb-7">Шаблоны отчетов</h1>
-        <div>
+        <div class="flex items-center gap-2">
             <x-button.button href="{{ route('reports.create') }}" label="Создать отчет" />
-            <x-button.button variant="primary" onclick="document.getElementById('upload-input').click()"
-                wire:loading.attr="disabled" wire:target="newTemplate">
-                <span class="inline-flex items-center gap-2 whitespace-nowrap">
-                    <x-icons.plus wire:loading.remove wire:target="newTemplate" />
-                    <x-icons.progress-activity wire:loading wire:target="newTemplate" class="animate-spin" />
-                    Загрузить шаблон
-                </span>
-            </x-button.button>
+            <x-button.button
+                variant="primary"
+                icon="icons.plus"
+                label="Загрузить шаблон"
+                onclick="document.getElementById('upload-input').click()"
+                wire:loading.attr="disabled"
+                wire:target="newTemplate"
+            />
+            <x-overlay.tooltip panel-max-width="20rem">
+                Можно загрузить файл Word в формате .docx. В шаблоне используйте теги вида
+                @{{название_переменной}}.
+            </x-overlay.tooltip>
             <input type="file" wire:model.live="newTemplate" hidden id="upload-input" accept=".docx">
         </div>
     </div>
@@ -43,7 +47,7 @@
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                 <x-data.table class="w-full">
                     <x-data.table-columns>
-                        <x-data.table-column>Дата</x-data.table-column>
+                        <x-data.table-column>Дата загрузки шаблона</x-data.table-column>
                         <x-data.table-column>Название шаблона</x-data.table-column>
                         <x-data.table-column>Найденные теги в шаблоне</x-data.table-column>
                         <x-data.table-column>Действия</x-data.table-column>
@@ -52,7 +56,7 @@
                         @foreach ($this->templates as $template)
                             <x-data.table-row>
                                 <x-data.table-cell class="whitespace-nowrap">
-                                    {{ $template->createdAt->format('d.m.Y H:i') }}
+                                    {{ $template->createdAt->format('d.m.Y') }}
                                 </x-data.table-cell>
                                 <x-data.table-cell>{{ $template->name }}</x-data.table-cell>
                                 <x-data.table-cell>
@@ -63,7 +67,12 @@
                                     @else
                                         <div class="flex flex-wrap gap-2">
                                             @foreach ($template->tags as $tag)
-                                                <span class="whitespace-nowrap rounded-md bg-blue-50 px-2 py-1 text-xs">{{ '${'.$tag.'}' }}</span>
+                                                @php($source = \Src\Domain\Templates\TemplateTagSource::fromTag($tag))
+                                                <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-blue-50 px-2 py-1 text-xs"
+                                                    title="Источник: {{ $source->label() }}">
+                                                    <x-dynamic-component :component="'icons.logo.'.$source->value" class="size-4" />
+                                                    &#123;&#123;{{ $tag }}&#125;&#125;
+                                                </span>
                                             @endforeach
                                         </div>
                                     @endif

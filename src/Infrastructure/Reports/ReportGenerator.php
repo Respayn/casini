@@ -4,7 +4,6 @@ namespace Src\Infrastructure\Reports;
 
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpWord\TemplateProcessor;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportGeneratorInterface;
 use Src\Domain\Reports\ReportFormat;
@@ -14,6 +13,7 @@ use Src\Infrastructure\Reports\TemplateHandlers\InlineValueHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\ListHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TableHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TemplateHandlerInterface;
+use Src\Infrastructure\Templates\ReportTemplateProcessor;
 
 class ReportGenerator implements ReportGeneratorInterface
 {
@@ -33,7 +33,7 @@ class ReportGenerator implements ReportGeneratorInterface
 
     public function generate(string $templatePath, ReportData $data, string $name, ReportFormat $format = ReportFormat::DOCX): string
     {
-        $templateProcessor = new TemplateProcessor(Storage::path($templatePath));
+        $templateProcessor = new ReportTemplateProcessor(Storage::path($templatePath));
 
         foreach ($this->handlers as $handler) {
             $handler->handle($templateProcessor, $data);

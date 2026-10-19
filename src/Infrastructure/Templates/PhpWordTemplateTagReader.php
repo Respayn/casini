@@ -3,7 +3,6 @@
 namespace Src\Infrastructure\Templates;
 
 use Illuminate\Support\Facades\Storage;
-use PhpOffice\PhpWord\TemplateProcessor;
 use Src\Application\Templates\TemplateTagReaderInterface;
 use Throwable;
 
@@ -16,7 +15,7 @@ class PhpWordTemplateTagReader implements TemplateTagReaderInterface
         }
 
         try {
-            $variables = (new TemplateProcessor(Storage::path($path)))->getVariables();
+            $variables = (new ReportTemplateProcessor(Storage::path($path)))->getVariables();
         } catch (Throwable) {
             return null;
         }
