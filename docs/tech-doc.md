@@ -813,6 +813,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 Страница `/reports`. Права из «Продукты и права» (`reports`): список и скачивание - `read`/`edit`/`full`; создание отчёта (`/reports/create` и кнопка «Создать отчет») - только `edit`/`full` (`full` для не-админов в UI заблокирован). Период как в Каналах и Статистике: два `x-form.month-picker` с `disable-future` (`periodFrom` / `periodTo`, месяц–месяц). По умолчанию оба = текущий месяц. Нормализация при смене месяца (`clampPeriodToPresent()` в компоненте): начало месяца, будущий месяц обрезается до текущего, при `periodFrom > periodTo` конец подтягивается к началу.
 
+## Отчёты: создание (`/reports/create`)
+
+Форма `reports-create`: период как в списке отчётов (текущий месяц, `disable-future`, `clampPeriodToPresent`). Список клиенто-проектов - только доступные по `SidebarProjectAccess` (`GetReportFormDataQuery` с `userId`); при выборе проекта в сайдбаре (`WithSidebarProjectFilter`) в списке только он и он предвыбран. Перед сборкой - повторная проверка доступа и `Rule::in` по доступным id. Поиск по названию в select (`searchable` у `x-form.select`). Формат заблокирован, если в списке один вариант (сейчас DOCX). Кнопки «Сформировать и скачать» / «Отменить» видны только при `hasPendingChanges` (снимок после mount); скачивание активно при выбранных проекте и шаблоне; во время `create` в кнопке спиннер (`progress-activity`) без смены ширины. Сбой сборки - `x-feedback.notice` variant `error`.
+
 | Что | Как |
 |-----|-----|
 | Фильтр по периоду | по `reports.created_at` (колонка «Дата»), не по периоду отчёта; от `periodFrom` 00:00:00 до последнего дня месяца `periodTo` 23:59:59 (`ReportsListDataProvider`) |

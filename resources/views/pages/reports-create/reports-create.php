@@ -1,7 +1,10 @@
 <?php
 
+use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -9,65 +12,270 @@ use Src\Application\Reports\Generate\GenerateReportCommand;
 use Src\Application\Reports\Generate\GenerateReportCommandHandler;
 use Src\Application\Reports\GetFormData\GetReportFormDataQuery;
 use Src\Application\Reports\GetFormData\GetReportFormDataQueryHandler;
+use Src\Application\Reports\GetFormData\ReportFormDataResponse;
 
-new #[Title('Casini - Создать отчет')] class extends Component {
+new
+#[Title('Casini - Создать отчет')]
+class extends Component
+{
+    use WithSidebarProjectFilter;
 
     public ?int $projectId = null;
+
     public Carbon $from;
+
     public Carbon $to;
+
     public ?string $format = null;
+
     public ?int $templateId = null;
+
+    public string $generateError = '';
+
+    /** @var array{projectId: ?int, from: string, to: string, format: ?string, templateId: ?int} */
+    public array $initialSnapshot = [];
 
     public function mount(): void
     {
         $this->ensureCanCreateReports();
 
-        $this->from = Carbon::now()->subMonth()->startOfMonth();
-        $this->to = Carbon::now()->endOfMonth()->startOfDay();
+        $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+        $this->from = $currentMonth->copy();
+        $this->to = $currentMonth->copy();
 
-        if (! empty($this->formData->formats)) {
-            $this->format = array_first($this->formData->formats)['value'];
+        $this->format = $this->formData->formats[0]['value'] ?? null;
+
+        $this->applySidebarProjectSelection();
+        $this->captureSnapshot();
+    }
+
+    protected function afterSidebarProjectFilterChanged(): void
+    {
+        unset($this->formData);
+        unset($this->projectOptions);
+        $this->applySidebarProjectSelection();
+        $this->generateError = '';
+    }
+
+    public function updatedFrom(): void
+    {
+        $this->clampPeriodToPresent();
+        $this->generateError = '';
+    }
+
+    public function updatedTo(): void
+    {
+        $this->clampPeriodToPresent();
+        $this->generateError = '';
+    }
+
+    public function updatedProjectId(): void
+    {
+        $this->generateError = '';
+    }
+
+    public function updatedFormat(): void
+    {
+        $this->generateError = '';
+    }
+
+    public function updatedTemplateId(): void
+    {
+        $this->generateError = '';
+    }
+
+    private function clampPeriodToPresent(): void
+    {
+        $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+
+        $this->from = $this->from->copy()->startOfMonth()->startOfDay();
+        $this->to = $this->to->copy()->startOfMonth()->startOfDay();
+
+        if ($this->from->greaterThan($currentMonth)) {
+            $this->from = $currentMonth->copy();
         }
 
-        if (! empty($this->formData->templates)) {
-            $this->templateId = array_first($this->formData->templates)['value'];
+        if ($this->to->greaterThan($currentMonth)) {
+            $this->to = $currentMonth->copy();
         }
+
+        if ($this->from->greaterThan($this->to)) {
+            $this->to = $this->from->copy();
+        }
+    }
+
+    private function applySidebarProjectSelection(): void
+    {
+        $availableIds = array_map(
+            static fn (array $option): int => (int) $option['value'],
+            $this->projectOptions,
+        );
+
+        if ($this->sidebarProjectId !== null
+            && in_array($this->sidebarProjectId, $availableIds, true)
+        ) {
+            $this->projectId = $this->sidebarProjectId;
+
+            return;
+        }
+
+        if ($this->projectId !== null && ! in_array($this->projectId, $availableIds, true)) {
+            $this->projectId = null;
+        }
+    }
+
+    /**
+     * @return array{projectId: ?int, from: string, to: string, format: ?string, templateId: ?int}
+     */
+    private function currentSnapshot(): array
+    {
+        return [
+            'projectId' => $this->projectId,
+            'from' => $this->from->format('Y-m'),
+            'to' => $this->to->format('Y-m'),
+            'format' => $this->format,
+            'templateId' => $this->templateId,
+        ];
+    }
+
+    private function captureSnapshot(): void
+    {
+        $this->initialSnapshot = $this->currentSnapshot();
+    }
+
+    public function discardChanges(): void
+    {
+        $this->projectId = $this->initialSnapshot['projectId'] ?? null;
+        $this->from = Carbon::createFromFormat('Y-m', $this->initialSnapshot['from'])
+            ->startOfMonth()
+            ->startOfDay();
+        $this->to = Carbon::createFromFormat('Y-m', $this->initialSnapshot['to'])
+            ->startOfMonth()
+            ->startOfDay();
+        $this->format = $this->initialSnapshot['format'] ?? null;
+        $this->templateId = $this->initialSnapshot['templateId'] ?? null;
+        $this->generateError = '';
+        $this->resetErrorBag();
     }
 
     #[Computed]
-    public function formData()
+    public function hasPendingChanges(): bool
     {
-        return app(GetReportFormDataQueryHandler::class)
-            ->handle(new GetReportFormDataQuery());
-    }
-
-    public function create(GenerateReportCommandHandler $command, $triggerDownload = false): void
-    {
-        $this->ensureCanCreateReports();
-
-        $this->validate([
-            'projectId' => 'required',
-            'format' => 'required',
-            'templateId' => 'required',
-        ], [
-            'projectId.required' => 'Выберите проект',
-            'format.required' => 'Выберите формат',
-            'templateId.required' => 'Выберите шаблон',
-        ]);
-
-        $reportId = $command->handle(new GenerateReportCommand(
-            $this->projectId,
-            DateTimeImmutable::createFromInterface($this->from),
-            DateTimeImmutable::createFromInterface($this->to),
-            $this->format,
-            $this->templateId,
-            Auth::user()->id
-        ));
-
-        if ($triggerDownload) {
-            session()->flash('download', $reportId);
+        if ($this->initialSnapshot === []) {
+            return false;
         }
 
+        return $this->currentSnapshot() !== $this->initialSnapshot;
+    }
+
+    #[Computed]
+    public function canSubmit(): bool
+    {
+        return $this->projectId !== null
+            && $this->templateId !== null
+            && filled($this->format);
+    }
+
+    #[Computed]
+    public function formData(): ReportFormDataResponse
+    {
+        return app(GetReportFormDataQueryHandler::class)->handle(
+            new GetReportFormDataQuery(Auth::id()),
+        );
+    }
+
+    /**
+     * @return list<array{value: int, label: string}>
+     */
+    #[Computed]
+    public function projectOptions(): array
+    {
+        $projects = $this->formData->projects;
+
+        if ($this->sidebarProjectId === null) {
+            return $projects;
+        }
+
+        return array_values(array_filter(
+            $projects,
+            fn (array $option): bool => (int) $option['value'] === $this->sidebarProjectId,
+        ));
+    }
+
+    #[Computed]
+    public function noticeMessage(): ?string
+    {
+        if ($this->generateError !== '') {
+            return $this->generateError;
+        }
+
+        if ($this->projectOptions === []) {
+            return 'Нет доступных клиенто-проектов для создания отчета. Проверьте права или выбор в боковом меню.';
+        }
+
+        if ($this->formData->templates === []) {
+            return 'Нет доступных шаблонов. Загрузите шаблон на странице «Шаблоны», затем вернитесь сюда.';
+        }
+
+        return null;
+    }
+
+    #[Computed]
+    public function noticeVariant(): string
+    {
+        return $this->generateError !== '' ? 'error' : 'info';
+    }
+
+    public function create(GenerateReportCommandHandler $command): void
+    {
+        $this->ensureCanCreateReports();
+        $this->generateError = '';
+
+        $availableProjectIds = array_map(
+            static fn (array $option): int => (int) $option['value'],
+            $this->formData->projects,
+        );
+
+        $this->validate([
+            'projectId' => ['required', 'integer', Rule::in($availableProjectIds)],
+            'from' => 'required|date',
+            'to' => 'required|date|after_or_equal:from',
+            'format' => 'required|string|in:docx',
+            'templateId' => 'required|integer',
+        ], [
+            'projectId.required' => 'Выберите клиенто-проект',
+            'projectId.in' => 'Выбранный клиенто-проект недоступен',
+            'from.required' => 'Укажите начало периода',
+            'to.required' => 'Укажите конец периода',
+            'to.after_or_equal' => 'Конец периода не может быть раньше начала',
+            'format.required' => 'Выберите формат',
+            'format.in' => 'Недопустимый формат отчета',
+            'templateId.required' => 'Выберите шаблон отчета',
+        ]);
+
+        if (! SidebarProjectAccess::userCanAccessProject((int) $this->projectId)) {
+            abort(403, __('permissions.denied'));
+        }
+
+        $this->clampPeriodToPresent();
+
+        try {
+            $reportId = $command->handle(new GenerateReportCommand(
+                $this->projectId,
+                \DateTimeImmutable::createFromInterface($this->from->copy()->startOfMonth()->startOfDay()),
+                \DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
+                $this->format,
+                $this->templateId,
+                Auth::id(),
+            ));
+        } catch (\Throwable $e) {
+            report($e);
+            $this->generateError = 'Не удалось сформировать отчет. Попробуйте ещё раз или обратитесь к администратору.';
+
+            return;
+        }
+
+        session()->flash('download', $reportId);
         $this->redirectRoute('reports');
     }
 
