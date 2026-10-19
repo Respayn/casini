@@ -7,11 +7,38 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Infrastructure\Reports\ReportGenerator;
+use Src\Infrastructure\Templates\PhpWordTemplateTagReader;
+use Src\Infrastructure\Templates\ReportTemplateProcessor;
 use Tests\TestCase;
 use ZipArchive;
 
 class ReportGeneratorCurlyTagsTest extends TestCase
 {
+    public function test_reads_tags_when_word_splits_each_brace_into_own_run(): void
+    {
+        Storage::fake();
+
+        $path = $this->storeDocxWithSplitBraces([
+            'current_year',
+            'callibri.table',
+        ]);
+
+        $tags = (new PhpWordTemplateTagReader)->read($path);
+
+        $this->assertSame(['current_year', 'callibri.table'], $tags);
+
+        $file = (new ReportGenerator)->generate(
+            $path,
+            ReportData::builder()->value('current_year', '2026')->value('callibri.table', 'таблица')->build(),
+            'split-braces-report'
+        );
+
+        $xml = $this->documentText($file);
+        $this->assertStringContainsString('2026', $xml);
+        $this->assertStringContainsString('таблица', $xml);
+        $this->assertStringNotContainsString('{{', $xml);
+    }
+
     public function test_fills_curly_tags_in_values_lists_blocks_and_tables(): void
     {
         Storage::fake();
@@ -58,6 +85,55 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringContainsString('Позиция', $xml);
         $this->assertStringContainsString('Старый формат: ${client_name}', $xml);
         $this->assertStringNotContainsString('{{', $xml);
+    }
+
+    /**
+     * @param  list<string>  $tagNames
+     */
+    private function storeDocxWithSplitBraces(array $tagNames): string
+    {
+        $paragraphs = [];
+        foreach ($tagNames as $name) {
+            $paragraphs[] = '<w:p>'
+                .'<w:r><w:t>{</w:t></w:r>'
+                .'<w:r><w:t>{</w:t></w:r>'
+                .'<w:r><w:t>'.$name.'</w:t></w:r>'
+                .'<w:r><w:t>}</w:t></w:r>'
+                .'<w:r><w:t>}</w:t></w:r>'
+                .'</w:p>';
+        }
+
+        $documentXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            .'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+            .'<w:body>'.implode('', $paragraphs).'<w:sectPr/></w:body></w:document>';
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        $zip = new ZipArchive;
+        $zip->open($tmp, ZipArchive::OVERWRITE);
+        $zip->addFromString('[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8"?>'
+            .'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+            .'<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+            .'<Default Extension="xml" ContentType="application/xml"/>'
+            .'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+            .'</Types>');
+        $zip->addFromString('_rels/.rels', '<?xml version="1.0" encoding="UTF-8"?>'
+            .'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+            .'<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+            .'</Relationships>');
+        $zip->addFromString('word/document.xml', $documentXml);
+        $zip->close();
+
+        $storagePath = 'templates/split-braces.docx';
+        Storage::put($storagePath, file_get_contents($tmp));
+        unlink($tmp);
+
+        // sanity: processor must see tags before generate
+        $this->assertSame(
+            $tagNames,
+            (new ReportTemplateProcessor(Storage::path($storagePath)))->getVariables()
+        );
+
+        return $storagePath;
     }
 
     private function documentText(string $file): string
