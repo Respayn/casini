@@ -72,4 +72,57 @@ class TemplatesPageTest extends TestCase
             ->assertHasErrors(['newTemplate' => 'mimes'])
             ->assertSee('Шаблон должен быть файлом Word в формате .docx.');
     }
+
+    public function test_read_only_user_cannot_upload_or_delete_templates(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions(['read report templates']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+        $this->actingAs($user);
+
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Только чтение.docx',
+            'path' => 'templates/readonly.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::test('pages::templates')
+            ->assertDontSee('Загрузить шаблон')
+            ->assertDontSeeHtml('title="Удалить"')
+            ->call('delete', $templateId)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('templates', ['id' => $templateId]);
+    }
+
+    public function test_edit_user_can_upload_but_cannot_delete_templates(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions([
+            'read report templates',
+            'edit report templates',
+        ]);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+        $this->actingAs($user);
+
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Без полного доступа.docx',
+            'path' => 'templates/edit-only.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::test('pages::templates')
+            ->assertSee('Загрузить шаблон')
+            ->assertDontSeeHtml('title="Удалить"')
+            ->call('delete', $templateId)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('templates', ['id' => $templateId]);
+    }
 }

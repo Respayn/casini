@@ -22,12 +22,39 @@ new
 
         public $newTemplate;
 
+        #[Computed]
+        public function canEditTemplates(): bool
+        {
+            $user = auth()->user();
+
+            return $user !== null
+                && ($user->can('edit report templates') || $user->can('full report templates'));
+        }
+
+        #[Computed]
+        public function canDeleteTemplates(): bool
+        {
+            $user = auth()->user();
+
+            return $user !== null && $user->can('full report templates');
+        }
+
+        #[Computed]
+        public function canCreateReports(): bool
+        {
+            $user = auth()->user();
+
+            return $user !== null
+                && ($user->can('read reports') || $user->can('full reports'));
+        }
+
         public function updatedNewTemplate()
         {
+            $this->ensureCanEditTemplates();
             $this->resetErrorBag();
 
             $this->validate([
-                'newTemplate' => 'required|file|mimes:docx'
+                'newTemplate' => 'required|file|mimes:docx',
             ], [
                 'newTemplate.required' => 'Выберите файл шаблона.',
                 'newTemplate.file' => 'Не удалось загрузить файл шаблона.',
@@ -45,7 +72,7 @@ new
         public function templates()
         {
             return app(GetTemplatesListQueryHandler::class)->handle(
-                new GetTemplatesListQuery()
+                new GetTemplatesListQuery
             );
         }
 
@@ -60,6 +87,7 @@ new
 
         public function delete(DeleteTemplateCommandHandler $command, int $templateId)
         {
+            $this->ensureCanDeleteTemplates();
             $this->resetErrorBag();
 
             try {
@@ -67,5 +95,15 @@ new
             } catch (TemplateInUseException $e) {
                 $this->addError('delete', $e->getMessage());
             }
+        }
+
+        private function ensureCanEditTemplates(): void
+        {
+            abort_unless($this->canEditTemplates, 403, __('permissions.denied'));
+        }
+
+        private function ensureCanDeleteTemplates(): void
+        {
+            abort_unless($this->canDeleteTemplates, 403, __('permissions.denied'));
         }
     };

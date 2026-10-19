@@ -8,20 +8,24 @@
     <div class="flex justify-between">
         <h1 class="mb-7">Шаблоны отчетов</h1>
         <div class="flex items-center gap-2">
-            <x-button.button href="{{ route('reports.create') }}" label="Создать отчет" />
-            <x-button.button
-                variant="primary"
-                icon="icons.plus"
-                label="Загрузить шаблон"
-                onclick="document.getElementById('upload-input').click()"
-                wire:loading.attr="disabled"
-                wire:target="newTemplate"
-            />
-            <x-overlay.tooltip panel-max-width="20rem">
-                Можно загрузить файл Word в формате .docx. В шаблоне используйте теги вида
-                @{{название_переменной}}.
-            </x-overlay.tooltip>
-            <input type="file" wire:model.live="newTemplate" hidden id="upload-input" accept=".docx">
+            @if ($this->canCreateReports)
+                <x-button.button href="{{ route('reports.create') }}" label="Создать отчет" />
+            @endif
+            @if ($this->canEditTemplates)
+                <x-button.button
+                    variant="primary"
+                    icon="icons.plus"
+                    label="Загрузить шаблон"
+                    onclick="document.getElementById('upload-input').click()"
+                    wire:loading.attr="disabled"
+                    wire:target="newTemplate"
+                />
+                <x-overlay.tooltip panel-max-width="20rem">
+                    Можно загрузить файл Word в формате .docx. В шаблоне используйте теги вида
+                    @{{название_переменной}}.
+                </x-overlay.tooltip>
+                <input type="file" wire:model.live="newTemplate" hidden id="upload-input" accept=".docx">
+            @endif
         </div>
     </div>
 
@@ -36,11 +40,13 @@
     @if (empty($this->templates))
         <div class="mt-20 flex flex-col items-center gap-4">
             <span class="text-caption-text">Нет шаблонов для отображения</span>
-            <div>
-                <x-button.button icon="icons.plus" label="Загрузить шаблон" variant="primary"
-                    onclick="document.getElementById('upload-input').click()" wire:loading.attr="disabled"
-                    wire:target="newTemplate" />
-            </div>
+            @if ($this->canEditTemplates)
+                <div>
+                    <x-button.button icon="icons.plus" label="Загрузить шаблон" variant="primary"
+                        onclick="document.getElementById('upload-input').click()" wire:loading.attr="disabled"
+                        wire:target="newTemplate" />
+                </div>
+            @endif
         </div>
     @else
         <div class="mt-3">
@@ -81,8 +87,10 @@
                                     <div class="flex gap-2">
                                         <x-button.button wire:click="download({{ $template->id }})"
                                             icon="icons.download" title="Скачать" />
-                                        <x-button.button icon="icons.delete" title="Удалить"
-                                            x-on:click="$dispatch('template-delete-ask', { id: {{ $template->id }} })" />
+                                        @if ($this->canDeleteTemplates)
+                                            <x-button.button icon="icons.delete" title="Удалить"
+                                                x-on:click="$dispatch('template-delete-ask', { id: {{ $template->id }} })" />
+                                        @endif
                                     </div>
                                 </x-data.table-cell>
                             </x-data.table-row>
@@ -93,19 +101,21 @@
         </div>
     @endif
 
-    <x-overlay.modal name="template-delete-confirm" title="Вы уверены?">
-        <x-slot:body>
-            <div x-data="{ id: null }"
-                x-on:template-delete-ask.window="id = $event.detail.id; $dispatch('modal-show', { name: 'template-delete-confirm' })">
-                <p class="text-primary-text">Шаблон будет удален. Шаблон, по которому уже созданы отчеты, удалить
-                    нельзя.</p>
-                <div class="mt-6 flex justify-between gap-4">
-                    <x-button.button icon="icons.delete" label="Удалить" variant="primary"
-                        x-on:click="$wire.delete(id); $dispatch('modal-hide', { name: 'template-delete-confirm' })" />
-                    <x-button.button label="Отменить"
-                        x-on:click="$dispatch('modal-hide', { name: 'template-delete-confirm' })" />
+    @if ($this->canDeleteTemplates)
+        <x-overlay.modal name="template-delete-confirm" title="Вы уверены?">
+            <x-slot:body>
+                <div x-data="{ id: null }"
+                    x-on:template-delete-ask.window="id = $event.detail.id; $dispatch('modal-show', { name: 'template-delete-confirm' })">
+                    <p class="text-primary-text">Шаблон будет удален. Шаблон, по которому уже созданы отчеты, удалить
+                        нельзя.</p>
+                    <div class="mt-6 flex justify-between gap-4">
+                        <x-button.button icon="icons.delete" label="Удалить" variant="primary"
+                            x-on:click="$wire.delete(id); $dispatch('modal-hide', { name: 'template-delete-confirm' })" />
+                        <x-button.button label="Отменить"
+                            x-on:click="$dispatch('modal-hide', { name: 'template-delete-confirm' })" />
+                    </div>
                 </div>
-            </div>
-        </x-slot>
-    </x-overlay.modal>
+            </x-slot>
+        </x-overlay.modal>
+    @endif
 </div>

@@ -108,4 +108,31 @@ class ProductRoutePermissionsTest extends TestCase
 
         $this->assertNotSame(403, $response->status());
     }
+
+    public function test_user_without_report_templates_permission_cannot_open_templates(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions(['read reports']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+
+        $this->actingAs($user)
+            ->get(route('reports.templates'))
+            ->assertForbidden()
+            ->assertSee(__('permissions.denied'), false);
+    }
+
+    public function test_user_with_report_templates_permission_can_open_templates(): void
+    {
+        $role = Role::findByName('manager');
+        $role->syncPermissions(['read report templates']);
+
+        $user = User::factory()->create(['is_active' => true]);
+        $user->assignRole($role);
+
+        $this->actingAs($user)
+            ->get(route('reports.templates'))
+            ->assertOk();
+    }
 }
