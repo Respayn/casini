@@ -67,12 +67,15 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('/statistics', 'pages::statistics')->name('statistics');
     });
 
-    Route::middleware(['permission:read reports|full reports'])->group(function () {
+    Route::middleware(['permission:read reports|edit reports|full reports'])->group(function () {
         Route::livewire('/reports', 'pages::reports')->name('reports');
+    });
+
+    Route::middleware(['permission:edit reports|full reports'])->group(function () {
         Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
     });
 
-    Route::middleware(['permission:read report templates|full report templates'])->group(function () {
+    Route::middleware(['permission:read report templates|edit report templates|full report templates'])->group(function () {
         Route::livewire('/templates', 'pages::templates')->name('reports.templates');
     });
 

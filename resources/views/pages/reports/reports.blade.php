@@ -9,11 +9,13 @@
     <div class="flex justify-between">
         <h1 class="mb-7">Отчеты</h1>
         <div>
-            @if (auth()->user()?->can('read report templates') || auth()->user()?->can('full report templates'))
+            @if (auth()->user()?->can('read report templates') || auth()->user()?->can('edit report templates') || auth()->user()?->can('full report templates'))
                 <x-button.button href="{{ route('reports.templates') }}" label="Шаблоны отчетов" />
             @endif
-            <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
-                variant="primary" />
+            @if ($this->canCreateReports)
+                <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
+                    variant="primary" />
+            @endif
         </div>
     </div>
 
@@ -36,10 +38,12 @@
     @if (empty($this->reports))
         <div class="mt-20 flex flex-col items-center gap-4">
             <span class="text-caption-text">Нет отчетов для отображения</span>
-            <div>
-                <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
-                    variant="primary" />
-            </div>
+            @if ($this->canCreateReports)
+                <div>
+                    <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
+                        variant="primary" />
+                </div>
+            @endif
         </div>
     @else
         <div class="mt-3">

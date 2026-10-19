@@ -59,6 +59,15 @@ new
         /** Снимок настроек до открытия модалки */
         public array $columnSettingsSnapshot = [];
 
+        #[Computed]
+        public function canCreateReports(): bool
+        {
+            $user = Auth::user();
+
+            return $user !== null
+                && ($user->can('edit reports') || $user->can('full reports'));
+        }
+
         public function mount()
         {
             if (Session::has('download')) {

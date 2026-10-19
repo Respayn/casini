@@ -39,7 +39,7 @@
             ['label' => 'Каналы', 'route' => 'channels', 'permissions' => ['read channels', 'full channels']],
             ['label' => 'Статистика', 'route' => 'statistics', 'permissions' => ['read statistics', 'full statistics']],
             ['label' => 'Планирование', 'route' => 'planning', 'permissions' => ['read planning', 'full planning']],
-            ['label' => 'Отчеты', 'route' => 'reports', 'permissions' => ['read reports', 'full reports']],
+            ['label' => 'Отчеты', 'route' => 'reports', 'permissions' => ['read reports', 'edit reports', 'full reports']],
         ])->map(function (array $item) {
             $item['canAccess'] = collect($item['permissions'])
                 ->contains(fn (string $permission) => auth()->user()?->can($permission));

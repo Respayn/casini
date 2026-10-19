@@ -67,6 +67,7 @@ enum PermissionGroup: string
             self::ADVERTISING_FUNDS_MOVEMENT_STATUS,
             self::ADVERTISING_FUNDS_MOVEMENT_INVOICE,
             self::PLANNING_APPROVAL,
+            self::REPORT_TEMPLATES,
         ], true);
     }
 
@@ -84,8 +85,9 @@ enum PermissionGroup: string
                 self::PLANNING_APPROVAL,
             ],
             self::MEDIA_PLANNING->value => [],
-            self::REPORTS->value => [],
-            self::REPORT_TEMPLATES->value => [],
+            self::REPORTS->value => [
+                self::REPORT_TEMPLATES,
+            ],
             self::SYSTEM_SETTINGS->value => [],
             self::SYSTEM_SETTINGS_DICTIONARIES->value => [],
             self::SYSTEM_SETTINGS_USERS->value => [],

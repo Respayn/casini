@@ -20,14 +20,16 @@ new #[Title('Casini - Создать отчет')] class extends Component {
 
     public function mount(): void
     {
+        $this->ensureCanCreateReports();
+
         $this->from = Carbon::now()->subMonth()->startOfMonth();
         $this->to = Carbon::now()->endOfMonth()->startOfDay();
 
-        if (!empty($this->formData->formats)) {
+        if (! empty($this->formData->formats)) {
             $this->format = array_first($this->formData->formats)['value'];
         }
 
-        if (!empty($this->formData->templates)) {
+        if (! empty($this->formData->templates)) {
             $this->templateId = array_first($this->formData->templates)['value'];
         }
     }
@@ -41,29 +43,42 @@ new #[Title('Casini - Создать отчет')] class extends Component {
 
     public function create(GenerateReportCommandHandler $command, $triggerDownload = false): void
     {
+        $this->ensureCanCreateReports();
+
         $this->validate([
             'projectId' => 'required',
             'format' => 'required',
-            'templateId' => 'required'
+            'templateId' => 'required',
         ], [
             'projectId.required' => 'Выберите проект',
             'format.required' => 'Выберите формат',
-            'templateId.required' => 'Выберите шаблон'
+            'templateId.required' => 'Выберите шаблон',
         ]);
 
         $reportId = $command->handle(new GenerateReportCommand(
-                $this->projectId,
-                DateTimeImmutable::createFromInterface($this->from),
-                DateTimeImmutable::createFromInterface($this->to),
-                $this->format,
-                $this->templateId,
-                Auth::user()->id
-            ));
+            $this->projectId,
+            DateTimeImmutable::createFromInterface($this->from),
+            DateTimeImmutable::createFromInterface($this->to),
+            $this->format,
+            $this->templateId,
+            Auth::user()->id
+        ));
 
         if ($triggerDownload) {
             session()->flash('download', $reportId);
         }
 
         $this->redirectRoute('reports');
+    }
+
+    private function ensureCanCreateReports(): void
+    {
+        $user = Auth::user();
+
+        abort_unless(
+            $user !== null && ($user->can('edit reports') || $user->can('full reports')),
+            403,
+            __('permissions.denied')
+        );
     }
 };

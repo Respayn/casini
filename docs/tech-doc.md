@@ -811,7 +811,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ## Отчёты: список и период
 
-Страница `/reports`. Период как в Каналах и Статистике: два `x-form.month-picker` с `disable-future` (`periodFrom` / `periodTo`, месяц–месяц). По умолчанию оба = текущий месяц. Нормализация при смене месяца (`clampPeriodToPresent()` в компоненте): начало месяца, будущий месяц обрезается до текущего, при `periodFrom > periodTo` конец подтягивается к началу.
+Страница `/reports`. Права из «Продукты и права» (`reports`): список и скачивание - `read`/`edit`/`full`; создание отчёта (`/reports/create` и кнопка «Создать отчет») - только `edit`/`full` (`full` для не-админов в UI заблокирован). Период как в Каналах и Статистике: два `x-form.month-picker` с `disable-future` (`periodFrom` / `periodTo`, месяц–месяц). По умолчанию оба = текущий месяц. Нормализация при смене месяца (`clampPeriodToPresent()` в компоненте): начало месяца, будущий месяц обрезается до текущего, при `periodFrom > periodTo` конец подтягивается к началу.
 
 | Что | Как |
 |-----|-----|
@@ -819,7 +819,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Клиенто-проект в сайдбаре | `WithSidebarProjectFilter`: только отчёты выбранного проекта, флаг «Неактивные клиенто-проекты» при этом не применяется |
 | Колонки | без «Отчет готов? / принят менеджером? / отправлен клиенту?»; флаги `is_ready`, `is_accepted`, `is_sent` в таблице `reports` остаются |
 | Пустой список | кнопка «Создать отчет» → `reports.create` |
-| Шаблоны отчетов | URL `/templates`, имя маршрута `reports.templates`: middleware `permission:read report templates\|full report templates`; загрузка - `edit` или `full`; удаление - только `full`; кнопка «Шаблоны отчетов» на `/reports` только при праве чтения. `x-menu.navbar` подсвечивает вкладку «Отчеты» для маршрутов с префиксом `reports.` |
+| Шаблоны отчетов | URL `/templates`, имя маршрута `reports.templates`: middleware `permission:read report templates\|edit report templates\|full report templates`; загрузка - `edit` или `full`; удаление - только `full`; кнопка «Шаблоны отчетов» на `/reports` при любом праве на шаблоны. В «Продукты и права» группа `report templates` - дочерняя к `reports` (`PermissionGroup::hierarchicalValues`). `x-menu.navbar` подсвечивает вкладку «Отчеты» для маршрутов с префиксом `reports.` |
 | Формат тегов шаблона | `{{имя}}`, блоки `{{имя}}…{{/имя}}`, повтор строки таблицы по тегу списка. Скобки задает `ReportTemplateProcessor` (наследник PhpWord `TemplateProcessor`) для сборки отчета и для чтения тегов. Word часто разносит скобки по отдельным runs (`{` `{` `имя` `}` `}`) - склейку делает переопределённый `fixBrokenMacros`. Старый формат `${имя}` не поддерживается: такие шаблоны нужно перезалить |
 | Найденные теги в шаблоне | `TemplateTagReaderInterface` → `PhpWordTemplateTagReader`: `ReportTemplateProcessor::getVariables()` при каждом показе списка (в БД не хранятся), без закрывающих тегов блоков `/имя`; файл не найден или не читается → «Не удалось прочитать файл» |
 

@@ -45,7 +45,7 @@ new
             $user = auth()->user();
 
             return $user !== null
-                && ($user->can('read reports') || $user->can('full reports'));
+                && ($user->can('edit reports') || $user->can('full reports'));
         }
 
         public function updatedNewTemplate()

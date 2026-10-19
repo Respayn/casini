@@ -6,6 +6,7 @@
             $settingsRoute = SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName();
             $isOnSystemSettings = request()->is('system-settings', 'system-settings/*');
             $canOpenReports = auth()->user()?->can('read reports')
+                || auth()->user()?->can('edit reports')
                 || auth()->user()?->can('full reports');
             $showBackToReports = $canOpenReports && $isOnSystemSettings;
         @endphp

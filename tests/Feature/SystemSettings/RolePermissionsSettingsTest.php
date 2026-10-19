@@ -88,6 +88,16 @@ class RolePermissionsSettingsTest extends TestCase
         $dictionaries = collect($admin['permissions'])
             ->firstWhere('name', PermissionGroup::SYSTEM_SETTINGS_DICTIONARIES->value);
         $this->assertFalse($dictionaries['isSecondary']);
+
+        $reportsIndex = $groupNames->search(PermissionGroup::REPORTS->value);
+        $reportTemplatesIndex = $groupNames->search(PermissionGroup::REPORT_TEMPLATES->value);
+        $this->assertNotFalse($reportsIndex);
+        $this->assertNotFalse($reportTemplatesIndex);
+        $this->assertSame($reportsIndex + 1, $reportTemplatesIndex);
+
+        $reportTemplates = collect($admin['permissions'])
+            ->firstWhere('name', PermissionGroup::REPORT_TEMPLATES->value);
+        $this->assertTrue($reportTemplates['isSecondary']);
     }
 
     public function test_save_strips_locked_full_access_for_new_settings_sections(): void
