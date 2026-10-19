@@ -260,10 +260,10 @@ class extends Component
         $this->clampPeriodToPresent();
 
         try {
-            $reportId = $command->handle(new GenerateReportCommand(
+            $result = $command->handle(new GenerateReportCommand(
                 $this->projectId,
-                \DateTimeImmutable::createFromInterface($this->from->copy()->startOfMonth()->startOfDay()),
-                \DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
+                DateTimeImmutable::createFromInterface($this->from->copy()->startOfMonth()->startOfDay()),
+                DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
                 $this->format,
                 $this->templateId,
                 Auth::id(),
@@ -275,7 +275,12 @@ class extends Component
             return;
         }
 
-        session()->flash('download', $reportId);
+        session()->flash('download', $result->reportId);
+
+        if ($result->warnings !== []) {
+            session()->flash('report_generation_warnings', $result->warnings);
+        }
+
         $this->redirectRoute('reports');
     }
 

@@ -27,13 +27,13 @@ class ReportGeneratorCurlyTagsTest extends TestCase
 
         $this->assertSame(['current_year', 'callibri.table'], $tags);
 
-        $file = (new ReportGenerator)->generate(
+        $generated = (new ReportGenerator)->generate(
             $path,
             ReportData::builder()->value('current_year', '2026')->value('callibri.table', 'таблица')->build(),
             'split-braces-report'
         );
 
-        $xml = $this->documentText($file);
+        $xml = $this->documentText($generated->path);
         $this->assertStringContainsString('2026', $xml);
         $this->assertStringContainsString('таблица', $xml);
         $this->assertStringNotContainsString('{{', $xml);
@@ -73,8 +73,8 @@ class ReportGeneratorCurlyTagsTest extends TestCase
             ->table('positions', ['Запрос', 'Позиция'], [['купить слона', '3']])
             ->build();
 
-        $file = (new ReportGenerator)->generate('templates/curly.docx', $data, 'curly-report');
-        $xml = $this->documentText($file);
+        $generated = (new ReportGenerator)->generate('templates/curly.docx', $data, 'curly-report');
+        $xml = $this->documentText($generated->path);
 
         $this->assertStringContainsString('Клиент: ООО Ромашка', $xml);
         $this->assertStringContainsString('Год: 2026', $xml);

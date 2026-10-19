@@ -48,6 +48,9 @@ new
 
         public ?int $pendingDownloadId = null;
 
+        /** @var list<string> */
+        public array $generationWarnings = [];
+
         public bool $showInactiveProjects = false;
 
         public Carbon $periodFrom;
@@ -72,6 +75,13 @@ new
         {
             if (Session::has('download')) {
                 $this->pendingDownloadId = Session::get('download');
+            }
+
+            if (Session::has('report_generation_warnings')) {
+                $warnings = Session::get('report_generation_warnings');
+                $this->generationWarnings = is_array($warnings)
+                    ? array_values(array_filter($warnings, static fn ($item): bool => is_string($item) && $item !== ''))
+                    : [];
             }
 
             $this->periodFrom = Carbon::now()->startOfMonth()->startOfDay();

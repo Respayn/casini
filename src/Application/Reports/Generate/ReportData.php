@@ -4,12 +4,16 @@ namespace Src\Application\Reports\Generate;
 
 class ReportData
 {
+    /**
+     * @param  list<string>  $warnings
+     */
     public function __construct(
         private readonly array $values = [],
         private readonly array $tables = [],
         private readonly array $lists = [],
         private readonly array $images = [],
-        private readonly array $conditions = []
+        private readonly array $conditions = [],
+        private readonly array $warnings = [],
     ) {}
 
     public function getValues(): array
@@ -37,8 +41,16 @@ class ReportData
         return $this->conditions;
     }
 
+    /**
+     * @return list<string>
+     */
+    public function getWarnings(): array
+    {
+        return $this->warnings;
+    }
+
     public static function builder(): ReportDataBuilder
     {
-        return new ReportDataBuilder();
+        return new ReportDataBuilder;
     }
 }

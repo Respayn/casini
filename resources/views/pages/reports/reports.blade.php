@@ -5,6 +5,10 @@
     ">
     <x-layout.sidebar-filter-hint />
 
+    @foreach ($generationWarnings as $warning)
+        <x-feedback.notice variant="error">{{ $warning }}</x-feedback.notice>
+    @endforeach
+
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <h1 class="mb-7">Отчеты</h1>
