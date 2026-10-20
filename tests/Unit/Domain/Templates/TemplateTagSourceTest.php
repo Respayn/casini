@@ -25,7 +25,7 @@ class TemplateTagSourceTest extends TestCase
             ['yandex_search.top_3', TemplateTagSource::YANDEX_SEARCH_API],
             ['yd.table.utm_campaign_match', TemplateTagSource::YANDEX_DIRECT],
             ['ym.table.visits_geo', TemplateTagSource::YANDEX_METRIKA],
-            ['megaplan.list', TemplateTagSource::UNKNOWN],
+            ['bitrix24.worklist', TemplateTagSource::BITRIX24],
             ['client_name', TemplateTagSource::UNKNOWN],
         ];
     }

@@ -250,7 +250,7 @@ class ReportDataProvider implements ReportDataProviderInterface
                 fn ($work) => $work->getTitle(),
                 $completedWorks
             );
-            $builder->list('megaplan.list', $completedWorksList);
+            $builder->list('bitrix24.worklist', $completedWorksList);
         });
 
         $this->safely($builder, 'Таблица сопоставления кампаний не загружена', function () use ($builder, $yandexDirectStats, $goalsUtmStats, $callibriLeads): void {

@@ -65,6 +65,17 @@ final class Bitrix24TaskSelection
      * Месяц отчёта по названию задачи («SEO подзадача, октябрь 2026»). Без месяца в названии: месяц дня работы.
      * Без года: ближайший к дню работы год (декабрь в январе = прошлый год).
      */
+    public static function hasMonthInTitle(string $title): bool
+    {
+        foreach (self::MONTH_FORMS as $form) {
+            if (preg_match('/(?<!\p{L})'.$form.'(?!\p{L})/iu', $title) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function reportMonth(string $title, Carbon $workDate): Carbon
     {
         $found = null;

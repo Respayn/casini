@@ -27,10 +27,6 @@
             ])>2. Загрузите шаблон</span>
         </p>
 
-        @error('newTemplate')
-            <x-feedback.notice variant="error">{{ $message }}</x-feedback.notice>
-        @enderror
-
         @if ($step === 1)
             <ol class="text-primary-text list-decimal space-y-2 pl-5 text-sm">
                 <li>Откройте файл Word.</li>
@@ -68,6 +64,7 @@
                         <x-data.table class="w-full">
                             <x-data.table-columns>
                                 <x-data.table-column>Тег</x-data.table-column>
+                                <x-data.table-column>Что подставляет</x-data.table-column>
                                 <x-data.table-column>Формат отображения</x-data.table-column>
                             </x-data.table-columns>
                             <x-data.table-rows>
@@ -75,6 +72,15 @@
                                     <x-data.table-row>
                                         <x-data.table-cell>
                                             <div class="flex flex-wrap items-center gap-2">
+                                                <span
+                                                    class="inline-flex shrink-0"
+                                                    title="Источник: {{ $tag->source()->label() }}"
+                                                >
+                                                    <x-dynamic-component
+                                                        :component="'icons.logo.'.$tag->source()->value"
+                                                        class="size-4"
+                                                    />
+                                                </span>
                                                 <span>{{ $tag->placeholder() }}</span>
                                                 <x-button.button
                                                     type="button"
@@ -89,6 +95,7 @@
                                                 />
                                             </div>
                                         </x-data.table-cell>
+                                        <x-data.table-cell>{{ $tag->label }}</x-data.table-cell>
                                         <x-data.table-cell>{{ $tag->parameterLabel() }}</x-data.table-cell>
                                     </x-data.table-row>
                                 @endforeach
@@ -102,14 +109,73 @@
         @if ($step === 2)
             <div class="grid grid-cols-2 gap-7">
                 <div>
-                    <span class="text-sm font-semibold">Файл шаблона *</span>
+                    <x-form.form-label
+                        class="text-sm font-semibold max-w-none"
+                        required
+                        tooltip="Можно загружать только файлы Word в формате .docx"
+                    >
+                        Файл шаблона
+                    </x-form.form-label>
                 </div>
                 <div>
-                    <div class="max-w-80">
-                        <x-form.input-file
-                            wire:model.live="newTemplate"
-                            accept=".docx"
-                        />
+                    <div class="flex w-[305px] max-w-[305px] flex-col items-stretch gap-1">
+                        @if ($newTemplate)
+                            <div
+                                class="border-secondary-text relative w-full cursor-pointer rounded border px-3 py-4"
+                                x-data
+                                @click="$refs.templateInput.click()"
+                            >
+                                <p class="text-primary-text text-sm">{{ $newTemplate->getClientOriginalName() }}</p>
+                                <input
+                                    x-ref="templateInput"
+                                    type="file"
+                                    accept=".docx"
+                                    class="sr-only"
+                                    wire:model="newTemplate"
+                                    @click.stop
+                                />
+                            </div>
+                            <x-button.button
+                                type="button"
+                                wire:click="deleteTemplateFile"
+                                icon="icons.delete"
+                                class="w-full"
+                                label="Удалить файл шаблона"
+                            />
+                        @else
+                            <div
+                                class="border-secondary-text relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded border object-contain transition hover:bg-gray-50"
+                                x-data
+                                @click="$refs.templateInput.click()"
+                            >
+                                <input
+                                    x-ref="templateInput"
+                                    type="file"
+                                    accept=".docx"
+                                    class="sr-only"
+                                    wire:model="newTemplate"
+                                    @click.stop
+                                />
+                                <span
+                                    class="text-secondary-text mt-2 block w-full text-center text-sm"
+                                    wire:loading.remove
+                                    wire:target="newTemplate"
+                                >
+                                    Загрузить шаблон
+                                </span>
+                                <span
+                                    class="text-secondary-text mt-2 block w-full text-center text-sm"
+                                    wire:loading
+                                    wire:target="newTemplate"
+                                >
+                                    Загрузка файла
+                                </span>
+                            </div>
+                        @endif
+
+                        @error('newTemplate')
+                            <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                        @enderror
                     </div>
                 </div>
             </div>
@@ -126,12 +192,19 @@
                     wire:click="$set('step', 2)"
                 />
             @else
-                <x-button.button
-                    type="button"
-                    variant="primary"
-                    label="Назад"
-                    wire:click="$set('step', 1)"
-                />
+                <div class="flex gap-3">
+                    <x-button.button
+                        type="button"
+                        variant="primary"
+                        label="Загрузить"
+                        wire:click="saveTemplate"
+                    />
+                    <x-button.button
+                        type="button"
+                        label="Назад"
+                        wire:click="$set('step', 1)"
+                    />
+                </div>
             @endif
             <x-button.button
                 href="{{ route('reports.templates') }}"

@@ -41,6 +41,42 @@ class Bitrix24ClientTest extends TestCase
         $this->assertSame('https://company.bitrix24.ru/rest/1/secret-key', Bitrix24Client::baseUrl(' https://company.bitrix24.ru/rest/1/secret-key '));
     }
 
+    public function test_task_comments_skip_empty_records(): void
+    {
+        Http::fake([
+            '*task.commentitem.getlist.json' => Http::response(['result' => [
+                ['ID' => '1', 'POST_MESSAGE' => '💪 тексты', 'POST_DATE' => '2026-09-29T10:00:00+03:00'],
+                ['ID' => '2', 'POST_MESSAGE' => '', 'POST_DATE' => '2026-09-29T11:00:00+03:00'],
+                ['ID' => '3', 'POST_MESSAGE' => 'без даты'],
+            ]]),
+        ]);
+
+        $comments = (new Bitrix24Client(pauseMs: 0))->taskComments(self::WEBHOOK, 101);
+
+        $this->assertCount(1, $comments);
+        $this->assertSame('💪 тексты', $comments[0]['text']);
+        Http::assertSent(fn (Request $request) => $request->url() === self::WEBHOOK.'task.commentitem.getlist.json');
+    }
+
+    public function test_task_checklist_keeps_complete_items(): void
+    {
+        Http::fake([
+            '*task.checklistitem.getlist.json' => Http::response(['result' => [
+                ['ID' => '1', 'TITLE' => 'написать тексты', 'IS_COMPLETE' => 'Y', 'TOGGLED_DATE' => '2026-09-29T10:00:00+03:00'],
+                ['ID' => '2', 'TITLE' => 'ещё не готово', 'IS_COMPLETE' => 'N'],
+                ['ID' => '3', 'TITLE' => '', 'IS_COMPLETE' => 'Y'],
+            ]]),
+        ]);
+
+        $items = (new Bitrix24Client(pauseMs: 0))->taskChecklist(self::WEBHOOK, 101);
+
+        $this->assertCount(2, $items);
+        $this->assertSame('написать тексты', $items[0]['title']);
+        $this->assertTrue($items[0]['is_complete']);
+        $this->assertFalse($items[1]['is_complete']);
+        Http::assertSent(fn (Request $request) => $request->url() === self::WEBHOOK.'task.checklistitem.getlist.json');
+    }
+
     public function test_elapsed_items_skip_empty_records(): void
     {
         Http::fake([

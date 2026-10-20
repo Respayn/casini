@@ -33,7 +33,7 @@ final class ReportTagCatalog
         $searchApi = TemplateTagSource::YANDEX_SEARCH_API->label();
         $direct = TemplateTagSource::YANDEX_DIRECT->label();
         $metrika = TemplateTagSource::YANDEX_METRIKA->label();
-        $works = 'Выполненные работы';
+        $bitrix24 = TemplateTagSource::BITRIX24->label();
 
         return [
             self::tag('current_year', 'Текущий год', $casini, ReportTagKind::Text, true),
@@ -67,7 +67,7 @@ final class ReportTagCatalog
             self::tag('ym.table.visits_search_systems', 'Таблица визитов из поиска', $metrika, ReportTagKind::Table),
             self::tag('ym.table.visits_geo', 'Таблица визитов по географии', $metrika, ReportTagKind::Table),
             self::tag('ym.table.visits_search_queries', 'Таблица визитов по запросам', $metrika, ReportTagKind::Table),
-            self::tag('megaplan.list', 'Список выполненных работ', $works, ReportTagKind::List),
+            self::tag('bitrix24.worklist', 'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪', $bitrix24, ReportTagKind::List),
         ];
     }
 

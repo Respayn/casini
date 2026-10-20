@@ -15,7 +15,7 @@ enum ReportTagKind: string
             self::Text => 'текст',
             self::Image => 'изображение',
             self::Table => 'таблица',
-            self::List => 'список, строка на каждую работу',
+            self::List => 'список',
         };
     }
 }

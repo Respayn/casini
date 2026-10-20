@@ -20,7 +20,7 @@ class ReportTemplateLabels
         'ym.table.visits_search_systems' => 'Таблица визитов из поиска',
         'ym.table.visits_geo' => 'Таблица визитов по географии',
         'ym.table.visits_search_queries' => 'Таблица визитов по запросам',
-        'megaplan.list' => 'Список выполненных работ',
+        'bitrix24.worklist' => 'Список выполненных работ',
     ];
 
     public static function label(string $key): string

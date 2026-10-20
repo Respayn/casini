@@ -34,6 +34,13 @@ class Bitrix24LaborRulesTest extends TestCase
         $this->assertFalse(Bitrix24TaskSelection::titleMatches('Разработка: форма', 'SEO:, КР:'));
     }
 
+    public function test_month_in_title_is_detected_without_false_positives(): void
+    {
+        $this->assertTrue(Bitrix24TaskSelection::hasMonthInTitle('SEO: октябрь 2026'));
+        $this->assertTrue(Bitrix24TaskSelection::hasMonthInTitle('Правки в мае'));
+        $this->assertFalse(Bitrix24TaskSelection::hasMonthInTitle('SEO: маяк и мартышка'));
+    }
+
     public function test_report_month_is_taken_from_task_title(): void
     {
         $workDate = Carbon::parse('2026-09-28');

@@ -30,7 +30,7 @@ class Bitrix24Client
     /**
      * Все вложенные подзадачи корневой задачи (сама корневая не входит).
      *
-     * @return list<array{id: int, title: string}>
+     * @return list<array{id: int, title: string, status: int, closed_at: ?Carbon}>
      */
     public function descendantTasks(string $webhook, int $rootTaskId): array
     {
@@ -111,7 +111,70 @@ class Bitrix24Client
     }
 
     /**
-     * @return list<array{id: int, title: string}>
+     * Комментарии задачи.
+     *
+     * @return list<array{text: string, posted_at: Carbon}>
+     */
+    public function taskComments(string $webhook, int $taskId): array
+    {
+        $comments = [];
+
+        $response = $this->call($webhook, 'task.commentitem.getlist', [
+            $taskId,
+            ['ID' => 'asc'],
+            [],
+        ]);
+
+        foreach ($this->commentRows($response['result'] ?? null) as $row) {
+            $text = (string) ($row['POST_MESSAGE'] ?? $row['postMessage'] ?? $row['POST_MESSAGE_HTML'] ?? $row['postMessageHtml'] ?? '');
+            $postedAt = $row['POST_DATE'] ?? $row['postDate'] ?? null;
+
+            if ($text === '' || ! filled($postedAt)) {
+                continue;
+            }
+
+            $comments[] = [
+                'text' => $text,
+                'posted_at' => Carbon::parse((string) $postedAt),
+            ];
+        }
+
+        return $comments;
+    }
+
+    /**
+     * Пункты чек-листа задачи.
+     *
+     * @return list<array{title: string, is_complete: bool, toggled_at: ?Carbon}>
+     */
+    public function taskChecklist(string $webhook, int $taskId): array
+    {
+        $items = [];
+
+        $response = $this->call($webhook, 'task.checklistitem.getlist', [
+            $taskId,
+            ['ID' => 'asc'],
+        ]);
+
+        foreach ($this->commentRows($response['result'] ?? null) as $row) {
+            $title = trim((string) ($row['TITLE'] ?? $row['title'] ?? ''));
+
+            if ($title === '') {
+                continue;
+            }
+
+            $items[] = [
+                'title' => $title,
+                'is_complete' => Bitrix24WorkParser::isChecklistComplete($row['IS_COMPLETE'] ?? $row['isComplete'] ?? false),
+                'toggled_at' => self::optionalDate($row['TOGGLED_DATE'] ?? $row['toggledDate'] ?? null),
+            ];
+        }
+
+        return $items;
+    }
+
+    /**
+     * @return list<array{id: int, title: string, status: int, closed_at: ?Carbon}>
      */
     private function childTasks(string $webhook, int $parentId): array
     {
@@ -121,7 +184,7 @@ class Bitrix24Client
         for ($page = 0; $page < self::MAX_PAGES; $page++) {
             $response = $this->call($webhook, 'tasks.task.list', [
                 'filter' => ['PARENT_ID' => $parentId],
-                'select' => ['ID', 'TITLE'],
+                'select' => ['ID', 'TITLE', 'STATUS', 'CLOSED_DATE'],
                 'order' => ['ID' => 'asc'],
                 'start' => $start,
             ]);
@@ -132,7 +195,12 @@ class Bitrix24Client
                 $id = (int) ($row['id'] ?? $row['ID'] ?? 0);
 
                 if ($id > 0) {
-                    $tasks[] = ['id' => $id, 'title' => (string) ($row['title'] ?? $row['TITLE'] ?? '')];
+                    $tasks[] = [
+                        'id' => $id,
+                        'title' => (string) ($row['title'] ?? $row['TITLE'] ?? ''),
+                        'status' => self::intStatus($row),
+                        'closed_at' => self::optionalDate($row['closedDate'] ?? $row['CLOSED_DATE'] ?? null),
+                    ];
                 }
             }
 
@@ -207,5 +275,50 @@ class Bitrix24Client
         if ($this->pauseMs > 0) {
             usleep($this->pauseMs * 1000);
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private static function intStatus(array $row): int
+    {
+        $raw = $row['status'] ?? $row['STATUS'] ?? 0;
+
+        if (is_array($raw)) {
+            $raw = $raw['id'] ?? $raw['value'] ?? 0;
+        }
+
+        return (int) $raw;
+    }
+
+    private static function optionalDate(mixed $value): ?Carbon
+    {
+        if (! filled($value) || $value === '0000-00-00 00:00:00') {
+            return null;
+        }
+
+        return Carbon::parse((string) $value);
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function commentRows(mixed $result): array
+    {
+        if (! is_array($result) || $result === []) {
+            return [];
+        }
+
+        if (array_is_list($result)) {
+            return array_values(array_filter($result, 'is_array'));
+        }
+
+        $nested = $result['comments'] ?? $result['items'] ?? null;
+
+        if (is_array($nested)) {
+            return array_values(array_filter($nested, 'is_array'));
+        }
+
+        return array_values(array_filter($result, 'is_array'));
     }
 }

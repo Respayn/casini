@@ -174,7 +174,7 @@ class IntegrationProjectCredentials
     /**
      * Вебхук и часовой пояс берутся из агентства специалиста проекта (иначе первое агентство с Битрикс24).
      *
-     * @return array{webhook: string, root_task_id: int, search_query: string, timezone: string}|null
+     * @return array{webhook: string, root_task_id: int, search_query: string, timezone: string, parse_comment_works: bool}|null
      */
     public function bitrix24(int $projectId): ?array
     {
@@ -206,6 +206,7 @@ class IntegrationProjectCredentials
             'root_task_id' => $rootTaskId,
             'search_query' => (string) ($settings['search_query'] ?? ''),
             'timezone' => filled($agency->time_zone) ? (string) $agency->time_zone : (string) config('app.timezone', 'UTC'),
+            'parse_comment_works' => (bool) ($settings['parse_comment_works'] ?? false),
         ];
     }
 

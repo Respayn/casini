@@ -39,21 +39,52 @@ class extends Component
     {
         $this->ensureCanEditTemplates();
         $this->step = 2;
-        $this->resetErrorBag();
+        $this->resetErrorBag('newTemplate');
 
-        $this->validate([
-            'newTemplate' => 'required|file|mimes:docx',
-        ], [
-            'newTemplate.required' => 'Выберите файл шаблона.',
-            'newTemplate.file' => 'Не удалось загрузить файл шаблона.',
-            'newTemplate.mimes' => 'Шаблон должен быть файлом Word в формате .docx.',
-        ]);
+        $this->validateOnly('newTemplate', $this->templateFileRules(), $this->templateFileMessages());
+    }
+
+    public function deleteTemplateFile(): void
+    {
+        $this->ensureCanEditTemplates();
+        $this->reset('newTemplate');
+        $this->resetErrorBag('newTemplate');
+    }
+
+    public function saveTemplate(): void
+    {
+        $this->ensureCanEditTemplates();
+        $this->step = 2;
+
+        $this->validate($this->templateFileRules(), $this->templateFileMessages());
 
         app(CreateTemplateCommandHandler::class)->handle(
             new CreateTemplateCommand($this->newTemplate)
         );
 
         $this->redirect(route('reports.templates'), navigate: true);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function templateFileRules(): array
+    {
+        return [
+            'newTemplate' => 'required|file|mimes:docx',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function templateFileMessages(): array
+    {
+        return [
+            'newTemplate.required' => 'Выберите файл шаблона.',
+            'newTemplate.file' => 'Не удалось загрузить файл шаблона.',
+            'newTemplate.mimes' => 'Шаблон должен быть файлом Word в формате .docx.',
+        ];
     }
 
     private function ensureCanEditTemplates(): void

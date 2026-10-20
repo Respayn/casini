@@ -48,20 +48,33 @@ class TemplatesUploadPageTest extends TestCase
             ->set('showTags', true)
             ->assertSee('{{project_name}}')
             ->assertSee('{{yd.table}}')
+            ->assertSee('{{bitrix24.worklist}}')
+            ->assertDontSee('{{megaplan.list}}')
             ->assertDontSee('Популярные теги')
             ->assertDontSee('Весь список тегов')
             ->assertDontSee('Категория')
             ->assertSee('Тег')
+            ->assertSee('Что подставляет')
+            ->assertSee('Текущий год')
+            ->assertSee('Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪')
             ->assertSee('Формат отображения')
             ->assertSee('текст')
             ->assertSee('изображение')
             ->assertSee('таблица')
+            ->assertSeeHtml('title="Источник: Касини"')
+            ->assertSeeHtml('title="Источник: Яндекс Директ"')
+            ->assertSeeHtml('title="Источник: Битрикс24"')
             ->assertSeeHtml('title="Скопировать"')
             ->assertSeeHtml('aria-label="Скопировать"')
             ->assertSeeHtml('data-copy="{{project_name}}"')
             ->assertDontSee('@js')
             ->set('step', 2)
-            ->assertSee('Файл шаблона');
+            ->assertSee('Файл шаблона')
+            ->assertSee('Загрузить шаблон')
+            ->assertSee('Загрузить')
+            ->assertSeeHtml('accept=".docx"')
+            ->assertSeeHtml('class="sr-only"')
+            ->assertDontSee('Файл не выбран');
     }
 
     public function test_cancel_links_to_templates_list(): void
@@ -78,9 +91,34 @@ class TemplatesUploadPageTest extends TestCase
         $this->actingAsEditor();
 
         Livewire::test('pages::templates-upload')
+            ->set('step', 2)
             ->set('newTemplate', UploadedFile::fake()->create('template.pdf', 10, 'application/pdf'))
             ->assertHasErrors(['newTemplate' => 'mimes'])
             ->assertSee('Шаблон должен быть файлом Word в формате .docx.');
+    }
+
+    public function test_save_without_file_shows_required_error(): void
+    {
+        $this->actingAsEditor();
+
+        Livewire::test('pages::templates-upload')
+            ->set('step', 2)
+            ->call('saveTemplate')
+            ->assertHasErrors(['newTemplate' => 'required'])
+            ->assertSee('Выберите файл шаблона.');
+    }
+
+    public function test_delete_clears_selected_file(): void
+    {
+        $this->actingAsEditor();
+
+        Livewire::test('pages::templates-upload')
+            ->set('step', 2)
+            ->set('newTemplate', $this->makeDocxUpload('wizard-template.docx'))
+            ->assertSee('wizard-template.docx')
+            ->call('deleteTemplateFile')
+            ->assertSet('newTemplate', null)
+            ->assertSee('Загрузить шаблон');
     }
 
     public function test_real_docx_is_saved_and_redirects_to_list(): void
@@ -89,7 +127,12 @@ class TemplatesUploadPageTest extends TestCase
         Storage::fake();
 
         Livewire::test('pages::templates-upload')
+            ->set('step', 2)
             ->set('newTemplate', $this->makeDocxUpload('wizard-template.docx'))
+            ->assertHasNoErrors()
+            ->assertSee('wizard-template.docx')
+            ->assertSee('Удалить файл шаблона')
+            ->call('saveTemplate')
             ->assertHasNoErrors()
             ->assertRedirect(route('reports.templates'));
 

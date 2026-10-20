@@ -43,16 +43,22 @@ class ReportTagCatalogTest extends TestCase
         $this->assertSame(ReportTagKind::Image, $tags['agency_image']->kind);
         $this->assertSame(ReportTagKind::Table, $tags['yd.table']->kind);
         $this->assertSame(ReportTagKind::Table, $tags['callibri.table']->kind);
-        $this->assertSame(ReportTagKind::List, $tags['megaplan.list']->kind);
+        $this->assertArrayNotHasKey('megaplan.list', $tags);
+        $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
+        $this->assertSame(
+            'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',
+            $tags['bitrix24.worklist']->label,
+        );
         $this->assertSame('текст', $tags['project_name']->parameterLabel());
         $this->assertSame('изображение', $tags['manager_photo']->parameterLabel());
         $this->assertSame('таблица', $tags['yd.table']->parameterLabel());
-        $this->assertSame('список, строка на каждую работу', $tags['megaplan.list']->parameterLabel());
+        $this->assertSame('список', $tags['bitrix24.worklist']->parameterLabel());
     }
 
     public function test_every_tag_has_display_format(): void
     {
         foreach (ReportTagCatalog::all() as $tag) {
+            $this->assertNotSame('', trim($tag->label));
             $this->assertNotSame('', trim($tag->parameterLabel()));
             $this->assertNotSame('-', $tag->parameterLabel());
         }

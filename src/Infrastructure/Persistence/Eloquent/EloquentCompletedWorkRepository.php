@@ -20,7 +20,7 @@ class EloquentCompletedWorkRepository implements CompletedWorkRepositoryInterfac
             ->orderBy('completed_at')
             ->get();
 
-        return $works->map(fn(EloquentCompletedWork $work) => $this->mapToEntity($work))->all();
+        return $works->map(fn (EloquentCompletedWork $work) => $this->mapToEntity($work))->all();
     }
 
     public function saveMany(int $projectId, array $works): void
@@ -32,6 +32,16 @@ class EloquentCompletedWorkRepository implements CompletedWorkRepositoryInterfac
                 'completed_at' => $work['completed_at']->format('Y-m-d'),
             ]);
         }
+    }
+
+    public function replaceForPeriod(int $projectId, DateTimeRange $period, array $works): void
+    {
+        EloquentCompletedWork::query()
+            ->where('project_id', $projectId)
+            ->whereBetween('completed_at', [$period->start, $period->end])
+            ->delete();
+
+        $this->saveMany($projectId, $works);
     }
 
     private function mapToEntity(EloquentCompletedWork $work): CompletedWork

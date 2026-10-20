@@ -13,6 +13,7 @@ enum TemplateTagSource: string
     case YANDEX_SEARCH_API = 'yandex-search-api';
     case YANDEX_DIRECT = 'yandex-direct';
     case YANDEX_METRIKA = 'yandex-metrika';
+    case BITRIX24 = 'bitrix24';
     case UNKNOWN = 'default';
 
     private const PREFIXES = [
@@ -20,6 +21,7 @@ enum TemplateTagSource: string
         'yandex_search.' => self::YANDEX_SEARCH_API,
         'yd.' => self::YANDEX_DIRECT,
         'ym.' => self::YANDEX_METRIKA,
+        'bitrix24.' => self::BITRIX24,
         'current_year' => self::CASINI,
         'period_' => self::CASINI,
         'project_' => self::CASINI,
@@ -46,6 +48,7 @@ enum TemplateTagSource: string
             self::YANDEX_SEARCH_API => 'Yandex Search API',
             self::YANDEX_DIRECT => 'Яндекс Директ',
             self::YANDEX_METRIKA => 'Яндекс Метрика',
+            self::BITRIX24 => 'Битрикс24',
             self::UNKNOWN => 'Источник не определен',
         };
     }
