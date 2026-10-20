@@ -6,7 +6,6 @@ use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
@@ -35,6 +34,13 @@ class TemplatesPageTest extends TestCase
             ->assertSeeHtml('href="'.route('reports.create').'"');
     }
 
+    public function test_upload_button_links_to_wizard(): void
+    {
+        Livewire::test('pages::templates')
+            ->assertSeeHtml('href="'.route('reports.templates.upload').'"')
+            ->assertDontSeeHtml('id="upload-input"');
+    }
+
     public function test_empty_list_offers_template_upload(): void
     {
         DB::table('templates')->whereNotIn('id', DB::table('reports')->select('template_id'))->delete();
@@ -45,7 +51,8 @@ class TemplatesPageTest extends TestCase
 
         Livewire::test('pages::templates')
             ->assertSee('Нет шаблонов для отображения')
-            ->assertSee('Загрузить шаблон');
+            ->assertSee('Загрузить шаблон')
+            ->assertSeeHtml('href="'.route('reports.templates.upload').'"');
     }
 
     public function test_list_shows_template_name_column(): void
@@ -63,14 +70,6 @@ class TemplatesPageTest extends TestCase
             ->assertDontSee('Название отчета')
             ->assertSee('Шаблон для теста страницы')
             ->assertSee('Не удалось прочитать файл');
-    }
-
-    public function test_non_docx_upload_shows_clear_error(): void
-    {
-        Livewire::test('pages::templates')
-            ->set('newTemplate', UploadedFile::fake()->create('template.pdf', 10, 'application/pdf'))
-            ->assertHasErrors(['newTemplate' => 'mimes'])
-            ->assertSee('Шаблон должен быть файлом Word в формате .docx.');
     }
 
     public function test_read_only_user_cannot_upload_or_delete_templates(): void
@@ -91,8 +90,15 @@ class TemplatesPageTest extends TestCase
 
         Livewire::test('pages::templates')
             ->assertDontSee('Загрузить шаблон')
+            ->assertDontSeeHtml('href="'.route('reports.templates.upload').'"')
             ->assertDontSeeHtml('title="Удалить"')
             ->call('delete', $templateId)
+            ->assertForbidden();
+
+        Livewire::test('pages::templates-upload')
+            ->assertForbidden();
+
+        $this->get(route('reports.templates.upload'))
             ->assertForbidden();
 
         $this->assertDatabaseHas('templates', ['id' => $templateId]);
@@ -119,6 +125,7 @@ class TemplatesPageTest extends TestCase
 
         Livewire::test('pages::templates')
             ->assertSee('Загрузить шаблон')
+            ->assertSeeHtml('href="'.route('reports.templates.upload').'"')
             ->assertDontSeeHtml('title="Удалить"')
             ->call('delete', $templateId)
             ->assertForbidden();

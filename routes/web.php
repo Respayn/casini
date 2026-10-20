@@ -67,6 +67,10 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('/statistics', 'pages::statistics')->name('statistics');
     });
 
+    Route::middleware(['permission:read advertising funds movement|edit advertising funds movement|full advertising funds movement'])->group(function () {
+        Route::livewire('/drs', 'pages::drs')->name('drs');
+    });
+
     Route::middleware(['permission:read reports|edit reports|full reports'])->group(function () {
         Route::livewire('/reports', 'pages::reports')->name('reports');
     });
@@ -77,6 +81,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::middleware(['permission:read report templates|edit report templates|full report templates'])->group(function () {
         Route::livewire('/templates', 'pages::templates')->name('reports.templates');
+    });
+
+    Route::middleware(['permission:edit report templates|full report templates'])->group(function () {
+        Route::livewire('/templates/upload', 'pages::templates-upload')->name('reports.templates.upload');
     });
 
     Route::middleware(['permission:read planning|full planning'])->group(function () {

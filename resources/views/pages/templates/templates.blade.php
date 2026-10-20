@@ -16,22 +16,11 @@
                     variant="primary"
                     icon="icons.plus"
                     label="Загрузить шаблон"
-                    onclick="document.getElementById('upload-input').click()"
-                    wire:loading.attr="disabled"
-                    wire:target="newTemplate"
+                    href="{{ route('reports.templates.upload') }}"
                 />
-                <x-overlay.tooltip panel-max-width="20rem">
-                    Можно загрузить файл Word в формате .docx. В шаблоне используйте теги вида
-                    @{{название_переменной}}.
-                </x-overlay.tooltip>
-                <input type="file" wire:model.live="newTemplate" hidden id="upload-input" accept=".docx">
             @endif
         </div>
     </div>
-
-    @error('newTemplate')
-        <x-feedback.notice variant="error">{{ $message }}</x-feedback.notice>
-    @enderror
 
     @error('delete')
         <x-feedback.notice variant="error">{{ $message }}</x-feedback.notice>
@@ -43,8 +32,7 @@
             @if ($this->canEditTemplates)
                 <div>
                     <x-button.button icon="icons.plus" label="Загрузить шаблон" variant="primary"
-                        onclick="document.getElementById('upload-input').click()" wire:loading.attr="disabled"
-                        wire:target="newTemplate" />
+                        href="{{ route('reports.templates.upload') }}" />
                 </div>
             @endif
         </div>

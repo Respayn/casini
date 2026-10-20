@@ -3,9 +3,6 @@
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Livewire\WithFileUploads;
-use Src\Application\Templates\Create\CreateTemplateCommand;
-use Src\Application\Templates\Create\CreateTemplateCommandHandler;
 use Src\Application\Templates\Delete\DeleteTemplateCommand;
 use Src\Application\Templates\Delete\DeleteTemplateCommandHandler;
 use Src\Application\Templates\Download\DownloadTemplateFileQuery;
@@ -18,10 +15,6 @@ new
     #[Title('Шаблоны отчетов - Casini')]
     class extends Component
     {
-        use WithFileUploads;
-
-        public $newTemplate;
-
         #[Computed]
         public function canEditTemplates(): bool
         {
@@ -46,26 +39,6 @@ new
 
             return $user !== null
                 && ($user->can('edit reports') || $user->can('full reports'));
-        }
-
-        public function updatedNewTemplate()
-        {
-            $this->ensureCanEditTemplates();
-            $this->resetErrorBag();
-
-            $this->validate([
-                'newTemplate' => 'required|file|mimes:docx',
-            ], [
-                'newTemplate.required' => 'Выберите файл шаблона.',
-                'newTemplate.file' => 'Не удалось загрузить файл шаблона.',
-                'newTemplate.mimes' => 'Шаблон должен быть файлом Word в формате .docx.',
-            ]);
-
-            app(CreateTemplateCommandHandler::class)->handle(
-                new CreateTemplateCommand($this->newTemplate)
-            );
-
-            $this->newTemplate = null;
         }
 
         #[Computed]
@@ -95,11 +68,6 @@ new
             } catch (TemplateInUseException $e) {
                 $this->addError('delete', $e->getMessage());
             }
-        }
-
-        private function ensureCanEditTemplates(): void
-        {
-            abort_unless($this->canEditTemplates, 403, __('permissions.denied'));
         }
 
         private function ensureCanDeleteTemplates(): void
