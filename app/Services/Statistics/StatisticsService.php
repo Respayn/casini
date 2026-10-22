@@ -762,6 +762,7 @@ class StatisticsService
             'yandex_metrika' => 'yandex-metrika',
             'callibri' => 'callibri',
             'yandex_search_api' => 'yandex-search-api',
+            'bitrix24' => 'bitrix24',
             default => 'default'
         };
     }

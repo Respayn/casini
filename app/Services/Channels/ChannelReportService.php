@@ -1153,6 +1153,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             'callibri' => 'callibri',
             'yandex_search_api' => 'yandex-search-api',
             'google_sheets' => 'google-sheets',
+            'bitrix24' => 'bitrix24',
             default => 'default'
         };
     }
