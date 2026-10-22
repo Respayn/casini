@@ -69,9 +69,10 @@ class TemplatesUploadPageTest extends TestCase
             ->assertSeeHtml('data-copy="{{project_name}}"')
             ->assertDontSee('@js')
             ->set('step', 2)
+            ->assertSee('Название шаблона')
             ->assertSee('Файл шаблона')
-            ->assertSee('Загрузить шаблон')
-            ->assertSee('Загрузить')
+            ->assertSee('Выбрать файл')
+            ->assertSee('Сохранить шаблон')
             ->assertSeeHtml('accept=".docx"')
             ->assertSeeHtml('class="sr-only"')
             ->assertDontSee('Файл не выбран');
@@ -97,15 +98,77 @@ class TemplatesUploadPageTest extends TestCase
             ->assertSee('Шаблон должен быть файлом Word в формате .docx.');
     }
 
+    public function test_save_button_is_disabled_until_name_and_file_are_set(): void
+    {
+        $this->actingAsEditor();
+
+        $page = Livewire::test('pages::templates-upload')
+            ->set('step', 2);
+
+        $this->assertFalse($page->instance()->canSaveTemplate);
+
+        $page->set('templateName', 'Шаблон');
+        $this->assertFalse($page->instance()->canSaveTemplate);
+
+        $page->set('newTemplate', $this->makeDocxUpload('wizard-template.docx'));
+        $this->assertTrue($page->instance()->canSaveTemplate);
+    }
+
     public function test_save_without_file_shows_required_error(): void
     {
         $this->actingAsEditor();
 
         Livewire::test('pages::templates-upload')
             ->set('step', 2)
+            ->set('templateName', 'Шаблон без файла')
             ->call('saveTemplate')
             ->assertHasErrors(['newTemplate' => 'required'])
             ->assertSee('Выберите файл шаблона.');
+    }
+
+    public function test_save_without_name_shows_required_error(): void
+    {
+        $this->actingAsEditor();
+
+        Livewire::test('pages::templates-upload')
+            ->set('step', 2)
+            ->set('newTemplate', $this->makeDocxUpload('wizard-template.docx'))
+            ->call('saveTemplate')
+            ->assertHasErrors(['templateName' => 'required'])
+            ->assertSee('Укажите название шаблона.');
+    }
+
+    public function test_typing_name_clears_name_error(): void
+    {
+        $this->actingAsEditor();
+
+        Livewire::test('pages::templates-upload')
+            ->set('step', 2)
+            ->call('saveTemplate')
+            ->assertHasErrors(['templateName' => 'required'])
+            ->set('templateName', 'Ежемесячный отчёт SEO')
+            ->assertHasNoErrors('templateName');
+    }
+
+    public function test_template_name_keeps_spaces_while_typing(): void
+    {
+        $this->actingAsEditor();
+
+        Livewire::test('pages::templates-upload')
+            ->set('step', 2)
+            ->set('templateName', 'Тут шаблона по SEO ')
+            ->assertSet('templateName', 'Тут шаблона по SEO ');
+    }
+
+    public function test_opening_step_two_does_not_show_errors(): void
+    {
+        $this->actingAsEditor();
+
+        Livewire::test('pages::templates-upload')
+            ->call('goToStepTwo')
+            ->assertHasNoErrors()
+            ->assertDontSee('Укажите название шаблона.')
+            ->assertDontSee('Выберите файл шаблона.');
     }
 
     public function test_delete_clears_selected_file(): void
@@ -118,7 +181,92 @@ class TemplatesUploadPageTest extends TestCase
             ->assertSee('wizard-template.docx')
             ->call('deleteTemplateFile')
             ->assertSet('newTemplate', null)
-            ->assertSee('Загрузить шаблон');
+            ->assertSee('Выбрать файл');
+    }
+
+    public function test_edit_opens_step_two_with_loaded_template(): void
+    {
+        $this->actingAsEditor();
+
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Ежемесячный отчёт',
+            'path' => 'templates/existing.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $page = Livewire::test('pages::templates-upload', ['templateId' => $templateId]);
+
+        $page
+            ->assertSet('step', 2)
+            ->assertSet('editingTemplateId', $templateId)
+            ->assertSet('templateName', 'Ежемесячный отчёт')
+            ->assertSee('Редактирование шаблона')
+            ->assertDontSee('Создание шаблона')
+            ->assertSee('Ежемесячный отчёт.docx')
+            ->assertSee('Сохранить шаблон');
+
+        $this->assertTrue($page->instance()->canSaveTemplate);
+    }
+
+    public function test_edit_saves_new_name_without_replacing_file(): void
+    {
+        $this->actingAsEditor();
+        Storage::fake();
+        Storage::put('templates/existing.docx', 'old');
+
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Старое название',
+            'path' => 'templates/existing.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::test('pages::templates-upload', ['templateId' => $templateId])
+            ->set('templateName', 'Новое название')
+            ->call('saveTemplate')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('reports.templates'));
+
+        $this->assertDatabaseHas('templates', [
+            'id' => $templateId,
+            'name' => 'Новое название',
+            'path' => 'templates/existing.docx',
+        ]);
+        $this->assertDatabaseMissing('templates', [
+            'name' => 'Старое название',
+        ]);
+        Storage::assertExists('templates/existing.docx');
+    }
+
+    public function test_edit_replaces_file_when_new_docx_uploaded(): void
+    {
+        $this->actingAsEditor();
+        Storage::fake();
+        Storage::put('templates/existing.docx', 'old');
+
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Шаблон для замены',
+            'path' => 'templates/existing.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::test('pages::templates-upload', ['templateId' => $templateId])
+            ->set('newTemplate', $this->makeDocxUpload('replacement.docx'))
+            ->call('saveTemplate')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('reports.templates'));
+
+        $path = DB::table('templates')->where('id', $templateId)->value('path');
+        $this->assertNotSame('templates/existing.docx', $path);
+        $this->assertNotEmpty($path);
+        Storage::assertExists($path);
+        Storage::assertMissing('templates/existing.docx');
+        $this->assertDatabaseHas('templates', [
+            'id' => $templateId,
+            'name' => 'Шаблон для замены',
+        ]);
     }
 
     public function test_real_docx_is_saved_and_redirects_to_list(): void
@@ -128,6 +276,7 @@ class TemplatesUploadPageTest extends TestCase
 
         Livewire::test('pages::templates-upload')
             ->set('step', 2)
+            ->set('templateName', 'Шаблон для отчёта')
             ->set('newTemplate', $this->makeDocxUpload('wizard-template.docx'))
             ->assertHasNoErrors()
             ->assertSee('wizard-template.docx')
@@ -137,10 +286,10 @@ class TemplatesUploadPageTest extends TestCase
             ->assertRedirect(route('reports.templates'));
 
         $this->assertDatabaseHas('templates', [
-            'name' => 'wizard-template.docx',
+            'name' => 'Шаблон для отчёта',
         ]);
 
-        $path = DB::table('templates')->where('name', 'wizard-template.docx')->value('path');
+        $path = DB::table('templates')->where('name', 'Шаблон для отчёта')->value('path');
         $this->assertNotEmpty($path);
         Storage::assertExists($path);
     }

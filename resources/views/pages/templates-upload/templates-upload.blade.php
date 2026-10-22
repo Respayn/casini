@@ -11,7 +11,7 @@
             />
         </div>
 
-        <h1 class="mb-7">Создание шаблона</h1>
+        <h1 class="mb-7">{{ $this->isEditing ? 'Редактирование шаблона' : 'Создание шаблона' }}</h1>
 
         <p class="mb-7 text-sm">
             <span @class([
@@ -112,65 +112,74 @@
                     <x-form.form-label
                         class="text-sm font-semibold max-w-none"
                         required
+                    >
+                        Название шаблона
+                    </x-form.form-label>
+                </div>
+                <div>
+                    <div class="max-w-80">
+                        <x-form.input-text
+                            wire:model.live.debounce.300="templateName"
+                            placeholder="Название шаблона"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <x-form.form-label
+                        class="text-sm font-semibold max-w-none"
+                        required
                         tooltip="Можно загружать только файлы Word в формате .docx"
                     >
                         Файл шаблона
                     </x-form.form-label>
                 </div>
                 <div>
-                    <div class="flex w-[305px] max-w-[305px] flex-col items-stretch gap-1">
-                        @if ($newTemplate)
-                            <div
-                                class="border-secondary-text relative w-full cursor-pointer rounded border px-3 py-4"
-                                x-data
-                                @click="$refs.templateInput.click()"
-                            >
-                                <p class="text-primary-text text-sm">{{ $newTemplate->getClientOriginalName() }}</p>
-                                <input
-                                    x-ref="templateInput"
-                                    type="file"
-                                    accept=".docx"
-                                    class="sr-only"
-                                    wire:model="newTemplate"
-                                    @click.stop
+                    <div
+                        class="flex max-w-80 flex-col items-start gap-1"
+                        x-data
+                    >
+                        <input
+                            x-ref="templateInput"
+                            type="file"
+                            accept=".docx"
+                            class="sr-only"
+                            wire:model="newTemplate"
+                        />
+
+                        @if ($this->selectedFileName)
+                            <div class="flex w-full items-center gap-2">
+                                <button
+                                    type="button"
+                                    class="border-input-border text-primary-text min-h-[42px] min-w-0 flex-1 truncate rounded-[5px] border px-3 text-left text-sm"
+                                    title="{{ $this->selectedFileName }}"
+                                    x-on:click="$refs.templateInput.click()"
+                                >
+                                    {{ $this->selectedFileName }}
+                                </button>
+                                <x-button.button
+                                    type="button"
+                                    wire:click="deleteTemplateFile"
+                                    icon="icons.delete"
+                                    title="Удалить файл шаблона"
+                                    aria-label="Удалить файл шаблона"
                                 />
                             </div>
+                        @else
                             <x-button.button
                                 type="button"
-                                wire:click="deleteTemplateFile"
-                                icon="icons.delete"
-                                class="w-full"
-                                label="Удалить файл шаблона"
+                                label="Выбрать файл"
+                                x-on:click="$refs.templateInput.click()"
+                                wire:loading.attr="disabled"
+                                wire:target="newTemplate"
                             />
-                        @else
-                            <div
-                                class="border-secondary-text relative flex min-h-[200px] w-full cursor-pointer flex-col items-center justify-center rounded border object-contain transition hover:bg-gray-50"
-                                x-data
-                                @click="$refs.templateInput.click()"
+                            <span
+                                class="text-secondary-text text-sm"
+                                wire:loading
+                                wire:target="newTemplate"
                             >
-                                <input
-                                    x-ref="templateInput"
-                                    type="file"
-                                    accept=".docx"
-                                    class="sr-only"
-                                    wire:model="newTemplate"
-                                    @click.stop
-                                />
-                                <span
-                                    class="text-secondary-text mt-2 block w-full text-center text-sm"
-                                    wire:loading.remove
-                                    wire:target="newTemplate"
-                                >
-                                    Загрузить шаблон
-                                </span>
-                                <span
-                                    class="text-secondary-text mt-2 block w-full text-center text-sm"
-                                    wire:loading
-                                    wire:target="newTemplate"
-                                >
-                                    Загрузка файла
-                                </span>
-                            </div>
+                                Загрузка файла
+                            </span>
                         @endif
 
                         @error('newTemplate')
@@ -189,15 +198,16 @@
                     type="button"
                     variant="primary"
                     label="Следующий шаг"
-                    wire:click="$set('step', 2)"
+                    wire:click="goToStepTwo"
                 />
             @else
                 <div class="flex gap-3">
                     <x-button.button
                         type="button"
                         variant="primary"
-                        label="Загрузить"
+                        label="Сохранить шаблон"
                         wire:click="saveTemplate"
+                        :disabled="! $this->canSaveTemplate"
                     />
                     <x-button.button
                         type="button"

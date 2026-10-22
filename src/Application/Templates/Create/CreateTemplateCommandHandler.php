@@ -21,7 +21,7 @@ class CreateTemplateCommandHandler
         $path = $command->file->store('templates');
 
         $template = Template::create(
-            $command->file->getClientOriginalName(),
+            $command->name,
             $path
         );
 

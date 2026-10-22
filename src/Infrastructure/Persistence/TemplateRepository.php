@@ -15,23 +15,29 @@ class TemplateRepository implements TemplateRepositoryInterface
     public function findAll(): array
     {
         return EloquentTemplate::all()
-            ->map(fn($t) => $this->mapToEntity($t))
+            ->map(fn ($t) => $this->mapToEntity($t))
             ->toArray();
     }
 
     public function findById(int $id): Template
     {
-        $template = EloquentTemplate::find($id);
+        $template = EloquentTemplate::query()->findOrFail($id);
+
         return $this->mapToEntity($template);
     }
 
     public function save(Template $template): void
     {
-        $eloquentTemplate = new EloquentTemplate();
+        if ($template->isPersisted()) {
+            $eloquentTemplate = EloquentTemplate::query()->findOrFail($template->getId());
+        } else {
+            $eloquentTemplate = new EloquentTemplate;
+            $eloquentTemplate->created_at = $template->getCreatedAt();
+            $eloquentTemplate->updated_at = $template->getCreatedAt();
+        }
+
         $eloquentTemplate->name = $template->getName();
         $eloquentTemplate->path = $template->getPath();
-        $eloquentTemplate->created_at = $template->getCreatedAt();
-        $eloquentTemplate->updated_at = $template->getCreatedAt();
         $eloquentTemplate->save();
     }
 
@@ -42,7 +48,7 @@ class TemplateRepository implements TemplateRepositoryInterface
             Storage::delete($template->getPath());
         } catch (QueryException $e) {
             if ($e->getCode() === '23000') {
-                throw new TemplateInUseException();
+                throw new TemplateInUseException;
             }
 
             throw $e;

@@ -84,7 +84,9 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::middleware(['permission:edit report templates|full report templates'])->group(function () {
-        Route::livewire('/templates/upload', 'pages::templates-upload')->name('reports.templates.upload');
+        Route::livewire('/templates/upload/{templateId?}', 'pages::templates-upload')
+            ->whereNumber('templateId')
+            ->name('reports.templates.upload');
     });
 
     Route::middleware(['permission:read planning|full planning'])->group(function () {

@@ -9,6 +9,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
+use Src\Application\Templates\TemplateTagReaderInterface;
 use Tests\TestCase;
 
 class TemplatesPageTest extends TestCase
@@ -55,6 +56,33 @@ class TemplatesPageTest extends TestCase
             ->assertSeeHtml('href="'.route('reports.templates.upload').'"');
     }
 
+    public function test_found_tags_are_hidden_behind_show_all_button(): void
+    {
+        $this->mock(TemplateTagReaderInterface::class, function ($mock): void {
+            $mock->shouldReceive('read')->andReturnUsing(function (string $path): ?array {
+                if ($path === 'templates/collapse-tags.docx') {
+                    return ['current_year', 'period_from', 'period_to'];
+                }
+
+                return null;
+            });
+        });
+
+        DB::table('templates')->insert([
+            'name' => 'Шаблон со свёрткой тегов',
+            'path' => 'templates/collapse-tags.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::test('pages::templates')
+            ->assertSee('Показать все теги (3)')
+            ->assertSee('current_year')
+            ->assertSee('period_from')
+            ->assertSee('period_to')
+            ->assertSeeHtml('max-height: 3.5rem');
+    }
+
     public function test_list_shows_template_name_column(): void
     {
         DB::table('templates')->insert([
@@ -91,6 +119,7 @@ class TemplatesPageTest extends TestCase
         Livewire::test('pages::templates')
             ->assertDontSee('Загрузить шаблон')
             ->assertDontSeeHtml('href="'.route('reports.templates.upload').'"')
+            ->assertDontSeeHtml('title="Редактировать"')
             ->assertDontSeeHtml('title="Удалить"')
             ->call('delete', $templateId)
             ->assertForbidden();
@@ -99,6 +128,9 @@ class TemplatesPageTest extends TestCase
             ->assertForbidden();
 
         $this->get(route('reports.templates.upload'))
+            ->assertForbidden();
+
+        $this->get(route('reports.templates.upload', $templateId))
             ->assertForbidden();
 
         $this->assertDatabaseHas('templates', ['id' => $templateId]);
@@ -126,6 +158,8 @@ class TemplatesPageTest extends TestCase
         Livewire::test('pages::templates')
             ->assertSee('Загрузить шаблон')
             ->assertSeeHtml('href="'.route('reports.templates.upload').'"')
+            ->assertSeeHtml('href="'.route('reports.templates.upload', $templateId).'"')
+            ->assertSeeHtml('title="Редактировать"')
             ->assertDontSeeHtml('title="Удалить"')
             ->call('delete', $templateId)
             ->assertForbidden();

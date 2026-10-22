@@ -59,15 +59,55 @@
                                     @elseif (empty($template->tags))
                                         <span class="text-secondary-text">Теги не найдены</span>
                                     @else
-                                        <div class="flex flex-wrap gap-2">
-                                            @foreach ($template->tags as $tag)
-                                                @php($source = \Src\Domain\Templates\TemplateTagSource::fromTag($tag))
-                                                <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-blue-50 px-2 py-1 text-xs"
-                                                    title="Источник: {{ $source->label() }}">
-                                                    <x-dynamic-component :component="'icons.logo.'.$source->value" class="size-4" />
-                                                    &#123;&#123;{{ $tag }}&#125;&#125;
+                                        @php($tagCount = count($template->tags))
+                                        <div
+                                            class="flex flex-col items-start gap-2"
+                                            x-data="{
+                                                expanded: false,
+                                                overflowing: {{ $tagCount > 2 ? 'true' : 'false' }},
+                                            }"
+                                            x-init="$nextTick(() => {
+                                                const tags = $refs.tags
+                                                if (!tags) {
+                                                    return
+                                                }
+                                                const twoRows = parseFloat(getComputedStyle(document.documentElement).fontSize) * 3.5
+                                                overflowing = tags.scrollHeight > twoRows + 1
+                                            })"
+                                        >
+                                            <div
+                                                class="flex flex-wrap gap-2 overflow-hidden"
+                                                style="max-height: 3.5rem"
+                                                x-ref="tags"
+                                                x-bind:style="expanded ? 'max-height: none' : 'max-height: 3.5rem'"
+                                            >
+                                                @foreach ($template->tags as $tag)
+                                                    @php($source = \Src\Domain\Templates\TemplateTagSource::fromTag($tag))
+                                                    <span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-blue-50 px-2 py-1 text-xs"
+                                                        title="Источник: {{ $source->label() }}">
+                                                        <x-dynamic-component :component="'icons.logo.'.$source->value" class="size-4" />
+                                                        &#123;&#123;{{ $tag }}&#125;&#125;
+                                                    </span>
+                                                @endforeach
+                                            </div>
+                                            <x-button.button
+                                                type="button"
+                                                variant="link"
+                                                size="none"
+                                                class="text-sm"
+                                                x-show="overflowing"
+                                                x-on:click="expanded = !expanded"
+                                            >
+                                                <span class="inline-flex items-center gap-2">
+                                                    <span x-text="expanded ? 'Скрыть' : 'Показать все теги ({{ $tagCount }})'">
+                                                        Показать все теги ({{ $tagCount }})
+                                                    </span>
+                                                    <x-icons.arrow
+                                                        class="transition-transform duration-300"
+                                                        x-bind:class="{ 'rotate-180': expanded }"
+                                                    />
                                                 </span>
-                                            @endforeach
+                                            </x-button.button>
                                         </div>
                                     @endif
                                 </x-data.table-cell>
@@ -75,6 +115,13 @@
                                     <div class="flex gap-2">
                                         <x-button.button wire:click="download({{ $template->id }})"
                                             icon="icons.download" title="Скачать" />
+                                        @if ($this->canEditTemplates)
+                                            <x-button.button
+                                                href="{{ route('reports.templates.upload', $template->id) }}"
+                                                icon="icons.edit"
+                                                title="Редактировать"
+                                            />
+                                        @endif
                                         @if ($this->canDeleteTemplates)
                                             <x-button.button icon="icons.delete" title="Удалить"
                                                 x-on:click="$dispatch('template-delete-ask', { id: {{ $template->id }} })" />

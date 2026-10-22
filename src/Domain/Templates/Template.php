@@ -19,7 +19,7 @@ class Template
             null,
             $name,
             $path,
-            new DateTimeImmutable()
+            new DateTimeImmutable
         );
     }
 
@@ -51,5 +51,20 @@ class Template
     public function getCreatedAt(): DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    public function isPersisted(): bool
+    {
+        return $this->id !== null;
+    }
+
+    public function rename(string $name): void
+    {
+        $this->name = $name;
+    }
+
+    public function replacePath(string $path): void
+    {
+        $this->path = $path;
     }
 }

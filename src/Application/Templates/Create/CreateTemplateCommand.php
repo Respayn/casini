@@ -7,6 +7,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 class CreateTemplateCommand
 {
     public function __construct(
-        public TemporaryUploadedFile $file
+        public TemporaryUploadedFile $file,
+        public string $name,
     ) {}
 }
