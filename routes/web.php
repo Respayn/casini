@@ -76,7 +76,9 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::middleware(['permission:edit reports|full reports'])->group(function () {
-        Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
+        Route::livewire('/reports/create/{reportId?}', 'pages::reports-create')
+            ->whereNumber('reportId')
+            ->name('reports.create');
     });
 
     Route::middleware(['permission:read report templates|edit report templates|full report templates'])->group(function () {

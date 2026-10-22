@@ -13,6 +13,7 @@ use Src\Application\Reports\Generate\GenerateReportCommandHandler;
 use Src\Application\Reports\GetFormData\GetReportFormDataQuery;
 use Src\Application\Reports\GetFormData\GetReportFormDataQueryHandler;
 use Src\Application\Reports\GetFormData\ReportFormDataResponse;
+use Src\Domain\Reports\ReportRepositoryInterface;
 
 new
 #[Title('Casini - Создать отчет')]
@@ -30,12 +31,14 @@ class extends Component
 
     public ?int $templateId = null;
 
+    public ?int $editingReportId = null;
+
     public string $generateError = '';
 
     /** @var array{projectId: ?int, from: string, to: string, format: ?string, templateId: ?int} */
     public array $initialSnapshot = [];
 
-    public function mount(): void
+    public function mount(?int $reportId = null): void
     {
         $this->ensureCanCreateReports();
 
@@ -45,15 +48,42 @@ class extends Component
 
         $this->format = $this->formData->formats[0]['value'] ?? null;
 
-        $this->applySidebarProjectSelection();
+        if ($reportId !== null) {
+            $this->loadReportForEdit($reportId);
+        } else {
+            $this->applySidebarProjectSelection();
+        }
+
         $this->captureSnapshot();
+    }
+
+    private function loadReportForEdit(int $reportId): void
+    {
+        $report = app(ReportRepositoryInterface::class)->findById($reportId);
+
+        abort_unless(
+            SidebarProjectAccess::userCanAccessProject($report->getProjectId()),
+            403,
+            __('permissions.denied')
+        );
+
+        $this->editingReportId = $report->getId();
+        $this->projectId = $report->getProjectId();
+        $this->from = Carbon::parse($report->getPeriodStart()->format('Y-m-d'))->startOfMonth()->startOfDay();
+        $this->to = Carbon::parse($report->getPeriodEnd()->format('Y-m-d'))->startOfMonth()->startOfDay();
+        $this->format = $report->getFormat()->value;
+        $this->templateId = $report->getTemplateId();
     }
 
     protected function afterSidebarProjectFilterChanged(): void
     {
         unset($this->formData);
         unset($this->projectOptions);
-        $this->applySidebarProjectSelection();
+
+        if ($this->editingReportId === null) {
+            $this->applySidebarProjectSelection();
+        }
+
         $this->generateError = '';
     }
 
@@ -169,6 +199,12 @@ class extends Component
     }
 
     #[Computed]
+    public function isEditing(): bool
+    {
+        return $this->editingReportId !== null;
+    }
+
+    #[Computed]
     public function canSubmit(): bool
     {
         return $this->projectId !== null
@@ -192,7 +228,7 @@ class extends Component
     {
         $projects = $this->formData->projects;
 
-        if ($this->sidebarProjectId === null) {
+        if ($this->editingReportId !== null || $this->sidebarProjectId === null) {
             return $projects;
         }
 
@@ -267,8 +303,9 @@ class extends Component
                 $this->format,
                 $this->templateId,
                 Auth::id(),
+                $this->editingReportId,
             ));
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
             $this->generateError = 'Не удалось сформировать отчет. Попробуйте ещё раз или обратитесь к администратору.';
 

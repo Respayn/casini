@@ -3,6 +3,8 @@
 namespace Src\Infrastructure\Persistence;
 
 use App\Models\Report as EloquentReport;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Src\Domain\Reports\Report;
 use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
@@ -11,8 +13,8 @@ class ReportRepository implements ReportRepositoryInterface
 {
     public function findById(int $id): Report
     {
-        $eloquentReport = EloquentReport::with('project')
-            ->find($id);
+        $eloquentReport = EloquentReport::with('project')->findOrFail($id);
+
         return $this->mapToEntity($eloquentReport);
     }
 
@@ -20,9 +22,9 @@ class ReportRepository implements ReportRepositoryInterface
     {
         $reportId = $report->getId();
         if ($reportId === null) {
-            $eloquentReport = new EloquentReport();
+            $eloquentReport = new EloquentReport;
         } else {
-            $eloquentReport = EloquentReport::find($reportId);
+            $eloquentReport = EloquentReport::query()->findOrFail($reportId);
         }
         $eloquentReport->template_id = $report->getTemplateId();
         $eloquentReport->client_id = $report->getClientId();
@@ -41,6 +43,29 @@ class ReportRepository implements ReportRepositoryInterface
         $eloquentReport->save();
 
         return $eloquentReport->id;
+    }
+
+    public function remove(Report $report): void
+    {
+        EloquentReport::query()->whereKey($report->getId())->delete();
+        $this->deleteStoredFile($report->getPath());
+    }
+
+    private function deleteStoredFile(string $path): void
+    {
+        if ($path === '') {
+            return;
+        }
+
+        if (File::exists($path)) {
+            File::delete($path);
+
+            return;
+        }
+
+        if (Storage::exists($path)) {
+            Storage::delete($path);
+        }
     }
 
     private function mapToEntity(EloquentReport $eloquentReport): Report

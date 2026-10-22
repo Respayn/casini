@@ -10,6 +10,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Src\Domain\ValueObjects\Kpi;
@@ -98,6 +99,45 @@ class ReportsCreatePageTest extends TestCase
 
         $this->assertContains($own->id, $optionIds);
         $this->assertNotContains($foreign->id, $optionIds);
+    }
+
+    public function test_edit_form_loads_existing_report(): void
+    {
+        $user = $this->actingAsEditor();
+        $project = $this->createProject('Отчет для правки', $user->id);
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Шаблон правки',
+            'path' => 'templates/edit-report.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $reportId = DB::table('reports')->insertGetId([
+            'template_id' => $templateId,
+            'client_id' => $project->client_id,
+            'project_id' => $project->id,
+            'period_start' => '2026-09-01',
+            'period_end' => '2026-09-30',
+            'specialist_id' => $project->specialist_id,
+            'manager_id' => $user->id,
+            'format' => 'docx',
+            'created_by' => $user->id,
+            'path' => 'reports/edit-report.docx',
+            'created_at' => '2026-10-15 12:00:00',
+            'updated_at' => '2026-10-15 12:00:00',
+        ]);
+
+        $component = Livewire::test('pages::reports-create', ['reportId' => $reportId]);
+
+        $this->assertSame($reportId, $component->get('editingReportId'));
+        $this->assertSame($project->id, $component->get('projectId'));
+        $this->assertSame($templateId, $component->get('templateId'));
+        $this->assertSame('2026-09-01', $component->get('from')->toDateString());
+        $this->assertSame('2026-09-01', $component->get('to')->toDateString());
+        $this->assertTrue($component->get('isEditing'));
+        $this->assertFalse($component->get('hasPendingChanges'));
+        $component
+            ->assertSee('Редактирование отчета')
+            ->assertSee('Сформировать и скачать');
     }
 
     public function test_submit_stays_disabled_until_project_and_template_chosen(): void

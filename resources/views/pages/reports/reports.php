@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Src\Application\Reports\Delete\DeleteReportCommand;
+use Src\Application\Reports\Delete\DeleteReportCommandHandler;
 use Src\Application\Reports\Download\DownloadReportFileQuery;
 use Src\Application\Reports\Download\DownloadReportFileQueryHandler;
 use Src\Application\Reports\GetList\GetReportsListQuery;
@@ -42,7 +44,7 @@ new
                 ['key' => 'period', 'label' => 'Период'],
                 ['key' => 'specialist', 'label' => 'Специалист'],
                 ['key' => 'format', 'label' => 'Формат'],
-                ['key' => 'download', 'label' => 'Скачать'],
+                ['key' => 'download', 'label' => 'Действия'],
             ];
         }
 
@@ -69,6 +71,14 @@ new
 
             return $user !== null
                 && ($user->can('edit reports') || $user->can('full reports'));
+        }
+
+        #[Computed]
+        public function canDeleteReports(): bool
+        {
+            $user = Auth::user();
+
+            return $user !== null && $user->can('full reports');
         }
 
         public function mount()
@@ -144,5 +154,19 @@ new
             $file = $queryHandler->handle($query);
 
             return response()->download($file->path, $file->name);
+        }
+
+        public function delete(DeleteReportCommandHandler $command, int $reportId): void
+        {
+            $this->ensureCanDeleteReports();
+            $this->resetErrorBag();
+
+            $command->handle(new DeleteReportCommand($reportId));
+            unset($this->reports);
+        }
+
+        private function ensureCanDeleteReports(): void
+        {
+            abort_unless($this->canDeleteReports, 403, __('permissions.denied'));
         }
     };

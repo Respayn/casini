@@ -152,6 +152,11 @@ class ProductRoutePermissionsTest extends TestCase
             ->get(route('reports.create'))
             ->assertForbidden()
             ->assertSee(__('permissions.denied'), false);
+
+        $this->actingAs($user)
+            ->get(route('reports.create', 1))
+            ->assertForbidden()
+            ->assertSee(__('permissions.denied'), false);
     }
 
     public function test_user_with_edit_reports_can_open_create_report(): void

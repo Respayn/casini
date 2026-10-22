@@ -3,7 +3,7 @@
         <x-menu.back-button />
     </div>
 
-    <h1 class="mb-7">Создать отчет</h1>
+    <h1 class="mb-7">{{ $this->isEditing ? 'Редактирование отчета' : 'Создать отчет' }}</h1>
 
     <x-layout.sidebar-filter-hint class="mb-4 self-start" />
 
@@ -86,7 +86,7 @@
             </div>
         </div>
 
-        @if ($this->hasPendingChanges)
+        @if ($this->hasPendingChanges || $this->isEditing)
             <div class="mt-auto flex justify-between pt-7">
                 <button
                     type="submit"

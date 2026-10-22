@@ -43,7 +43,7 @@ class Report
     ): Report {
         return new self(
             null,
-            new DateTimeImmutable(),
+            new DateTimeImmutable,
             $templateId,
             $clientId,
             $projectType,
@@ -199,6 +199,31 @@ class Report
     public function setPath(string $path): void
     {
         $this->path = $path;
+    }
+
+    public function isPersisted(): bool
+    {
+        return $this->id !== null;
+    }
+
+    public function replace(
+        int $templateId,
+        int $clientId,
+        ProjectType $projectType,
+        int $projectId,
+        DateTimeRange $period,
+        int $specialistId,
+        int $managerId,
+        ReportFormat $format,
+    ): void {
+        $this->templateId = $templateId;
+        $this->clientId = $clientId;
+        $this->projectType = $projectType;
+        $this->projectId = $projectId;
+        $this->period = $period;
+        $this->specialistId = $specialistId;
+        $this->managerId = $managerId;
+        $this->format = $format;
     }
 
     public function getName(): string

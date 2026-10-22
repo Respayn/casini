@@ -32,21 +32,36 @@ class GenerateReportCommandHandler
         $period = new DateTimeRange($command->from, $command->to);
 
         $reportData = $this->reportDataProvider->getData($command->projectId, $period);
+        $format = ReportFormat::from($command->format);
 
-        $report = Report::create(
-            $template->getId(),
-            $project->getClientId(),
-            $project->getType(),
-            $project->getId(),
-            $period,
-            $project->getSpecialistId(),
-            $client->getManagerId(),
-            ReportFormat::from($command->format),
-            false,
-            false,
-            false,
-            $command->createdBy,
-        );
+        if ($command->reportId !== null) {
+            $report = $this->reportRepository->findById($command->reportId);
+            $report->replace(
+                $template->getId(),
+                $project->getClientId(),
+                $project->getType(),
+                $project->getId(),
+                $period,
+                $project->getSpecialistId(),
+                $client->getManagerId(),
+                $format,
+            );
+        } else {
+            $report = Report::create(
+                $template->getId(),
+                $project->getClientId(),
+                $project->getType(),
+                $project->getId(),
+                $period,
+                $project->getSpecialistId(),
+                $client->getManagerId(),
+                $format,
+                false,
+                false,
+                false,
+                $command->createdBy,
+            );
+        }
 
         $reportName = $this->reportNamingService->generateName($report, $project);
         $generated = $this->reportGenerator->generate($template->getPath(), $reportData, $reportName);

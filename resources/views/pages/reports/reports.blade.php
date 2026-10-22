@@ -52,7 +52,7 @@
     @else
         <div class="mt-3">
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
-                <x-data.table>
+                <x-data.table class="w-full">
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column>{{ $column['label'] }}</x-data.table-column>
@@ -115,10 +115,21 @@
                                         @break
 
                                         @case('download')
-                                            <x-data.table-cell class="bg-primary text-white cursor-pointer"
-                                                wire:click="download({{ $report->reportId }})">
-                                                <div class="flex justify-center">
-                                                    <x-icons.download />
+                                            <x-data.table-cell class="whitespace-nowrap">
+                                                <div class="flex gap-2">
+                                                    <x-button.button wire:click="download({{ $report->reportId }})"
+                                                        icon="icons.download" title="Скачать" />
+                                                    @if ($this->canCreateReports)
+                                                        <x-button.button
+                                                            href="{{ route('reports.create', $report->reportId) }}"
+                                                            icon="icons.edit"
+                                                            title="Редактировать"
+                                                        />
+                                                    @endif
+                                                    @if ($this->canDeleteReports)
+                                                        <x-button.button icon="icons.delete" title="Удалить"
+                                                            x-on:click="$dispatch('report-delete-ask', { id: {{ $report->reportId }} })" />
+                                                    @endif
                                                 </div>
                                             </x-data.table-cell>
                                         @break
@@ -133,4 +144,21 @@
     @endif
 
     <x-column-settings-modal :columns="$columnSettings" />
+
+    @if ($this->canDeleteReports)
+        <x-overlay.modal name="report-delete-confirm" title="Вы уверены?">
+            <x-slot:body>
+                <div x-data="{ id: null }"
+                    x-on:report-delete-ask.window="id = $event.detail.id; $dispatch('modal-show', { name: 'report-delete-confirm' })">
+                    <p class="text-primary-text">Отчет будет удален.</p>
+                    <div class="mt-6 flex justify-between gap-4">
+                        <x-button.button icon="icons.delete" label="Удалить" variant="primary"
+                            x-on:click="$wire.delete(id); $dispatch('modal-hide', { name: 'report-delete-confirm' })" />
+                        <x-button.button label="Отменить"
+                            x-on:click="$dispatch('modal-hide', { name: 'report-delete-confirm' })" />
+                    </div>
+                </div>
+            </x-slot>
+        </x-overlay.modal>
+    @endif
 </div>
