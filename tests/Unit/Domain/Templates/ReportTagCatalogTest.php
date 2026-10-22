@@ -44,6 +44,54 @@ class ReportTagCatalogTest extends TestCase
         $this->assertSame(ReportTagKind::Table, $tags['yd.table']->kind);
         $this->assertSame(ReportTagKind::Table, $tags['callibri.table']->kind);
         $this->assertArrayNotHasKey('megaplan.list', $tags);
+        $this->assertSame(ReportTagKind::Text, $tags['period_from']->kind);
+        $this->assertSame('Начало периода цифрами, например 01.09.2026', $tags['period_from']->label);
+        $this->assertSame('{{period_from}}', $tags['period_from']->placeholder());
+        $this->assertSame(ReportTagKind::Text, $tags['period_to']->kind);
+        $this->assertSame('Конец периода цифрами, например 30.09.2026', $tags['period_to']->label);
+        $this->assertSame('{{period_to}}', $tags['period_to']->placeholder());
+        $this->assertSame(ReportTagKind::Text, $tags['period_month']->kind);
+        $this->assertSame('Отчетный месяц текстом, например сентябрь 2026', $tags['period_month']->label);
+        $this->assertSame('{{period_month}}', $tags['period_month']->placeholder());
+        $this->assertArrayNotHasKey('yandex_search.region', $tags);
+        $this->assertArrayNotHasKey('yandex_search.table', $tags);
+        $this->assertArrayNotHasKey('yandex_search.top_3', $tags);
+        $this->assertArrayNotHasKey('yandex_search.top_5', $tags);
+        $this->assertArrayNotHasKey('yandex_search.top_10', $tags);
+        $this->assertSame(ReportTagKind::Text, $tags['yandex_search.region[1]']->kind);
+        $this->assertSame(
+            'Название региона. [1] первый в списке настроек интеграции, [2] второй',
+            $tags['yandex_search.region[1]']->label,
+        );
+        $this->assertSame('{{yandex_search.region[1]}}', $tags['yandex_search.region[1]']->placeholder());
+        $this->assertSame(ReportTagKind::Table, $tags['yandex_search.table[1]']->kind);
+        $this->assertSame(
+            'Таблица «Фраза / Позиция» только фраз этого региона. [1] первый в списке настроек интеграции, [2] второй',
+            $tags['yandex_search.table[1]']->label,
+        );
+        $this->assertSame('{{yandex_search.table[1]}}', $tags['yandex_search.table[1]']->placeholder());
+        foreach ([
+            'yandex_search.region[1]',
+            'yandex_search.table[1]',
+            'yandex_search.top_3[1]',
+            'yandex_search.top_5[1]',
+            'yandex_search.top_10[1]',
+        ] as $searchApiKey) {
+            $this->assertStringContainsString('[1]', $tags[$searchApiKey]->key);
+            $this->assertStringContainsString('[1] первый в списке настроек интеграции, [2] второй', $tags[$searchApiKey]->label);
+        }
+        $this->assertSame(
+            'Доля фраз этого региона в топ-3. [1] первый в списке настроек интеграции, [2] второй',
+            $tags['yandex_search.top_3[1]']->label,
+        );
+        $this->assertSame(
+            'Доля фраз этого региона в топ-5. [1] первый в списке настроек интеграции, [2] второй',
+            $tags['yandex_search.top_5[1]']->label,
+        );
+        $this->assertSame(
+            'Доля фраз этого региона в топ-10. [1] первый в списке настроек интеграции, [2] второй',
+            $tags['yandex_search.top_10[1]']->label,
+        );
         $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
         $this->assertSame(
             'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',

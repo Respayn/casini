@@ -15,6 +15,7 @@ use Src\Infrastructure\Reports\TemplateHandlers\InlineValueHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\ListHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TableHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TemplateHandlerInterface;
+use Src\Infrastructure\Reports\TemplateHandlers\YandexSearchLeftoverTagHandler;
 use Src\Infrastructure\Templates\ReportTemplateProcessor;
 
 class ReportGenerator implements ReportGeneratorInterface
@@ -30,6 +31,7 @@ class ReportGenerator implements ReportGeneratorInterface
             new ListHandler,
             new ImageHandler,
             new InlineValueHandler,
+            new YandexSearchLeftoverTagHandler,
         ];
     }
 

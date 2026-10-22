@@ -25,6 +25,8 @@ class ReportTemplateLabels
 
     public static function label(string $key): string
     {
-        return self::LABELS[$key] ?? 'Блок «'.$key.'»';
+        $normalized = preg_replace('/\[\d+\]$/', '', $key) ?? $key;
+
+        return self::LABELS[$normalized] ?? 'Блок «'.$key.'»';
     }
 }

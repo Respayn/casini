@@ -2,6 +2,7 @@
 
 namespace Src\Infrastructure\Reports;
 
+use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use Illuminate\Support\Facades\Storage;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportDataBuilder;
@@ -47,6 +48,8 @@ class ReportDataProvider implements ReportDataProviderInterface
 
     private readonly AgencyRepositoryInterface $agencyRepository;
 
+    private readonly IntegrationProjectCredentials $integrationProjectCredentials;
+
     public function __construct(
         ProjectRepositoryInterface $projectRepository,
         ClientRepositoryInterface $clientRepository,
@@ -57,7 +60,8 @@ class ReportDataProvider implements ReportDataProviderInterface
         YandexMetrikaRepositoryInterface $yandexMetrikaRepository,
         ProjectPlanValueRepositoryInterface $projectPlanValueRepository,
         CompletedWorkRepositoryInterface $completedWorkRepository,
-        AgencyRepositoryInterface $agencyRepository
+        AgencyRepositoryInterface $agencyRepository,
+        IntegrationProjectCredentials $integrationProjectCredentials,
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
@@ -69,6 +73,7 @@ class ReportDataProvider implements ReportDataProviderInterface
         $this->projectPlanValueRepository = $projectPlanValueRepository;
         $this->completedWorkRepository = $completedWorkRepository;
         $this->agencyRepository = $agencyRepository;
+        $this->integrationProjectCredentials = $integrationProjectCredentials;
     }
 
     public function getData(int $projectId, DateTimeRange $period): ReportData
@@ -76,7 +81,8 @@ class ReportDataProvider implements ReportDataProviderInterface
         $builder = ReportData::builder()
             ->value('current_year', date('Y'))
             ->value('period_from', $period->start->format('d.m.Y'))
-            ->value('period_to', $period->end->format('d.m.Y'));
+            ->value('period_to', $period->end->format('d.m.Y'))
+            ->value('period_month', $period->monthYearLabel());
 
         $project = $this->projectRepository->findById($projectId);
         $builder->value('project_domain', $project->getDomain())
@@ -90,10 +96,7 @@ class ReportDataProvider implements ReportDataProviderInterface
             ->value('agency_domain', '')
             ->image('agency_image', '')
             ->value('agency_email', '')
-            ->value('agency_phone', '')
-            ->value('yandex_search.top_3', '')
-            ->value('yandex_search.top_5', '')
-            ->value('yandex_search.top_10', '');
+            ->value('agency_phone', '');
 
         $callibriLeads = [];
         $yandexDirectStats = [];
@@ -153,17 +156,39 @@ class ReportDataProvider implements ReportDataProviderInterface
         });
 
         $this->safely($builder, 'Данные позиций Яндекс не загружены', function () use ($builder, $projectId, $period): void {
-            $percentages = $this->serpPositionRepository->getTopPercentages($projectId, $period, 'yandex');
-            $builder->value('yandex_search.top_3', $percentages['top_3'].'%')
-                ->value('yandex_search.top_5', $percentages['top_5'].'%')
-                ->value('yandex_search.top_10', $percentages['top_10'].'%');
+            $settings = $this->integrationProjectCredentials->settingsFor($projectId, 'yandex_search_api') ?? [];
+            $regions = is_array($settings['regions'] ?? null) ? $settings['regions'] : [];
 
-            $keywordPositions = $this->serpPositionRepository->getKeywordPositions($projectId, $period, 'yandex');
-            $yandexSearchTableRows = array_map(
-                fn ($item) => [$item['phrase'], $item['position'] ?? '—'],
-                $keywordPositions
-            );
-            $builder->table('yandex_search.table', ['Фраза', 'Позиция'], $yandexSearchTableRows);
+            foreach (YandexSearchIndexedTags::numberedRegions($regions) as $region) {
+                $index = $region['index'];
+                $builder->value(YandexSearchIndexedTags::key('region', $index), $region['label']);
+
+                $percentages = $this->serpPositionRepository->getTopPercentages(
+                    $projectId,
+                    $period,
+                    'yandex',
+                    $region['code'],
+                );
+                $builder->value(YandexSearchIndexedTags::key('top_3', $index), $percentages['top_3'].'%')
+                    ->value(YandexSearchIndexedTags::key('top_5', $index), $percentages['top_5'].'%')
+                    ->value(YandexSearchIndexedTags::key('top_10', $index), $percentages['top_10'].'%');
+
+                $keywordPositions = $this->serpPositionRepository->getKeywordPositions(
+                    $projectId,
+                    $period,
+                    'yandex',
+                    $region['code'],
+                );
+                $yandexSearchTableRows = array_map(
+                    fn ($item) => [$item['phrase'], $item['position'] ?? '-'],
+                    $keywordPositions
+                );
+                $builder->table(
+                    YandexSearchIndexedTags::key('table', $index),
+                    ['Фраза', 'Позиция'],
+                    $yandexSearchTableRows,
+                );
+            }
         });
 
         $this->safely($builder, 'Данные Яндекс.Директ не загружены', function () use ($builder, $projectId, $period, &$yandexDirectStats): void {

@@ -87,6 +87,36 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('{{', $xml);
     }
 
+    public function test_clears_unindexed_and_missing_yandex_search_tags(): void
+    {
+        Storage::fake();
+
+        $path = $this->storeDocxWithSplitBraces([
+            'yandex_search.region[1]',
+            'yandex_search.region[3]',
+            'yandex_search.table',
+            'yandex_search.top_3',
+            'current_year',
+        ]);
+
+        $generated = (new ReportGenerator)->generate(
+            $path,
+            ReportData::builder()
+                ->value('current_year', '2026')
+                ->value('yandex_search.region[1]', 'Москва')
+                ->build(),
+            'search-index-report'
+        );
+
+        $xml = $this->documentText($generated->path);
+        $this->assertStringContainsString('Москва', $xml);
+        $this->assertStringContainsString('2026', $xml);
+        $this->assertStringNotContainsString('{{', $xml);
+        $this->assertStringNotContainsString('yandex_search.region[3]', $xml);
+        $this->assertStringNotContainsString('yandex_search.table', $xml);
+        $this->assertStringNotContainsString('yandex_search.top_3', $xml);
+    }
+
     /**
      * @param  list<string>  $tagNames
      */
