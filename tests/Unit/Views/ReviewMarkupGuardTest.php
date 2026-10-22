@@ -72,6 +72,16 @@ class ReviewMarkupGuardTest extends TestCase
         );
     }
 
+    public function test_notification_badge_stays_under_modal_overlay(): void
+    {
+        $badge = $this->read('components/notifications/bell-button.blade.php');
+        $modal = $this->read('components/overlay/modal.blade.php');
+
+        $this->assertDoesNotMatchRegularExpression('/z-index:\s*1000/', $badge);
+        $this->assertMatchesRegularExpression('/z-index:\s*1;/', $badge);
+        $this->assertStringContainsString('z-50', $modal);
+    }
+
     private function read(string $view): string
     {
         $path = self::VIEWS.$view;

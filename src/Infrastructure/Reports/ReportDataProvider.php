@@ -82,6 +82,8 @@ class ReportDataProvider implements ReportDataProviderInterface
             ->value('current_year', date('Y'))
             ->value('period_from', $period->start->format('d.m.Y'))
             ->value('period_to', $period->end->format('d.m.Y'))
+            ->value('period_from_text', $period->startDateLabel())
+            ->value('period_to_text', $period->endDateLabel())
             ->value('period_month', $period->monthYearLabel());
 
         $project = $this->projectRepository->findById($projectId);
@@ -163,30 +165,28 @@ class ReportDataProvider implements ReportDataProviderInterface
                 $index = $region['index'];
                 $builder->value(YandexSearchIndexedTags::key('region', $index), $region['label']);
 
-                $percentages = $this->serpPositionRepository->getTopPercentages(
-                    $projectId,
-                    $period,
-                    'yandex',
-                    $region['code'],
-                );
-                $builder->value(YandexSearchIndexedTags::key('top_3', $index), $percentages['top_3'].'%')
-                    ->value(YandexSearchIndexedTags::key('top_5', $index), $percentages['top_5'].'%')
-                    ->value(YandexSearchIndexedTags::key('top_10', $index), $percentages['top_10'].'%');
-
                 $keywordPositions = $this->serpPositionRepository->getKeywordPositions(
                     $projectId,
                     $period,
                     'yandex',
                     $region['code'],
                 );
-                $yandexSearchTableRows = array_map(
-                    fn ($item) => [$item['phrase'], $item['position'] ?? '-'],
+                $shares = YandexSearchIndexedTags::topShares(array_column($keywordPositions, 'position'));
+                $builder->value(YandexSearchIndexedTags::key('top_3', $index), YandexSearchIndexedTags::formatShare($shares['top_3']))
+                    ->value(YandexSearchIndexedTags::key('top_5', $index), YandexSearchIndexedTags::formatShare($shares['top_5']))
+                    ->value(YandexSearchIndexedTags::key('top_10', $index), YandexSearchIndexedTags::formatShare($shares['top_10']));
+
+                $pairRows = array_map(
+                    fn ($item) => [
+                        'phrase' => $item['phrase'],
+                        'position' => (string) ($item['position'] ?? '-'),
+                    ],
                     $keywordPositions
                 );
-                $builder->table(
-                    YandexSearchIndexedTags::key('table', $index),
-                    ['Фраза', 'Позиция'],
-                    $yandexSearchTableRows,
+                $builder->keywordPositionPair(
+                    YandexSearchIndexedTags::key('phrase', $index),
+                    YandexSearchIndexedTags::key('position', $index),
+                    $pairRows,
                 );
             }
         });

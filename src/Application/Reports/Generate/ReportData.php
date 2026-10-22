@@ -5,6 +5,7 @@ namespace Src\Application\Reports\Generate;
 class ReportData
 {
     /**
+     * @param  list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string}>}>  $keywordPositionPairs
      * @param  list<string>  $warnings
      */
     public function __construct(
@@ -13,6 +14,7 @@ class ReportData
         private readonly array $lists = [],
         private readonly array $images = [],
         private readonly array $conditions = [],
+        private readonly array $keywordPositionPairs = [],
         private readonly array $warnings = [],
     ) {}
 
@@ -39,6 +41,14 @@ class ReportData
     public function getConditions(): array
     {
         return $this->conditions;
+    }
+
+    /**
+     * @return list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string}>}>
+     */
+    public function getKeywordPositionPairs(): array
+    {
+        return $this->keywordPositionPairs;
     }
 
     /**

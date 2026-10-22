@@ -15,6 +15,7 @@ use Src\Infrastructure\Reports\TemplateHandlers\InlineValueHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\ListHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TableHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TemplateHandlerInterface;
+use Src\Infrastructure\Reports\TemplateHandlers\YandexSearchKeywordRowHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\YandexSearchLeftoverTagHandler;
 use Src\Infrastructure\Templates\ReportTemplateProcessor;
 
@@ -28,6 +29,7 @@ class ReportGenerator implements ReportGeneratorInterface
         $this->handlers = [
             new ConditionHandler,
             new TableHandler,
+            new YandexSearchKeywordRowHandler,
             new ListHandler,
             new ImageHandler,
             new InlineValueHandler,

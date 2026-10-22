@@ -36,10 +36,12 @@ final class ReportTagCatalog
         $bitrix24 = TemplateTagSource::BITRIX24->label();
 
         return [
-            self::tag('current_year', 'Текущий год', $casini, ReportTagKind::Text, true),
-            self::tag('period_from', 'Начало периода цифрами, например 01.09.2026', $casini, ReportTagKind::Text, true),
-            self::tag('period_to', 'Конец периода цифрами, например 30.09.2026', $casini, ReportTagKind::Text, true),
-            self::tag('period_month', 'Отчетный месяц текстом, например сентябрь 2026', $casini, ReportTagKind::Text, true),
+            self::tag('current_year', 'Текущий год', $casini, ReportTagKind::Text, true, 'цифры'),
+            self::tag('period_from', 'Начало периода цифрами, например 01.09.2026', $casini, ReportTagKind::Text, true, 'цифры'),
+            self::tag('period_to', 'Конец периода цифрами, например 30.09.2026', $casini, ReportTagKind::Text, true, 'цифры'),
+            self::tag('period_from_text', 'Начало периода текстом, например 1 сентября 2026', $casini, ReportTagKind::Text, true, 'текст'),
+            self::tag('period_to_text', 'Конец периода текстом, например 30 сентября 2026', $casini, ReportTagKind::Text, true, 'текст'),
+            self::tag('period_month', 'Отчетный месяц текстом, например сентябрь 2026', $casini, ReportTagKind::Text, true, 'текст'),
             self::tag('project_domain', 'Домен проекта', $casini, ReportTagKind::Text, true),
             self::tag('project_name', 'Название проекта', $casini, ReportTagKind::Text, true),
             self::tag('manager_last_name', 'Фамилия менеджера', $casini, ReportTagKind::Text, true),
@@ -60,27 +62,33 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'yandex_search.top_3[1]',
-                'Доля фраз этого региона в топ-3. [1] первый в списке настроек интеграции, [2] второй',
+                'Доля фраз из этой таблицы в топ-3, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
                 ReportTagKind::Text,
             ),
             self::tag(
                 'yandex_search.top_5[1]',
-                'Доля фраз этого региона в топ-5. [1] первый в списке настроек интеграции, [2] второй',
+                'Доля фраз из этой таблицы в топ-5, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
                 ReportTagKind::Text,
             ),
             self::tag(
                 'yandex_search.top_10[1]',
-                'Доля фраз этого региона в топ-10. [1] первый в списке настроек интеграции, [2] второй',
+                'Доля фраз из этой таблицы в топ-10, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
                 ReportTagKind::Text,
             ),
             self::tag(
-                'yandex_search.table[1]',
-                'Таблица «Фраза / Позиция» только фраз этого региона. [1] первый в списке настроек интеграции, [2] второй',
+                'yandex_search.phrase[1]',
+                'Поисковая фраза. Ставят в одну строку таблицы Word рядом с позицией. [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
-                ReportTagKind::Table,
+                ReportTagKind::List,
+            ),
+            self::tag(
+                'yandex_search.position[1]',
+                'Позиция этой фразы. Ставят в ту же строку, что и фразу. [1] первый в списке настроек интеграции, [2] второй',
+                $searchApi,
+                ReportTagKind::List,
             ),
             self::tag('callibri.table', 'Таблица Callibri', $callibri, ReportTagKind::Table),
             self::tag('yd.table', 'Таблица Яндекс.Директ', $direct, ReportTagKind::Table),
@@ -104,7 +112,8 @@ final class ReportTagCatalog
         string $category,
         ReportTagKind $kind,
         bool $popular = false,
+        ?string $formatLabel = null,
     ): ReportTag {
-        return new ReportTag($key, $label, $category, $kind, $popular);
+        return new ReportTag($key, $label, $category, $kind, $popular, $formatLabel);
     }
 }

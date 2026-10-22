@@ -55,6 +55,7 @@ class ReportTagCatalogTest extends TestCase
         $this->assertSame('{{period_month}}', $tags['period_month']->placeholder());
         $this->assertArrayNotHasKey('yandex_search.region', $tags);
         $this->assertArrayNotHasKey('yandex_search.table', $tags);
+        $this->assertArrayNotHasKey('yandex_search.table[1]', $tags);
         $this->assertArrayNotHasKey('yandex_search.top_3', $tags);
         $this->assertArrayNotHasKey('yandex_search.top_5', $tags);
         $this->assertArrayNotHasKey('yandex_search.top_10', $tags);
@@ -64,15 +65,22 @@ class ReportTagCatalogTest extends TestCase
             $tags['yandex_search.region[1]']->label,
         );
         $this->assertSame('{{yandex_search.region[1]}}', $tags['yandex_search.region[1]']->placeholder());
-        $this->assertSame(ReportTagKind::Table, $tags['yandex_search.table[1]']->kind);
+        $this->assertSame(ReportTagKind::List, $tags['yandex_search.phrase[1]']->kind);
         $this->assertSame(
-            'Таблица «Фраза / Позиция» только фраз этого региона. [1] первый в списке настроек интеграции, [2] второй',
-            $tags['yandex_search.table[1]']->label,
+            'Поисковая фраза. Ставят в одну строку таблицы Word рядом с позицией. [1] первый в списке настроек интеграции, [2] второй',
+            $tags['yandex_search.phrase[1]']->label,
         );
-        $this->assertSame('{{yandex_search.table[1]}}', $tags['yandex_search.table[1]']->placeholder());
+        $this->assertSame('{{yandex_search.phrase[1]}}', $tags['yandex_search.phrase[1]']->placeholder());
+        $this->assertSame(ReportTagKind::List, $tags['yandex_search.position[1]']->kind);
+        $this->assertSame(
+            'Позиция этой фразы. Ставят в ту же строку, что и фразу. [1] первый в списке настроек интеграции, [2] второй',
+            $tags['yandex_search.position[1]']->label,
+        );
+        $this->assertSame('{{yandex_search.position[1]}}', $tags['yandex_search.position[1]']->placeholder());
         foreach ([
             'yandex_search.region[1]',
-            'yandex_search.table[1]',
+            'yandex_search.phrase[1]',
+            'yandex_search.position[1]',
             'yandex_search.top_3[1]',
             'yandex_search.top_5[1]',
             'yandex_search.top_10[1]',
@@ -81,15 +89,15 @@ class ReportTagCatalogTest extends TestCase
             $this->assertStringContainsString('[1] первый в списке настроек интеграции, [2] второй', $tags[$searchApiKey]->label);
         }
         $this->assertSame(
-            'Доля фраз этого региона в топ-3. [1] первый в списке настроек интеграции, [2] второй',
+            'Доля фраз из этой таблицы в топ-3, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
             $tags['yandex_search.top_3[1]']->label,
         );
         $this->assertSame(
-            'Доля фраз этого региона в топ-5. [1] первый в списке настроек интеграции, [2] второй',
+            'Доля фраз из этой таблицы в топ-5, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
             $tags['yandex_search.top_5[1]']->label,
         );
         $this->assertSame(
-            'Доля фраз этого региона в топ-10. [1] первый в списке настроек интеграции, [2] второй',
+            'Доля фраз из этой таблицы в топ-10, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
             $tags['yandex_search.top_10[1]']->label,
         );
         $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
@@ -97,6 +105,18 @@ class ReportTagCatalogTest extends TestCase
             'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',
             $tags['bitrix24.worklist']->label,
         );
+        $this->assertSame('цифры', $tags['current_year']->parameterLabel());
+        $this->assertSame('цифры', $tags['period_from']->parameterLabel());
+        $this->assertSame('цифры', $tags['period_to']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['period_from_text']->kind);
+        $this->assertSame('Начало периода текстом, например 1 сентября 2026', $tags['period_from_text']->label);
+        $this->assertSame('{{period_from_text}}', $tags['period_from_text']->placeholder());
+        $this->assertSame('текст', $tags['period_from_text']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['period_to_text']->kind);
+        $this->assertSame('Конец периода текстом, например 30 сентября 2026', $tags['period_to_text']->label);
+        $this->assertSame('{{period_to_text}}', $tags['period_to_text']->placeholder());
+        $this->assertSame('текст', $tags['period_to_text']->parameterLabel());
+        $this->assertSame('текст', $tags['period_month']->parameterLabel());
         $this->assertSame('текст', $tags['project_name']->parameterLabel());
         $this->assertSame('изображение', $tags['manager_photo']->parameterLabel());
         $this->assertSame('таблица', $tags['yd.table']->parameterLabel());

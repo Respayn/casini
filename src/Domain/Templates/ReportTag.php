@@ -10,6 +10,7 @@ final readonly class ReportTag
         public string $category,
         public ReportTagKind $kind,
         public bool $popular = false,
+        public ?string $formatLabel = null,
     ) {}
 
     public function placeholder(): string
@@ -19,6 +20,10 @@ final readonly class ReportTag
 
     public function parameterLabel(): string
     {
+        if ($this->formatLabel !== null && $this->formatLabel !== '') {
+            return $this->formatLabel;
+        }
+
         return $this->kind->parameterLabel();
     }
 

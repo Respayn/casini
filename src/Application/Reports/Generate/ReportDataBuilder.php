@@ -14,6 +14,9 @@ class ReportDataBuilder
 
     private array $conditions = [];
 
+    /** @var list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string}>}> */
+    private array $keywordPositionPairs = [];
+
     /** @var list<string> */
     private array $warnings = [];
 
@@ -73,6 +76,20 @@ class ReportDataBuilder
         return $this;
     }
 
+    /**
+     * @param  list<array{phrase: string, position: string}>  $rows
+     */
+    public function keywordPositionPair(string $phraseKey, string $positionKey, array $rows): self
+    {
+        $this->keywordPositionPairs[] = [
+            'phraseKey' => $phraseKey,
+            'positionKey' => $positionKey,
+            'rows' => $rows,
+        ];
+
+        return $this;
+    }
+
     public function build(): ReportData
     {
         return new ReportData(
@@ -81,6 +98,7 @@ class ReportDataBuilder
             lists: $this->lists,
             images: $this->images,
             conditions: $this->conditions,
+            keywordPositionPairs: $this->keywordPositionPairs,
             warnings: $this->warnings,
         );
     }

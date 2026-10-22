@@ -117,6 +117,93 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('yandex_search.top_3', $xml);
     }
 
+    public function test_keeps_search_phrase_and_position_on_the_same_row(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $row = $table->addRow();
+        $row->addCell()->addText('{{yandex_search.phrase[1]}}');
+        $row->addCell()->addText('{{yandex_search.position[1]}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/search-pair.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/search-pair.docx',
+            ReportData::builder()
+                ->keywordPositionPair(
+                    'yandex_search.phrase[1]',
+                    'yandex_search.position[1]',
+                    [
+                        ['phrase' => 'диван', 'position' => '3'],
+                        ['phrase' => 'шкаф', 'position' => '10'],
+                    ],
+                )
+                ->build(),
+            'search-pair-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $sofaRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'диван')));
+        $wardrobeRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'шкаф')));
+
+        $this->assertCount(1, $sofaRows);
+        $this->assertStringContainsString('3', $sofaRows[0]);
+        $this->assertStringNotContainsString('10', $sofaRows[0]);
+        $this->assertCount(1, $wardrobeRows);
+        $this->assertStringContainsString('10', $wardrobeRows[0]);
+        $this->assertStringNotContainsString('диван', $wardrobeRows[0]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
+    public function test_clears_search_position_when_it_is_not_in_the_phrase_row(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $phraseTable = $section->addTable();
+        $phraseTable->addRow()->addCell()->addText('{{yandex_search.phrase[1]}}');
+        $positionTable = $section->addTable();
+        $positionTable->addRow()->addCell()->addText('{{yandex_search.position[1]}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/search-split-pair.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/search-split-pair.docx',
+            ReportData::builder()
+                ->keywordPositionPair(
+                    'yandex_search.phrase[1]',
+                    'yandex_search.position[1]',
+                    [
+                        ['phrase' => 'диван', 'position' => '3'],
+                        ['phrase' => 'шкаф', 'position' => '10'],
+                    ],
+                )
+                ->build(),
+            'search-split-pair-report'
+        );
+
+        $xml = $this->documentText($generated->path);
+        $this->assertStringContainsString('диван', $xml);
+        $this->assertStringContainsString('шкаф', $xml);
+        $this->assertStringNotContainsString('{{', $xml);
+        $this->assertStringNotContainsString('yandex_search.position', $xml);
+        $rows = $this->tableRowTexts($generated->path);
+        foreach ($rows as $row) {
+            $this->assertFalse(str_contains($row, 'диван') && str_contains($row, '3'));
+            $this->assertFalse(str_contains($row, 'шкаф') && str_contains($row, '10'));
+        }
+    }
+
     /**
      * @param  list<string>  $tagNames
      */
@@ -174,5 +261,27 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $zip->close();
 
         return strip_tags(str_replace('</w:p>', "</w:p>\n", $xml));
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function tableRowTexts(string $file): array
+    {
+        $zip = new ZipArchive;
+        $zip->open($file);
+        $xml = $zip->getFromName('word/document.xml');
+        $zip->close();
+
+        preg_match_all('/<w:tr\b.*?<\/w:tr>/s', $xml, $matches);
+
+        return array_values(array_filter(array_map(
+            static function (string $row): string {
+                $withCellBreaks = str_replace('</w:tc>', ' </w:tc>', $row);
+
+                return trim(preg_replace('/\s+/u', ' ', strip_tags($withCellBreaks)) ?? '');
+            },
+            $matches[0],
+        )));
     }
 }

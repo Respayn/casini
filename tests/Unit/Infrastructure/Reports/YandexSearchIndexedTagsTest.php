@@ -25,7 +25,8 @@ class YandexSearchIndexedTagsTest extends TestCase
         $this->assertSame(
             [
                 'yandex_search.region[1]',
-                'yandex_search.table[1]',
+                'yandex_search.phrase[1]',
+                'yandex_search.position[1]',
                 'yandex_search.top_3[1]',
                 'yandex_search.top_5[1]',
                 'yandex_search.top_10[1]',
@@ -48,7 +49,7 @@ class YandexSearchIndexedTagsTest extends TestCase
         $this->assertSame(2, $regions[1]['index']);
         $this->assertSame(2, $regions[1]['code']);
         $this->assertSame('Санкт-Петербург', $regions[1]['label']);
-        $this->assertContains('yandex_search.table[2]', YandexSearchIndexedTags::keysForRegions([
+        $this->assertContains('yandex_search.phrase[2]', YandexSearchIndexedTags::keysForRegions([
             ['code' => SearchRegion::MOSCOW->value],
             ['code' => SearchRegion::SAINT_PETERSBURG->value],
         ]));
@@ -68,15 +69,39 @@ class YandexSearchIndexedTagsTest extends TestCase
 
         $this->assertSame([
             'yandex_search.region[1]',
-            'yandex_search.table[1]',
+            'yandex_search.phrase[1]',
+            'yandex_search.position[1]',
             'yandex_search.top_3[1]',
             'yandex_search.top_5[1]',
             'yandex_search.top_10[1]',
         ], $keys);
 
         foreach ($keys as $key) {
-            $this->assertDoesNotMatchRegularExpression('/^yandex_search\.(region|table|top_\d+)$/', $key);
-            $this->assertMatchesRegularExpression('/^yandex_search\.(region|table|top_3|top_5|top_10)\[\d+\]$/', $key);
+            $this->assertDoesNotMatchRegularExpression('/^yandex_search\.(region|table|phrase|position|top_\d+)$/', $key);
+            $this->assertMatchesRegularExpression('/^yandex_search\.(region|phrase|position|top_3|top_5|top_10)\[\d+\]$/', $key);
         }
+    }
+
+    public function test_top_shares_count_table_rows(): void
+    {
+        $shares = YandexSearchIndexedTags::topShares([1, 10, 11, '-']);
+
+        $this->assertSame(25.0, $shares['top_3']);
+        $this->assertSame(25.0, $shares['top_5']);
+        $this->assertSame(50.0, $shares['top_10']);
+        $this->assertSame('50%', YandexSearchIndexedTags::formatShare($shares['top_10']));
+    }
+
+    public function test_empty_table_gives_zero_share(): void
+    {
+        $this->assertSame(
+            [
+                'top_3' => 0.0,
+                'top_5' => 0.0,
+                'top_10' => 0.0,
+            ],
+            YandexSearchIndexedTags::topShares([]),
+        );
+        $this->assertSame('0%', YandexSearchIndexedTags::formatShare(0.0));
     }
 }

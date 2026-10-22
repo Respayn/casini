@@ -30,7 +30,8 @@
   position: absolute;
   top: -6px;
   right: -12px;
-  z-index: 1000;
+  /* Над иконкой колокольчика, но ниже модалки (z-50), иначе счётчик светится поверх затемнения */
+  z-index: 1;
 
   display: inline-flex;
   align-items: center;

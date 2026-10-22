@@ -27,4 +27,15 @@ class DateTimeRangeMonthYearLabelTest extends TestCase
 
         $this->assertSame('сентябрь 2026 - октябрь 2026', $period->monthYearLabel());
     }
+
+    public function test_start_and_end_dates_are_written_in_words(): void
+    {
+        $period = new DateTimeRange(
+            new DateTimeImmutable('2026-09-01'),
+            new DateTimeImmutable('2026-09-30 23:59:59'),
+        );
+
+        $this->assertSame('1 сентября 2026', $period->startDateLabel());
+        $this->assertSame('30 сентября 2026', $period->endDateLabel());
+    }
 }
