@@ -256,7 +256,11 @@ class ReportDataProvider implements ReportDataProviderInterface
             $visitsSearchSystemsTable = $this->buildVisitsSearchSystemsTable($projectId, $searchEnginesStats, $period);
             $builder->table('ym.table.visits_search_systems', $visitsSearchSystemsTable['headers'], $visitsSearchSystemsTable['rows']);
         });
-        $builder->values(YandexMetrikaSearchVisits::tagValues($searchEnginesStats));
+        $planVisits = 0;
+        $this->safely($builder, 'План посещаемости не загружен', function () use ($projectId, $period, &$planVisits): void {
+            $planVisits = $this->projectPlanValueRepository->sumByCode($projectId, 'visits', $period);
+        });
+        $builder->values(YandexMetrikaSearchVisits::tagValues($searchEnginesStats, $planVisits));
 
         $this->safely($builder, 'Таблица визитов по географии не загружена', function () use ($builder, $projectId, $period): void {
             $visitsGeoStats = $this->yandexMetrikaRepository->getVisitsGeoStats($projectId, $period);

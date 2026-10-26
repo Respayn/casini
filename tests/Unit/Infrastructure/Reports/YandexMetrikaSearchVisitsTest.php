@@ -27,6 +27,9 @@ class YandexMetrikaSearchVisitsTest extends TestCase
                 'ym.search_visits.google' => '4',
                 'ym.search_visits.other' => '4',
                 'ym.search_visits.total' => '18',
+                'ym.search_visits.plan' => '0',
+                'ym.search_visits.fact' => '18',
+                'ym.search_visits.performance' => '',
             ],
             YandexMetrikaSearchVisits::tagValues([
                 $this->stats('yandex', 10),
@@ -64,6 +67,30 @@ class YandexMetrikaSearchVisitsTest extends TestCase
             YandexMetrikaSearchVisits::totals([]),
         );
         $this->assertSame('0', YandexMetrikaSearchVisits::tagValues([])['ym.search_visits.total']);
+    }
+
+    public function test_plan_fact_and_performance(): void
+    {
+        $values = YandexMetrikaSearchVisits::tagValues([
+            $this->stats('yandex', 70),
+        ], 100);
+
+        $this->assertSame('100', $values['ym.search_visits.plan']);
+        $this->assertSame('70', $values['ym.search_visits.fact']);
+        $this->assertSame('70%', $values['ym.search_visits.performance']);
+        $this->assertSame('70%', YandexMetrikaSearchVisits::performancePercent(70, 100));
+    }
+
+    public function test_zero_plan_gives_empty_performance(): void
+    {
+        $values = YandexMetrikaSearchVisits::tagValues([
+            $this->stats('yandex', 70),
+        ], 0);
+
+        $this->assertSame('0', $values['ym.search_visits.plan']);
+        $this->assertSame('70', $values['ym.search_visits.fact']);
+        $this->assertSame('', $values['ym.search_visits.performance']);
+        $this->assertSame('', YandexMetrikaSearchVisits::performancePercent(70, 0));
     }
 
     private function stats(string $engine, int $visits, string $month = '2026-09-01'): YandexMetrikaSearchEnginesStats

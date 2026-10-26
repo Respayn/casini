@@ -116,6 +116,18 @@ class ReportTagCatalogTest extends TestCase
         $this->assertSame('Переходы из поисковых систем, итого', $tags['ym.search_visits.total']->label);
         $this->assertSame('{{ym.search_visits.total}}', $tags['ym.search_visits.total']->placeholder());
         $this->assertSame('цифры', $tags['ym.search_visits.total']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['ym.search_visits.plan']->kind);
+        $this->assertSame('План посещаемости из поисковых систем', $tags['ym.search_visits.plan']->label);
+        $this->assertSame('{{ym.search_visits.plan}}', $tags['ym.search_visits.plan']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_visits.plan']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['ym.search_visits.fact']->kind);
+        $this->assertSame('Факт посещаемости из поисковых систем', $tags['ym.search_visits.fact']->label);
+        $this->assertSame('{{ym.search_visits.fact}}', $tags['ym.search_visits.fact']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_visits.fact']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['ym.search_visits.performance']->kind);
+        $this->assertSame('Выполнение плана посещаемости, например 70%', $tags['ym.search_visits.performance']->label);
+        $this->assertSame('{{ym.search_visits.performance}}', $tags['ym.search_visits.performance']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_visits.performance']->parameterLabel());
         $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
         $this->assertSame(
             'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',

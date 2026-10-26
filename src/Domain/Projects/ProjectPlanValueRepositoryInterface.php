@@ -14,10 +14,13 @@ interface ProjectPlanValueRepositoryInterface
     /**
      * Получает плановые значения по кодам параметров за период.
      *
-     * @param int $projectId
-     * @param array<string> $parameterCodes
-     * @param DateTimeRange $period
+     * @param  array<string>  $parameterCodes
      * @return array<string, ProjectPlanValue|null> Код параметра => плановое значение или null
      */
     public function findByCodes(int $projectId, array $parameterCodes, DateTimeRange $period): array;
+
+    /**
+     * Сумма планов показателя за все месяцы периода. Нет строк → 0.
+     */
+    public function sumByCode(int $projectId, string $parameterCode, DateTimeRange $period): int;
 }
