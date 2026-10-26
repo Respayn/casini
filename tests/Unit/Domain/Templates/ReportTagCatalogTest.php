@@ -100,6 +100,22 @@ class ReportTagCatalogTest extends TestCase
             'Доля фраз из этой таблицы в топ-10, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
             $tags['yandex_search.top_10[1]']->label,
         );
+        $this->assertSame(ReportTagKind::Text, $tags['ym.search_visits.yandex']->kind);
+        $this->assertSame('Переходы из Яндекса', $tags['ym.search_visits.yandex']->label);
+        $this->assertSame('{{ym.search_visits.yandex}}', $tags['ym.search_visits.yandex']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_visits.yandex']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['ym.search_visits.google']->kind);
+        $this->assertSame('Переходы из Google', $tags['ym.search_visits.google']->label);
+        $this->assertSame('{{ym.search_visits.google}}', $tags['ym.search_visits.google']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_visits.google']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['ym.search_visits.other']->kind);
+        $this->assertSame('Переходы из других поисковых систем', $tags['ym.search_visits.other']->label);
+        $this->assertSame('{{ym.search_visits.other}}', $tags['ym.search_visits.other']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_visits.other']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['ym.search_visits.total']->kind);
+        $this->assertSame('Переходы из поисковых систем, итого', $tags['ym.search_visits.total']->label);
+        $this->assertSame('{{ym.search_visits.total}}', $tags['ym.search_visits.total']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_visits.total']->parameterLabel());
         $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
         $this->assertSame(
             'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',
