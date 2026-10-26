@@ -37,7 +37,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaSearchEnginesStats $stats) => $this->mapSearchEnginesStatsToEntity($stats))
+            ->map(fn (EloquentYandexMetrikaSearchEnginesStats $stats) => $this->mapSearchEnginesStatsToEntity($stats))
             ->toArray();
     }
 
@@ -58,7 +58,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaGoalUtm $model) => $this->mapGoalUtmToEntity($model))
+            ->map(fn (EloquentYandexMetrikaGoalUtm $model) => $this->mapGoalUtmToEntity($model))
             ->toArray();
     }
 
@@ -79,7 +79,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaGoalConversion $model) => $this->mapGoalConversionToEntity($model))
+            ->map(fn (EloquentYandexMetrikaGoalConversion $model) => $this->mapGoalConversionToEntity($model))
             ->toArray();
     }
 
@@ -100,7 +100,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaVisitsGeo $model) => $this->mapVisitsGeoToEntity($model))
+            ->map(fn (EloquentYandexMetrikaVisitsGeo $model) => $this->mapVisitsGeoToEntity($model))
             ->toArray();
     }
 
@@ -121,7 +121,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaVisitsSearchQueries $model) => $this->mapVisitsSearchQueriesToEntity($model))
+            ->map(fn (EloquentYandexMetrikaVisitsSearchQueries $model) => $this->mapVisitsSearchQueriesToEntity($model))
             ->toArray();
     }
 
@@ -226,6 +226,46 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
     /**
      * {@inheritdoc}
      */
+    public function upsertVisitsGeo(
+        int $projectId,
+        string $city,
+        string $month,
+        string $visitsMetric,
+        int $value
+    ): void {
+        $monthKey = Carbon::parse($month)->startOfMonth()->format('Y-m-d');
+        $isUsers = $visitsMetric === 'users';
+
+        $existing = EloquentYandexMetrikaVisitsGeo::query()
+            ->where('project_id', $projectId)
+            ->where('city', $city)
+            ->where('month', $monthKey)
+            ->first();
+
+        if ($existing !== null) {
+            if ($isUsers) {
+                $existing->visitors = $value;
+            } else {
+                $existing->visits = $value;
+            }
+            $existing->save();
+
+            return;
+        }
+
+        EloquentYandexMetrikaVisitsGeo::query()->create([
+            'project_id' => $projectId,
+            'city' => $city,
+            'month' => $monthKey,
+            'visits' => $isUsers ? 0 : $value,
+            'visitors' => $isUsers ? $value : 0,
+            'goal_reaches' => 0,
+        ]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function replaceGoalUtmRows(int $projectId, string $dateFrom, string $dateTo, array $rows): void
     {
         EloquentYandexMetrikaGoalUtm::query()
@@ -290,7 +330,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaGoalDirectSummary $model) => $this->mapGoalDirectSummaryToEntity($model))
+            ->map(fn (EloquentYandexMetrikaGoalDirectSummary $model) => $this->mapGoalDirectSummaryToEntity($model))
             ->toArray();
     }
 

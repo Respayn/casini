@@ -267,6 +267,15 @@ class ReportDataProvider implements ReportDataProviderInterface
             $visitsGeoStats = $this->yandexMetrikaRepository->getVisitsGeoStats($projectId, $period);
             $visitsGeoTable = $this->buildVisitsGeoTable($visitsGeoStats);
             $builder->table('ym.table.visits_geo', $visitsGeoTable['headers'], $visitsGeoTable['rows']);
+
+            $settings = $this->integrationProjectCredentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+            $useVisitors = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($settings['visits_metric'] ?? null)
+                === YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS;
+            $builder->keywordPositionPair(
+                YandexMetrikaGeoVisits::CITY_KEY,
+                YandexMetrikaGeoVisits::VISITS_KEY,
+                YandexMetrikaGeoVisits::pairRows($visitsGeoStats, $useVisitors),
+            );
         });
 
         $this->safely($builder, 'Таблица визитов по запросам не загружена', function () use ($builder, $projectId, $period): void {

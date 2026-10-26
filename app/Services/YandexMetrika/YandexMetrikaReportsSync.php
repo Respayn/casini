@@ -29,6 +29,8 @@ class YandexMetrikaReportsSync
 
     public const VISITS_SEARCH_QUERIES = 'visits_search_queries';
 
+    public const VISITS_GEO = 'visits_geo';
+
     public const REPORTS = [
         self::GOALS_SEARCH_ENGINES,
         self::GOALS_UTM,
@@ -36,6 +38,7 @@ class YandexMetrikaReportsSync
         self::GOALS_DIRECT_SUMMARY,
         self::VISITS_SEARCH_ENGINES,
         self::VISITS_SEARCH_QUERIES,
+        self::VISITS_GEO,
     ];
 
     private const GOAL_REPORTS = [
@@ -186,6 +189,13 @@ class YandexMetrikaReportsSync
                     (string) ($settings['search_queries_minus'] ?? '')
                 ),
             ),
+            self::VISITS_GEO => $this->saveGeoVisits(
+                $projectId,
+                $visitsMetric,
+                $this->metrikaService->fetchGeoVisitsStats(
+                    $from, $to, $visitsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
+                ),
+            ),
             default => throw new \InvalidArgumentException('Неизвестный отчёт Метрики: '.$report),
         };
     }
@@ -284,6 +294,16 @@ class YandexMetrikaReportsSync
     {
         foreach ($rows as $row) {
             $this->repository->upsertSearchQueriesVisits($projectId, $row['phrase'], $row['month'], $visitsMetric, $row['value']);
+        }
+    }
+
+    /**
+     * @param  list<array{city: string, month: string, value: int}>  $rows
+     */
+    private function saveGeoVisits(int $projectId, string $visitsMetric, array $rows): void
+    {
+        foreach ($rows as $row) {
+            $this->repository->upsertVisitsGeo($projectId, $row['city'], $row['month'], $visitsMetric, $row['value']);
         }
     }
 

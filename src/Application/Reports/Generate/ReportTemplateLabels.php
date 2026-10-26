@@ -20,6 +20,8 @@ class ReportTemplateLabels
         'ym.table.goals_direct_summary' => 'Таблица целей Директа',
         'ym.table.visits_search_systems' => 'Таблица визитов из поиска',
         'ym.table.visits_geo' => 'Таблица визитов по географии',
+        'ym.visits_geo.city' => 'Города из отчёта География',
+        'ym.visits_geo.visits' => 'Переходы по городам',
         'ym.table.visits_search_queries' => 'Таблица визитов по запросам',
         'ym.search_queries.phrase' => 'Фразы из отчёта Поисковые запросы',
         'ym.search_queries.visits' => 'Переходы по поисковым фразам',

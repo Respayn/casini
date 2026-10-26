@@ -416,7 +416,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `search_queries_minus` | минус-фразы для отчёта «Поисковые запросы» (каждая с новой строки) | `''` |
 | `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчётов «Переходы» | `visits` |
 
-Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries` (`visits_geo` снят с UI интеграции). Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines`, `visits_search_queries` и `visits_geo` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
 
 ### Фильтры в запросах к API (этап 2)
 
@@ -667,7 +667,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 `visits_search_queries` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
 
-Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`; `visits_geo` снят с UI) можно включать одновременно (условие «И» с фильтрами этапа 2).
+Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`, `visits_geo`) можно включать одновременно (условие «И» с фильтрами этапа 2).
 
 ### Ключи settings
 
@@ -709,9 +709,51 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 ## Интеграция Яндекс Метрики (этап 3.7: переходы «География»)
 
-Отчёт `visits_geo` **снят с UI** интеграции: Reporting API Метрики не отдаёт стабильные данные по `ym:s:regionCity` в режиме «без роботов» (пустой ответ при `ym:s:isRobot=='No'`), сверка с интерфейсом Метрики получается неоднозначной.
+Седьмой отчёт этапа 3. Переходы по городам из отчёта [«География»](https://yandex.ru/support/metrica/ru/visitors/geography.html) (API preset `geo_country`).
 
-Ключ `reports.visits_geo` при сохранении принудительно `false`. Кода съёма «Географии» нет: ни команды, ни отчёта в collector `yandex_metrika`. Таблица `yandex_metrika_visits_geo`, чтение `getVisitsGeoStats` и переменная отчёта `ym.table.visits_geo` остаются для исторических данных и шаблонов. Если отчёт вернут в UI, съём добавляется отчётом в `YandexMetrikaReportsSync::REPORTS`, без отдельной команды и расписания.
+### Ограничение по типу проекта
+
+`visits_geo` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
+
+Все три SEO-отчёта по переходам (`visits_search_engines`, `visits_search_queries`, `visits_geo`) можно включать одновременно (условие «И» с фильтрами этапа 2).
+
+### Ключи settings
+
+| Ключ | Значения | По умолчанию |
+|------|----------|--------------|
+| `visits_metric` | `visits` / `users` (общий с другими отчётами «Переходы») | `visits` |
+
+### UI
+
+При включённом `visits_geo` блок обёрнут рамкой:
+
+1. «По какому параметру рассчитываем переходы?» - тот же `visits_metric`.
+2. «Проверить работу интеграции» - результат: `Количество переходов из отчета География: N`. Livewire: `testYandexMetrikaVisitsGeoIntegration()`.
+
+### API
+
+[`YandexMetrikaService::fetchGeoVisitsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:regionCity` (+ `ym:s:month` на несколько месяцев) - лист дерева country, area, city;
+- метрики: `ym:s:visits` / `ym:s:users`;
+- `lang=ru`, чтобы названия городов были по-русски;
+- атрибуция в измерениях не нужна (локация посетителя); параметр `attribution` передаётся как у соседних методов;
+- фильтры этапа 2, timezone - как обычно;
+- константа измерения: [`GeographyDisplayList::CITY_DIMENSION`](src/Domain/YandexMetrika/GeographyDisplayList.php).
+
+### БД
+
+Таблица `yandex_metrika_visits_geo` (`city`, `visits`, `visitors`, `goal_reaches`). Upsert через `upsertVisitsGeo` обновляет только выбранную метрику, не затирая вторую и `goal_reaches`.
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync visits_geo`:
+
+- условия: `is_enabled`, `reports.visits_geo`, токен, счётчик, `sync_enabled_at`;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
+- upsert по `(project_id, month, city)`.
+
+Теги шаблона: `{{ym.visits_geo.city}}` и `{{ym.visits_geo.visits}}` в одной строке Word. Данные из `yandex_metrika_visits_geo` за период (`YandexMetrikaGeoVisits`): при `visits_metric=users` берётся `visitors`, иначе `visits`; одинаковые города складываются, нулевые строки не выводятся, сортировка по числу переходов. Строку копирует `YandexSearchKeywordRowHandler`, остатки тегов очищает `YandexSearchLeftoverTagHandler`. Фильтры интеграции уже внутри съёма. Живая таблица `{{ym.table.visits_geo}}` остаётся. Месяц в шапке: `{{period_month}}`.
 
 ## UI-шаблон: проверка работы интеграции
 
@@ -828,7 +870,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Колонки | без «Отчет готов? / принят менеджером? / отправлен клиенту?»; флаги `is_ready`, `is_accepted`, `is_sent` в таблице `reports` остаются; таблица на всю ширину страницы, как в Каналах и Статистике. Последняя колонка «Действия» (ключ `download`): скачать всегда; «Редактировать» при `edit`/`full` открывает `/reports/create/{id}` с заполненной формой и пересобирает тот же отчет; «Удалить» только при `full`, с подтверждением |
 | Пустой список | кнопка «Создать отчет» → `reports.create` |
 | Шаблоны отчетов | URL `/templates`, имя маршрута `reports.templates`: middleware `permission:read report templates\|edit report templates\|full report templates`; загрузка - `edit` или `full`; удаление - только `full`; кнопка «Шаблоны отчетов» на `/reports` при любом праве на шаблоны. В «Продукты и права» группа `report templates` - дочерняя к `reports` (`PermissionGroup::hierarchicalValues`). `x-menu.navbar` подсвечивает вкладку «Отчеты» для маршрутов с префиксом `reports.` |
-| Загрузка шаблона | URL `/templates/upload`, имя `reports.templates.upload`: middleware `edit report templates\|full report templates`. Кнопка «Загрузить шаблон» ведёт на страницу из двух шагов (оболочка как `/reports/create`): инструкция и один список тегов (колонки «Тег» с иконкой источника как в списке шаблонов (Битрикс24: официальный favicon с bitrix24.ru, тот же `icons.logo.bitrix24` в Каналах и Статистике), «Что подставляет» и «Формат отображения»), затем обязательные «Название шаблона» и выбор `.docx` кнопкой «Выбрать файл» (скрытый `input`, как загрузка фраз в интеграции Search API): имя выбранного файла и удаление, сохранение кнопкой «Сохранить шаблон» (неактивна, пока нет названия и файла). В колонке «Действия» списка шаблонов при праве `edit` или `full` есть «Редактировать»: тот же мастер сразу на шаге 2, название и текущий файл уже заполнены, можно заменить `.docx`. Справочник `ReportTagCatalog` описывает только теги, которые заполняет `ReportDataProvider` (список работ: `{{bitrix24.worklist}}`, не `{{megaplan.list}}`; границы периода цифрами `д.м.г`: `{{period_from}}` / `{{period_to}}` → «01.09.2026» / «30.09.2026»; те же границы текстом: `{{period_from_text}}` / `{{period_to_text}}` → «1 сентября 2026» / «30 сентября 2026»; отчетный месяц текстом: `{{period_month}}` → «сентябрь 2026», при диапазоне месяцев «сентябрь 2026 - октябрь 2026»; переходы из отчёта Метрики «Поисковые системы»: `{{ym.search_visits.yandex}}` / `google` / `other` / `total` → сумма `visits` за период, нет данных → `0`; план/факт/выполнение: `{{ym.search_visits.plan}}` / `fact` / `performance` (план из Планирования `visits`, факт = `total`, выполнение `факт/план%`, без плана ячейка пустая); переходы по фразам: `{{ym.search_queries.phrase}}` и `{{ym.search_queries.visits}}` в одной строке Word; Search API: `{{yandex_search.region[1]}}`, `{{yandex_search.phrase[1]}}` и `{{yandex_search.position[1]}}` в одной строке таблицы Word, `{{yandex_search.top_3[1]}}` / `top_5` / `top_10` - доля тех же строк таблицы (позиция 1-10 входит, 11 и `-` нет), значение уже со знаком `%`, ячейку ставят отдельно от строки с фразой. Номер в квадратных скобках с 1 по порядку `integration_project.settings.regions`; `[1]` первый регион, `[2]` второй. Сборка (`YandexSearchIndexedTags` + `ReportDataProvider`) отдаёт только ключи с номером, позиции фильтруются по `serp_regions.geo_id`. Строку с фразой и позицией копирует `YandexSearchKeywordRowHandler` целиком, чтобы позиция не оказалась напротив чужой фразы. Старые теги без скобок, `{{yandex_search.table}}` / `{{yandex_search.table[1]}}` и номер вне списка очищаются (`YandexSearchLeftoverTagHandler`)). Синтаксис `{{имя}}`. Параметры вроде `ссылка=да` и свои теги с полем на форме отчёта не поддерживаются. |
+| Загрузка шаблона | URL `/templates/upload`, имя `reports.templates.upload`: middleware `edit report templates\|full report templates`. Кнопка «Загрузить шаблон» ведёт на страницу из двух шагов (оболочка как `/reports/create`): инструкция и один список тегов (колонки «Тег» с иконкой источника как в списке шаблонов (Битрикс24: официальный favicon с bitrix24.ru, тот же `icons.logo.bitrix24` в Каналах и Статистике), «Что подставляет» и «Формат отображения»), затем обязательные «Название шаблона» и выбор `.docx` кнопкой «Выбрать файл» (скрытый `input`, как загрузка фраз в интеграции Search API): имя выбранного файла и удаление, сохранение кнопкой «Сохранить шаблон» (неактивна, пока нет названия и файла). В колонке «Действия» списка шаблонов при праве `edit` или `full` есть «Редактировать»: тот же мастер сразу на шаге 2, название и текущий файл уже заполнены, можно заменить `.docx`. Справочник `ReportTagCatalog` описывает только теги, которые заполняет `ReportDataProvider` (список работ: `{{bitrix24.worklist}}`, не `{{megaplan.list}}`; границы периода цифрами `д.м.г`: `{{period_from}}` / `{{period_to}}` → «01.09.2026» / «30.09.2026»; те же границы текстом: `{{period_from_text}}` / `{{period_to_text}}` → «1 сентября 2026» / «30 сентября 2026»; отчетный месяц текстом: `{{period_month}}` → «сентябрь 2026», при диапазоне месяцев «сентябрь 2026 - октябрь 2026»; переходы из отчёта Метрики «Поисковые системы»: `{{ym.search_visits.yandex}}` / `google` / `other` / `total` → сумма `visits` за период, нет данных → `0`; план/факт/выполнение: `{{ym.search_visits.plan}}` / `fact` / `performance` (план из Планирования `visits`, факт = `total`, выполнение `факт/план%`, без плана ячейка пустая); переходы по фразам: `{{ym.search_queries.phrase}}` и `{{ym.search_queries.visits}}` в одной строке Word; переходы по городам: `{{ym.visits_geo.city}}` и `{{ym.visits_geo.visits}}` в одной строке Word; Search API: `{{yandex_search.region[1]}}`, `{{yandex_search.phrase[1]}}` и `{{yandex_search.position[1]}}` в одной строке таблицы Word, `{{yandex_search.top_3[1]}}` / `top_5` / `top_10` - доля тех же строк таблицы (позиция 1-10 входит, 11 и `-` нет), значение уже со знаком `%`, ячейку ставят отдельно от строки с фразой. Номер в квадратных скобках с 1 по порядку `integration_project.settings.regions`; `[1]` первый регион, `[2]` второй. Сборка (`YandexSearchIndexedTags` + `ReportDataProvider`) отдаёт только ключи с номером, позиции фильтруются по `serp_regions.geo_id`. Строку с фразой и позицией копирует `YandexSearchKeywordRowHandler` целиком, чтобы позиция не оказалась напротив чужой фразы. Старые теги без скобок, `{{yandex_search.table}}` / `{{yandex_search.table[1]}}` и номер вне списка очищаются (`YandexSearchLeftoverTagHandler`)). Синтаксис `{{имя}}`. Параметры вроде `ссылка=да` и свои теги с полем на форме отчёта не поддерживаются. |
 | Формат тегов шаблона | `{{имя}}`, блоки `{{имя}}…{{/имя}}`, повтор строки таблицы по тегу списка. Скобки задает `ReportTemplateProcessor` (наследник PhpWord `TemplateProcessor`) для сборки отчета и для чтения тегов. Word часто разносит скобки по отдельным runs (`{` `{` `имя` `}` `}`) - склейку делает переопределённый `fixBrokenMacros`. Старый формат `${имя}` не поддерживается: такие шаблоны нужно перезалить |
 | Найденные теги в шаблоне | `TemplateTagReaderInterface` → `PhpWordTemplateTagReader`: `ReportTemplateProcessor::getVariables()` при каждом показе списка (в БД не хранятся), без закрывающих тегов блоков `/имя`; файл не найден или не читается → «Не удалось прочитать файл». В списке шаблонов видны первые две строки тегов, остальное за кнопкой «Показать все теги (N)», N - число всех найденных тегов; если теги умещаются в две строки, кнопка скрыта |
 

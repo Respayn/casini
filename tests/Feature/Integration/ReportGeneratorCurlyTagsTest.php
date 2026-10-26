@@ -248,6 +248,50 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
     }
 
+    public function test_keeps_geo_city_and_visits_on_the_same_row(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $row = $table->addRow();
+        $row->addCell()->addText('{{ym.visits_geo.city}}');
+        $row->addCell()->addText('{{ym.visits_geo.visits}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/geo-pair.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/geo-pair.docx',
+            ReportData::builder()
+                ->keywordPositionPair(
+                    'ym.visits_geo.city',
+                    'ym.visits_geo.visits',
+                    [
+                        ['phrase' => 'Челябинск', 'position' => '15'],
+                        ['phrase' => 'Екатеринбург', 'position' => '4'],
+                    ],
+                )
+                ->build(),
+            'geo-pair-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $chelyabinskRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'Челябинск')));
+        $yekaterinburgRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'Екатеринбург')));
+
+        $this->assertCount(1, $chelyabinskRows);
+        $this->assertStringContainsString('15', $chelyabinskRows[0]);
+        $this->assertStringNotContainsString('4', $chelyabinskRows[0]);
+        $this->assertCount(1, $yekaterinburgRows);
+        $this->assertStringContainsString('4', $yekaterinburgRows[0]);
+        $this->assertStringNotContainsString('Челябинск', $yekaterinburgRows[0]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
     /**
      * @param  list<string>  $tagNames
      */

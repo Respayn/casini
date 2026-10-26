@@ -5,6 +5,7 @@ namespace Src\Infrastructure\Reports\TemplateHandlers;
 use PhpOffice\PhpWord\TemplateProcessor;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportGenerationWarnings;
+use Src\Infrastructure\Reports\YandexMetrikaGeoVisits;
 use Src\Infrastructure\Reports\YandexMetrikaSearchQueries;
 use Src\Infrastructure\Reports\YandexSearchIndexedTags;
 
@@ -19,6 +20,7 @@ class YandexSearchLeftoverTagHandler implements TemplateHandlerInterface
             if (
                 ! YandexSearchIndexedTags::isSearchApiTag($variable)
                 && ! YandexMetrikaSearchQueries::isTag($variable)
+                && ! YandexMetrikaGeoVisits::isTag($variable)
             ) {
                 continue;
             }

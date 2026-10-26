@@ -1,4 +1,4 @@
-<x-panel.scroll-panel class="max-h-[500px]">
+<x-panel.scroll-panel style="max-height: 500px">
     <div class="flex min-w-[500px] flex-col gap-2">
         <span class="text-primary-text text-2xl font-semibold">Инструкция</span>
         <ol class="list-decimal py-1 pl-5">

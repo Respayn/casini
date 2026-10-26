@@ -108,6 +108,22 @@ final class ReportTagCatalog
             self::tag('ym.search_visits.performance', 'Выполнение плана посещаемости, например 70%', $metrika, ReportTagKind::Text, false, 'цифры'),
             self::tag('ym.table.visits_search_systems', 'Таблица визитов из поиска', $metrika, ReportTagKind::Table),
             self::tag('ym.table.visits_geo', 'Таблица визитов по географии', $metrika, ReportTagKind::Table),
+            self::tag(
+                'ym.visits_geo.city',
+                'Город из отчёта География. Ставят в одну строку таблицы Word рядом с числом переходов',
+                $metrika,
+                ReportTagKind::List,
+                false,
+                'текст',
+            ),
+            self::tag(
+                'ym.visits_geo.visits',
+                'Число переходов из этого города. Ставят в ту же строку, что и город',
+                $metrika,
+                ReportTagKind::List,
+                false,
+                'цифры',
+            ),
             self::tag('ym.table.visits_search_queries', 'Таблица визитов по запросам', $metrika, ReportTagKind::Table),
             self::tag(
                 'ym.search_queries.phrase',

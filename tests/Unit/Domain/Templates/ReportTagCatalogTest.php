@@ -142,6 +142,20 @@ class ReportTagCatalogTest extends TestCase
         );
         $this->assertSame('{{ym.search_queries.visits}}', $tags['ym.search_queries.visits']->placeholder());
         $this->assertSame('цифры', $tags['ym.search_queries.visits']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['ym.visits_geo.city']->kind);
+        $this->assertSame(
+            'Город из отчёта География. Ставят в одну строку таблицы Word рядом с числом переходов',
+            $tags['ym.visits_geo.city']->label,
+        );
+        $this->assertSame('{{ym.visits_geo.city}}', $tags['ym.visits_geo.city']->placeholder());
+        $this->assertSame('текст', $tags['ym.visits_geo.city']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['ym.visits_geo.visits']->kind);
+        $this->assertSame(
+            'Число переходов из этого города. Ставят в ту же строку, что и город',
+            $tags['ym.visits_geo.visits']->label,
+        );
+        $this->assertSame('{{ym.visits_geo.visits}}', $tags['ym.visits_geo.visits']->placeholder());
+        $this->assertSame('цифры', $tags['ym.visits_geo.visits']->parameterLabel());
         $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
         $this->assertSame(
             'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',
