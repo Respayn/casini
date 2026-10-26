@@ -2,6 +2,7 @@
 
 namespace Src\Infrastructure\Reports;
 
+use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use Illuminate\Support\Facades\Storage;
 use Src\Application\Reports\Generate\ReportData;
@@ -272,6 +273,15 @@ class ReportDataProvider implements ReportDataProviderInterface
             $visitsSearchQueriesStats = $this->yandexMetrikaRepository->getVisitsSearchQueriesStats($projectId, $period);
             $visitsSearchQueriesTable = $this->buildVisitsSearchQueriesTable($visitsSearchQueriesStats);
             $builder->table('ym.table.visits_search_queries', $visitsSearchQueriesTable['headers'], $visitsSearchQueriesTable['rows']);
+
+            $settings = $this->integrationProjectCredentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+            $useVisitors = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric($settings['visits_metric'] ?? null)
+                === YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS;
+            $builder->keywordPositionPair(
+                YandexMetrikaSearchQueries::PHRASE_KEY,
+                YandexMetrikaSearchQueries::VISITS_KEY,
+                YandexMetrikaSearchQueries::pairRows($visitsSearchQueriesStats, $useVisitors),
+            );
         });
 
         $this->safely($builder, 'Список выполненных работ не загружен', function () use ($builder, $projectId, $period): void {

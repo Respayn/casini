@@ -204,6 +204,50 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         }
     }
 
+    public function test_keeps_search_query_phrase_and_visits_on_the_same_row(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $row = $table->addRow();
+        $row->addCell()->addText('{{ym.search_queries.phrase}}');
+        $row->addCell()->addText('{{ym.search_queries.visits}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/search-queries-pair.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/search-queries-pair.docx',
+            ReportData::builder()
+                ->keywordPositionPair(
+                    'ym.search_queries.phrase',
+                    'ym.search_queries.visits',
+                    [
+                        ['phrase' => 'купить диван', 'position' => '15'],
+                        ['phrase' => 'шкаф', 'position' => '4'],
+                    ],
+                )
+                ->build(),
+            'search-queries-pair-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $sofaRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'купить диван')));
+        $wardrobeRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'шкаф')));
+
+        $this->assertCount(1, $sofaRows);
+        $this->assertStringContainsString('15', $sofaRows[0]);
+        $this->assertStringNotContainsString('4', $sofaRows[0]);
+        $this->assertCount(1, $wardrobeRows);
+        $this->assertStringContainsString('4', $wardrobeRows[0]);
+        $this->assertStringNotContainsString('купить диван', $wardrobeRows[0]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
     /**
      * @param  list<string>  $tagNames
      */

@@ -128,6 +128,20 @@ class ReportTagCatalogTest extends TestCase
         $this->assertSame('Выполнение плана посещаемости, например 70%', $tags['ym.search_visits.performance']->label);
         $this->assertSame('{{ym.search_visits.performance}}', $tags['ym.search_visits.performance']->placeholder());
         $this->assertSame('цифры', $tags['ym.search_visits.performance']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['ym.search_queries.phrase']->kind);
+        $this->assertSame(
+            'Поисковая фраза из отчёта Поисковые запросы. Ставят в одну строку таблицы Word рядом с числом переходов',
+            $tags['ym.search_queries.phrase']->label,
+        );
+        $this->assertSame('{{ym.search_queries.phrase}}', $tags['ym.search_queries.phrase']->placeholder());
+        $this->assertSame('текст', $tags['ym.search_queries.phrase']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['ym.search_queries.visits']->kind);
+        $this->assertSame(
+            'Число переходов этой фразы. Ставят в ту же строку, что и фразу',
+            $tags['ym.search_queries.visits']->label,
+        );
+        $this->assertSame('{{ym.search_queries.visits}}', $tags['ym.search_queries.visits']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_queries.visits']->parameterLabel());
         $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
         $this->assertSame(
             'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',
