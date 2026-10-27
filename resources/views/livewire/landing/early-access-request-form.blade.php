@@ -1,6 +1,6 @@
 <section
     class="early-access container"
-    id="early-access"
+    id="form"
 >
     <div class="early-access__left">
         <h2 class="section__title">Получите ранний доступ</h2>
@@ -114,25 +114,23 @@
                 value=""
                 wire:model="sourceBlock"
             >
-            <div class="form__actions">
-                <button
-                    class="form__btn"
-                    type="submit"
-                    x-bind:disabled="submitting || submitted"
-                    x-text="submitButtonText"
+            <button
+                class="form__btn"
+                type="submit"
+                x-bind:disabled="submitting || submitted"
+                x-text="submitButtonText"
+            >
+            </button>
+            <p class="early-access__disclaimer">
+                Нажимая на кнопку, я согласен(а) с
+                <a
+                    class="link"
+                    href="{{ route('privacy') }}"
+                    wire:navigate
                 >
-                </button>
-                <p class="early-access__disclaimer">
-                    Нажимая на кнопку, я согласен(а) с
-                    <a
-                        class="link"
-                        href="{{ route('privacy') }}"
-                        wire:navigate
-                    >
-                        политикой обработки персональных данных
-                    </a>
-                </p>
-            </div>
+                    политикой обработки персональных данных
+                </a>
+            </p>
         </form>
     </div>
 </section>

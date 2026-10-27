@@ -47,5 +47,25 @@
     <button class="btn btn--primary mm-cta" type="button" data-scroll-early>Получить ранний доступ</button>
     <a href="mailto:hello@casini.ru" class="mm-link">hello@casini.ru</a>
     <a href="/privacy" class="mm-link">Политика конфиденциальности</a>
+    <div class="mm-socials">
+      <a
+        class="mm-social"
+        href="https://vk.ru/kasini"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="ВКонтакте"
+      >
+        <img src="{{ asset('images/icons/vk.svg') }}" alt="" width="24" height="24">
+      </a>
+      <a
+        class="mm-social"
+        href="https://dzen.ru/casini"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Дзен"
+      >
+        <img src="{{ asset('images/icons/dzen.svg') }}" alt="" width="24" height="24">
+      </a>
+    </div>
   </div>
 </div>
