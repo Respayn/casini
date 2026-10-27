@@ -22,10 +22,6 @@
         </div>
     </div>
 
-    @error('delete')
-        <x-feedback.notice variant="error">{{ $message }}</x-feedback.notice>
-    @enderror
-
     @if (empty($this->templates))
         <div class="mt-20 flex flex-col items-center gap-4">
             <span class="text-caption-text">Нет шаблонов для отображения</span>
@@ -141,8 +137,8 @@
             <x-slot:body>
                 <div x-data="{ id: null }"
                     x-on:template-delete-ask.window="id = $event.detail.id; $dispatch('modal-show', { name: 'template-delete-confirm' })">
-                    <p class="text-primary-text">Шаблон будет удален. Шаблон, по которому уже созданы отчеты, удалить
-                        нельзя.</p>
+                    <p class="text-primary-text">Шаблон будет удален. Готовые отчеты останутся, их можно скачать в списке
+                        отчетов. Пересобрать отчет из этого шаблона уже не получится.</p>
                     <div class="mt-6 flex justify-between gap-4">
                         <x-button.button icon="icons.delete" label="Удалить" variant="primary"
                             x-on:click="$wire.delete(id); $dispatch('modal-hide', { name: 'template-delete-confirm' })" />

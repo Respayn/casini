@@ -4,10 +4,8 @@ namespace Src\Infrastructure\Persistence;
 
 use App\Models\Template as EloquentTemplate;
 use DateTimeImmutable;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Storage;
 use Src\Domain\Templates\Template;
-use Src\Domain\Templates\TemplateInUseException;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 
 class TemplateRepository implements TemplateRepositoryInterface
@@ -43,16 +41,8 @@ class TemplateRepository implements TemplateRepositoryInterface
 
     public function remove(Template $template): void
     {
-        try {
-            EloquentTemplate::destroy($template->getId());
-            Storage::delete($template->getPath());
-        } catch (QueryException $e) {
-            if ($e->getCode() === '23000') {
-                throw new TemplateInUseException;
-            }
-
-            throw $e;
-        }
+        EloquentTemplate::destroy($template->getId());
+        Storage::delete($template->getPath());
     }
 
     private function mapToEntity(EloquentTemplate $eloquentTemplate): Template

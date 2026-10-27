@@ -113,6 +113,7 @@ class ReportsCreatePageTest extends TestCase
         ]);
         $reportId = DB::table('reports')->insertGetId([
             'template_id' => $templateId,
+            'template_name' => 'Шаблон правки',
             'client_id' => $project->client_id,
             'project_id' => $project->id,
             'period_start' => '2026-09-01',
@@ -138,6 +139,53 @@ class ReportsCreatePageTest extends TestCase
         $component
             ->assertSee('Редактирование отчета')
             ->assertSee('Сформировать и скачать');
+    }
+
+    public function test_edit_form_asks_to_pick_another_template_if_original_deleted(): void
+    {
+        $user = $this->actingAsEditor();
+        $project = $this->createProject('Отчет без шаблона', $user->id);
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Удаляемый шаблон',
+            'path' => 'templates/deleted-report.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $otherTemplateId = DB::table('templates')->insertGetId([
+            'name' => 'Другой шаблон',
+            'path' => 'templates/other-report.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $reportId = DB::table('reports')->insertGetId([
+            'template_id' => $templateId,
+            'template_name' => 'Удаляемый шаблон',
+            'client_id' => $project->client_id,
+            'project_id' => $project->id,
+            'period_start' => '2026-09-01',
+            'period_end' => '2026-09-30',
+            'specialist_id' => $project->specialist_id,
+            'manager_id' => $user->id,
+            'format' => 'docx',
+            'created_by' => $user->id,
+            'path' => 'reports/deleted-template.docx',
+            'created_at' => '2026-10-15 12:00:00',
+            'updated_at' => '2026-10-15 12:00:00',
+        ]);
+
+        DB::table('templates')->where('id', $templateId)->delete();
+
+        $component = Livewire::test('pages::reports-create', ['reportId' => $reportId]);
+
+        $this->assertNull($component->get('templateId'));
+        $this->assertFalse($component->get('canSubmit'));
+        $component
+            ->assertSee('Шаблон этого отчета удалён. Чтобы пересобрать, выберите другой шаблон.')
+            ->assertSee('Другой шаблон');
+        $this->assertContains(
+            $otherTemplateId,
+            array_column($component->get('formData')->templates, 'value')
+        );
     }
 
     public function test_submit_stays_disabled_until_project_and_template_chosen(): void

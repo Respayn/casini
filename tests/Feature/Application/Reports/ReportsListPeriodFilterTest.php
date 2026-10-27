@@ -69,6 +69,27 @@ class ReportsListPeriodFilterTest extends TestCase
         $this->assertNotContains($otherReport, $ids);
     }
 
+    public function test_list_keeps_template_name_after_template_deleted(): void
+    {
+        $project = $this->createProject();
+        $reportId = $this->createReport($project, '2026-09-10 12:00:00');
+
+        DB::table('templates')->where('id', $this->templateId)->delete();
+
+        $list = $this->getList('2026-09-01 00:00:00', '2026-09-30 23:59:59');
+        $item = collect($list)->first(
+            fn (ReportListItemDto $report): bool => (int) $report->reportId === $reportId
+        );
+
+        $this->assertNotNull($item);
+        $this->assertSame('Шаблон для теста списка', $item->templateName);
+        $this->assertDatabaseHas('reports', [
+            'id' => $reportId,
+            'template_id' => null,
+            'template_name' => 'Шаблон для теста списка',
+        ]);
+    }
+
     /**
      * @return array<ReportListItemDto>
      */
@@ -110,6 +131,7 @@ class ReportsListPeriodFilterTest extends TestCase
     {
         return DB::table('reports')->insertGetId([
             'template_id' => $this->templateId,
+            'template_name' => 'Шаблон для теста списка',
             'client_id' => $project->client_id,
             'project_id' => $project->id,
             'period_start' => '2026-08-01',

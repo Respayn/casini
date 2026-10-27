@@ -38,6 +38,7 @@ class GenerateReportCommandHandler
             $report = $this->reportRepository->findById($command->reportId);
             $report->replace(
                 $template->getId(),
+                $template->getName(),
                 $project->getClientId(),
                 $project->getType(),
                 $project->getId(),
@@ -49,6 +50,7 @@ class GenerateReportCommandHandler
         } else {
             $report = Report::create(
                 $template->getId(),
+                $template->getName(),
                 $project->getClientId(),
                 $project->getType(),
                 $project->getId(),

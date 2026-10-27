@@ -27,6 +27,7 @@ class ReportRepository implements ReportRepositoryInterface
             $eloquentReport = EloquentReport::query()->findOrFail($reportId);
         }
         $eloquentReport->template_id = $report->getTemplateId();
+        $eloquentReport->template_name = $report->getTemplateName();
         $eloquentReport->client_id = $report->getClientId();
         $eloquentReport->project_id = $report->getProjectId();
         $eloquentReport->period_start = $report->getPeriodStart();
@@ -74,6 +75,7 @@ class ReportRepository implements ReportRepositoryInterface
             $eloquentReport->id,
             $eloquentReport->created_at,
             $eloquentReport->template_id,
+            (string) ($eloquentReport->template_name ?? ''),
             $eloquentReport->client_id,
             $eloquentReport->project->project_type,
             $eloquentReport->project_id,

@@ -19,17 +19,16 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
         DateTimeRange $period,
         ?int $userId,
         ?int $projectId = null,
-    ): array
-    {
+    ): array {
         $query = DB::table('reports')
-            ->join('templates', 'templates.id', '=', 'reports.template_id')
+            ->leftJoin('templates', 'templates.id', '=', 'reports.template_id')
             ->join('clients', 'clients.id', '=', 'reports.client_id')
             ->join('projects', 'projects.id', '=', 'reports.project_id')
             ->join('users as specialists', 'specialists.id', '=', 'reports.specialist_id');
 
         if ($projectId !== null) {
             $query = $query->where('projects.id', '=', $projectId);
-        } elseif (!$showInactiveProjects) {
+        } elseif (! $showInactiveProjects) {
             $query = $query->where('projects.is_active', '=', true);
         }
 
@@ -49,21 +48,22 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
                 'reports.is_ready',
                 'reports.is_accepted',
                 'reports.is_sent',
-                'templates.name as template_name',
+                'reports.template_name as stored_template_name',
+                'templates.name as live_template_name',
                 'clients.id as client_id',
                 'clients.name as client_name',
                 'projects.id as project_id',
                 'projects.name as project_name',
                 'projects.project_type as project_type',
                 'specialists.first_name as specialist_first_name',
-                'specialists.last_name as specialist_last_name'
+                'specialists.last_name as specialist_last_name',
             ])
             ->orderBy('reports.created_at', 'desc')
             ->get();
 
-        return $results->map(fn(object $row) => new ReportListItemDto(
+        return $results->map(fn (object $row) => new ReportListItemDto(
             new DateTimeImmutable($row->created_at),
-            $row->template_name,
+            $this->resolveTemplateName($row),
             $row->client_id,
             $row->client_name,
             $row->report_id,
@@ -72,12 +72,25 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
             $row->project_name,
             new DateTimeImmutable($row->period_start),
             new DateTimeImmutable($row->period_end),
-            $row->specialist_last_name . ' ' . mb_substr($row->specialist_first_name, 0, 1) . '.',
+            $row->specialist_last_name.' '.mb_substr($row->specialist_first_name, 0, 1).'.',
             ReportFormat::from($row->format)->value,
             $row->is_ready,
             $row->is_accepted,
             $row->is_sent
         ))->toArray();
+    }
+
+    private function resolveTemplateName(object $row): string
+    {
+        if (is_string($row->stored_template_name) && $row->stored_template_name !== '') {
+            return $row->stored_template_name;
+        }
+
+        if (is_string($row->live_template_name) && $row->live_template_name !== '') {
+            return $row->live_template_name;
+        }
+
+        return 'Шаблон удалён';
     }
 
     /**
@@ -92,7 +105,7 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
 
         $user = User::with('roles')->find($userId);
 
-        if (!$user) {
+        if (! $user) {
             return $query->whereRaw('1 = 0'); // Пользователь не найден - нет доступа
         }
 

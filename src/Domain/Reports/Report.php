@@ -11,7 +11,8 @@ class Report
     private function __construct(
         private ?int $id,
         private DateTimeImmutable $createdAt,
-        private int $templateId,
+        private ?int $templateId,
+        private string $templateName,
         private int $clientId,
         private ProjectType $projectType,
         private int $projectId,
@@ -28,6 +29,7 @@ class Report
 
     public static function create(
         int $templateId,
+        string $templateName,
         int $clientId,
         ProjectType $projectType,
         int $projectId,
@@ -45,6 +47,7 @@ class Report
             null,
             new DateTimeImmutable,
             $templateId,
+            $templateName,
             $clientId,
             $projectType,
             $projectId,
@@ -63,7 +66,8 @@ class Report
     public static function restore(
         int $id,
         DateTimeImmutable $createdAt,
-        int $templateId,
+        ?int $templateId,
+        string $templateName,
         int $clientId,
         ProjectType $projectType,
         int $projectId,
@@ -81,6 +85,7 @@ class Report
             $id,
             $createdAt,
             $templateId,
+            $templateName,
             $clientId,
             $projectType,
             $projectId,
@@ -106,9 +111,14 @@ class Report
         return $this->createdAt;
     }
 
-    public function getTemplateId(): int
+    public function getTemplateId(): ?int
     {
         return $this->templateId;
+    }
+
+    public function getTemplateName(): string
+    {
+        return $this->templateName;
     }
 
     public function getClientId(): int
@@ -208,6 +218,7 @@ class Report
 
     public function replace(
         int $templateId,
+        string $templateName,
         int $clientId,
         ProjectType $projectType,
         int $projectId,
@@ -217,6 +228,7 @@ class Report
         ReportFormat $format,
     ): void {
         $this->templateId = $templateId;
+        $this->templateName = $templateName;
         $this->clientId = $clientId;
         $this->projectType = $projectType;
         $this->projectId = $projectId;

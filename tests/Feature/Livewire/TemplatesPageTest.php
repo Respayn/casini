@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Livewire;
 
+use App\Models\Client;
+use App\Models\Project;
 use App\Models\User;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
@@ -10,6 +12,8 @@ use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Src\Application\Templates\TemplateTagReaderInterface;
+use Src\Domain\ValueObjects\Kpi;
+use Src\Domain\ValueObjects\ProjectType;
 use Tests\TestCase;
 
 class TemplatesPageTest extends TestCase
@@ -165,5 +169,54 @@ class TemplatesPageTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseHas('templates', ['id' => $templateId]);
+    }
+
+    public function test_full_user_can_delete_template_used_in_reports(): void
+    {
+        $user = User::query()->firstOrFail();
+        $client = Client::factory()->create([
+            'manager_id' => $user->id,
+        ]);
+        $project = Project::factory()->create([
+            'client_id' => $client->id,
+            'specialist_id' => $user->id,
+            'is_active' => true,
+            'project_type' => ProjectType::SEO_PROMOTION,
+            'kpi' => Kpi::TRAFFIC,
+        ]);
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Шаблон с отчетом',
+            'path' => 'templates/used.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $reportId = DB::table('reports')->insertGetId([
+            'template_id' => $templateId,
+            'template_name' => 'Шаблон с отчетом',
+            'client_id' => $project->client_id,
+            'project_id' => $project->id,
+            'period_start' => '2026-09-01',
+            'period_end' => '2026-09-30',
+            'specialist_id' => $project->specialist_id,
+            'manager_id' => $user->id,
+            'format' => 'docx',
+            'created_by' => $user->id,
+            'path' => 'reports/used.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Livewire::test('pages::templates')
+            ->assertDontSee('Нельзя удалить шаблон')
+            ->assertSee('Готовые отчеты останутся')
+            ->call('delete', $templateId)
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseMissing('templates', ['id' => $templateId]);
+        $this->assertDatabaseHas('reports', [
+            'id' => $reportId,
+            'template_id' => null,
+            'template_name' => 'Шаблон с отчетом',
+        ]);
     }
 }

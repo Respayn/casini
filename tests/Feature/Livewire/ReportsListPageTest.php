@@ -208,6 +208,7 @@ class ReportsListPageTest extends TestCase
 
         $reportId = DB::table('reports')->insertGetId([
             'template_id' => $templateId,
+            'template_name' => 'Шаблон для действий',
             'client_id' => $project->client_id,
             'project_id' => $project->id,
             'period_start' => '2026-09-01',

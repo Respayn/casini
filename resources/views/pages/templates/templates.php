@@ -9,7 +9,6 @@ use Src\Application\Templates\Download\DownloadTemplateFileQuery;
 use Src\Application\Templates\Download\DownloadTemplateFileQueryHandler;
 use Src\Application\Templates\GetList\GetTemplatesListQuery;
 use Src\Application\Templates\GetList\GetTemplatesListQueryHandler;
-use Src\Domain\Templates\TemplateInUseException;
 
 new
     #[Title('Шаблоны отчетов - Casini')]
@@ -61,13 +60,8 @@ new
         public function delete(DeleteTemplateCommandHandler $command, int $templateId)
         {
             $this->ensureCanDeleteTemplates();
-            $this->resetErrorBag();
 
-            try {
-                $command->handle(new DeleteTemplateCommand($templateId));
-            } catch (TemplateInUseException $e) {
-                $this->addError('delete', $e->getMessage());
-            }
+            $command->handle(new DeleteTemplateCommand($templateId));
         }
 
         private function ensureCanDeleteTemplates(): void

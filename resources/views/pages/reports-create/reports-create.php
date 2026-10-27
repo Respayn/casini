@@ -253,7 +253,25 @@ class extends Component
             return 'Нет доступных шаблонов. Загрузите шаблон на странице «Шаблоны», затем вернитесь сюда.';
         }
 
+        if ($this->editingReportId !== null && $this->isSelectedTemplateMissing()) {
+            return 'Шаблон этого отчета удалён. Чтобы пересобрать, выберите другой шаблон.';
+        }
+
         return null;
+    }
+
+    private function isSelectedTemplateMissing(): bool
+    {
+        if ($this->templateId === null) {
+            return true;
+        }
+
+        $templateIds = array_map(
+            static fn (array $option): int => (int) $option['value'],
+            $this->formData->templates,
+        );
+
+        return ! in_array($this->templateId, $templateIds, true);
     }
 
     #[Computed]
