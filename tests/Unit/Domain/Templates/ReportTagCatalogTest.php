@@ -156,6 +156,14 @@ class ReportTagCatalogTest extends TestCase
         );
         $this->assertSame('{{ym.visits_geo.visits}}', $tags['ym.visits_geo.visits']->placeholder());
         $this->assertSame('цифры', $tags['ym.visits_geo.visits']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['ym.goals_yandex.name']->kind);
+        $this->assertSame('текст', $tags['ym.goals_yandex.name']->parameterLabel());
+        $this->assertSame('цифры', $tags['ym.goals_yandex.value']->parameterLabel());
+        $this->assertSame(ReportTagKind::Text, $tags['ym.goals_yandex.total']->kind);
+        $this->assertSame('цифры', $tags['ym.goals_yandex.total']->parameterLabel());
+        $this->assertSame('текст', $tags['ym.goals_google.name']->parameterLabel());
+        $this->assertSame('цифры', $tags['ym.goals_google.value']->parameterLabel());
+        $this->assertSame('цифры', $tags['ym.goals_google.total']->parameterLabel());
         $this->assertSame(ReportTagKind::List, $tags['bitrix24.worklist']->kind);
         $this->assertSame(
             'Закрытые пункты чек-листа задачи месяца и комментарии со спецсимволом 💪',

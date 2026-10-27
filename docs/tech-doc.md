@@ -479,7 +479,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 - проекты с включённой Метрикой, `reports.goals_search_engines`, токеном, счётчиком, целями и `sync_enabled_at`;
 - период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
-- запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits`.
+- запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits` (сумма выбранных целей по поисковику);
+- отдельно в `yandex_metrika_search_engine_goals` каждая выбранная цель по Яндексу и Google за каждый месяц съёма, в том числе с нулём. Название цели берётся из `getGoals()` в момент съёма, иначе «Цель {id}».
+
+В Word список целей: `{{ym.goals_yandex.name}}` / `{{ym.goals_yandex.value}}` и `{{ym.goals_google.name}}` / `{{ym.goals_google.value}}` в одной строке таблицы (копируется целиком). Итог ниже: `{{ym.goals_yandex.total}}` и `{{ym.goals_google.total}}`. Месяц в шапке: `{{period_month}}`. В списке только цели, отмеченные в интеграции. Живые таблицы `{{ym.table.goals_search_engines}}`, `.yandex` и `.google` остаются.
 
 Ошибка по одному проекту не останавливает остальные.
 

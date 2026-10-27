@@ -3,6 +3,7 @@
 namespace App\Services\YandexMetrika;
 
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
+use App\Enums\YandexMetrikaSearchEngine;
 use App\Repositories\AgencyRepository;
 use App\Repositories\IntegrationRepository;
 use App\Services\IntegrationSync\YandexMetrikaSyncPeriod;
@@ -163,6 +164,9 @@ class YandexMetrikaReportsSync
         match ($report) {
             self::GOALS_SEARCH_ENGINES => $this->saveSearchEnginesGoals(
                 $projectId,
+                $goalIds,
+                $from,
+                $to,
                 $this->metrikaService->fetchSearchEnginesGoalsStats(
                     $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
                 ),
@@ -201,13 +205,99 @@ class YandexMetrikaReportsSync
     }
 
     /**
-     * @param  list<array{search_engine: string, month: string, value: int}>  $rows
+     * @param  list<int>  $goalIds
+     * @param  list<array{search_engine: string, month: string, goal_id: int, value: int}>  $rows
      */
-    private function saveSearchEnginesGoals(int $projectId, array $rows): void
+    private function saveSearchEnginesGoals(int $projectId, array $goalIds, Carbon $from, Carbon $to, array $rows): void
     {
+        $engineTotals = [];
+        $byGoal = [];
+
         foreach ($rows as $row) {
-            $this->repository->upsertSearchEnginesConversions($projectId, $row['search_engine'], $row['month'], $row['value']);
+            $engineKey = $row['search_engine'].'|'.$row['month'];
+            $engineTotals[$engineKey] = ($engineTotals[$engineKey] ?? [
+                'search_engine' => $row['search_engine'],
+                'month' => $row['month'],
+                'value' => 0,
+            ]);
+            $engineTotals[$engineKey]['value'] += $row['value'];
+
+            $goalKey = $row['search_engine'].'|'.$row['month'].'|'.$row['goal_id'];
+            $byGoal[$goalKey] = ($byGoal[$goalKey] ?? 0) + $row['value'];
         }
+
+        foreach ($engineTotals as $row) {
+            $this->repository->upsertSearchEnginesConversions(
+                $projectId,
+                $row['search_engine'],
+                $row['month'],
+                $row['value']
+            );
+        }
+
+        $names = $this->goalNames($goalIds);
+        $engines = [YandexMetrikaSearchEngine::YANDEX->value, YandexMetrikaSearchEngine::GOOGLE->value];
+
+        foreach ($this->monthsInRange($from, $to) as $month) {
+            foreach ($engines as $engine) {
+                foreach ($goalIds as $goalId) {
+                    $this->repository->upsertSearchEngineGoal(
+                        $projectId,
+                        $engine,
+                        $goalId,
+                        $names[$goalId] ?? ('Цель '.$goalId),
+                        $month,
+                        $byGoal[$engine.'|'.$month.'|'.$goalId] ?? 0
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * @param  list<int>  $goalIds
+     * @return array<int, string>
+     */
+    private function goalNames(array $goalIds): array
+    {
+        $names = [];
+        foreach ($goalIds as $goalId) {
+            $names[$goalId] = 'Цель '.$goalId;
+        }
+
+        try {
+            foreach ($this->metrikaService->listGoalOptions() as $option) {
+                $id = (int) ($option['id'] ?? 0);
+                if (! isset($names[$id])) {
+                    continue;
+                }
+
+                $name = trim((string) ($option['name'] ?? ''));
+                if ($name !== '') {
+                    $names[$id] = $name;
+                }
+            }
+        } catch (Throwable) {
+        }
+
+        return $names;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function monthsInRange(Carbon $from, Carbon $to): array
+    {
+        $months = [];
+        $current = $from->copy()->startOfMonth();
+        $end = $to->copy()->startOfMonth();
+
+        while ($current->lte($end)) {
+            $months[] = $current->toDateString();
+            $current->addMonth();
+        }
+
+        return $months;
     }
 
     /**

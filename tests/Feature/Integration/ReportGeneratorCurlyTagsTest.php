@@ -292,6 +292,52 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
     }
 
+    public function test_keeps_yandex_goal_name_and_value_on_the_same_row(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $row = $table->addRow();
+        $row->addCell()->addText('{{ym.goals_yandex.name}}');
+        $row->addCell()->addText('{{ym.goals_yandex.value}}');
+        $section->addText('{{ym.goals_yandex.total}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/goals-pair.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/goals-pair.docx',
+            ReportData::builder()
+                ->keywordPositionPair(
+                    'ym.goals_yandex.name',
+                    'ym.goals_yandex.value',
+                    [
+                        ['phrase' => 'Заявка', 'position' => '15'],
+                        ['phrase' => 'Звонок', 'position' => '0'],
+                    ],
+                )
+                ->value('ym.goals_yandex.total', '15')
+                ->build(),
+            'goals-pair-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $leadRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'Заявка')));
+        $callRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'Звонок')));
+
+        $this->assertCount(1, $leadRows);
+        $this->assertStringContainsString('15', $leadRows[0]);
+        $this->assertStringNotContainsString('Звонок', $leadRows[0]);
+        $this->assertCount(1, $callRows);
+        $this->assertStringContainsString('0', $callRows[0]);
+        $this->assertStringNotContainsString('Заявка', $callRows[0]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
     /**
      * @param  list<string>  $tagNames
      */

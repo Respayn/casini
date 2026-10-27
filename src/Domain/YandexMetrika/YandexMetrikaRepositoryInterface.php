@@ -42,9 +42,28 @@ interface YandexMetrikaRepositoryInterface
     public function getVisitsSearchQueriesStats(int $projectId, DateTimeRange $period): array;
 
     /**
+     * Получает достижения выбранных целей по поисковым системам за период.
+     *
+     * @return YandexMetrikaSearchEngineGoal[]
+     */
+    public function getSearchEngineGoals(int $projectId, DateTimeRange $period): array;
+
+    /**
      * Сохраняет конверсии из отчёта «Поисковые системы», не затирая визиты.
      */
     public function upsertSearchEnginesConversions(int $projectId, string $searchEngine, string $month, int $conversions): void;
+
+    /**
+     * Сохраняет число одной цели по поисковику за месяц.
+     */
+    public function upsertSearchEngineGoal(
+        int $projectId,
+        string $searchEngine,
+        int $goalId,
+        string $goalName,
+        string $month,
+        int $conversions
+    ): void;
 
     /**
      * Сохраняет визиты/переходы из отчёта «Поисковые системы», не затирая конверсии.

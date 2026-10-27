@@ -272,7 +272,7 @@ class YandexMetrikaService
     /**
      * @param  list<int|string>  $goalIds
      * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
-     * @return list<array{search_engine: string, month: string, value: int}>
+     * @return list<array{search_engine: string, month: string, goal_id: int, value: int}>
      */
     public function fetchSearchEnginesGoalsStats(
         Carbon $dateFrom,
@@ -323,7 +323,7 @@ class YandexMetrikaService
 
             $response = $this->getClient()->getVisitsReport($params);
 
-            return $this->aggregateSearchEnginesGoalRows($response, $dateFrom, $includeMonth);
+            return $this->aggregateSearchEnginesGoalRows($response, $dateFrom, $includeMonth, $normalizedGoalIds);
         } catch (\InvalidArgumentException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -841,10 +841,15 @@ class YandexMetrikaService
 
     /**
      * @param  array<string, mixed>  $response
-     * @return list<array{search_engine: string, month: string, value: int}>
+     * @param  list<int>  $goalIds
+     * @return list<array{search_engine: string, month: string, goal_id: int, value: int}>
      */
-    private function aggregateSearchEnginesGoalRows(array $response, Carbon $fallbackDate, bool $includeMonth): array
-    {
+    private function aggregateSearchEnginesGoalRows(
+        array $response,
+        Carbon $fallbackDate,
+        bool $includeMonth,
+        array $goalIds
+    ): array {
         $aggregated = [];
 
         foreach ($response['data'] ?? [] as $row) {
@@ -860,21 +865,29 @@ class YandexMetrikaService
                 ? (string) ($dimensions[1]['name'] ?? '')
                 : '';
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
-            $value = (int) round(array_sum(array_map('floatval', $metrics)));
 
             $engine = YandexMetrikaSearchEngine::fromApiName($engineName)->value;
             $month = $this->parseMonthDimension($monthName, $fallbackDate);
-            $key = $engine.'|'.$month;
 
-            if (! isset($aggregated[$key])) {
-                $aggregated[$key] = [
-                    'search_engine' => $engine,
-                    'month' => $month,
-                    'value' => 0,
-                ];
+            foreach ($goalIds as $index => $goalId) {
+                if (! array_key_exists($index, $metrics)) {
+                    continue;
+                }
+
+                $value = (int) round((float) $metrics[$index]);
+                $key = $engine.'|'.$month.'|'.$goalId;
+
+                if (! isset($aggregated[$key])) {
+                    $aggregated[$key] = [
+                        'search_engine' => $engine,
+                        'month' => $month,
+                        'goal_id' => $goalId,
+                        'value' => 0,
+                    ];
+                }
+
+                $aggregated[$key]['value'] += $value;
             }
-
-            $aggregated[$key]['value'] += $value;
         }
 
         return array_values($aggregated);

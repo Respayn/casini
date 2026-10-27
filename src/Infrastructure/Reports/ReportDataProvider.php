@@ -233,6 +233,29 @@ class ReportDataProvider implements ReportDataProviderInterface
 
             $googleTable = $this->buildSingleSearchEngineTable($searchEnginesStats, $period, 'google');
             $builder->table('ym.table.goals_search_engines.google', $googleTable['headers'], $googleTable['rows']);
+
+            $settings = $this->integrationProjectCredentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+            $selectedGoalIds = YandexMetrikaIntegrationSettingsData::normalizeGoalIds($settings['goals'] ?? []);
+            $goalStats = $this->yandexMetrikaRepository->getSearchEngineGoals($projectId, $period);
+
+            $builder->keywordPositionPair(
+                YandexMetrikaSearchEngineGoals::YANDEX_NAME_KEY,
+                YandexMetrikaSearchEngineGoals::YANDEX_VALUE_KEY,
+                YandexMetrikaSearchEngineGoals::pairRows($goalStats, 'yandex', $selectedGoalIds),
+            );
+            $builder->value(
+                YandexMetrikaSearchEngineGoals::YANDEX_TOTAL_KEY,
+                (string) YandexMetrikaSearchEngineGoals::total($goalStats, 'yandex', $selectedGoalIds),
+            );
+            $builder->keywordPositionPair(
+                YandexMetrikaSearchEngineGoals::GOOGLE_NAME_KEY,
+                YandexMetrikaSearchEngineGoals::GOOGLE_VALUE_KEY,
+                YandexMetrikaSearchEngineGoals::pairRows($goalStats, 'google', $selectedGoalIds),
+            );
+            $builder->value(
+                YandexMetrikaSearchEngineGoals::GOOGLE_TOTAL_KEY,
+                (string) YandexMetrikaSearchEngineGoals::total($goalStats, 'google', $selectedGoalIds),
+            );
         });
 
         $this->safely($builder, 'Данные UTM-целей Яндекс.Метрики не загружены', function () use ($builder, $projectId, $period, &$goalsUtmStats): void {

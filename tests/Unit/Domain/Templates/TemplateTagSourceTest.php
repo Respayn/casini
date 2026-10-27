@@ -32,6 +32,8 @@ class TemplateTagSourceTest extends TestCase
             ['ym.search_visits.yandex', TemplateTagSource::YANDEX_METRIKA],
             ['ym.search_queries.phrase', TemplateTagSource::YANDEX_METRIKA],
             ['ym.visits_geo.city', TemplateTagSource::YANDEX_METRIKA],
+            ['ym.goals_yandex.name', TemplateTagSource::YANDEX_METRIKA],
+            ['ym.goals_google.total', TemplateTagSource::YANDEX_METRIKA],
             ['bitrix24.worklist', TemplateTagSource::BITRIX24],
             ['client_name', TemplateTagSource::UNKNOWN],
         ];
