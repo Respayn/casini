@@ -11,6 +11,26 @@
                 href="{{ route('privacy') }}"
                 wire:navigate
             >Политика конфиденциальности</a>
+            <div class="footer__socials">
+                <a
+                    class="footer__social"
+                    href="https://vk.ru/kasini"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="ВКонтакте"
+                >
+                    <img src="{{ asset('images/icons/vk.svg') }}" alt="" width="24" height="24">
+                </a>
+                <a
+                    class="footer__social"
+                    href="https://dzen.ru/casini"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Дзен"
+                >
+                    <img src="{{ asset('images/icons/dzen.svg') }}" alt="" width="24" height="24">
+                </a>
+            </div>
         </div>
         <div class="footer__col">
             <h3>Подпишитесь на новости</h3>
