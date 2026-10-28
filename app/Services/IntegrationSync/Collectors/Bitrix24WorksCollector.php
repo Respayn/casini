@@ -112,9 +112,9 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
                     return false;
                 }
 
-                $taskMonth = Bitrix24TaskSelection::reportMonth($task['title'], $periodStart)->startOfDay();
+                $taskMonth = Bitrix24TaskSelection::reportMonth($task['title'], $periodStart);
 
-                return ! $taskMonth->lt($fromMonth) && ! $taskMonth->gt($toMonth);
+                return Bitrix24TaskSelection::monthInRange($taskMonth, $fromMonth, $toMonth);
             },
         ));
 

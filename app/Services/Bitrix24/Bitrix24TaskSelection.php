@@ -113,4 +113,14 @@ final class Bitrix24TaskSelection
 
         return $candidates[0];
     }
+
+    /**
+     * Сравнение календарных месяцев, без сдвига из-за часового пояса агентства и приложения.
+     */
+    public static function monthInRange(Carbon $month, Carbon $from, Carbon $to): bool
+    {
+        $value = $month->format('Y-m');
+
+        return $value >= $from->format('Y-m') && $value <= $to->format('Y-m');
+    }
 }

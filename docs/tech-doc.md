@@ -900,7 +900,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
 | `yandex_search_api_daily_positions` | `yandex_search_api` | `serp_positions` + `yandex_search_api_daily_top_percents` | Статистика: «% позиций в ТОП» (SEO + POSITIONS) |
 | `bitrix24_labor` | `bitrix24` | `bitrix24_daily_labor` | Каналы: часы ролей (SEO-специалист, помощник, аналитик, ОРК) |
-| `bitrix24_works` | `bitrix24` | `completed_works` | Отчёты: список `{{bitrix24.worklist}}` (закрытые пункты чек-листа задачи месяца + комментарии 💪 при включённом разборе) |
+| `bitrix24_works` | `bitrix24` | `completed_works` | Отчёты: список `{{bitrix24.worklist}}` (закрытые пункты чек-листа задачи месяца + комментарии 💪 при включённом разборе). Месяц задачи сравнивается как календарный `Y-m` (`Bitrix24TaskSelection::monthInRange`), без `lt`/`gt` по поясам приложения и агентства. `completed_works.title` - TEXT, чтобы длинные пункты чек-листа не обрезались |
 | `yandex_metrika` | `yandex_metrika` | `yandex_metrika_*` (суммы за месяц) | Отчёты, переменные `ym.*`. Все включённые отчёты проекта за один item. Ночью: месяц вчерашней даты с 1-го числа по вчера (`YandexMetrikaSyncPeriod->nightly`, результат `DateTimeRange`), прошлые месяцы не перекачиваются; ручное обновление и backfill: все месяцы периода, не раньше месяца `sync_enabled_at` |
 | `google_sheets` | `google_sheets` | `google_sheets_monthly_spendings` | Каналы: «Программинг», «Копирайтер». Ночью только открытый месяц по поясу агентства (в ночь на 1-е это уже новый месяц), закрытые не трогаем; ручное обновление и backfill: месяц конца периода, в том числе закрытый |
 

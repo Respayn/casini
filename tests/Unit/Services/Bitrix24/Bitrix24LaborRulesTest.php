@@ -57,6 +57,21 @@ class Bitrix24LaborRulesTest extends TestCase
         $this->assertSame('2027-01-01', Bitrix24TaskSelection::reportMonth('SEO январь', Carbon::parse('2026-12-28'))->toDateString());
     }
 
+    public function test_month_range_ignores_agency_timezone_offset(): void
+    {
+        $taskMonth = Carbon::parse('2026-09-01 00:00:00', 'UTC');
+        $from = Carbon::parse('2026-09-01 00:00:00', 'Europe/Moscow')->startOfMonth();
+        $to = Carbon::parse('2026-09-30 00:00:00', 'Europe/Moscow')->startOfMonth();
+
+        $this->assertTrue(Bitrix24TaskSelection::monthInRange($taskMonth, $from, $to));
+
+        $oldMatch = ! $taskMonth->copy()->startOfDay()->lt($from)
+            && ! $taskMonth->copy()->startOfDay()->gt($to);
+        if ($from->utcOffset() !== $taskMonth->utcOffset()) {
+            $this->assertFalse($oldMatch);
+        }
+    }
+
     public function test_analyst_rate_wins_over_project_role(): void
     {
         $role = Bitrix24LaborRoleResolver::resolve(5, 'Ставка Аналитика', specialistId: 5, managerId: 5, assistantIds: [5]);
