@@ -17,7 +17,8 @@ class EloquentCompletedWorkRepository implements CompletedWorkRepositoryInterfac
         $works = EloquentCompletedWork::query()
             ->where('project_id', $projectId)
             ->whereBetween('completed_at', [$period->start, $period->end])
-            ->orderBy('completed_at')
+            ->orderBy('sort_order')
+            ->orderBy('id')
             ->get();
 
         return $works->map(fn (EloquentCompletedWork $work) => $this->mapToEntity($work))->all();
@@ -30,6 +31,8 @@ class EloquentCompletedWorkRepository implements CompletedWorkRepositoryInterfac
                 'project_id' => $projectId,
                 'title' => $work['title'],
                 'completed_at' => $work['completed_at']->format('Y-m-d'),
+                'sort_order' => (int) ($work['sort_order'] ?? 0),
+                'depth' => (int) ($work['depth'] ?? 0),
             ]);
         }
     }
@@ -50,7 +53,9 @@ class EloquentCompletedWorkRepository implements CompletedWorkRepositoryInterfac
             $work->id,
             $work->project_id,
             $work->title,
-            \DateTimeImmutable::createFromMutable($work->completed_at)
+            \DateTimeImmutable::createFromMutable($work->completed_at),
+            (int) $work->depth,
+            (int) $work->sort_order,
         );
     }
 }

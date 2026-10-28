@@ -145,7 +145,7 @@ class Bitrix24Client
     /**
      * Пункты чек-листа задачи.
      *
-     * @return list<array{title: string, is_complete: bool, toggled_at: ?Carbon}>
+     * @return list<array{id: int, parent_id: int, sort_index: int, title: string, is_complete: bool, toggled_at: ?Carbon}>
      */
     public function taskChecklist(string $webhook, int $taskId): array
     {
@@ -153,17 +153,25 @@ class Bitrix24Client
 
         $response = $this->call($webhook, 'task.checklistitem.getlist', [
             $taskId,
-            ['ID' => 'asc'],
+            ['SORT_INDEX' => 'asc'],
         ]);
 
-        foreach ($this->commentRows($response['result'] ?? null) as $row) {
+        foreach ($this->commentRows($response['result'] ?? null) as $index => $row) {
             $title = trim((string) ($row['TITLE'] ?? $row['title'] ?? ''));
 
             if ($title === '') {
                 continue;
             }
 
+            $id = (int) ($row['ID'] ?? $row['id'] ?? 0);
+            if ($id <= 0) {
+                $id = -($index + 1);
+            }
+
             $items[] = [
+                'id' => $id,
+                'parent_id' => (int) ($row['PARENT_ID'] ?? $row['parentId'] ?? $row['PARENTID'] ?? 0),
+                'sort_index' => (int) ($row['SORT_INDEX'] ?? $row['sortIndex'] ?? $row['SORT'] ?? $row['sort'] ?? $id),
                 'title' => $title,
                 'is_complete' => Bitrix24WorkParser::isChecklistComplete($row['IS_COMPLETE'] ?? $row['isComplete'] ?? false),
                 'toggled_at' => self::optionalDate($row['TOGGLED_DATE'] ?? $row['toggledDate'] ?? null),

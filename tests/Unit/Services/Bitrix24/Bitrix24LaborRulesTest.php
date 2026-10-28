@@ -49,6 +49,7 @@ class Bitrix24LaborRulesTest extends TestCase
         $this->assertSame('2026-08-01', Bitrix24TaskSelection::reportMonth('КР: отчёт за Август', $workDate)->toDateString());
         $this->assertSame('2026-05-01', Bitrix24TaskSelection::reportMonth('Правки в мае 2026', $workDate)->toDateString());
         $this->assertSame('2026-09-01', Bitrix24TaskSelection::reportMonth('SEO: маяк и мартышка', $workDate)->toDateString());
+        $this->assertSame('2022-09-01', Bitrix24TaskSelection::reportMonth('SEO корп - ежемесячно: сентябрь (1) 2022', $workDate)->toDateString());
     }
 
     public function test_report_month_without_year_takes_nearest_year(): void

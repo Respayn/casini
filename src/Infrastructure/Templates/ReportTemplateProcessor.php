@@ -100,11 +100,65 @@ class ReportTemplateProcessor extends TemplateProcessor
         $xml = $this->getSlice($block['start'], $block['end']);
         $parts = [];
         foreach ($values as $value) {
-            $escaped = htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $raw = (string) $value;
+            $depth = 0;
+            while (str_starts_with($raw, "\t")) {
+                $depth++;
+                $raw = substr($raw, 1);
+            }
+
+            $escaped = htmlspecialchars($raw, ENT_XML1 | ENT_QUOTES, 'UTF-8');
             $escaped = str_replace(["\r\n", "\r", "\n"], '</w:t><w:br/><w:t>', $escaped);
-            $parts[] = str_replace($completed, $escaped, $xml);
+            $parts[] = $this->paragraphWithIndent(str_replace($completed, $escaped, $xml), $depth);
         }
 
         $this->tempDocumentMainPart = $this->getSlice(0, $block['start']).implode('', $parts).$this->getSlice($block['end']);
+    }
+
+    private function paragraphWithIndent(string $xml, int $depth): string
+    {
+        if ($depth < 1) {
+            return $xml;
+        }
+
+        $delta = $depth * 360;
+
+        $xml = preg_replace_callback(
+            '/<w:ilvl w:val="(\d+)"\s*\/>/',
+            static fn (array $match): string => '<w:ilvl w:val="'.((int) $match[1] + $depth).'"/>',
+            $xml,
+            1,
+        ) ?? $xml;
+
+        $replacedIndent = false;
+        $xml = preg_replace_callback(
+            '/<w:ind\b([^>]*)\/>/',
+            static function (array $match) use ($delta, &$replacedIndent): string {
+                $replacedIndent = true;
+                $attrs = $match[1];
+                if (preg_match('/w:left="(\d+)"/', $attrs, $left) === 1) {
+                    $attrs = preg_replace('/w:left="\d+"/', 'w:left="'.((int) $left[1] + $delta).'"', $attrs, 1);
+                } else {
+                    $attrs .= ' w:left="'.$delta.'"';
+                }
+
+                return '<w:ind'.$attrs.'/>';
+            },
+            $xml,
+            1,
+        ) ?? $xml;
+
+        if ($replacedIndent) {
+            return $xml;
+        }
+
+        $indent = '<w:ind w:left="'.$delta.'"/>';
+        if (preg_match('/<w:pPr\b[^>]*>/', $xml, $match, PREG_OFFSET_CAPTURE) === 1) {
+            $offset = $match[0][1] + strlen($match[0][0]);
+
+            return substr($xml, 0, $offset).$indent.substr($xml, $offset);
+        }
+
+        return preg_replace('/<w:p\b[^>]*>/', '$0<w:pPr>'.$indent.'</w:pPr>', $xml, 1) ?? $xml;
     }
 }

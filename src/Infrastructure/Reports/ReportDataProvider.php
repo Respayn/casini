@@ -324,7 +324,7 @@ class ReportDataProvider implements ReportDataProviderInterface
         $this->safely($builder, 'Список выполненных работ не загружен', function () use ($builder, $projectId, $period): void {
             $completedWorks = $this->completedWorkRepository->findByProjectId($projectId, $period);
             $completedWorksList = array_map(
-                fn ($work) => $work->getTitle(),
+                fn ($work) => str_repeat("\t", $work->getDepth()).$work->getTitle(),
                 $completedWorks
             );
             $builder->list('bitrix24.worklist', $completedWorksList);

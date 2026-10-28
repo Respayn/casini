@@ -7,6 +7,7 @@ use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
 use App\Models\Project;
 use App\Services\Bitrix24\Bitrix24ApiException;
+use App\Services\Bitrix24\Bitrix24ChecklistTree;
 use App\Services\Bitrix24\Bitrix24Client;
 use App\Services\Bitrix24\Bitrix24TaskSelection;
 use App\Services\Bitrix24\Bitrix24WorkParser;
@@ -91,7 +92,7 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
 
     /**
      * @param  array{webhook: string, root_task_id: int, search_query: string, timezone: string, parse_comment_works: bool}  $settings
-     * @return list<array{title: string, completed_at: DateTimeImmutable}>
+     * @return list<array{title: string, completed_at: DateTimeImmutable, sort_order: int, depth: int}>
      */
     private function fetchWorks(array $settings, string $fromDate, string $toDate): array
     {
@@ -120,9 +121,10 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
 
         $works = [];
         $seen = [];
+        $sortOrder = 0;
 
         foreach ($monthTasks as $task) {
-            foreach ($this->client->taskChecklist($settings['webhook'], $task['id']) as $item) {
+            foreach (Bitrix24ChecklistTree::inDisplayOrder($this->client->taskChecklist($settings['webhook'], $task['id'])) as $item) {
                 if (! $item['is_complete']) {
                     continue;
                 }
@@ -133,7 +135,7 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
                     $day = $fromDate;
                 }
 
-                $this->pushWork($works, $seen, $item['title'], $day);
+                $this->pushWork($works, $seen, $item['title'], $day, $item['depth'], $sortOrder);
             }
 
             if (! $settings['parse_comment_works']) {
@@ -148,7 +150,7 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
                 }
 
                 foreach (Bitrix24WorkParser::fromComment($comment['text']) as $title) {
-                    $this->pushWork($works, $seen, $title, $day);
+                    $this->pushWork($works, $seen, $title, $day, 0, $sortOrder);
                 }
             }
         }
@@ -157,10 +159,10 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
     }
 
     /**
-     * @param  list<array{title: string, completed_at: DateTimeImmutable}>  $works
+     * @param  list<array{title: string, completed_at: DateTimeImmutable, sort_order: int, depth: int}>  $works
      * @param  array<string, true>  $seen
      */
-    private function pushWork(array &$works, array &$seen, string $title, string $day): void
+    private function pushWork(array &$works, array &$seen, string $title, string $day, int $depth, int &$sortOrder): void
     {
         $title = trim($title);
 
@@ -178,7 +180,10 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
         $works[] = [
             'title' => $title,
             'completed_at' => new DateTimeImmutable($day),
+            'sort_order' => $sortOrder,
+            'depth' => max(0, $depth),
         ];
+        $sortOrder++;
     }
 
     private function failure(int $projectId, string $fromDate, string $toDate, string $message): IntegrationSyncResult

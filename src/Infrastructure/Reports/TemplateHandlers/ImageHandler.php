@@ -9,6 +9,12 @@ use Src\Application\Reports\Generate\ReportTemplateLabels;
 
 class ImageHandler implements TemplateHandlerInterface
 {
+    /**
+     * PhpWord без размера ставит 115x70 px: фото менеджера сжимается в значок.
+     * Если в теге уже есть размер ({{manager_photo:2cm:2cm}}), оставляем его.
+     */
+    public const DEFAULT_SIZE = '3.5cm';
+
     public function handle(
         TemplateProcessor $templateProcessor,
         ReportData $data,
@@ -29,13 +35,32 @@ class ImageHandler implements TemplateHandlerInterface
             }
 
             try {
-                $templateProcessor->setImageValue($key, $image);
+                $templateProcessor->setImageValue($key, $this->imageValue($templateProcessor, $key, $image));
             } catch (\Throwable $e) {
                 report($e);
                 $warnings->add(ReportTemplateLabels::label($key).' не вставлен: файл повреждён или не подходит');
                 $this->clearPlaceholder($templateProcessor, $key);
             }
         }
+    }
+
+    /**
+     * @return string|array{path: string, width?: string, height?: string, ratio?: bool}
+     */
+    private function imageValue(TemplateProcessor $templateProcessor, string $key, string $image): array|string
+    {
+        foreach ($templateProcessor->getVariables() as $variable) {
+            if ($variable !== $key && str_starts_with($variable, $key.':')) {
+                return $image;
+            }
+        }
+
+        return [
+            'path' => $image,
+            'width' => self::DEFAULT_SIZE,
+            'height' => self::DEFAULT_SIZE,
+            'ratio' => true,
+        ];
     }
 
     private function clearPlaceholder(TemplateProcessor $templateProcessor, string $key): void

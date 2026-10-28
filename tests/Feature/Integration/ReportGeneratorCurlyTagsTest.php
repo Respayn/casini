@@ -374,6 +374,67 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertGreaterThanOrEqual(2, substr_count($xml, 'Проверены бэкапы') + substr_count($xml, 'Строка 1'));
     }
 
+    public function test_indents_nested_worklist_items(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $section->addListItem('{{bitrix24.worklist}}', 0);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/worklist-nested.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/worklist-nested.docx',
+            ReportData::builder()
+                ->list('bitrix24.worklist', [
+                    'первый корневой',
+                    "\tвложенный",
+                ])
+                ->build(),
+            'worklist-nested-report'
+        );
+
+        $xml = $this->documentXml($generated->path);
+        $this->assertStringContainsString('первый корневой', $xml);
+        $this->assertStringContainsString('вложенный', $xml);
+        $this->assertMatchesRegularExpression('/<w:ilvl w:val="1"\s*\/>/', $xml);
+        $this->assertStringNotContainsString("\t", $xml);
+    }
+
+    public function test_inserts_manager_photo_at_readable_size(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $phpWord->addSection()->addText('{{manager_photo}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/manager-photo.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        Storage::put(
+            'templates/manager-photo.png',
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', true)
+        );
+        $photo = Storage::path('templates/manager-photo.png');
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/manager-photo.docx',
+            ReportData::builder()->image('manager_photo', $photo)->build(),
+            'manager-photo-report'
+        );
+
+        $xml = $this->documentXml($generated->path);
+        $this->assertStringContainsString('height:3.5cm', $xml);
+        $this->assertStringNotContainsString('height:70px', $xml);
+        $this->assertStringNotContainsString('{{manager_photo}}', $xml);
+    }
+
     public function test_filters_search_queries_by_min_visits_tag(): void
     {
         Storage::fake();

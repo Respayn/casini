@@ -46,4 +46,58 @@ class ImageHandlerTest extends TestCase
 
         $this->assertSame([], $warnings->all());
     }
+
+    public function test_inserts_photo_at_readable_default_size(): void
+    {
+        $path = $this->tinyPng();
+
+        $processor = $this->createMock(TemplateProcessor::class);
+        $processor->expects($this->once())->method('getVariables')->willReturn(['manager_photo']);
+        $processor->expects($this->once())
+            ->method('setImageValue')
+            ->with('manager_photo', [
+                'path' => $path,
+                'width' => ImageHandler::DEFAULT_SIZE,
+                'height' => ImageHandler::DEFAULT_SIZE,
+                'ratio' => true,
+            ]);
+        $processor->expects($this->never())->method('setValue');
+
+        $warnings = new ReportGenerationWarnings;
+        $data = ReportData::builder()->image('manager_photo', $path)->build();
+
+        (new ImageHandler)->handle($processor, $data, $warnings);
+
+        $this->assertSame([], $warnings->all());
+        unlink($path);
+    }
+
+    public function test_keeps_size_from_template_tag(): void
+    {
+        $path = $this->tinyPng();
+
+        $processor = $this->createMock(TemplateProcessor::class);
+        $processor->expects($this->once())->method('getVariables')->willReturn(['manager_photo:2cm:2cm']);
+        $processor->expects($this->once())->method('setImageValue')->with('manager_photo', $path);
+        $processor->expects($this->never())->method('setValue');
+
+        (new ImageHandler)->handle(
+            $processor,
+            ReportData::builder()->image('manager_photo', $path)->build(),
+            new ReportGenerationWarnings,
+        );
+
+        unlink($path);
+    }
+
+    private function tinyPng(): string
+    {
+        $path = sys_get_temp_dir().'/casini-photo-'.uniqid('', true).'.png';
+        file_put_contents(
+            $path,
+            base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', true)
+        );
+
+        return $path;
+    }
 }

@@ -99,6 +99,81 @@ class Bitrix24WorksCollectorTest extends TestCase
         Http::assertNotSent(fn (Request $request) => str_contains($request->url(), 'task.commentitem.getlist'));
     }
 
+    public function test_collects_checklist_in_tree_order_not_by_toggle_date(): void
+    {
+        Http::fake(function (Request $request) {
+            if (str_ends_with($request->url(), 'tasks.task.list.json')) {
+                $tasks = ($request->data()['filter']['PARENT_ID'] ?? null) === 100
+                    ? [['id' => '101', 'title' => 'SEO: сентябрь 2026']]
+                    : [];
+
+                return Http::response(['result' => ['tasks' => $tasks]]);
+            }
+
+            if (str_ends_with($request->url(), 'task.checklistitem.getlist.json')) {
+                return Http::response(['result' => [
+                    ['ID' => 2, 'PARENT_ID' => 0, 'SORT_INDEX' => 20, 'TITLE' => 'второй корневой', 'IS_COMPLETE' => 'Y', 'TOGGLED_DATE' => '2026-09-01T10:00:00+03:00'],
+                    ['ID' => 1, 'PARENT_ID' => 0, 'SORT_INDEX' => 10, 'TITLE' => 'первый корневой', 'IS_COMPLETE' => 'Y', 'TOGGLED_DATE' => '2026-09-15T10:00:00+03:00'],
+                    ['ID' => 3, 'PARENT_ID' => 1, 'SORT_INDEX' => 10, 'TITLE' => 'вложенный', 'IS_COMPLETE' => 'Y', 'TOGGLED_DATE' => '2026-09-02T10:00:00+03:00'],
+                    ['ID' => 4, 'PARENT_ID' => 1, 'SORT_INDEX' => 20, 'TITLE' => 'ещё не готово', 'IS_COMPLETE' => 'N'],
+                ]]);
+            }
+
+            return Http::response(['result' => []]);
+        });
+
+        $result = $this->collector()->collectRange($this->project->id, Carbon::parse('2026-09-29'), Carbon::parse('2026-09-29'));
+
+        $this->assertTrue($result->ok, (string) $result->error);
+
+        $rows = CompletedWork::query()
+            ->where('project_id', $this->project->id)
+            ->orderBy('sort_order')
+            ->get(['title', 'depth', 'sort_order']);
+
+        $this->assertSame(
+            ['первый корневой', 'вложенный', 'второй корневой'],
+            $rows->pluck('title')->all(),
+        );
+        $this->assertSame([0, 1, 0], $rows->pluck('depth')->all());
+        $this->assertSame([0, 1, 2], $rows->pluck('sort_order')->all());
+    }
+
+    public function test_skips_old_year_when_month_has_parenthetical_index(): void
+    {
+        Http::fake(function (Request $request) {
+            if (str_ends_with($request->url(), 'tasks.task.list.json')) {
+                $tasks = ($request->data()['filter']['PARENT_ID'] ?? null) === 100
+                    ? [
+                        ['id' => '90', 'title' => 'SEO корп: сентябрь (1) 2022'],
+                        ['id' => '101', 'title' => 'SEO: сентябрь 2026'],
+                    ]
+                    : [];
+
+                return Http::response(['result' => ['tasks' => $tasks]]);
+            }
+
+            if (str_ends_with($request->url(), 'task.checklistitem.getlist.json')) {
+                $taskId = (int) ($request->data()[0] ?? 0);
+                $title = $taskId === 90 ? 'старая работа 2022' : 'работа 2026';
+
+                return Http::response(['result' => [
+                    ['ID' => $taskId, 'PARENT_ID' => 0, 'SORT_INDEX' => 10, 'TITLE' => $title, 'IS_COMPLETE' => 'Y', 'TOGGLED_DATE' => '2026-09-10T12:00:00+03:00'],
+                ]]);
+            }
+
+            return Http::response(['result' => []]);
+        });
+
+        $result = $this->collector()->collectRange($this->project->id, Carbon::parse('2026-09-29'), Carbon::parse('2026-09-29'));
+
+        $this->assertTrue($result->ok, (string) $result->error);
+        $this->assertSame(
+            ['работа 2026'],
+            CompletedWork::query()->where('project_id', $this->project->id)->pluck('title')->all(),
+        );
+    }
+
     public function test_parses_comment_works_from_month_task_when_enabled(): void
     {
         $this->saveSettings(true);

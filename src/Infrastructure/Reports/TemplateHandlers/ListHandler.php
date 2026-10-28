@@ -28,7 +28,7 @@ class ListHandler implements TemplateHandlerInterface
                         $templateProcessor->cloneRow($key, $itemsCount);
 
                         foreach ($items as $index => $item) {
-                            $templateProcessor->setValue($key.'#'.($index + 1), $item);
+                            $templateProcessor->setValue($key.'#'.($index + 1), ltrim((string) $item, "\t"));
                         }
                     }
                 } else {

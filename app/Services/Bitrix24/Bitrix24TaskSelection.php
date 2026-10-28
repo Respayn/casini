@@ -81,15 +81,17 @@ final class Bitrix24TaskSelection
         $found = null;
 
         foreach (self::MONTH_FORMS as $month => $form) {
-            if (preg_match('/(?<!\p{L})'.$form.'(?!\p{L})(?:\s+(\d{4}))?/iu', $title, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+            if (preg_match('/(?<!\p{L})'.$form.'(?!\p{L})(?:\s*(?:\([^)]*\)\s*)?(\d{4}))?/iu', $title, $matches, PREG_OFFSET_CAPTURE) !== 1) {
                 continue;
             }
+
+            $year = isset($matches[1]) && $matches[1][0] !== '' ? (int) $matches[1][0] : null;
 
             if ($found === null || $matches[0][1] < $found['offset']) {
                 $found = [
                     'offset' => $matches[0][1],
                     'month' => $month,
-                    'year' => isset($matches[1]) ? (int) $matches[1][0] : null,
+                    'year' => $year,
                 ];
             }
         }
