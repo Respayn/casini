@@ -116,6 +116,7 @@ class ReportsListPageTest extends TestCase
             ->assertSee('Действия')
             ->assertDontSeeHtml('>Скачать</')
             ->assertSeeHtml('title="Скачать"')
+            ->assertSeeHtml('wire:target="download('.$reportId.')"')
             ->assertSeeHtml('title="Редактировать"')
             ->assertSeeHtml('href="'.route('reports.create', $reportId).'"')
             ->assertSeeHtml('title="Удалить"');

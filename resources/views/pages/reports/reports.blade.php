@@ -117,8 +117,27 @@
                                         @case('download')
                                             <x-data.table-cell class="whitespace-nowrap">
                                                 <div class="flex gap-2">
-                                                    <x-button.button wire:click="download({{ $report->reportId }})"
-                                                        icon="icons.download" title="Скачать" />
+                                                    <button
+                                                        type="button"
+                                                        class="inline-flex h-10 w-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-default-button text-default-button transition hover:not-disabled:bg-default-button hover:not-disabled:text-white disabled:cursor-not-allowed disabled:border-0 disabled:bg-secondary disabled:text-default-button-disabled"
+                                                        wire:click="download({{ $report->reportId }})"
+                                                        wire:loading.attr="disabled"
+                                                        wire:target="download({{ $report->reportId }})"
+                                                        title="Скачать"
+                                                    >
+                                                        <span class="relative inline-flex size-6 shrink-0 items-center justify-center">
+                                                            <x-icons.download
+                                                                class="size-6"
+                                                                wire:loading.remove
+                                                                wire:target="download({{ $report->reportId }})"
+                                                            />
+                                                            <x-icons.progress-activity
+                                                                class="absolute inset-0 size-6 animate-spin"
+                                                                wire:loading
+                                                                wire:target="download({{ $report->reportId }})"
+                                                            />
+                                                        </span>
+                                                    </button>
                                                     @if ($this->canCreateReports)
                                                         <x-button.button
                                                             href="{{ route('reports.create', $report->reportId) }}"
