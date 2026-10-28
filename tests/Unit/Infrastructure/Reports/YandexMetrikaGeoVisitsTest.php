@@ -61,6 +61,7 @@ class YandexMetrikaGeoVisitsTest extends TestCase
             $this->city('Курган', visits: 0, visitors: 5),
         ]));
         $this->assertTrue(YandexMetrikaGeoVisits::isTag('ym.visits_geo.visits#1'));
+        $this->assertTrue(YandexMetrikaGeoVisits::isTag('ym.visits_geo.visits[10]'));
         $this->assertFalse(YandexMetrikaGeoVisits::isTag('ym.table.visits_geo'));
         $this->assertFalse(YandexMetrikaGeoVisits::isTag('ym.search_queries.phrase'));
     }

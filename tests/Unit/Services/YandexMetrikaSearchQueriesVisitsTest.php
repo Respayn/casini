@@ -119,6 +119,47 @@ class YandexMetrikaSearchQueriesVisitsTest extends TestCase
         $this->assertSame(8, $count);
     }
 
+    #[Test]
+    public function test_fetch_merges_same_phrase_in_different_case_and_truncates(): void
+    {
+        $longPhrase = str_repeat('ф', 300);
+        $client = Mockery::mock(YandexMetrikaClientInterface::class);
+        $client->shouldReceive('getVisitsReport')
+            ->once()
+            ->andReturn([
+                'data' => [
+                    [
+                        'dimensions' => [['name' => 'ММК метиз']],
+                        'metrics' => [351],
+                    ],
+                    [
+                        'dimensions' => [['name' => 'ммк метиз']],
+                        'metrics' => [3],
+                    ],
+                    [
+                        'dimensions' => [['name' => $longPhrase]],
+                        'metrics' => [2],
+                    ],
+                ],
+            ]);
+
+        $rows = $this->makeService($client)->fetchSearchQueriesVisitsStats(
+            Carbon::parse('2026-09-01'),
+            Carbon::parse('2026-09-30'),
+            YandexMetrikaIntegrationSettingsData::VISITS_METRIC_VISITS
+        );
+
+        $byPhrase = [];
+        foreach ($rows as $row) {
+            $byPhrase[$row['phrase']] = $row;
+        }
+
+        $this->assertSame(354, $byPhrase['ммк метиз']['visits']);
+        $this->assertArrayHasKey(str_repeat('ф', 255), $byPhrase);
+        $this->assertSame(2, $byPhrase[str_repeat('ф', 255)]['visits']);
+        $this->assertCount(2, $rows);
+    }
+
     private function makeService(YandexMetrikaClientInterface $client): YandexMetrikaService
     {
         $factory = Mockery::mock(YandexMetrikaClientFactory::class);

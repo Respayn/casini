@@ -128,34 +128,38 @@ class ReportTagCatalogTest extends TestCase
         $this->assertSame('Выполнение плана посещаемости, например 70%', $tags['ym.search_visits.performance']->label);
         $this->assertSame('{{ym.search_visits.performance}}', $tags['ym.search_visits.performance']->placeholder());
         $this->assertSame('цифры', $tags['ym.search_visits.performance']->parameterLabel());
-        $this->assertSame(ReportTagKind::List, $tags['ym.search_queries.phrase']->kind);
+        $this->assertSame(ReportTagKind::List, $tags['ym.search_queries.phrase[10]']->kind);
         $this->assertSame(
-            'Поисковая фраза из отчёта Поисковые запросы. Ставят в одну строку таблицы Word рядом с числом переходов',
-            $tags['ym.search_queries.phrase']->label,
+            'Поисковая фраза из отчёта Поисковые запросы. Ставят в одну строку таблицы Word рядом с числом переходов. [10]: только фразы с 10 и более переходами. Без скобок: все фразы',
+            $tags['ym.search_queries.phrase[10]']->label,
         );
-        $this->assertSame('{{ym.search_queries.phrase}}', $tags['ym.search_queries.phrase']->placeholder());
-        $this->assertSame('текст', $tags['ym.search_queries.phrase']->parameterLabel());
-        $this->assertSame(ReportTagKind::List, $tags['ym.search_queries.visits']->kind);
+        $this->assertSame('{{ym.search_queries.phrase[10]}}', $tags['ym.search_queries.phrase[10]']->placeholder());
+        $this->assertSame('текст', $tags['ym.search_queries.phrase[10]']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['ym.search_queries.visits[10]']->kind);
         $this->assertSame(
-            'Число переходов этой фразы. Ставят в ту же строку, что и фразу',
-            $tags['ym.search_queries.visits']->label,
+            'Число переходов этой фразы. Ставят в ту же строку, что и фразу. [10]: только фразы с 10 и более переходами. Без скобок: все фразы',
+            $tags['ym.search_queries.visits[10]']->label,
         );
-        $this->assertSame('{{ym.search_queries.visits}}', $tags['ym.search_queries.visits']->placeholder());
-        $this->assertSame('цифры', $tags['ym.search_queries.visits']->parameterLabel());
-        $this->assertSame(ReportTagKind::List, $tags['ym.visits_geo.city']->kind);
+        $this->assertSame('{{ym.search_queries.visits[10]}}', $tags['ym.search_queries.visits[10]']->placeholder());
+        $this->assertSame('цифры', $tags['ym.search_queries.visits[10]']->parameterLabel());
+        $this->assertArrayNotHasKey('ym.search_queries.phrase', $tags);
+        $this->assertArrayNotHasKey('ym.search_queries.visits', $tags);
+        $this->assertSame(ReportTagKind::List, $tags['ym.visits_geo.city[10]']->kind);
         $this->assertSame(
-            'Город из отчёта География. Ставят в одну строку таблицы Word рядом с числом переходов',
-            $tags['ym.visits_geo.city']->label,
+            'Город из отчёта География. Ставят в одну строку таблицы Word рядом с числом переходов. [10]: только города с 10 и более переходами. Без скобок: все города',
+            $tags['ym.visits_geo.city[10]']->label,
         );
-        $this->assertSame('{{ym.visits_geo.city}}', $tags['ym.visits_geo.city']->placeholder());
-        $this->assertSame('текст', $tags['ym.visits_geo.city']->parameterLabel());
-        $this->assertSame(ReportTagKind::List, $tags['ym.visits_geo.visits']->kind);
+        $this->assertSame('{{ym.visits_geo.city[10]}}', $tags['ym.visits_geo.city[10]']->placeholder());
+        $this->assertSame('текст', $tags['ym.visits_geo.city[10]']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['ym.visits_geo.visits[10]']->kind);
         $this->assertSame(
-            'Число переходов из этого города. Ставят в ту же строку, что и город',
-            $tags['ym.visits_geo.visits']->label,
+            'Число переходов из этого города. Ставят в ту же строку, что и город. [10]: только города с 10 и более переходами. Без скобок: все города',
+            $tags['ym.visits_geo.visits[10]']->label,
         );
-        $this->assertSame('{{ym.visits_geo.visits}}', $tags['ym.visits_geo.visits']->placeholder());
-        $this->assertSame('цифры', $tags['ym.visits_geo.visits']->parameterLabel());
+        $this->assertSame('{{ym.visits_geo.visits[10]}}', $tags['ym.visits_geo.visits[10]']->placeholder());
+        $this->assertSame('цифры', $tags['ym.visits_geo.visits[10]']->parameterLabel());
+        $this->assertArrayNotHasKey('ym.visits_geo.city', $tags);
+        $this->assertArrayNotHasKey('ym.visits_geo.visits', $tags);
         $this->assertSame(ReportTagKind::List, $tags['ym.goals_yandex.name']->kind);
         $this->assertSame('текст', $tags['ym.goals_yandex.name']->parameterLabel());
         $this->assertSame('цифры', $tags['ym.goals_yandex.value']->parameterLabel());

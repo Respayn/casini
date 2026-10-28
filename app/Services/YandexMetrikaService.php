@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Auth;
 use Log;
 use Src\Domain\YandexMetrika\GeographyDisplayList;
 use Src\Domain\YandexMetrika\SearchEnginesDisplayList;
+use Src\Domain\YandexMetrika\SearchPhraseNormalizer;
 use Src\Domain\YandexMetrika\SearchQueriesMinusList;
 use Src\Domain\YandexMetrika\YandexMetrikaFiltersBuilder;
 use Src\Domain\YandexMetrika\YandexMetrikaUtmFilterBuilder;
@@ -967,9 +968,9 @@ class YandexMetrikaService
 
             $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
             $phraseDim = is_array($dimensions[0] ?? null) ? $dimensions[0] : [];
-            $phrase = trim((string) ($phraseDim['name'] ?? ''));
+            $phrase = SearchPhraseNormalizer::normalize((string) ($phraseDim['name'] ?? ''));
             if ($phrase === '') {
-                $phrase = trim((string) ($phraseDim['id'] ?? ''));
+                $phrase = SearchPhraseNormalizer::normalize((string) ($phraseDim['id'] ?? ''));
             }
 
             $monthName = $includeMonth && is_array($dimensions[1] ?? null)

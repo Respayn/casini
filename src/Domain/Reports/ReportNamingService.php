@@ -8,6 +8,23 @@ class ReportNamingService
 {
     public function generateName(Report $report, Project $project): string
     {
-        return 'Отчет.' . $report->getFormat()->value;
+        $parts = [
+            'Отчет',
+            $project->getType()->label(),
+            trim($project->getDomain()),
+            $report->getPeriod()->monthYearLabel(),
+        ];
+
+        $name = implode(' ', array_filter($parts, static fn (string $part): bool => $part !== ''));
+
+        return self::sanitize($name);
+    }
+
+    private static function sanitize(string $name): string
+    {
+        $name = str_replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], ' ', $name);
+        $name = preg_replace('/\s+/u', ' ', $name) ?? $name;
+
+        return trim($name);
     }
 }

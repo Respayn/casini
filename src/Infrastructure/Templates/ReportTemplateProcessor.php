@@ -56,4 +56,55 @@ class ReportTemplateProcessor extends TemplateProcessor
             $documentPart
         ) ?? $documentPart;
     }
+
+    public function isMacroInTableRow(string $macro): bool
+    {
+        $completed = static::ensureMacroCompleted($macro);
+        $pos = $this->findMacro($completed);
+        if ($pos < 0) {
+            return false;
+        }
+
+        $rowStart = $this->findXmlBlockStart($pos, 'w:tr');
+        if ($rowStart < 0) {
+            return false;
+        }
+
+        $rowEnd = $this->findXmlBlockEnd($rowStart, 'w:tr');
+        if ($rowEnd < 0) {
+            return false;
+        }
+
+        if (str_contains($this->getSlice($rowStart, $pos), '</w:tbl>')) {
+            return false;
+        }
+
+        return str_contains($this->getSlice($rowStart, $rowEnd), $completed);
+    }
+
+    /**
+     * @param  list<string>  $values
+     */
+    public function cloneParagraph(string $macro, array $values): void
+    {
+        if ($values === []) {
+            return;
+        }
+
+        $completed = static::ensureMacroCompleted($macro);
+        $block = $this->findContainingXmlBlockForMacro($completed, 'w:p');
+        if (! is_array($block)) {
+            throw new \RuntimeException('Can not clone paragraph, template variable not found.');
+        }
+
+        $xml = $this->getSlice($block['start'], $block['end']);
+        $parts = [];
+        foreach ($values as $value) {
+            $escaped = htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+            $escaped = str_replace(["\r\n", "\r", "\n"], '</w:t><w:br/><w:t>', $escaped);
+            $parts[] = str_replace($completed, $escaped, $xml);
+        }
+
+        $this->tempDocumentMainPart = $this->getSlice(0, $block['start']).implode('', $parts).$this->getSlice($block['end']);
+    }
 }

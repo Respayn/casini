@@ -338,6 +338,119 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
     }
 
+    public function test_fills_worklist_in_paragraph_after_table(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $section->addTable()->addRow()->addCell()->addText('{{queries}}');
+        $section->addListItem('{{bitrix24.worklist}}', 0);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/worklist-paragraph.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/worklist-paragraph.docx',
+            ReportData::builder()
+                ->list('queries', ['купить слона'])
+                ->list('bitrix24.worklist', [
+                    'Проверены бэкапы',
+                    "Строка 1\nСтрока 2",
+                ])
+                ->build(),
+            'worklist-paragraph-report'
+        );
+
+        $xml = $this->documentXml($generated->path);
+        $this->assertStringContainsString('купить слона', $xml);
+        $this->assertStringContainsString('Проверены бэкапы', $xml);
+        $this->assertStringContainsString('Строка 1', $xml);
+        $this->assertStringContainsString('<w:br/>', $xml);
+        $this->assertStringContainsString('Строка 2', $xml);
+        $this->assertStringNotContainsString('{{bitrix24.worklist}}', $xml);
+        $this->assertGreaterThanOrEqual(2, substr_count($xml, 'Проверены бэкапы') + substr_count($xml, 'Строка 1'));
+    }
+
+    public function test_filters_search_queries_by_min_visits_tag(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $row = $table->addRow();
+        $row->addCell()->addText('{{ym.search_queries.phrase}}');
+        $row->addCell()->addText('{{ym.search_queries.visits[10]}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/search-queries-min.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/search-queries-min.docx',
+            ReportData::builder()
+                ->keywordPositionPair(
+                    'ym.search_queries.phrase',
+                    'ym.search_queries.visits',
+                    [
+                        ['phrase' => 'ммк метиз', 'position' => '351'],
+                        ['phrase' => 'шкаф', 'position' => '4'],
+                    ],
+                )
+                ->build(),
+            'search-queries-min-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $this->assertNotEmpty($rows);
+        $matched = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'ммк метиз') && str_contains($row, '351')));
+        $this->assertCount(1, $matched);
+        $this->assertSame([], array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'шкаф'))));
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
+    public function test_filters_geo_visits_by_min_visits_tag(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $row = $table->addRow();
+        $row->addCell()->addText('{{ym.visits_geo.city}}');
+        $row->addCell()->addText('{{ym.visits_geo.visits[10]}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/geo-min.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/geo-min.docx',
+            ReportData::builder()
+                ->keywordPositionPair(
+                    'ym.visits_geo.city',
+                    'ym.visits_geo.visits',
+                    [
+                        ['phrase' => 'Москва', 'position' => '798'],
+                        ['phrase' => 'Курган', 'position' => '3'],
+                    ],
+                )
+                ->build(),
+            'geo-min-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $matched = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'Москва') && str_contains($row, '798')));
+        $this->assertCount(1, $matched);
+        $this->assertSame([], array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'Курган'))));
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
     /**
      * @param  list<string>  $tagNames
      */
@@ -387,14 +500,19 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         return $storagePath;
     }
 
-    private function documentText(string $file): string
+    private function documentXml(string $file): string
     {
         $zip = new ZipArchive;
         $zip->open($file);
         $xml = $zip->getFromName('word/document.xml');
         $zip->close();
 
-        return strip_tags(str_replace('</w:p>', "</w:p>\n", $xml));
+        return (string) $xml;
+    }
+
+    private function documentText(string $file): string
+    {
+        return strip_tags(str_replace('</w:p>', "</w:p>\n", $this->documentXml($file)));
     }
 
     /**

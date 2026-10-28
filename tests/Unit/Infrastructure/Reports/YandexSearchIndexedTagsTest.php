@@ -19,6 +19,7 @@ class YandexSearchIndexedTagsTest extends TestCase
                 'index' => 1,
                 'code' => 213,
                 'label' => 'Москва',
+                'phrases' => ['купить диван'],
             ],
         ], $regions);
         $this->assertSame('yandex_search.region[1]', YandexSearchIndexedTags::key('region', 1));
@@ -46,9 +47,11 @@ class YandexSearchIndexedTagsTest extends TestCase
 
         $this->assertSame(1, $regions[0]['index']);
         $this->assertSame('Москва', $regions[0]['label']);
+        $this->assertSame([], $regions[0]['phrases']);
         $this->assertSame(2, $regions[1]['index']);
         $this->assertSame(2, $regions[1]['code']);
         $this->assertSame('Санкт-Петербург', $regions[1]['label']);
+        $this->assertSame([], $regions[1]['phrases']);
         $this->assertContains('yandex_search.phrase[2]', YandexSearchIndexedTags::keysForRegions([
             ['code' => SearchRegion::MOSCOW->value],
             ['code' => SearchRegion::SAINT_PETERSBURG->value],
@@ -90,6 +93,9 @@ class YandexSearchIndexedTagsTest extends TestCase
         $this->assertSame(25.0, $shares['top_5']);
         $this->assertSame(50.0, $shares['top_10']);
         $this->assertSame('50%', YandexSearchIndexedTags::formatShare($shares['top_10']));
+        $this->assertTrue(YandexSearchIndexedTags::hasNumericRank([1, 10, 11, '-']));
+        $this->assertFalse(YandexSearchIndexedTags::hasNumericRank([null, '-', '']));
+        $this->assertSame('-', YandexSearchIndexedTags::formatShare(0.0, false));
     }
 
     public function test_empty_table_gives_zero_share(): void
@@ -103,5 +109,24 @@ class YandexSearchIndexedTagsTest extends TestCase
             YandexSearchIndexedTags::topShares([]),
         );
         $this->assertSame('0%', YandexSearchIndexedTags::formatShare(0.0));
+        $this->assertFalse(YandexSearchIndexedTags::hasNumericRank([]));
+    }
+
+    public function test_empty_tasks_use_settings_phrases_with_empty_position(): void
+    {
+        $this->assertSame(
+            [
+                ['phrase' => 'канат гост', 'position' => null],
+                ['phrase' => 'метиз', 'position' => null],
+            ],
+            YandexSearchIndexedTags::keywordRowsOrSettings([], ['канат гост', 'метиз', '']),
+        );
+        $this->assertSame(
+            [['phrase' => 'канат гост', 'position' => 3]],
+            YandexSearchIndexedTags::keywordRowsOrSettings(
+                [['phrase' => 'канат гост', 'position' => 3]],
+                ['метиз'],
+            ),
+        );
     }
 }

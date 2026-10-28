@@ -61,6 +61,7 @@ class YandexMetrikaSearchQueriesTest extends TestCase
             $this->query('стул', visits: 0, visitors: 5),
         ]));
         $this->assertTrue(YandexMetrikaSearchQueries::isTag('ym.search_queries.visits#1'));
+        $this->assertTrue(YandexMetrikaSearchQueries::isTag('ym.search_queries.visits[10]'));
         $this->assertFalse(YandexMetrikaSearchQueries::isTag('ym.search_visits.total'));
     }
 

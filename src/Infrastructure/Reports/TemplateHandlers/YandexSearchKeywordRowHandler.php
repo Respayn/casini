@@ -6,6 +6,7 @@ use PhpOffice\PhpWord\TemplateProcessor;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportGenerationWarnings;
 use Src\Application\Reports\Generate\ReportTemplateLabels;
+use Src\Infrastructure\Reports\KeywordPairThreshold;
 
 class YandexSearchKeywordRowHandler implements TemplateHandlerInterface
 {
@@ -15,29 +16,48 @@ class YandexSearchKeywordRowHandler implements TemplateHandlerInterface
         ReportGenerationWarnings $warnings,
     ): void {
         foreach ($data->getKeywordPositionPairs() as $pair) {
-            $rows = $pair['rows'];
+            $resolved = KeywordPairThreshold::resolve(
+                $pair['phraseKey'],
+                $pair['positionKey'],
+                $templateProcessor->getVariables(),
+            );
+            $rows = KeywordPairThreshold::filterRows($pair['rows'], $resolved['min']);
+            $keysToClear = array_values(array_unique([
+                $pair['phraseKey'],
+                $pair['positionKey'],
+                $resolved['phraseKey'],
+                $resolved['positionKey'],
+            ]));
 
             if ($rows === []) {
-                $this->clearPlaceholder($templateProcessor, $pair['phraseKey']);
-                $this->clearPlaceholder($templateProcessor, $pair['positionKey']);
+                $this->clearPlaceholders($templateProcessor, $keysToClear);
 
                 continue;
             }
 
             try {
-                $templateProcessor->cloneRow($pair['phraseKey'], count($rows));
+                $templateProcessor->cloneRow($resolved['phraseKey'], count($rows));
 
                 foreach ($rows as $index => $row) {
                     $rowNumber = $index + 1;
-                    $templateProcessor->setValue($pair['phraseKey'].'#'.$rowNumber, $row['phrase']);
-                    $templateProcessor->setValue($pair['positionKey'].'#'.$rowNumber, $row['position']);
+                    $templateProcessor->setValue($resolved['phraseKey'].'#'.$rowNumber, $row['phrase']);
+                    $templateProcessor->setValue($resolved['positionKey'].'#'.$rowNumber, $row['position']);
                 }
             } catch (\Throwable $e) {
                 report($e);
                 $warnings->add(ReportTemplateLabels::label($pair['phraseKey']).' не заполнены');
-                $this->clearPlaceholder($templateProcessor, $pair['phraseKey']);
-                $this->clearPlaceholder($templateProcessor, $pair['positionKey']);
+                $this->clearPlaceholders($templateProcessor, $keysToClear);
             }
+        }
+    }
+
+    /**
+     * @param  list<string>  $keys
+     */
+    private function clearPlaceholders(TemplateProcessor $templateProcessor, array $keys): void
+    {
+        foreach ($keys as $key) {
+            $this->clearPlaceholder($templateProcessor, $key);
         }
     }
 

@@ -43,7 +43,7 @@ final class YandexSearchIndexedTags
 
     /**
      * @param  list<mixed>  $regions
-     * @return list<array{index: int, code: int, label: string}>
+     * @return list<array{index: int, code: int, label: string, phrases: list<string>}>
      */
     public static function numberedRegions(array $regions): array
     {
@@ -64,11 +64,41 @@ final class YandexSearchIndexedTags
                 'index' => $index,
                 'code' => $code,
                 'label' => SearchRegion::tryFrom($code)?->label() ?? '',
+                'phrases' => self::phrasesFromRegion($region),
             ];
             $index++;
         }
 
         return $result;
+    }
+
+    /**
+     * Если задач проверки позиций нет, берём фразы из настроек интеграции.
+     *
+     * @param  list<array{phrase: string, position: mixed}>  $keywordPositions
+     * @param  list<string>  $phrases
+     * @return list<array{phrase: string, position: mixed}>
+     */
+    public static function keywordRowsOrSettings(array $keywordPositions, array $phrases): array
+    {
+        if ($keywordPositions !== []) {
+            return $keywordPositions;
+        }
+
+        $rows = [];
+        foreach ($phrases as $phrase) {
+            $trimmed = trim($phrase);
+            if ($trimmed === '') {
+                continue;
+            }
+
+            $rows[] = [
+                'phrase' => $trimmed,
+                'position' => null,
+            ];
+        }
+
+        return $rows;
     }
 
     /**
@@ -111,9 +141,48 @@ final class YandexSearchIndexedTags
         ];
     }
 
-    public static function formatShare(float $percent): string
+    public static function formatShare(float $percent, bool $hasNumericRank = true): string
     {
+        if (! $hasNumericRank) {
+            return '-';
+        }
+
         return round($percent, 1).'%';
+    }
+
+    /**
+     * @param  list<mixed>  $positions
+     */
+    public static function hasNumericRank(array $positions): bool
+    {
+        foreach ($positions as $position) {
+            if (self::isRank($position, PHP_INT_MAX)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<mixed>  $region
+     * @return list<string>
+     */
+    private static function phrasesFromRegion(array $region): array
+    {
+        if (! is_array($region['phrases'] ?? null)) {
+            return [];
+        }
+
+        $phrases = [];
+        foreach ($region['phrases'] as $phrase) {
+            $normalized = trim((string) $phrase);
+            if ($normalized !== '') {
+                $phrases[] = $normalized;
+            }
+        }
+
+        return $phrases;
     }
 
     private static function isRank(mixed $position, int $limit): bool

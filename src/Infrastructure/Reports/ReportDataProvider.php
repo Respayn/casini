@@ -166,16 +166,21 @@ class ReportDataProvider implements ReportDataProviderInterface
                 $index = $region['index'];
                 $builder->value(YandexSearchIndexedTags::key('region', $index), $region['label']);
 
-                $keywordPositions = $this->serpPositionRepository->getKeywordPositions(
-                    $projectId,
-                    $period,
-                    'yandex',
-                    $region['code'],
+                $keywordPositions = YandexSearchIndexedTags::keywordRowsOrSettings(
+                    $this->serpPositionRepository->getKeywordPositions(
+                        $projectId,
+                        $period,
+                        'yandex',
+                        $region['code'],
+                    ),
+                    $region['phrases'],
                 );
-                $shares = YandexSearchIndexedTags::topShares(array_column($keywordPositions, 'position'));
-                $builder->value(YandexSearchIndexedTags::key('top_3', $index), YandexSearchIndexedTags::formatShare($shares['top_3']))
-                    ->value(YandexSearchIndexedTags::key('top_5', $index), YandexSearchIndexedTags::formatShare($shares['top_5']))
-                    ->value(YandexSearchIndexedTags::key('top_10', $index), YandexSearchIndexedTags::formatShare($shares['top_10']));
+                $positionValues = array_column($keywordPositions, 'position');
+                $shares = YandexSearchIndexedTags::topShares($positionValues);
+                $hasNumericRank = YandexSearchIndexedTags::hasNumericRank($positionValues);
+                $builder->value(YandexSearchIndexedTags::key('top_3', $index), YandexSearchIndexedTags::formatShare($shares['top_3'], $hasNumericRank))
+                    ->value(YandexSearchIndexedTags::key('top_5', $index), YandexSearchIndexedTags::formatShare($shares['top_5'], $hasNumericRank))
+                    ->value(YandexSearchIndexedTags::key('top_10', $index), YandexSearchIndexedTags::formatShare($shares['top_10'], $hasNumericRank));
 
                 $pairRows = array_map(
                     fn ($item) => [

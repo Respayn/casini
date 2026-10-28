@@ -6,6 +6,7 @@ use PhpOffice\PhpWord\TemplateProcessor;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportGenerationWarnings;
 use Src\Application\Reports\Generate\ReportTemplateLabels;
+use Src\Infrastructure\Templates\ReportTemplateProcessor;
 
 class ListHandler implements TemplateHandlerInterface
 {
@@ -18,10 +19,17 @@ class ListHandler implements TemplateHandlerInterface
             try {
                 $itemsCount = count($items);
                 if ($itemsCount > 0) {
-                    $templateProcessor->cloneRow($key, count($items));
+                    $useParagraph = $templateProcessor instanceof ReportTemplateProcessor
+                        && ! $templateProcessor->isMacroInTableRow($key);
 
-                    foreach ($items as $index => $item) {
-                        $templateProcessor->setValue($key.'#'.($index + 1), $item);
+                    if ($useParagraph) {
+                        $templateProcessor->cloneParagraph($key, array_map(strval(...), $items));
+                    } else {
+                        $templateProcessor->cloneRow($key, $itemsCount);
+
+                        foreach ($items as $index => $item) {
+                            $templateProcessor->setValue($key.'#'.($index + 1), $item);
+                        }
                     }
                 } else {
                     $templateProcessor->setValue($key, '');
