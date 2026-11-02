@@ -32,22 +32,34 @@
                 </div>
             </div>
 
+            @if ($this->projectId)
             <div>
                 <span class="text-sm font-semibold">Выберите период отчетности *</span>
             </div>
             <div>
                 <div class="flex max-w-80 justify-between gap-4">
                     <x-form.month-picker
+                        wire:key="report-period-from-{{ $this->projectId }}"
                         wire:model.live="from"
                         placeholder="Месяц и год"
                         disable-future
+                        :available-months="$this->availablePeriodMonths"
+                        :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
                     />
                     <x-form.month-picker
+                        wire:key="report-period-to-{{ $this->projectId }}"
                         wire:model.live="to"
                         placeholder="Месяц и год"
                         disable-future
+                        :available-months="$this->availablePeriodMonths"
+                        :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
                     />
                 </div>
+                @if ($this->availablePeriodMonths === [])
+                    <p class="text-caption-text mt-2 text-sm">
+                        {{ \App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP }}
+                    </p>
+                @endif
             </div>
 
             @if ($this->isMultiMonthPeriod)
@@ -133,9 +145,10 @@
                     />
                 </div>
             </div>
+            @endif
         </div>
 
-        @if ($this->hasPendingChanges || $this->isEditing)
+        @if (($this->hasPendingChanges || $this->isEditing) && $this->projectId)
             <div class="mt-auto flex justify-between pt-7">
                 <button
                     type="submit"

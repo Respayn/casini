@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\Reports\ReportMonthAvailability;
 use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
@@ -63,6 +64,7 @@ class extends Component
             $this->loadReportForEdit($reportId);
         } else {
             $this->applySidebarProjectSelection();
+            $this->applyLastAvailablePeriod();
         }
 
         $this->captureSnapshot();
@@ -94,8 +96,11 @@ class extends Component
         unset($this->formData);
         unset($this->projectOptions);
 
+        unset($this->availablePeriodMonths);
+
         if ($this->editingReportId === null) {
             $this->applySidebarProjectSelection();
+            $this->applyLastAvailablePeriod();
         }
 
         $this->generateError = '';
@@ -115,6 +120,12 @@ class extends Component
 
     public function updatedProjectId(): void
     {
+        unset($this->availablePeriodMonths);
+
+        if ($this->editingReportId === null) {
+            $this->applyLastAvailablePeriod();
+        }
+
         $this->generateError = '';
     }
 
@@ -157,7 +168,88 @@ class extends Component
             $this->to = $this->from->copy();
         }
 
+        $this->clampPeriodToAvailable();
         $this->reportingMonth = $this->to->format('Y-m');
+    }
+
+    private function applyLastAvailablePeriod(): void
+    {
+        $last = $this->lastAvailablePeriodMonth();
+        if ($last === null) {
+            return;
+        }
+
+        $this->from = $last->copy();
+        $this->to = $last->copy();
+        $this->reportingMonth = $this->to->format('Y-m');
+    }
+
+    private function clampPeriodToAvailable(): void
+    {
+        if ($this->projectId === null) {
+            return;
+        }
+
+        $allowed = $this->allowedPeriodMonthKeys();
+        if ($allowed === []) {
+            return;
+        }
+
+        if (! in_array($this->from->format('Y-m'), $allowed, true)) {
+            $this->from = $this->monthFromKey($this->lastAllowedPeriodMonthKey($allowed));
+        }
+
+        if (! in_array($this->to->format('Y-m'), $allowed, true)) {
+            $this->to = $this->monthFromKey($this->lastAllowedPeriodMonthKey($allowed));
+        }
+
+        if ($this->from->greaterThan($this->to)) {
+            $this->to = $this->from->copy();
+        }
+    }
+
+    private function lastAvailablePeriodMonth(): ?Carbon
+    {
+        $months = $this->availablePeriodMonths;
+        if ($months === []) {
+            return null;
+        }
+
+        return $this->monthFromKey((string) end($months));
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     */
+    private function lastAllowedPeriodMonthKey(array $allowed): string
+    {
+        return (string) end($allowed);
+    }
+
+    private function monthFromKey(string $yearMonth): Carbon
+    {
+        return Carbon::createFromFormat('Y-m', $yearMonth)
+            ->startOfMonth()
+            ->startOfDay();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedPeriodMonthKeys(): array
+    {
+        $months = $this->availablePeriodMonths;
+
+        if ($this->editingReportId !== null && $this->initialSnapshot !== []) {
+            foreach (['from', 'to'] as $edge) {
+                $saved = $this->initialSnapshot[$edge] ?? null;
+                if (is_string($saved) && $saved !== '' && ! in_array($saved, $months, true)) {
+                    $months[] = $saved;
+                }
+            }
+        }
+
+        return $months;
     }
 
     private function applySidebarProjectSelection(): void
@@ -216,6 +308,7 @@ class extends Component
         $this->dateSort = $this->initialSnapshot['dateSort'] ?? ReportDateSort::NewestFirst->value;
         $this->reportingMonth = $this->to->format('Y-m');
         $this->generateError = '';
+        unset($this->availablePeriodMonths);
         $this->resetErrorBag();
     }
 
@@ -279,8 +372,8 @@ class extends Component
     {
         $label = ReportPeriodBuckets::make(
             new DateTimeRange(
-                \DateTimeImmutable::createFromInterface($this->to->copy()->startOfMonth()->startOfDay()),
-                \DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
+                DateTimeImmutable::createFromInterface($this->to->copy()->startOfMonth()->startOfDay()),
+                DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
             ),
         )->reportingMonth->monthYearLabel();
 
@@ -290,12 +383,28 @@ class extends Component
         ]];
     }
 
+    /**
+     * @return list<string>
+     */
+    #[Computed]
+    public function availablePeriodMonths(): array
+    {
+        if ($this->projectId === null) {
+            return [];
+        }
+
+        return app(ReportMonthAvailability::class)->monthsWithSummary((int) $this->projectId);
+    }
+
     #[Computed]
     public function canSubmit(): bool
     {
+        $hasPeriod = $this->availablePeriodMonths !== [] || $this->editingReportId !== null;
+
         return $this->projectId !== null
             && $this->templateId !== null
-            && filled($this->format);
+            && filled($this->format)
+            && $hasPeriod;
     }
 
     #[Computed]
@@ -401,11 +510,21 @@ class extends Component
 
         $this->clampPeriodToPresent();
 
+        $allowedMonths = $this->allowedPeriodMonthKeys();
+        if (
+            ! in_array($this->from->format('Y-m'), $allowedMonths, true)
+            || ! in_array($this->to->format('Y-m'), $allowedMonths, true)
+        ) {
+            $this->addError('from', ReportMonthAvailability::UNAVAILABLE_TOOLTIP);
+
+            return;
+        }
+
         try {
             $result = $command->handle(new GenerateReportCommand(
                 $this->projectId,
-                \DateTimeImmutable::createFromInterface($this->from->copy()->startOfMonth()->startOfDay()),
-                \DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
+                DateTimeImmutable::createFromInterface($this->from->copy()->startOfMonth()->startOfDay()),
+                DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
                 $this->format,
                 $this->templateId,
                 Auth::id(),

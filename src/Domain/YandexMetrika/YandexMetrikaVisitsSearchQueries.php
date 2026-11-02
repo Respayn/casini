@@ -21,7 +21,7 @@ class YandexMetrikaVisitsSearchQueries
         return new self(
             $data['id'] ?? null,
             $data['project_id'],
-            new DateTimeImmutable($data['month']),
+            MetrikaMonth::fromMixed($data['month']),
             $data['phrase'],
             (int) $data['visits'],
             (int) $data['visitors'],

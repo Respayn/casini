@@ -18,16 +18,16 @@ class ReportPeriodBucketsTest extends TestCase
         $this->assertFalse($buckets->expandColumns);
         $this->assertSame('2026-10', $buckets->reportingMonthKey);
         $this->assertSame('октябрь 2026', $buckets->reportingMonth->monthYearLabel());
-        $this->assertSame(['Окт 2026', 'Итого'], $buckets->labels());
+        $this->assertSame(['Окт 2026'], $buckets->labels());
     }
 
-    public function test_months_newest_first_include_total(): void
+    public function test_months_newest_first(): void
     {
         $buckets = ReportPeriodBuckets::make($this->period('2026-03-01', '2026-10-31'));
 
         $this->assertTrue($buckets->expandColumns);
         $this->assertSame(
-            ['Окт 2026', 'Сен 2026', 'Авг 2026', 'Июл 2026', 'Июн 2026', 'Май 2026', 'Апр 2026', 'Мар 2026', 'Итого'],
+            ['Окт 2026', 'Сен 2026', 'Авг 2026', 'Июл 2026', 'Июн 2026', 'Май 2026', 'Апр 2026', 'Мар 2026'],
             $buckets->labels(),
         );
         $this->assertSame('октябрь 2026', $buckets->reportingMonth->monthYearLabel());
@@ -41,7 +41,7 @@ class ReportPeriodBucketsTest extends TestCase
             ReportDateSort::OldestFirst,
         );
 
-        $this->assertSame(['Мар 2026', 'Апр 2026', 'Май 2026', 'Итого'], $buckets->labels());
+        $this->assertSame(['Мар 2026', 'Апр 2026', 'Май 2026'], $buckets->labels());
     }
 
     public function test_quarters_use_calendar_quarters_inside_period(): void
@@ -53,7 +53,7 @@ class ReportPeriodBucketsTest extends TestCase
         );
 
         $this->assertSame(
-            ['4 кв. 2026', '3 кв. 2026', '2 кв. 2026', '1 кв. 2026', 'Итого'],
+            ['4 кв. 2026', '3 кв. 2026', '2 кв. 2026', '1 кв. 2026'],
             $buckets->labels(),
         );
     }
@@ -66,7 +66,7 @@ class ReportPeriodBucketsTest extends TestCase
             ReportDateSort::OldestFirst,
         );
 
-        $this->assertSame(['2025', '2026', 'Итого'], $buckets->labels());
+        $this->assertSame(['2025', '2026'], $buckets->labels());
     }
 
     public function test_series_sums_visits_and_keeps_last_month_for_percents(): void
@@ -78,15 +78,15 @@ class ReportPeriodBucketsTest extends TestCase
         );
 
         $this->assertSame(
-            ['8', '4', '12'],
+            ['8', '4'],
             $buckets->seriesFromMonthly(['2026-09' => 4, '2026-10' => 8], '0', true),
         );
         $this->assertSame(
-            ['70%', '40%', '70%'],
+            ['70%', '40%'],
             $buckets->seriesFromMonthly(['2026-09' => '40%', '2026-10' => '70%'], '-', false),
         );
         $this->assertSame(
-            ['-', '3', '-'],
+            ['-', '3'],
             $buckets->seriesFromMonthly(['2026-09' => 3], '-', false),
         );
     }
@@ -100,13 +100,31 @@ class ReportPeriodBucketsTest extends TestCase
         );
 
         $this->assertSame(
-            ['1', '6', '15', '8', '30'],
+            ['1', '6', '15', '8'],
             $buckets->seriesFromMonthly([
                 '2026-03' => 1,
                 '2026-04' => 2,
                 '2026-06' => 4,
                 '2026-07' => 7,
                 '2026-09' => 8,
+                '2026-10' => 8,
+            ], '0', true),
+        );
+    }
+
+    public function test_series_total_ignores_months_outside_period(): void
+    {
+        $buckets = ReportPeriodBuckets::make(
+            $this->period('2026-09-01', '2026-10-31'),
+            ReportColumnGrouping::Months,
+            ReportDateSort::NewestFirst,
+        );
+
+        $this->assertSame(
+            ['8', '4'],
+            $buckets->seriesFromMonthly([
+                '2026-08' => 100,
+                '2026-09' => 4,
                 '2026-10' => 8,
             ], '0', true),
         );

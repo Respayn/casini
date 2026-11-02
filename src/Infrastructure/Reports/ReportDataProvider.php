@@ -529,7 +529,6 @@ class ReportDataProvider implements ReportDataProviderInterface
         $names = $forcedNames !== [] ? $forcedNames : array_keys($byNameAndMonth);
         $columnCount = count($buckets->items);
         $columnTotals = array_fill(0, $columnCount, 0);
-        $grandTotal = 0;
         $rows = [];
 
         foreach ($names as $key => $label) {
@@ -541,11 +540,10 @@ class ReportDataProvider implements ReportDataProviderInterface
             foreach ($buckets->items as $index => $_) {
                 $columnTotals[$index] += (int) $series[$index];
             }
-            $grandTotal += (int) $series[array_key_last($series)];
         }
 
         if ($withTotalRow) {
-            $rows[] = array_merge(['Итого'], $columnTotals, [$grandTotal]);
+            $rows[] = array_merge(['Итого'], $columnTotals);
         }
 
         return $rows;

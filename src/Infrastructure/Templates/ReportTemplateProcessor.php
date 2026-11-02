@@ -95,29 +95,51 @@ class ReportTemplateProcessor extends TemplateProcessor
         }
 
         $completed = static::ensureMacroCompleted($macro);
-        $cell = $this->findContainingXmlBlockForMacro($completed, 'w:tc');
-        if (! is_array($cell)) {
-            return false;
+        $expanded = false;
+
+        for ($guard = 0; $guard < 100; $guard++) {
+            $cell = $this->findContainingXmlBlockForMacro($completed, 'w:tc');
+            if (! is_array($cell)) {
+                break;
+            }
+
+            $cellXml = $this->getSlice($cell['start'], $cell['end']);
+            if (! str_contains($cellXml, $completed)) {
+                break;
+            }
+
+            if (! $this->isBareMacroCell($cellXml, $completed)) {
+                $total = htmlspecialchars(
+                    $this->mixedCellReplacement($columnValues),
+                    ENT_XML1 | ENT_QUOTES,
+                    'UTF-8',
+                );
+                $this->tempDocumentMainPart = $this->getSlice(0, $cell['start'])
+                    .str_replace($completed, $total, $cellXml)
+                    .$this->getSlice($cell['end']);
+                $expanded = true;
+
+                continue;
+            }
+
+            $rowStart = $this->findXmlBlockStart($cell['start'], 'w:tr');
+            if ($rowStart < 0) {
+                break;
+            }
+
+            $colIndex = $this->tableCellIndex($rowStart, $cell['start']);
+            $cloned = [];
+            foreach ($columnValues as $value) {
+                $escaped = htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+                $cloned[] = str_replace($completed, $escaped, $cellXml);
+            }
+
+            $this->tempDocumentMainPart = $this->getSlice(0, $cell['start']).implode('', $cloned).$this->getSlice($cell['end']);
+            $this->expandHeaderCell($rowStart, $colIndex, $columnLabels);
+            $expanded = true;
         }
 
-        $rowStart = $this->findXmlBlockStart($cell['start'], 'w:tr');
-        if ($rowStart < 0) {
-            return false;
-        }
-
-        $colIndex = $this->tableCellIndex($rowStart, $cell['start']);
-        $cellXml = $this->getSlice($cell['start'], $cell['end']);
-        $cloned = [];
-        foreach ($columnValues as $value) {
-            $escaped = htmlspecialchars((string) $value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
-            $cloned[] = str_replace($completed, $escaped, $cellXml);
-        }
-
-        $this->tempDocumentMainPart = $this->getSlice(0, $cell['start']).implode('', $cloned).$this->getSlice($cell['end']);
-
-        $this->expandHeaderCell($rowStart, $colIndex, $columnLabels);
-
-        return true;
+        return $expanded;
     }
 
     /**
@@ -126,26 +148,21 @@ class ReportTemplateProcessor extends TemplateProcessor
     private function expandHeaderCell(int $dataRowStart, int $colIndex, array $columnLabels): void
     {
         $tableStart = $this->findXmlBlockStart($dataRowStart, 'w:tbl');
-        $prevRowEnd = strrpos($this->getSlice(0, $dataRowStart), '</w:tr>');
-        if ($prevRowEnd === false) {
+        if ($tableStart < 0) {
             return;
         }
 
-        $prevRowStart = $this->findXmlBlockStart($prevRowEnd, 'w:tr');
-        if ($prevRowStart < 0 || $prevRowStart >= $dataRowStart) {
+        $headerRowStart = $this->findFirstRowStart($tableStart);
+        if ($headerRowStart < 0 || $headerRowStart >= $dataRowStart) {
             return;
         }
 
-        if ($tableStart >= 0 && $prevRowStart < $tableStart) {
-            return;
-        }
-
-        $headerRowEnd = $this->findXmlBlockEnd($prevRowStart, 'w:tr');
+        $headerRowEnd = $this->findXmlBlockEnd($headerRowStart, 'w:tr');
         if ($headerRowEnd < 0) {
             return;
         }
 
-        $headerRowXml = $this->getSlice($prevRowStart, $headerRowEnd);
+        $headerRowXml = $this->getSlice($headerRowStart, $headerRowEnd);
         $cells = $this->tableCells($headerRowXml);
         if (! isset($cells[$colIndex])) {
             return;
@@ -166,7 +183,54 @@ class ReportTemplateProcessor extends TemplateProcessor
         $open = preg_match('/^<w:tr\b[^>]*>/', $headerRowXml, $openMatch) === 1 ? $openMatch[0] : '<w:tr>';
         $newRow = $open.$before.implode('', $expanded).$after.'</w:tr>';
 
-        $this->tempDocumentMainPart = $this->getSlice(0, $prevRowStart).$newRow.$this->getSlice($headerRowEnd);
+        $this->tempDocumentMainPart = $this->getSlice(0, $headerRowStart).$newRow.$this->getSlice($headerRowEnd);
+    }
+
+    /**
+     * @param  list<string>  $columnValues
+     */
+    private function mixedCellReplacement(array $columnValues): string
+    {
+        if ($columnValues === []) {
+            return '';
+        }
+
+        $sum = 0.0;
+        foreach ($columnValues as $value) {
+            if ($value === '' || ! is_numeric($value)) {
+                return (string) $columnValues[0];
+            }
+            $sum += (float) $value;
+        }
+
+        if (abs($sum - (int) $sum) < 0.0001) {
+            return (string) (int) $sum;
+        }
+
+        return (string) round($sum, 1);
+    }
+
+    private function isBareMacroCell(string $cellXml, string $completed): bool
+    {
+        $text = trim(html_entity_decode(strip_tags($cellXml), ENT_QUOTES | ENT_XML1, 'UTF-8'));
+        $text = preg_replace('/\s+/u', '', $text) ?? $text;
+
+        return $text === $completed || $text === trim($completed, '{}');
+    }
+
+    private function findFirstRowStart(int $tableStart): int
+    {
+        $withAttr = strpos($this->tempDocumentMainPart, '<w:tr ', $tableStart);
+        $plain = strpos($this->tempDocumentMainPart, '<w:tr>', $tableStart);
+        $candidates = [];
+        if ($withAttr !== false) {
+            $candidates[] = $withAttr;
+        }
+        if ($plain !== false) {
+            $candidates[] = $plain;
+        }
+
+        return $candidates === [] ? -1 : min($candidates);
     }
 
     private function tableCellIndex(int $rowStart, int $cellStart): int

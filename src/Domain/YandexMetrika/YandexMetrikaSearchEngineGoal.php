@@ -24,7 +24,7 @@ class YandexMetrikaSearchEngineGoal
             $data['search_engine'],
             (int) $data['goal_id'],
             (string) $data['goal_name'],
-            new DateTimeImmutable($data['month']),
+            MetrikaMonth::fromMixed($data['month']),
             (int) $data['conversions']
         );
     }

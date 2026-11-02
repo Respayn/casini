@@ -73,7 +73,7 @@ class ReportData
 
     public function shouldExpandPeriodColumns(): bool
     {
-        return count($this->periodColumnLabels) > 2;
+        return count($this->periodColumnLabels) > 1;
     }
 
     /**

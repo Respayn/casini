@@ -52,10 +52,7 @@ final class ReportPeriodBuckets
      */
     public function labels(): array
     {
-        $labels = array_map(static fn (ReportPeriodBucket $bucket): string => $bucket->label, $this->items);
-        $labels[] = 'Итого';
-
-        return $labels;
+        return array_map(static fn (ReportPeriodBucket $bucket): string => $bucket->label, $this->items);
     }
 
     /**
@@ -76,8 +73,6 @@ final class ReportPeriodBuckets
         foreach ($this->items as $bucket) {
             $series[] = $this->bucketValue($bucket, $normalized, $empty, $sumTotal);
         }
-
-        $series[] = $this->totalValue($normalized, $empty, $sumTotal);
 
         return $series;
     }
@@ -122,33 +117,6 @@ final class ReportPeriodBuckets
         ksort($matched);
 
         return (string) end($matched);
-    }
-
-    /**
-     * @param  array<string, int|float|string|null>  $valuesByMonth
-     */
-    private function totalValue(array $valuesByMonth, string $empty, bool $sumTotal): string
-    {
-        if ($sumTotal) {
-            $sum = 0.0;
-            $hasNumber = false;
-            foreach ($valuesByMonth as $value) {
-                if ($value === null || $value === '' || ! is_numeric($value)) {
-                    continue;
-                }
-                $sum += (float) $value;
-                $hasNumber = true;
-            }
-
-            return $hasNumber ? self::formatNumber($sum) : $empty;
-        }
-
-        $reporting = $valuesByMonth[$this->reportingMonthKey] ?? null;
-        if ($reporting === null || $reporting === '') {
-            return $empty;
-        }
-
-        return (string) $reporting;
     }
 
     private static function formatNumber(float $value): string

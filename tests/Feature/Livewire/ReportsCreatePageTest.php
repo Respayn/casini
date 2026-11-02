@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Livewire;
 
+use App\Models\CallibriDailyLeadCount;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
+use App\Models\YandexDirectDailySpending;
+use App\Services\Reports\ReportMonthAvailability;
 use App\Support\SidebarProjectAccess;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
@@ -50,16 +53,58 @@ class ReportsCreatePageTest extends TestCase
         $this->assertFalse($component->get('hasPendingChanges'));
         $this->assertFalse($component->get('isMultiMonthPeriod'));
         $component
+            ->assertSee('Выберите клиенто-проект')
+            ->assertDontSee('Выберите период отчетности')
+            ->assertDontSee('Выберите формат отчетности')
+            ->assertDontSee('Выберите шаблон отчета')
             ->assertDontSee('Группировка колонок в таблицах')
             ->assertDontSee('Сортировка дат в таблицах')
             ->assertDontSee('Месяц отчетности');
     }
 
-    public function test_multi_month_period_shows_grouping_and_locked_reporting_month(): void
+    public function test_selecting_project_shows_fields_and_sets_last_available_month(): void
     {
-        $this->actingAsEditor();
+        $user = $this->actingAsEditor();
+        $project = $this->createLeadsProject('С итогом', $user->id);
+        $this->seedClosedMonth($project->id, '2026-07');
+        $this->seedClosedMonth($project->id, '2026-09');
 
         $component = Livewire::test('pages::reports-create')
+            ->set('projectId', $project->id);
+
+        $this->assertSame('2026-09-01', $component->get('from')->toDateString());
+        $this->assertSame('2026-09-01', $component->get('to')->toDateString());
+        $this->assertSame(['2026-07', '2026-09'], $component->get('availablePeriodMonths'));
+        $component
+            ->assertSee('Выберите период отчетности')
+            ->assertSee('Выберите формат отчетности')
+            ->assertSee('Выберите шаблон отчета');
+    }
+
+    public function test_empty_summary_shows_hint_under_period(): void
+    {
+        $user = $this->actingAsEditor();
+        $project = $this->createLeadsProject('Без итога', $user->id);
+
+        $component = Livewire::test('pages::reports-create')
+            ->set('projectId', $project->id);
+
+        $this->assertSame([], $component->get('availablePeriodMonths'));
+        $component
+            ->assertSee('Выберите период отчетности')
+            ->assertSee(ReportMonthAvailability::UNAVAILABLE_TOOLTIP);
+        $this->assertFalse($component->get('canSubmit'));
+    }
+
+    public function test_multi_month_period_shows_grouping_and_locked_reporting_month(): void
+    {
+        $user = $this->actingAsEditor();
+        $project = $this->createLeadsProject('Несколько месяцев', $user->id);
+        $this->seedClosedMonth($project->id, '2026-03');
+        $this->seedClosedMonth($project->id, '2026-10');
+
+        $component = Livewire::test('pages::reports-create')
+            ->set('projectId', $project->id)
             ->set('from', Carbon::parse('2026-03-01'))
             ->set('to', Carbon::parse('2026-10-01'));
 
@@ -72,7 +117,7 @@ class ReportsCreatePageTest extends TestCase
             ->assertSee('Сортировка дат в таблицах')
             ->assertSee('Месяц отчетности');
         $this->assertContains('по месяцам', array_column($component->get('columnGroupingOptions'), 'label'));
-        $this->assertContains('От нового к старому', array_column($component->get('dateSortOptions'), 'label'));
+        $this->assertContains('от нового к старому', array_column($component->get('dateSortOptions'), 'label'));
         $this->assertSame('Октябрь 2026', $component->get('reportingMonthOptions')[0]['label']);
     }
 
@@ -260,26 +305,33 @@ class ReportsCreatePageTest extends TestCase
     {
         $this->actingAsEditor();
 
-        $component = Livewire::test('pages::reports-create')
-            ->set('from', Carbon::parse('2026-09-01'));
+        $component = Livewire::test('pages::reports-create');
 
-        $this->assertTrue($component->get('hasPendingChanges'));
         $this->assertFalse($component->get('canSubmit'));
-        $component->assertSee('Сформировать и скачать');
+        $component
+            ->assertDontSee('Выберите период отчетности')
+            ->assertDontSee('Сформировать и скачать');
         $component->assertDontSeeHtml('label="Сформировать"');
     }
 
     public function test_discard_restores_snapshot_and_hides_actions(): void
     {
-        $this->actingAsEditor();
+        $user = $this->actingAsEditor();
+        $project = $this->createLeadsProject('Отмена', $user->id);
+        $this->seedClosedMonth($project->id, '2026-09');
+        $this->seedClosedMonth($project->id, '2026-10');
 
         $component = Livewire::test('pages::reports-create')
+            ->set('projectId', $project->id)
             ->set('from', Carbon::parse('2026-09-01'))
             ->call('discardChanges');
 
+        $this->assertNull($component->get('projectId'));
         $this->assertSame('2026-10-01', $component->get('from')->toDateString());
         $this->assertFalse($component->get('hasPendingChanges'));
-        $component->assertDontSee('Сформировать и скачать');
+        $component
+            ->assertDontSee('Сформировать и скачать')
+            ->assertDontSee('Выберите период отчетности');
     }
 
     private function actingAsEditor(): User
@@ -298,6 +350,20 @@ class ReportsCreatePageTest extends TestCase
 
     private function createProject(string $name, ?int $specialistId = null): Project
     {
+        return $this->makeProject($name, $specialistId, ProjectType::SEO_PROMOTION, Kpi::TRAFFIC);
+    }
+
+    private function createLeadsProject(string $name, ?int $specialistId = null): Project
+    {
+        return $this->makeProject($name, $specialistId, ProjectType::CONTEXT_AD, Kpi::LEADS);
+    }
+
+    private function makeProject(
+        string $name,
+        ?int $specialistId,
+        ProjectType $projectType,
+        Kpi $kpi,
+    ): Project {
         $client = Client::factory()->create([
             'manager_id' => User::factory()->create(['is_active' => true])->id,
         ]);
@@ -307,8 +373,25 @@ class ReportsCreatePageTest extends TestCase
             'client_id' => $client->id,
             'specialist_id' => $specialistId ?? User::factory()->create(['is_active' => true])->id,
             'is_active' => true,
-            'project_type' => ProjectType::SEO_PROMOTION,
-            'kpi' => Kpi::TRAFFIC,
+            'project_type' => $projectType,
+            'kpi' => $kpi,
+        ]);
+    }
+
+    private function seedClosedMonth(int $projectId, string $yearMonth): void
+    {
+        $lastDay = Carbon::createFromFormat('Y-m', $yearMonth)->endOfMonth()->toDateString();
+
+        YandexDirectDailySpending::query()->create([
+            'project_id' => $projectId,
+            'date' => $lastDay,
+            'cost_with_vat' => 100,
+            'cost_without_vat' => 80,
+        ]);
+        CallibriDailyLeadCount::query()->create([
+            'project_id' => $projectId,
+            'date' => $lastDay,
+            'leads_count' => 4,
         ]);
     }
 }

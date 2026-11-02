@@ -187,10 +187,10 @@ class ReportGeneratorCurlyTagsTest extends TestCase
                 ->value('ym.search_visits.yandex', '15')
                 ->value('ym.search_visits.google', '9')
                 ->periodColumns(
-                    ['Окт 2026', 'Сен 2026', 'Итого'],
+                    ['Окт 2026', 'Сен 2026'],
                     [
-                        'ym.search_visits.yandex' => ['10', '5', '15'],
-                        'ym.search_visits.google' => ['6', '3', '9'],
+                        'ym.search_visits.yandex' => ['10', '5'],
+                        'ym.search_visits.google' => ['6', '3'],
                     ],
                 )
                 ->build(),
@@ -205,11 +205,11 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertNotEmpty($rows);
         $this->assertStringContainsString('Окт 2026', $rows[0]);
         $this->assertStringContainsString('Сен 2026', $rows[0]);
-        $this->assertStringContainsString('Итого', $rows[0]);
+        $this->assertStringNotContainsString('Итого', $rows[0]);
         $this->assertStringContainsString('купить диван', $rows[1]);
         $this->assertStringContainsString('10', $rows[1]);
         $this->assertStringContainsString('5', $rows[1]);
-        $this->assertStringContainsString('15', $rows[1]);
+        $this->assertStringNotContainsString('15', $rows[1]);
         $this->assertStringNotContainsString('{{', $xml);
     }
 
@@ -235,13 +235,13 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $generated = (new ReportGenerator)->generate(
             'templates/period-positions.docx',
             ReportData::builder()
-                ->periodColumns(['Окт 2026', 'Сен 2026', 'Итого'], [])
+                ->periodColumns(['Окт 2026', 'Сен 2026'], [])
                 ->keywordPositionPair(
                     'yandex_search.phrase[1]',
                     'yandex_search.position[1]',
                     [
-                        ['phrase' => 'диван', 'position' => '3', 'series' => ['3', '7', '3']],
-                        ['phrase' => 'шкаф', 'position' => '10', 'series' => ['10', '-', '10']],
+                        ['phrase' => 'диван', 'position' => '3', 'series' => ['3', '7']],
+                        ['phrase' => 'шкаф', 'position' => '10', 'series' => ['10', '-']],
                     ],
                 )
                 ->build(),
@@ -255,6 +255,160 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertCount(1, $sofaRows);
         $this->assertStringContainsString('3', $sofaRows[0]);
         $this->assertStringContainsString('7', $sofaRows[0]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
+    public function test_expands_goals_total_without_overwriting_last_goal_row(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $header = $table->addRow();
+        $header->addCell()->addText('Цель');
+        $header->addCell()->addText('{{period_to}}');
+        $row = $table->addRow();
+        $row->addCell()->addText('{{ym.goals_yandex.name}}');
+        $row->addCell()->addText('{{ym.goals_yandex.value}}');
+        $total = $table->addRow();
+        $total->addCell()->addText('Итого');
+        $total->addCell()->addText('{{ym.goals_yandex.total}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/period-goals.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/period-goals.docx',
+            ReportData::builder()
+                ->value('period_to', '31.10.2026')
+                ->periodColumns(
+                    ['Окт 2026', 'Сен 2026'],
+                    ['ym.goals_yandex.total' => ['0', '33']],
+                )
+                ->keywordPositionPair(
+                    'ym.goals_yandex.name',
+                    'ym.goals_yandex.value',
+                    [
+                        ['phrase' => 'задать вопрос', 'position' => '36', 'series' => ['0', '22']],
+                        ['phrase' => 'заказать звонок', 'position' => '0', 'series' => ['0', '8']],
+                    ],
+                )
+                ->build(),
+            'period-goals-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $this->assertStringContainsString('Окт 2026', $rows[0]);
+        $this->assertStringContainsString('Сен 2026', $rows[0]);
+        $this->assertStringNotContainsString('Итого', $rows[0]);
+        $this->assertStringNotContainsString('31.10.2026', $rows[0]);
+
+        $callRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'заказать звонок')));
+        $this->assertCount(1, $callRows);
+        $this->assertStringContainsString('8', $callRows[0]);
+        $this->assertStringNotContainsString('Окт 2026', $callRows[0]);
+
+        $totalRows = array_values(array_filter($rows, static fn (string $row): bool => str_starts_with($row, 'Итого')));
+        $this->assertNotEmpty($totalRows);
+        $this->assertStringContainsString('33', $totalRows[0]);
+        $this->assertStringNotContainsString('61', $totalRows[0]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
+    public function test_expands_every_table_cell_with_the_same_period_tag(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $first = $section->addTable();
+        $firstHeader = $first->addRow();
+        $firstHeader->addCell()->addText('Сводка');
+        $firstHeader->addCell()->addText('{{period_to}}');
+        $firstRow = $first->addRow();
+        $firstRow->addCell()->addText('ТОП-10');
+        $firstRow->addCell()->addText('{{yandex_search.top_10[1]}}');
+        $second = $section->addTable();
+        $secondHeader = $second->addRow();
+        $secondHeader->addCell()->addText('Запрос');
+        $secondHeader->addCell()->addText('{{period_to}}');
+        $secondRow = $second->addRow();
+        $secondRow->addCell()->addText('Выведено в ТОП-10');
+        $secondRow->addCell()->addText('{{yandex_search.top_10[1]}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/period-top10-twice.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/period-top10-twice.docx',
+            ReportData::builder()
+                ->value('period_to', '31.10.2026')
+                ->value('yandex_search.top_10[1]', '43.3%')
+                ->periodColumns(
+                    ['Окт 2026', 'Сен 2026'],
+                    ['yandex_search.top_10[1]' => ['43.3%', '41.8%']],
+                )
+                ->build(),
+            'period-top10-twice-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $this->assertCount(4, $rows);
+        foreach ($rows as $row) {
+            $this->assertStringNotContainsString('31.10.2026', $row);
+        }
+        $this->assertStringContainsString('43.3%', $rows[1]);
+        $this->assertStringContainsString('41.8%', $rows[1]);
+        $this->assertStringContainsString('43.3%', $rows[3]);
+        $this->assertStringContainsString('41.8%', $rows[3]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
+    public function test_keeps_sentence_table_cell_as_single_period_total(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $summary = $section->addTable();
+        $summary->addRow()->addCell()->addText('Россия (запросы в ТОП): {{yandex_search.top_10[1]}}');
+        $table = $section->addTable();
+        $header = $table->addRow();
+        $header->addCell()->addText('Показатель');
+        $header->addCell()->addText('{{period_to}}');
+        $row = $table->addRow();
+        $row->addCell()->addText('Выведено в ТОП-10');
+        $row->addCell()->addText('{{yandex_search.top_10[1]}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/period-top10-sentence.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/period-top10-sentence.docx',
+            ReportData::builder()
+                ->value('period_to', '31.10.2026')
+                ->value('yandex_search.top_10[1]', '99%')
+                ->periodColumns(
+                    ['Окт 2026', 'Сен 2026'],
+                    ['yandex_search.top_10[1]' => ['43.3%', '41.8%']],
+                )
+                ->build(),
+            'period-top10-sentence-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $this->assertStringContainsString('Россия (запросы в ТОП): 43.3%', $rows[0]);
+        $this->assertStringNotContainsString('41.8%', $rows[0]);
+        $this->assertStringContainsString('Окт 2026', $rows[1]);
+        $this->assertStringContainsString('43.3%', $rows[2]);
+        $this->assertStringContainsString('41.8%', $rows[2]);
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
     }
 

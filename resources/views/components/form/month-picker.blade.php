@@ -4,6 +4,8 @@
     'min' => null,
     'max' => null,
     'disableFuture' => false,
+    'availableMonths' => null,
+    'unavailableTooltip' => null,
 ])
 
 @php
@@ -25,6 +27,9 @@
     class="monthpicker"
     data-min="{{ $min }}"
     data-max="{{ $max }}"
+    data-restrict-available="{{ $availableMonths !== null ? '1' : '0' }}"
+    data-available-months="{{ $availableMonths !== null ? implode(',', $availableMonths) : '' }}"
+    data-unavailable-tooltip="{{ $unavailableTooltip ?? '' }}"
     x-data="monthpicker({ placeholder: @js($placeholder), min: @js($min), max: @js($max) })"
     x-modelable="value"
     {{ $attributes }}
@@ -75,12 +80,23 @@
                     type="button"
                     class="monthpicker-btn monthpicker-btn--month"
                     x-bind:disabled="isMonthDisabled(index)"
-                    x-bind:class="{ 'selected': monthSelected(index) }"
+                    x-bind:class="{
+                        'selected': monthSelected(index),
+                        'monthpicker-btn--unavailable': isMonthUnavailable(index)
+                    }"
+                    x-on:mouseenter="onUnavailableEnter(index)"
+                    x-on:mouseleave="onUnavailableLeave()"
                     x-text="monthData.short"
                     x-on:click="selectMonth(index)"
                 ></button>
             </template>
         </div>
+        <div
+            class="monthpicker-unavailable-tooltip"
+            x-show="unavailableTipVisible"
+            x-cloak
+            x-text="unavailableTooltipText"
+        ></div>
     </div>
 </div>
 </div>
@@ -96,6 +112,7 @@
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
             isOpen: false,
+            unavailableTipVisible: false,
             monthMap: {
                 0: {
                     short: 'Янв.',
@@ -215,6 +232,42 @@
                 return false;
             },
 
+            get restrictToAvailable() {
+                return this.$root?.getAttribute?.('data-restrict-available') === '1';
+            },
+
+            get availableMonthKeys() {
+                const raw = this.$root?.getAttribute?.('data-available-months') || '';
+
+                return raw === '' ? [] : raw.split(',');
+            },
+
+            get unavailableTooltipText() {
+                return this.$root?.getAttribute?.('data-unavailable-tooltip') || '';
+            },
+
+            monthKey(monthIndex) {
+                const monthNumber = String(Number(monthIndex) + 1).padStart(2, '0');
+
+                return `${this.year}-${monthNumber}`;
+            },
+
+            isMonthUnavailable(monthIndex) {
+                if (! this.restrictToAvailable || this.isMonthDisabled(monthIndex)) {
+                    return false;
+                }
+
+                return ! this.availableMonthKeys.includes(this.monthKey(monthIndex));
+            },
+
+            onUnavailableEnter(monthIndex) {
+                this.unavailableTipVisible = this.isMonthUnavailable(monthIndex);
+            },
+
+            onUnavailableLeave() {
+                this.unavailableTipVisible = false;
+            },
+
             canGoPrevYear() {
                 const min = this.minBound;
 
@@ -250,6 +303,7 @@
 
             close() {
                 this.isOpen = false;
+                this.unavailableTipVisible = false;
             },
 
             /**
@@ -314,7 +368,7 @@
             },
 
             selectMonth(monthIndex) {
-                if (this.isMonthDisabled(monthIndex)) {
+                if (this.isMonthDisabled(monthIndex) || this.isMonthUnavailable(monthIndex)) {
                     return;
                 }
 
@@ -409,6 +463,7 @@
         }
 
         .monthpicker-dropdown {
+            position: relative;
             background-color: #FFFFFF;
             padding: 5px 5px 10px;
             z-index: 100;
@@ -468,6 +523,29 @@
                 color: inherit;
                 border-color: #C4D0E0;
             }
+
+            &.monthpicker-btn--unavailable {
+                opacity: .35;
+                cursor: not-allowed;
+            }
+
+            &.monthpicker-btn--unavailable:hover {
+                background: none;
+                color: inherit;
+                border-color: #C4D0E0;
+            }
+        }
+
+        .monthpicker-unavailable-tooltip {
+            margin-top: 8px;
+            border-radius: 0.375rem;
+            background: #374151;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+            font-style: italic;
+            color: #FFFFFF;
+            white-space: normal;
+            word-break: break-word;
         }
 
         .monthpicker-btn--square {

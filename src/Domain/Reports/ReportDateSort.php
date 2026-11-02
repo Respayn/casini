@@ -10,7 +10,7 @@ enum ReportDateSort: string
     public function label(): string
     {
         return match ($this) {
-            self::NewestFirst => 'От нового к старому',
+            self::NewestFirst => 'от нового к старому',
             self::OldestFirst => 'От старого к новому',
         };
     }
