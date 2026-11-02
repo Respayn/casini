@@ -161,6 +161,103 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
     }
 
+    public function test_expands_numeric_table_cell_into_period_columns(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $section->addText('В абзаце {{ym.search_visits.google}}');
+        $table = $section->addTable();
+        $header = $table->addRow();
+        $header->addCell()->addText('Фраза');
+        $header->addCell()->addText('Визиты');
+        $row = $table->addRow();
+        $row->addCell()->addText('купить диван');
+        $row->addCell()->addText('{{ym.search_visits.yandex}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/period-columns.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/period-columns.docx',
+            ReportData::builder()
+                ->value('ym.search_visits.yandex', '15')
+                ->value('ym.search_visits.google', '9')
+                ->periodColumns(
+                    ['Окт 2026', 'Сен 2026', 'Итого'],
+                    [
+                        'ym.search_visits.yandex' => ['10', '5', '15'],
+                        'ym.search_visits.google' => ['6', '3', '9'],
+                    ],
+                )
+                ->build(),
+            'period-columns-report'
+        );
+
+        $xml = $this->documentText($generated->path);
+        $this->assertStringContainsString('В абзаце 9', $xml);
+        $this->assertStringNotContainsString('В абзаце 6', $xml);
+
+        $rows = $this->tableRowTexts($generated->path);
+        $this->assertNotEmpty($rows);
+        $this->assertStringContainsString('Окт 2026', $rows[0]);
+        $this->assertStringContainsString('Сен 2026', $rows[0]);
+        $this->assertStringContainsString('Итого', $rows[0]);
+        $this->assertStringContainsString('купить диван', $rows[1]);
+        $this->assertStringContainsString('10', $rows[1]);
+        $this->assertStringContainsString('5', $rows[1]);
+        $this->assertStringContainsString('15', $rows[1]);
+        $this->assertStringNotContainsString('{{', $xml);
+    }
+
+    public function test_expands_cloned_position_cells_into_period_columns(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $header = $table->addRow();
+        $header->addCell()->addText('Фраза');
+        $header->addCell()->addText('Позиция');
+        $row = $table->addRow();
+        $row->addCell()->addText('{{yandex_search.phrase[1]}}');
+        $row->addCell()->addText('{{yandex_search.position[1]}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/period-positions.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/period-positions.docx',
+            ReportData::builder()
+                ->periodColumns(['Окт 2026', 'Сен 2026', 'Итого'], [])
+                ->keywordPositionPair(
+                    'yandex_search.phrase[1]',
+                    'yandex_search.position[1]',
+                    [
+                        ['phrase' => 'диван', 'position' => '3', 'series' => ['3', '7', '3']],
+                        ['phrase' => 'шкаф', 'position' => '10', 'series' => ['10', '-', '10']],
+                    ],
+                )
+                ->build(),
+            'period-positions-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $this->assertStringContainsString('Окт 2026', $rows[0]);
+        $this->assertStringContainsString('Сен 2026', $rows[0]);
+        $sofaRows = array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'диван')));
+        $this->assertCount(1, $sofaRows);
+        $this->assertStringContainsString('3', $sofaRows[0]);
+        $this->assertStringContainsString('7', $sofaRows[0]);
+        $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
     public function test_clears_search_position_when_it_is_not_in_the_phrase_row(): void
     {
         Storage::fake();

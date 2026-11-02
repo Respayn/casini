@@ -12,7 +12,7 @@ class ReportNamingService
             'Отчет',
             $project->getType()->label(),
             trim($project->getDomain()),
-            $report->getPeriod()->monthYearLabel(),
+            ReportPeriodBuckets::make($report->getPeriod())->reportingMonth->monthYearLabel(),
         ];
 
         $name = implode(' ', array_filter($parts, static fn (string $part): bool => $part !== ''));

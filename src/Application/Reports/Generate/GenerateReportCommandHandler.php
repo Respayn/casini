@@ -31,7 +31,12 @@ class GenerateReportCommandHandler
 
         $period = new DateTimeRange($command->from, $command->to);
 
-        $reportData = $this->reportDataProvider->getData($command->projectId, $period);
+        $reportData = $this->reportDataProvider->getData(
+            $command->projectId,
+            $period,
+            $command->columnGrouping,
+            $command->dateSort,
+        );
         $format = ReportFormat::from($command->format);
 
         if ($command->reportId !== null) {
@@ -46,6 +51,8 @@ class GenerateReportCommandHandler
                 $project->getSpecialistId(),
                 $client->getManagerId(),
                 $format,
+                $command->columnGrouping,
+                $command->dateSort,
             );
         } else {
             $report = Report::create(
@@ -62,6 +69,9 @@ class GenerateReportCommandHandler
                 false,
                 false,
                 $command->createdBy,
+                null,
+                $command->columnGrouping,
+                $command->dateSort,
             );
         }
 

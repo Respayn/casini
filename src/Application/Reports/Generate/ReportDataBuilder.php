@@ -14,8 +14,14 @@ class ReportDataBuilder
 
     private array $conditions = [];
 
-    /** @var list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string}>}> */
+    /** @var list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string, series?: list<string>}>}> */
     private array $keywordPositionPairs = [];
+
+    /** @var array<string, list<string>> */
+    private array $periodSeries = [];
+
+    /** @var list<string> */
+    private array $periodColumnLabels = [];
 
     /** @var list<string> */
     private array $warnings = [];
@@ -77,7 +83,19 @@ class ReportDataBuilder
     }
 
     /**
-     * @param  list<array{phrase: string, position: string}>  $rows
+     * @param  list<string>  $labels
+     * @param  array<string, list<string>>  $series
+     */
+    public function periodColumns(array $labels, array $series): self
+    {
+        $this->periodColumnLabels = $labels;
+        $this->periodSeries = $series;
+
+        return $this;
+    }
+
+    /**
+     * @param  list<array{phrase: string, position: string, series?: list<string>}>  $rows
      */
     public function keywordPositionPair(string $phraseKey, string $positionKey, array $rows): self
     {
@@ -100,6 +118,8 @@ class ReportDataBuilder
             conditions: $this->conditions,
             keywordPositionPairs: $this->keywordPositionPairs,
             warnings: $this->warnings,
+            periodSeries: $this->periodSeries,
+            periodColumnLabels: $this->periodColumnLabels,
         );
     }
 }

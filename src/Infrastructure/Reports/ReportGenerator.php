@@ -13,6 +13,7 @@ use Src\Infrastructure\Reports\TemplateHandlers\ConditionHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\ImageHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\InlineValueHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\ListHandler;
+use Src\Infrastructure\Reports\TemplateHandlers\PeriodColumnExpanderHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TableHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TemplateHandlerInterface;
 use Src\Infrastructure\Reports\TemplateHandlers\YandexSearchKeywordRowHandler;
@@ -30,6 +31,7 @@ class ReportGenerator implements ReportGeneratorInterface
             new ConditionHandler,
             new TableHandler,
             new YandexSearchKeywordRowHandler,
+            new PeriodColumnExpanderHandler,
             new ListHandler,
             new ImageHandler,
             new InlineValueHandler,

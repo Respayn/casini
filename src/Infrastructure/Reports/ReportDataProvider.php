@@ -15,6 +15,9 @@ use Src\Domain\Leads\CallibriLead;
 use Src\Domain\Leads\CallibriLeadRepositoryInterface;
 use Src\Domain\Projects\ProjectPlanValueRepositoryInterface;
 use Src\Domain\Projects\ProjectRepositoryInterface;
+use Src\Domain\Reports\ReportColumnGrouping;
+use Src\Domain\Reports\ReportDateSort;
+use Src\Domain\Reports\ReportPeriodBuckets;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\Users\UserRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
@@ -23,6 +26,7 @@ use Src\Domain\YandexMetrika\YandexMetrikaGoalConversion;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalDirectSummary;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
 use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
+use Src\Domain\YandexMetrika\YandexMetrikaSearchEngineGoal;
 use Src\Domain\YandexMetrika\YandexMetrikaSearchEnginesStats;
 use Src\Domain\YandexMetrika\YandexMetrikaVisitsGeo;
 use Src\Domain\YandexMetrika\YandexMetrikaVisitsSearchQueries;
@@ -77,15 +81,22 @@ class ReportDataProvider implements ReportDataProviderInterface
         $this->integrationProjectCredentials = $integrationProjectCredentials;
     }
 
-    public function getData(int $projectId, DateTimeRange $period): ReportData
-    {
+    public function getData(
+        int $projectId,
+        DateTimeRange $period,
+        ReportColumnGrouping $columnGrouping = ReportColumnGrouping::Months,
+        ReportDateSort $dateSort = ReportDateSort::NewestFirst,
+    ): ReportData {
+        $buckets = ReportPeriodBuckets::make($period, $columnGrouping, $dateSort);
+        $periodSeries = [];
+
         $builder = ReportData::builder()
             ->value('current_year', date('Y'))
             ->value('period_from', $period->start->format('d.m.Y'))
             ->value('period_to', $period->end->format('d.m.Y'))
             ->value('period_from_text', $period->startDateLabel())
             ->value('period_to_text', $period->endDateLabel())
-            ->value('period_month', $period->monthYearLabel());
+            ->value('period_month', $buckets->reportingMonth->monthYearLabel());
 
         $project = $this->projectRepository->findById($projectId);
         $builder->value('project_domain', $project->getDomain())
@@ -158,7 +169,7 @@ class ReportDataProvider implements ReportDataProviderInterface
             ], $callibriTableRows);
         });
 
-        $this->safely($builder, 'Данные позиций Яндекс не загружены', function () use ($builder, $projectId, $period): void {
+        $this->safely($builder, 'Данные позиций Яндекс не загружены', function () use ($builder, $projectId, $period, $buckets, &$periodSeries): void {
             $settings = $this->integrationProjectCredentials->settingsFor($projectId, 'yandex_search_api') ?? [];
             $regions = is_array($settings['regions'] ?? null) ? $settings['regions'] : [];
 
@@ -166,6 +177,12 @@ class ReportDataProvider implements ReportDataProviderInterface
                 $index = $region['index'];
                 $builder->value(YandexSearchIndexedTags::key('region', $index), $region['label']);
 
+                $monthlyPositions = $this->serpPositionRepository->getKeywordPositionsByMonth(
+                    $projectId,
+                    $period,
+                    'yandex',
+                    $region['code'],
+                );
                 $keywordPositions = YandexSearchIndexedTags::keywordRowsOrSettings(
                     $this->serpPositionRepository->getKeywordPositions(
                         $projectId,
@@ -182,11 +199,26 @@ class ReportDataProvider implements ReportDataProviderInterface
                     ->value(YandexSearchIndexedTags::key('top_5', $index), YandexSearchIndexedTags::formatShare($shares['top_5'], $hasNumericRank))
                     ->value(YandexSearchIndexedTags::key('top_10', $index), YandexSearchIndexedTags::formatShare($shares['top_10'], $hasNumericRank));
 
+                $periodSeries[YandexSearchIndexedTags::key('top_3', $index)] = $this->topShareSeries($monthlyPositions, $buckets, 3);
+                $periodSeries[YandexSearchIndexedTags::key('top_5', $index)] = $this->topShareSeries($monthlyPositions, $buckets, 5);
+                $periodSeries[YandexSearchIndexedTags::key('top_10', $index)] = $this->topShareSeries($monthlyPositions, $buckets, 10);
+
+                $positionsByPhrase = [];
+                foreach ($monthlyPositions as $item) {
+                    $positionsByPhrase[$item['phrase']][$item['month']] = $item['position'];
+                }
+
                 $pairRows = array_map(
-                    fn ($item) => [
-                        'phrase' => $item['phrase'],
-                        'position' => (string) ($item['position'] ?? '-'),
-                    ],
+                    function ($item) use ($positionsByPhrase, $buckets): array {
+                        $phrase = $item['phrase'];
+                        $monthly = $positionsByPhrase[$phrase] ?? [];
+
+                        return [
+                            'phrase' => $phrase,
+                            'position' => (string) ($item['position'] ?? '-'),
+                            'series' => $buckets->seriesFromMonthly($monthly, '-', false),
+                        ];
+                    },
                     $keywordPositions
                 );
                 $builder->keywordPositionPair(
@@ -228,15 +260,15 @@ class ReportDataProvider implements ReportDataProviderInterface
             ], $yandexDirectTableRows);
         });
 
-        $this->safely($builder, 'Данные целей Яндекс.Метрики не загружены', function () use ($builder, $projectId, $period, &$searchEnginesStats): void {
+        $this->safely($builder, 'Данные целей Яндекс.Метрики не загружены', function () use ($builder, $projectId, $period, $buckets, &$searchEnginesStats, &$periodSeries): void {
             $searchEnginesStats = $this->yandexMetrikaRepository->getSearchEnginesStats($projectId, $period);
-            $searchEnginesTable = $this->buildSearchEnginesTable($searchEnginesStats, $period);
+            $searchEnginesTable = $this->buildSearchEnginesTable($searchEnginesStats, $buckets);
             $builder->table('ym.table.goals_search_engines', $searchEnginesTable['headers'], $searchEnginesTable['rows']);
 
-            $yandexTable = $this->buildSingleSearchEngineTable($searchEnginesStats, $period, 'yandex');
+            $yandexTable = $this->buildSingleSearchEngineTable($searchEnginesStats, $buckets, 'yandex');
             $builder->table('ym.table.goals_search_engines.yandex', $yandexTable['headers'], $yandexTable['rows']);
 
-            $googleTable = $this->buildSingleSearchEngineTable($searchEnginesStats, $period, 'google');
+            $googleTable = $this->buildSingleSearchEngineTable($searchEnginesStats, $buckets, 'google');
             $builder->table('ym.table.goals_search_engines.google', $googleTable['headers'], $googleTable['rows']);
 
             $settings = $this->integrationProjectCredentials->settingsFor($projectId, 'yandex_metrika') ?? [];
@@ -246,20 +278,42 @@ class ReportDataProvider implements ReportDataProviderInterface
             $builder->keywordPositionPair(
                 YandexMetrikaSearchEngineGoals::YANDEX_NAME_KEY,
                 YandexMetrikaSearchEngineGoals::YANDEX_VALUE_KEY,
-                YandexMetrikaSearchEngineGoals::pairRows($goalStats, 'yandex', $selectedGoalIds),
+                $this->withMonthlySeries(
+                    YandexMetrikaSearchEngineGoals::pairRows($goalStats, 'yandex', $selectedGoalIds),
+                    $this->goalMonthlyByName($goalStats, 'yandex', $selectedGoalIds),
+                    $buckets,
+                    '0',
+                    true,
+                ),
             );
             $builder->value(
                 YandexMetrikaSearchEngineGoals::YANDEX_TOTAL_KEY,
                 (string) YandexMetrikaSearchEngineGoals::total($goalStats, 'yandex', $selectedGoalIds),
             );
+            $periodSeries[YandexMetrikaSearchEngineGoals::YANDEX_TOTAL_KEY] = $buckets->seriesFromMonthly(
+                $this->goalMonthlyTotals($goalStats, 'yandex', $selectedGoalIds),
+                '0',
+                true,
+            );
             $builder->keywordPositionPair(
                 YandexMetrikaSearchEngineGoals::GOOGLE_NAME_KEY,
                 YandexMetrikaSearchEngineGoals::GOOGLE_VALUE_KEY,
-                YandexMetrikaSearchEngineGoals::pairRows($goalStats, 'google', $selectedGoalIds),
+                $this->withMonthlySeries(
+                    YandexMetrikaSearchEngineGoals::pairRows($goalStats, 'google', $selectedGoalIds),
+                    $this->goalMonthlyByName($goalStats, 'google', $selectedGoalIds),
+                    $buckets,
+                    '0',
+                    true,
+                ),
             );
             $builder->value(
                 YandexMetrikaSearchEngineGoals::GOOGLE_TOTAL_KEY,
                 (string) YandexMetrikaSearchEngineGoals::total($goalStats, 'google', $selectedGoalIds),
+            );
+            $periodSeries[YandexMetrikaSearchEngineGoals::GOOGLE_TOTAL_KEY] = $buckets->seriesFromMonthly(
+                $this->goalMonthlyTotals($goalStats, 'google', $selectedGoalIds),
+                '0',
+                true,
             );
         });
 
@@ -269,15 +323,15 @@ class ReportDataProvider implements ReportDataProviderInterface
             $builder->table('ym.table.goals_utm', $goalsUtmTable['headers'], $goalsUtmTable['rows']);
         });
 
-        $this->safely($builder, 'Данные конверсий Яндекс.Метрики не загружены', function () use ($builder, $projectId, $period): void {
+        $this->safely($builder, 'Данные конверсий Яндекс.Метрики не загружены', function () use ($builder, $projectId, $period, $buckets): void {
             $goalConversionsStats = $this->yandexMetrikaRepository->getGoalConversionsStats($projectId, $period);
-            $goalsConversionsTable = $this->buildGoalsConversionsTable($goalConversionsStats, $period);
+            $goalsConversionsTable = $this->buildGoalsConversionsTable($goalConversionsStats, $buckets);
             $builder->table('ym.table.goals_conversions', $goalsConversionsTable['headers'], $goalsConversionsTable['rows']);
         });
 
-        $this->safely($builder, 'Сводка целей Директа не загружена', function () use ($builder, $projectId, $period): void {
+        $this->safely($builder, 'Сводка целей Директа не загружена', function () use ($builder, $projectId, $period, $buckets): void {
             $goalDirectSummaryStats = $this->yandexMetrikaRepository->getGoalDirectSummaryStats($projectId, $period);
-            $goalsDirectSummaryTable = $this->buildGoalsDirectSummaryTable($goalDirectSummaryStats, $period);
+            $goalsDirectSummaryTable = $this->buildGoalsDirectSummaryTable($goalDirectSummaryStats, $buckets);
             $builder->table('ym.table.goals_direct_summary', $goalsDirectSummaryTable['headers'], $goalsDirectSummaryTable['rows']);
         });
 
@@ -286,12 +340,26 @@ class ReportDataProvider implements ReportDataProviderInterface
             $builder->table('ym.table.visits_search_systems', $visitsSearchSystemsTable['headers'], $visitsSearchSystemsTable['rows']);
         });
         $planVisits = 0;
-        $this->safely($builder, 'План посещаемости не загружен', function () use ($projectId, $period, &$planVisits): void {
+        $planByMonth = [];
+        $this->safely($builder, 'План посещаемости не загружен', function () use ($projectId, $period, &$planVisits, &$planByMonth): void {
             $planVisits = $this->projectPlanValueRepository->sumByCode($projectId, 'visits', $period);
+            $planByMonth = $this->planVisitsByMonth($projectId, $period);
         });
         $builder->values(YandexMetrikaSearchVisits::tagValues($searchEnginesStats, $planVisits));
+        $visitsByEngine = $this->searchVisitsByEngineAndMonth($searchEnginesStats);
+        $periodSeries['ym.search_visits.yandex'] = $buckets->seriesFromMonthly($visitsByEngine['yandex'], '0', true);
+        $periodSeries['ym.search_visits.google'] = $buckets->seriesFromMonthly($visitsByEngine['google'], '0', true);
+        $periodSeries['ym.search_visits.other'] = $buckets->seriesFromMonthly($visitsByEngine['other'], '0', true);
+        $periodSeries['ym.search_visits.total'] = $buckets->seriesFromMonthly($visitsByEngine['total'], '0', true);
+        $periodSeries['ym.search_visits.plan'] = $buckets->seriesFromMonthly($planByMonth, '0', true);
+        $periodSeries['ym.search_visits.fact'] = $periodSeries['ym.search_visits.total'];
+        $periodSeries['ym.search_visits.performance'] = $buckets->seriesFromMonthly(
+            $this->performanceByMonth($visitsByEngine['total'], $planByMonth),
+            '',
+            false,
+        );
 
-        $this->safely($builder, 'Таблица визитов по географии не загружена', function () use ($builder, $projectId, $period): void {
+        $this->safely($builder, 'Таблица визитов по географии не загружена', function () use ($builder, $projectId, $period, $buckets): void {
             $visitsGeoStats = $this->yandexMetrikaRepository->getVisitsGeoStats($projectId, $period);
             $visitsGeoTable = $this->buildVisitsGeoTable($visitsGeoStats);
             $builder->table('ym.table.visits_geo', $visitsGeoTable['headers'], $visitsGeoTable['rows']);
@@ -302,11 +370,17 @@ class ReportDataProvider implements ReportDataProviderInterface
             $builder->keywordPositionPair(
                 YandexMetrikaGeoVisits::CITY_KEY,
                 YandexMetrikaGeoVisits::VISITS_KEY,
-                YandexMetrikaGeoVisits::pairRows($visitsGeoStats, $useVisitors),
+                $this->withMonthlySeries(
+                    YandexMetrikaGeoVisits::pairRows($visitsGeoStats, $useVisitors),
+                    $this->geoMonthlyByCity($visitsGeoStats, $useVisitors),
+                    $buckets,
+                    '0',
+                    true,
+                ),
             );
         });
 
-        $this->safely($builder, 'Таблица визитов по запросам не загружена', function () use ($builder, $projectId, $period): void {
+        $this->safely($builder, 'Таблица визитов по запросам не загружена', function () use ($builder, $projectId, $period, $buckets): void {
             $visitsSearchQueriesStats = $this->yandexMetrikaRepository->getVisitsSearchQueriesStats($projectId, $period);
             $visitsSearchQueriesTable = $this->buildVisitsSearchQueriesTable($visitsSearchQueriesStats);
             $builder->table('ym.table.visits_search_queries', $visitsSearchQueriesTable['headers'], $visitsSearchQueriesTable['rows']);
@@ -317,12 +391,18 @@ class ReportDataProvider implements ReportDataProviderInterface
             $builder->keywordPositionPair(
                 YandexMetrikaSearchQueries::PHRASE_KEY,
                 YandexMetrikaSearchQueries::VISITS_KEY,
-                YandexMetrikaSearchQueries::pairRows($visitsSearchQueriesStats, $useVisitors),
+                $this->withMonthlySeries(
+                    YandexMetrikaSearchQueries::pairRows($visitsSearchQueriesStats, $useVisitors),
+                    $this->queryMonthlyByPhrase($visitsSearchQueriesStats, $useVisitors),
+                    $buckets,
+                    '0',
+                    true,
+                ),
             );
         });
 
-        $this->safely($builder, 'Список выполненных работ не загружен', function () use ($builder, $projectId, $period): void {
-            $completedWorks = $this->completedWorkRepository->findByProjectId($projectId, $period);
+        $this->safely($builder, 'Список выполненных работ не загружен', function () use ($builder, $projectId, $buckets): void {
+            $completedWorks = $this->completedWorkRepository->findByProjectId($projectId, $buckets->reportingMonth);
             $completedWorksList = array_map(
                 fn ($work) => str_repeat("\t", $work->getDepth()).$work->getTitle(),
                 $completedWorks
@@ -338,6 +418,10 @@ class ReportDataProvider implements ReportDataProviderInterface
             );
             $builder->table('yd.table.utm_campaign_match', $utmCampaignMatchTable['headers'], $utmCampaignMatchTable['rows']);
         });
+
+        if ($buckets->expandColumns) {
+            $builder->periodColumns($buckets->labels(), $periodSeries);
+        }
 
         return $builder->build();
     }
@@ -361,77 +445,24 @@ class ReportDataProvider implements ReportDataProviderInterface
      * @param  array<YandexMetrikaSearchEnginesStats>  $stats
      * @return array{headers: array<string>, rows: array<array<string|int>>}
      */
-    private function buildSearchEnginesTable(array $stats, DateTimeRange $period): array
+    private function buildSearchEnginesTable(array $stats, ReportPeriodBuckets $buckets): array
     {
-        // Формируем список месяцев в периоде
-        $months = [];
-        $current = $period->start->modify('first day of this month');
-        $endMonth = $period->end->modify('first day of this month');
-
-        while ($current <= $endMonth) {
-            $months[] = clone $current;
-            $current = $current->modify('+1 month');
-        }
-
-        // Заголовки: Поисковая система | Месяц1 | Месяц2 | ... | Итого
-        $headers = ['Поисковая система'];
-        foreach ($months as $month) {
-            $headers[] = $this->formatMonthHeader($month);
-        }
-        $headers[] = 'Итого';
-
-        // Группируем данные по поисковым системам и месяцам
         $data = [];
         foreach ($stats as $item) {
             $engine = $item->getSearchEngine();
-            $monthKey = $item->getMonth()->format('Y-m-01');
-
-            if (! isset($data[$engine])) {
-                $data[$engine] = [];
-            }
-
-            $data[$engine][$monthKey] = $item->getConversions();
+            $monthKey = $item->getMonth()->format('Y-m');
+            $data[$engine][$monthKey] = ($data[$engine][$monthKey] ?? 0) + $item->getConversions();
         }
 
-        // Формируем строки таблицы
-        $rows = [];
         $engineLabels = [
             'yandex' => 'Яндекс',
             'google' => 'Google',
             'other' => 'другие',
         ];
 
-        $columnTotals = array_fill(0, count($months), 0);
-        $grandTotal = 0;
-
-        foreach (['yandex', 'google', 'other'] as $engine) {
-            $row = [$engineLabels[$engine]];
-            $rowTotal = 0;
-
-            foreach ($months as $month) {
-                $monthKey = $month->format('Y-m-01');
-                $value = $data[$engine][$monthKey] ?? 0;
-                $row[] = $value;
-                $rowTotal += $value;
-                $columnTotals[array_search($month, $months)] += $value;
-            }
-
-            $row[] = $rowTotal;
-            $rows[] = $row;
-            $grandTotal += $rowTotal;
-        }
-
-        // Строка "Итого"
-        $totalRow = ['Итого'];
-        foreach ($columnTotals as $total) {
-            $totalRow[] = $total;
-        }
-        $totalRow[] = $grandTotal;
-        $rows[] = $totalRow;
-
         return [
-            'headers' => $headers,
-            'rows' => $rows,
+            'headers' => $this->datedHeaders('Поисковая система', $buckets),
+            'rows' => $this->datedNamedRows($data, $buckets, $engineLabels, true),
         ];
     }
 
@@ -442,91 +473,313 @@ class ReportDataProvider implements ReportDataProviderInterface
      * @param  string  $engineName  Имя поисковой системы (yandex, google)
      * @return array{headers: array<string>, rows: array<array<string|int>>}
      */
-    private function buildSingleSearchEngineTable(array $stats, DateTimeRange $period, string $engineName): array
+    private function buildSingleSearchEngineTable(array $stats, ReportPeriodBuckets $buckets, string $engineName): array
     {
-        // Формируем список месяцев в периоде
-        $months = [];
-        $current = $period->start->modify('first day of this month');
-        $endMonth = $period->end->modify('first day of this month');
-
-        while ($current <= $endMonth) {
-            $months[] = clone $current;
-            $current = $current->modify('+1 month');
-        }
-
-        // Заголовки: Показатель | Месяц1 | Месяц2 | ... | Итого
-        $headers = ['Показатель'];
-        foreach ($months as $month) {
-            $headers[] = $this->formatMonthHeader($month);
-        }
-        $headers[] = 'Итого';
-
-        // Фильтруем данные по конкретной поисковой системе
-        $filteredStats = array_filter($stats, fn ($item) => $item->getSearchEngine() === $engineName);
-
-        // Группируем данные по месяцам
         $conversionsByMonth = [];
         $visitsByMonth = [];
-        foreach ($filteredStats as $item) {
-            $monthKey = $item->getMonth()->format('Y-m-01');
-            $conversionsByMonth[$monthKey] = $item->getConversions();
-            $visitsByMonth[$monthKey] = $item->getVisits();
-        }
+        foreach ($stats as $item) {
+            if ($item->getSearchEngine() !== $engineName) {
+                continue;
+            }
 
-        // Формируем строки таблицы
-        $rows = [];
-
-        // Строка "Конверсии"
-        $conversionsRow = ['Конверсии'];
-        $conversionsTotal = 0;
-        foreach ($months as $month) {
-            $monthKey = $month->format('Y-m-01');
-            $value = $conversionsByMonth[$monthKey] ?? 0;
-            $conversionsRow[] = $value;
-            $conversionsTotal += $value;
+            $monthKey = $item->getMonth()->format('Y-m');
+            $conversionsByMonth[$monthKey] = ($conversionsByMonth[$monthKey] ?? 0) + $item->getConversions();
+            $visitsByMonth[$monthKey] = ($visitsByMonth[$monthKey] ?? 0) + $item->getVisits();
         }
-        $conversionsRow[] = $conversionsTotal;
-        $rows[] = $conversionsRow;
-
-        // Строка "Визиты"
-        $visitsRow = ['Визиты'];
-        $visitsTotal = 0;
-        foreach ($months as $month) {
-            $monthKey = $month->format('Y-m-01');
-            $value = $visitsByMonth[$monthKey] ?? 0;
-            $visitsRow[] = $value;
-            $visitsTotal += $value;
-        }
-        $visitsRow[] = $visitsTotal;
-        $rows[] = $visitsRow;
 
         return [
-            'headers' => $headers,
-            'rows' => $rows,
+            'headers' => $this->datedHeaders('Показатель', $buckets),
+            'rows' => [
+                $this->datedMetricRow('Конверсии', $conversionsByMonth, $buckets),
+                $this->datedMetricRow('Визиты', $visitsByMonth, $buckets),
+            ],
         ];
     }
 
     /**
-     * Форматирует заголовок месяца.
+     * @return list<string>
      */
-    private function formatMonthHeader(\DateTimeImmutable $month): string
+    private function datedHeaders(string $firstColumn, ReportPeriodBuckets $buckets): array
     {
-        $months = [
-            1 => 'Янв',
-            2 => 'Фев',
-            3 => 'Мар',
-            4 => 'Апр',
-            5 => 'Май',
-            6 => 'Июн',
-            7 => 'Июл',
-            8 => 'Авг',
-            9 => 'Сен',
-            10 => 'Окт',
-            11 => 'Ноя',
-            12 => 'Дек',
+        return array_merge([$firstColumn], $buckets->labels());
+    }
+
+    /**
+     * @param  array<string, int|float|string|null>  $valuesByMonth
+     * @return list<string|int>
+     */
+    private function datedMetricRow(string $label, array $valuesByMonth, ReportPeriodBuckets $buckets): array
+    {
+        $series = $buckets->seriesFromMonthly($valuesByMonth, '0', true);
+
+        return array_merge([$label], $this->numericSeries($series));
+    }
+
+    /**
+     * @param  array<string, array<string, int|float|string|null>>  $byNameAndMonth
+     * @param  array<string, string>  $forcedNames  ключ ряда => подпись; пусто = все ключи данных
+     * @return list<array<string|int>>
+     */
+    private function datedNamedRows(
+        array $byNameAndMonth,
+        ReportPeriodBuckets $buckets,
+        array $forcedNames = [],
+        bool $withTotalRow = true,
+    ): array {
+        $names = $forcedNames !== [] ? $forcedNames : array_keys($byNameAndMonth);
+        $columnCount = count($buckets->items);
+        $columnTotals = array_fill(0, $columnCount, 0);
+        $grandTotal = 0;
+        $rows = [];
+
+        foreach ($names as $key => $label) {
+            $name = is_string($key) ? $key : (string) $label;
+            $caption = is_string($key) ? $label : $name;
+            $series = $buckets->seriesFromMonthly($byNameAndMonth[$name] ?? [], '0', true);
+            $rows[] = array_merge([$caption], $this->numericSeries($series));
+
+            foreach ($buckets->items as $index => $_) {
+                $columnTotals[$index] += (int) $series[$index];
+            }
+            $grandTotal += (int) $series[array_key_last($series)];
+        }
+
+        if ($withTotalRow) {
+            $rows[] = array_merge(['Итого'], $columnTotals, [$grandTotal]);
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<string>  $series
+     * @return list<string|int>
+     */
+    private function numericSeries(array $series): array
+    {
+        return array_map(
+            static fn (string $value): int|string => is_numeric($value) ? (int) $value : $value,
+            $series,
+        );
+    }
+
+    /**
+     * @param  list<array{phrase: string, position: string, series?: list<string>}>  $pairRows
+     * @param  array<string, array<string, int|float|string|null>>  $monthlyByName
+     * @return list<array{phrase: string, position: string, series: list<string>}>
+     */
+    private function withMonthlySeries(
+        array $pairRows,
+        array $monthlyByName,
+        ReportPeriodBuckets $buckets,
+        string $empty,
+        bool $sumTotal,
+    ): array {
+        return array_map(
+            static fn (array $row): array => [
+                'phrase' => $row['phrase'],
+                'position' => $row['position'],
+                'series' => $buckets->seriesFromMonthly($monthlyByName[$row['phrase']] ?? [], $empty, $sumTotal),
+            ],
+            $pairRows,
+        );
+    }
+
+    /**
+     * @param  list<array{phrase: string, position: int|null, month: string}>  $monthlyPositions
+     * @return list<string>
+     */
+    private function topShareSeries(array $monthlyPositions, ReportPeriodBuckets $buckets, int $limit): array
+    {
+        $positionsByMonth = [];
+        foreach ($monthlyPositions as $item) {
+            $positionsByMonth[$item['month']][] = $item['position'];
+        }
+
+        $shareKey = match ($limit) {
+            3 => 'top_3',
+            5 => 'top_5',
+            default => 'top_10',
+        };
+
+        $shareByMonth = [];
+        foreach ($positionsByMonth as $month => $positions) {
+            $shares = YandexSearchIndexedTags::topShares($positions);
+            $shareByMonth[$month] = YandexSearchIndexedTags::formatShare(
+                $shares[$shareKey],
+                YandexSearchIndexedTags::hasNumericRank($positions),
+            );
+        }
+
+        return $buckets->seriesFromMonthly($shareByMonth, '-', false);
+    }
+
+    /**
+     * @param  list<YandexMetrikaSearchEngineGoal>  $stats
+     * @param  list<int>  $selectedGoalIds
+     * @return array<string, array<string, int>>
+     */
+    private function goalMonthlyByName(array $stats, string $engine, array $selectedGoalIds): array
+    {
+        $selected = array_fill_keys($selectedGoalIds, true);
+        $monthly = [];
+
+        foreach ($stats as $item) {
+            if ($item->getSearchEngine() !== $engine || ! isset($selected[$item->getGoalId()])) {
+                continue;
+            }
+
+            $name = trim($item->getGoalName());
+            if ($name === '') {
+                $name = 'Цель '.$item->getGoalId();
+            }
+
+            $month = $item->getMonth()->format('Y-m');
+            $monthly[$name][$month] = ($monthly[$name][$month] ?? 0) + $item->getConversions();
+        }
+
+        return $monthly;
+    }
+
+    /**
+     * @param  list<YandexMetrikaSearchEngineGoal>  $stats
+     * @param  list<int>  $selectedGoalIds
+     * @return array<string, int>
+     */
+    private function goalMonthlyTotals(array $stats, string $engine, array $selectedGoalIds): array
+    {
+        $selected = array_fill_keys($selectedGoalIds, true);
+        $monthly = [];
+
+        foreach ($stats as $item) {
+            if ($item->getSearchEngine() !== $engine || ! isset($selected[$item->getGoalId()])) {
+                continue;
+            }
+
+            $month = $item->getMonth()->format('Y-m');
+            $monthly[$month] = ($monthly[$month] ?? 0) + $item->getConversions();
+        }
+
+        return $monthly;
+    }
+
+    /**
+     * @param  list<YandexMetrikaSearchEnginesStats>  $stats
+     * @return array{yandex: array<string, int>, google: array<string, int>, other: array<string, int>, total: array<string, int>}
+     */
+    private function searchVisitsByEngineAndMonth(array $stats): array
+    {
+        $result = [
+            'yandex' => [],
+            'google' => [],
+            'other' => [],
+            'total' => [],
         ];
 
-        return $months[(int) $month->format('n')].' '.$month->format('Y');
+        foreach ($stats as $item) {
+            $visits = $item->getVisits();
+            if ($visits <= 0) {
+                continue;
+            }
+
+            $month = $item->getMonth()->format('Y-m');
+            $engine = match ($item->getSearchEngine()) {
+                'yandex' => 'yandex',
+                'google' => 'google',
+                default => 'other',
+            };
+            $result[$engine][$month] = ($result[$engine][$month] ?? 0) + $visits;
+            $result['total'][$month] = ($result['total'][$month] ?? 0) + $visits;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function planVisitsByMonth(int $projectId, DateTimeRange $period): array
+    {
+        if ($period->start === null || $period->end === null) {
+            return [];
+        }
+
+        $result = [];
+        $current = $period->start->modify('first day of this month')->setTime(0, 0);
+        $end = $period->end->modify('first day of this month')->setTime(0, 0);
+
+        while ($current <= $end) {
+            $monthPeriod = new DateTimeRange(
+                $current,
+                $current->modify('last day of this month')->setTime(23, 59, 59),
+            );
+            $result[$current->format('Y-m')] = $this->projectPlanValueRepository->sumByCode($projectId, 'visits', $monthPeriod);
+            $current = $current->modify('+1 month');
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  array<string, int>  $factByMonth
+     * @param  array<string, int>  $planByMonth
+     * @return array<string, string>
+     */
+    private function performanceByMonth(array $factByMonth, array $planByMonth): array
+    {
+        $months = array_unique(array_merge(array_keys($factByMonth), array_keys($planByMonth)));
+        $result = [];
+
+        foreach ($months as $month) {
+            $result[$month] = YandexMetrikaSearchVisits::performancePercent(
+                (int) ($factByMonth[$month] ?? 0),
+                (int) ($planByMonth[$month] ?? 0),
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param  list<YandexMetrikaVisitsGeo>  $stats
+     * @return array<string, array<string, int>>
+     */
+    private function geoMonthlyByCity(array $stats, bool $useVisitors): array
+    {
+        $monthly = [];
+        foreach ($stats as $item) {
+            $city = $item->getCity();
+            if ($city === '') {
+                continue;
+            }
+
+            $value = $useVisitors ? $item->getVisitors() : $item->getVisits();
+            $month = $item->getMonth()->format('Y-m');
+            $monthly[$city][$month] = ($monthly[$city][$month] ?? 0) + $value;
+        }
+
+        return $monthly;
+    }
+
+    /**
+     * @param  list<YandexMetrikaVisitsSearchQueries>  $stats
+     * @return array<string, array<string, int>>
+     */
+    private function queryMonthlyByPhrase(array $stats, bool $useVisitors): array
+    {
+        $monthly = [];
+        foreach ($stats as $item) {
+            $phrase = $item->getPhrase();
+            if ($phrase === '') {
+                continue;
+            }
+
+            $value = $useVisitors ? $item->getVisitors() : $item->getVisits();
+            $month = $item->getMonth()->format('Y-m');
+            $monthly[$phrase][$month] = ($monthly[$phrase][$month] ?? 0) + $value;
+        }
+
+        return $monthly;
     }
 
     /**
@@ -632,71 +885,18 @@ class ReportDataProvider implements ReportDataProviderInterface
      * @param  array<YandexMetrikaGoalConversion>  $stats
      * @return array{headers: array<string>, rows: array<array<string|int>>}
      */
-    private function buildGoalsConversionsTable(array $stats, DateTimeRange $period): array
+    private function buildGoalsConversionsTable(array $stats, ReportPeriodBuckets $buckets): array
     {
-        // Формируем список месяцев в периоде
-        $months = [];
-        $current = $period->start->modify('first day of this month');
-        $endMonth = $period->end->modify('first day of this month');
-
-        while ($current <= $endMonth) {
-            $months[] = clone $current;
-            $current = $current->modify('+1 month');
-        }
-
-        // Заголовки: Название цели | Месяц1 | Месяц2 | ... | Итого
-        $headers = ['Название цели'];
-        foreach ($months as $month) {
-            $headers[] = $this->formatMonthHeader($month);
-        }
-        $headers[] = 'Итого';
-
-        // Группируем данные по целям и месяцам
         $data = [];
         foreach ($stats as $item) {
             $goalName = $item->getGoalName();
-            $monthKey = $item->getMonth()->format('Y-m-01');
-
-            if (! isset($data[$goalName])) {
-                $data[$goalName] = [];
-            }
-
-            $data[$goalName][$monthKey] = $item->getConversions();
+            $monthKey = $item->getMonth()->format('Y-m');
+            $data[$goalName][$monthKey] = ($data[$goalName][$monthKey] ?? 0) + $item->getConversions();
         }
-
-        // Формируем строки таблицы
-        $rows = [];
-        $columnTotals = array_fill(0, count($months), 0);
-        $grandTotal = 0;
-
-        foreach ($data as $goalName => $monthlyData) {
-            $row = [$goalName];
-            $rowTotal = 0;
-
-            foreach ($months as $month) {
-                $monthKey = $month->format('Y-m-01');
-                $value = $monthlyData[$monthKey] ?? 0;
-                $row[] = $value;
-                $rowTotal += $value;
-                $columnTotals[array_search($month, $months)] += $value;
-            }
-
-            $row[] = $rowTotal;
-            $rows[] = $row;
-            $grandTotal += $rowTotal;
-        }
-
-        // Строка "Итого"
-        $totalRow = ['Итого'];
-        foreach ($columnTotals as $total) {
-            $totalRow[] = $total;
-        }
-        $totalRow[] = $grandTotal;
-        $rows[] = $totalRow;
 
         return [
-            'headers' => $headers,
-            'rows' => $rows,
+            'headers' => $this->datedHeaders('Название цели', $buckets),
+            'rows' => $this->datedNamedRows($data, $buckets, [], true),
         ];
     }
 
@@ -706,66 +906,18 @@ class ReportDataProvider implements ReportDataProviderInterface
      * @param  array<YandexMetrikaGoalDirectSummary>  $stats
      * @return array{headers: array<string>, rows: array<array<string|int>>}
      */
-    private function buildGoalsDirectSummaryTable(array $stats, DateTimeRange $period): array
+    private function buildGoalsDirectSummaryTable(array $stats, ReportPeriodBuckets $buckets): array
     {
-        $months = [];
-        $current = $period->start->modify('first day of this month');
-        $endMonth = $period->end->modify('first day of this month');
-
-        while ($current <= $endMonth) {
-            $months[] = clone $current;
-            $current = $current->modify('+1 month');
-        }
-
-        $headers = ['Название цели'];
-        foreach ($months as $month) {
-            $headers[] = $this->formatMonthHeader($month);
-        }
-        $headers[] = 'Итого';
-
         $data = [];
         foreach ($stats as $item) {
             $goalName = $item->getGoalName();
-            $monthKey = $item->getMonth()->format('Y-m-01');
-
-            if (! isset($data[$goalName])) {
-                $data[$goalName] = [];
-            }
-
-            $data[$goalName][$monthKey] = $item->getConversions();
+            $monthKey = $item->getMonth()->format('Y-m');
+            $data[$goalName][$monthKey] = ($data[$goalName][$monthKey] ?? 0) + $item->getConversions();
         }
-
-        $rows = [];
-        $columnTotals = array_fill(0, count($months), 0);
-        $grandTotal = 0;
-
-        foreach ($data as $goalName => $monthlyData) {
-            $row = [$goalName];
-            $rowTotal = 0;
-
-            foreach ($months as $month) {
-                $monthKey = $month->format('Y-m-01');
-                $value = $monthlyData[$monthKey] ?? 0;
-                $row[] = $value;
-                $rowTotal += $value;
-                $columnTotals[array_search($month, $months)] += $value;
-            }
-
-            $row[] = $rowTotal;
-            $rows[] = $row;
-            $grandTotal += $rowTotal;
-        }
-
-        $totalRow = ['Итого'];
-        foreach ($columnTotals as $total) {
-            $totalRow[] = $total;
-        }
-        $totalRow[] = $grandTotal;
-        $rows[] = $totalRow;
 
         return [
-            'headers' => $headers,
-            'rows' => $rows,
+            'headers' => $this->datedHeaders('Название цели', $buckets),
+            'rows' => $this->datedNamedRows($data, $buckets, [], true),
         ];
     }
 

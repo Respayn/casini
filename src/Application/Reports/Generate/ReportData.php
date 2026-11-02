@@ -5,7 +5,9 @@ namespace Src\Application\Reports\Generate;
 class ReportData
 {
     /**
-     * @param  list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string}>}>  $keywordPositionPairs
+     * @param  list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string, series?: list<string>}>}>  $keywordPositionPairs
+     * @param  array<string, list<string>>  $periodSeries
+     * @param  list<string>  $periodColumnLabels
      * @param  list<string>  $warnings
      */
     public function __construct(
@@ -16,6 +18,8 @@ class ReportData
         private readonly array $conditions = [],
         private readonly array $keywordPositionPairs = [],
         private readonly array $warnings = [],
+        private readonly array $periodSeries = [],
+        private readonly array $periodColumnLabels = [],
     ) {}
 
     public function getValues(): array
@@ -44,11 +48,32 @@ class ReportData
     }
 
     /**
-     * @return list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string}>}>
+     * @return list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string, series?: list<string>}>}>
      */
     public function getKeywordPositionPairs(): array
     {
         return $this->keywordPositionPairs;
+    }
+
+    /**
+     * @return array<string, list<string>>
+     */
+    public function getPeriodSeries(): array
+    {
+        return $this->periodSeries;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function getPeriodColumnLabels(): array
+    {
+        return $this->periodColumnLabels;
+    }
+
+    public function shouldExpandPeriodColumns(): bool
+    {
+        return count($this->periodColumnLabels) > 2;
     }
 
     /**

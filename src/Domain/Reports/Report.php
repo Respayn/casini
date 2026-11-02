@@ -20,6 +20,8 @@ class Report
         private int $specialistId,
         private int $managerId,
         private ReportFormat $format,
+        private ReportColumnGrouping $columnGrouping,
+        private ReportDateSort $dateSort,
         private bool $isReady,
         private bool $isAccepted,
         private bool $isSent,
@@ -41,7 +43,9 @@ class Report
         bool $isAccepted,
         bool $isSent,
         int $createdBy,
-        ?string $path = null
+        ?string $path = null,
+        ReportColumnGrouping $columnGrouping = ReportColumnGrouping::Months,
+        ReportDateSort $dateSort = ReportDateSort::NewestFirst,
     ): Report {
         return new self(
             null,
@@ -55,6 +59,8 @@ class Report
             $specialistId,
             $managerId,
             $format,
+            $columnGrouping,
+            $dateSort,
             $isReady,
             $isAccepted,
             $isSent,
@@ -79,7 +85,9 @@ class Report
         bool $isAccepted,
         bool $isSent,
         int $createdBy,
-        string $path
+        string $path,
+        ReportColumnGrouping $columnGrouping = ReportColumnGrouping::Months,
+        ReportDateSort $dateSort = ReportDateSort::NewestFirst,
     ) {
         return new self(
             $id,
@@ -93,6 +101,8 @@ class Report
             $specialistId,
             $managerId,
             $format,
+            $columnGrouping,
+            $dateSort,
             $isReady,
             $isAccepted,
             $isSent,
@@ -166,6 +176,16 @@ class Report
         return $this->format;
     }
 
+    public function getColumnGrouping(): ReportColumnGrouping
+    {
+        return $this->columnGrouping;
+    }
+
+    public function getDateSort(): ReportDateSort
+    {
+        return $this->dateSort;
+    }
+
     public function getIsReady(): bool
     {
         return $this->isReady;
@@ -226,6 +246,8 @@ class Report
         int $specialistId,
         int $managerId,
         ReportFormat $format,
+        ReportColumnGrouping $columnGrouping = ReportColumnGrouping::Months,
+        ReportDateSort $dateSort = ReportDateSort::NewestFirst,
     ): void {
         $this->templateId = $templateId;
         $this->templateName = $templateName;
@@ -236,6 +258,8 @@ class Report
         $this->specialistId = $specialistId;
         $this->managerId = $managerId;
         $this->format = $format;
+        $this->columnGrouping = $columnGrouping;
+        $this->dateSort = $dateSort;
     }
 
     public function getName(): string

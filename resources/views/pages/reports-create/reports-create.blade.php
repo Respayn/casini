@@ -50,6 +50,55 @@
                 </div>
             </div>
 
+            @if ($this->isMultiMonthPeriod)
+                <div>
+                    <span class="text-sm font-semibold">Группировка колонок в таблицах *</span>
+                </div>
+                <div>
+                    <div class="max-w-80">
+                        <x-form.select
+                            wire:model.live="columnGrouping"
+                            :options="$this->columnGroupingOptions"
+                            placeholder="Выберите группировку"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <span class="text-sm font-semibold">Сортировка дат в таблицах *</span>
+                </div>
+                <div>
+                    <div class="max-w-80">
+                        <x-form.select
+                            wire:model.live="dateSort"
+                            :options="$this->dateSortOptions"
+                            placeholder="Выберите сортировку"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <x-form.form-label
+                        class="text-sm font-semibold max-w-none"
+                        tooltip="Берется последний месяц выбранного периода отчетности. За этот месяц подтягивается список выполненных работ и месяц в названии документа."
+                        tooltip-panel-max-width="18rem"
+                    >
+                        Месяц отчетности *
+                    </x-form.form-label>
+                </div>
+                <div>
+                    <div class="max-w-80">
+                        <x-form.select
+                            wire:key="reporting-month-{{ $this->reportingMonth }}"
+                            wire:model="reportingMonth"
+                            :options="$this->reportingMonthOptions"
+                            placeholder="Месяц отчетности"
+                            disabled
+                        />
+                    </div>
+                </div>
+            @endif
+
             <div>
                 <span class="text-sm font-semibold">Выберите формат отчетности *</span>
             </div>

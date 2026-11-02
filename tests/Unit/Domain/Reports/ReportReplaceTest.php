@@ -5,6 +5,8 @@ namespace Tests\Unit\Domain\Reports;
 use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 use Src\Domain\Reports\Report;
+use Src\Domain\Reports\ReportColumnGrouping;
+use Src\Domain\Reports\ReportDateSort;
 use Src\Domain\Reports\ReportFormat;
 use Src\Domain\ValueObjects\DateTimeRange;
 use Src\Domain\ValueObjects\ProjectType;
@@ -49,6 +51,8 @@ class ReportReplaceTest extends TestCase
             14,
             15,
             ReportFormat::DOCX,
+            ReportColumnGrouping::Quarters,
+            ReportDateSort::OldestFirst,
         );
 
         $this->assertTrue($report->isPersisted());
@@ -64,6 +68,8 @@ class ReportReplaceTest extends TestCase
         $this->assertSame(14, $report->getSpecialistId());
         $this->assertSame(15, $report->getManagerId());
         $this->assertSame('/tmp/old.docx', $report->getPath());
+        $this->assertSame(ReportColumnGrouping::Quarters, $report->getColumnGrouping());
+        $this->assertSame(ReportDateSort::OldestFirst, $report->getDateSort());
     }
 
     public function test_restore_keeps_template_name_without_template_id(): void

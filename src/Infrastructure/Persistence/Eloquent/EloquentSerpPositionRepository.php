@@ -54,4 +54,66 @@ class EloquentSerpPositionRepository implements SerpPositionRepositoryInterface
             'position' => $row->position,
         ])->toArray();
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getKeywordPositionsByMonth(
+        int $projectId,
+        DateTimeRange $period,
+        string $searchEngineCode,
+        int $regionGeoId,
+    ): array {
+        $results = SerpTask::query()
+            ->select([
+                'serp_keywords.phrase',
+                'serp_positions.position',
+                'serp_positions.check_date',
+            ])
+            ->join('search_engines', 'serp_tasks.search_engine_id', '=', 'search_engines.id')
+            ->join('serp_regions', 'serp_tasks.serp_region_id', '=', 'serp_regions.id')
+            ->join('serp_keywords', 'serp_tasks.serp_keyword_id', '=', 'serp_keywords.id')
+            ->join('serp_positions', 'serp_positions.serp_task_id', '=', 'serp_tasks.id')
+            ->where('serp_tasks.project_id', $projectId)
+            ->where('search_engines.code', $searchEngineCode)
+            ->where('serp_regions.geo_id', (string) $regionGeoId)
+            ->where('serp_tasks.is_active', true)
+            ->whereBetween('serp_positions.check_date', [
+                $period->getStart()?->format('Y-m-d'),
+                $period->getEnd()?->format('Y-m-d'),
+            ])
+            ->orderBy('serp_keywords.phrase')
+            ->orderBy('serp_positions.check_date')
+            ->get();
+
+        $latest = [];
+        foreach ($results as $row) {
+            $month = substr((string) $row->check_date, 0, 7);
+            if ($month === '') {
+                continue;
+            }
+
+            $key = $row->phrase.'|'.$month;
+            $checkDate = (string) $row->check_date;
+            if (! isset($latest[$key]) || $checkDate >= $latest[$key]['date']) {
+                $latest[$key] = [
+                    'phrase' => (string) $row->phrase,
+                    'position' => $row->position,
+                    'month' => $month,
+                    'date' => $checkDate,
+                ];
+            }
+        }
+
+        $rows = [];
+        foreach ($latest as $item) {
+            $rows[] = [
+                'phrase' => $item['phrase'],
+                'position' => $item['position'],
+                'month' => $item['month'],
+            ];
+        }
+
+        return $rows;
+    }
 }

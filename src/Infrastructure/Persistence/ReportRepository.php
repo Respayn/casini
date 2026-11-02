@@ -6,6 +6,8 @@ use App\Models\Report as EloquentReport;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Storage;
 use Src\Domain\Reports\Report;
+use Src\Domain\Reports\ReportColumnGrouping;
+use Src\Domain\Reports\ReportDateSort;
 use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
 
@@ -35,6 +37,8 @@ class ReportRepository implements ReportRepositoryInterface
         $eloquentReport->specialist_id = $report->getSpecialistId();
         $eloquentReport->manager_id = $report->getManagerId();
         $eloquentReport->format = $report->getFormat();
+        $eloquentReport->column_grouping = $report->getColumnGrouping();
+        $eloquentReport->date_sort = $report->getDateSort();
         $eloquentReport->is_ready = $report->getIsReady();
         $eloquentReport->is_accepted = $report->getIsAccepted();
         $eloquentReport->is_sent = $report->getIsSent();
@@ -90,7 +94,13 @@ class ReportRepository implements ReportRepositoryInterface
             $eloquentReport->is_accepted,
             $eloquentReport->is_sent,
             $eloquentReport->created_by,
-            $eloquentReport->path
+            $eloquentReport->path,
+            $eloquentReport->column_grouping instanceof ReportColumnGrouping
+                ? $eloquentReport->column_grouping
+                : ReportColumnGrouping::tryFrom((string) $eloquentReport->column_grouping) ?? ReportColumnGrouping::Months,
+            $eloquentReport->date_sort instanceof ReportDateSort
+                ? $eloquentReport->date_sort
+                : ReportDateSort::tryFrom((string) $eloquentReport->date_sort) ?? ReportDateSort::NewestFirst,
         );
     }
 }

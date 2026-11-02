@@ -17,4 +17,16 @@ interface SerpPositionRepositoryInterface
         string $searchEngineCode,
         int $regionGeoId,
     ): array;
+
+    /**
+     * Позиции фраз по месяцам: для каждого месяца последняя проверка в этом месяце.
+     *
+     * @return list<array{phrase: string, position: int|null, month: string}>
+     */
+    public function getKeywordPositionsByMonth(
+        int $projectId,
+        DateTimeRange $period,
+        string $searchEngineCode,
+        int $regionGeoId,
+    ): array;
 }

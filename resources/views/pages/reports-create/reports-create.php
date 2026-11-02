@@ -13,7 +13,11 @@ use Src\Application\Reports\Generate\GenerateReportCommandHandler;
 use Src\Application\Reports\GetFormData\GetReportFormDataQuery;
 use Src\Application\Reports\GetFormData\GetReportFormDataQueryHandler;
 use Src\Application\Reports\GetFormData\ReportFormDataResponse;
+use Src\Domain\Reports\ReportColumnGrouping;
+use Src\Domain\Reports\ReportDateSort;
+use Src\Domain\Reports\ReportPeriodBuckets;
 use Src\Domain\Reports\ReportRepositoryInterface;
+use Src\Domain\ValueObjects\DateTimeRange;
 
 new
 #[Title('Casini - Создать отчет')]
@@ -31,11 +35,17 @@ class extends Component
 
     public ?int $templateId = null;
 
+    public string $columnGrouping = 'months';
+
+    public string $dateSort = 'newest_first';
+
+    public string $reportingMonth = '';
+
     public ?int $editingReportId = null;
 
     public string $generateError = '';
 
-    /** @var array{projectId: ?int, from: string, to: string, format: ?string, templateId: ?int} */
+    /** @var array{projectId: ?int, from: string, to: string, format: ?string, templateId: ?int, columnGrouping: string, dateSort: string} */
     public array $initialSnapshot = [];
 
     public function mount(?int $reportId = null): void
@@ -45,6 +55,7 @@ class extends Component
         $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
         $this->from = $currentMonth->copy();
         $this->to = $currentMonth->copy();
+        $this->reportingMonth = $this->to->format('Y-m');
 
         $this->format = $this->formData->formats[0]['value'] ?? null;
 
@@ -71,8 +82,11 @@ class extends Component
         $this->projectId = $report->getProjectId();
         $this->from = Carbon::parse($report->getPeriodStart()->format('Y-m-d'))->startOfMonth()->startOfDay();
         $this->to = Carbon::parse($report->getPeriodEnd()->format('Y-m-d'))->startOfMonth()->startOfDay();
+        $this->reportingMonth = $this->to->format('Y-m');
         $this->format = $report->getFormat()->value;
         $this->templateId = $report->getTemplateId();
+        $this->columnGrouping = $report->getColumnGrouping()->value;
+        $this->dateSort = $report->getDateSort()->value;
     }
 
     protected function afterSidebarProjectFilterChanged(): void
@@ -114,6 +128,16 @@ class extends Component
         $this->generateError = '';
     }
 
+    public function updatedColumnGrouping(): void
+    {
+        $this->generateError = '';
+    }
+
+    public function updatedDateSort(): void
+    {
+        $this->generateError = '';
+    }
+
     private function clampPeriodToPresent(): void
     {
         $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
@@ -132,6 +156,8 @@ class extends Component
         if ($this->from->greaterThan($this->to)) {
             $this->to = $this->from->copy();
         }
+
+        $this->reportingMonth = $this->to->format('Y-m');
     }
 
     private function applySidebarProjectSelection(): void
@@ -155,7 +181,7 @@ class extends Component
     }
 
     /**
-     * @return array{projectId: ?int, from: string, to: string, format: ?string, templateId: ?int}
+     * @return array{projectId: ?int, from: string, to: string, format: ?string, templateId: ?int, columnGrouping: string, dateSort: string}
      */
     private function currentSnapshot(): array
     {
@@ -165,6 +191,8 @@ class extends Component
             'to' => $this->to->format('Y-m'),
             'format' => $this->format,
             'templateId' => $this->templateId,
+            'columnGrouping' => $this->columnGrouping,
+            'dateSort' => $this->dateSort,
         ];
     }
 
@@ -184,6 +212,9 @@ class extends Component
             ->startOfDay();
         $this->format = $this->initialSnapshot['format'] ?? null;
         $this->templateId = $this->initialSnapshot['templateId'] ?? null;
+        $this->columnGrouping = $this->initialSnapshot['columnGrouping'] ?? ReportColumnGrouping::Months->value;
+        $this->dateSort = $this->initialSnapshot['dateSort'] ?? ReportDateSort::NewestFirst->value;
+        $this->reportingMonth = $this->to->format('Y-m');
         $this->generateError = '';
         $this->resetErrorBag();
     }
@@ -202,6 +233,61 @@ class extends Component
     public function isEditing(): bool
     {
         return $this->editingReportId !== null;
+    }
+
+    #[Computed]
+    public function isMultiMonthPeriod(): bool
+    {
+        return $this->from->format('Y-m') !== $this->to->format('Y-m');
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    #[Computed]
+    public function columnGroupingOptions(): array
+    {
+        return array_map(
+            static fn (ReportColumnGrouping $item): array => [
+                'value' => $item->value,
+                'label' => $item->label(),
+            ],
+            ReportColumnGrouping::cases(),
+        );
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    #[Computed]
+    public function dateSortOptions(): array
+    {
+        return array_map(
+            static fn (ReportDateSort $item): array => [
+                'value' => $item->value,
+                'label' => $item->label(),
+            ],
+            ReportDateSort::cases(),
+        );
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    #[Computed]
+    public function reportingMonthOptions(): array
+    {
+        $label = ReportPeriodBuckets::make(
+            new DateTimeRange(
+                \DateTimeImmutable::createFromInterface($this->to->copy()->startOfMonth()->startOfDay()),
+                \DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
+            ),
+        )->reportingMonth->monthYearLabel();
+
+        return [[
+            'value' => $this->to->format('Y-m'),
+            'label' => mb_ucfirst($label),
+        ]];
     }
 
     #[Computed]
@@ -296,6 +382,8 @@ class extends Component
             'to' => 'required|date|after_or_equal:from',
             'format' => 'required|string|in:docx',
             'templateId' => 'required|integer',
+            'columnGrouping' => ['required', Rule::enum(ReportColumnGrouping::class)],
+            'dateSort' => ['required', Rule::enum(ReportDateSort::class)],
         ], [
             'projectId.required' => 'Выберите клиенто-проект',
             'projectId.in' => 'Выбранный клиенто-проект недоступен',
@@ -316,12 +404,14 @@ class extends Component
         try {
             $result = $command->handle(new GenerateReportCommand(
                 $this->projectId,
-                DateTimeImmutable::createFromInterface($this->from->copy()->startOfMonth()->startOfDay()),
-                DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
+                \DateTimeImmutable::createFromInterface($this->from->copy()->startOfMonth()->startOfDay()),
+                \DateTimeImmutable::createFromInterface($this->to->copy()->endOfMonth()->endOfDay()),
                 $this->format,
                 $this->templateId,
                 Auth::id(),
                 $this->editingReportId,
+                ReportColumnGrouping::tryFrom($this->columnGrouping) ?? ReportColumnGrouping::Months,
+                ReportDateSort::tryFrom($this->dateSort) ?? ReportDateSort::NewestFirst,
             ));
         } catch (Throwable $e) {
             report($e);

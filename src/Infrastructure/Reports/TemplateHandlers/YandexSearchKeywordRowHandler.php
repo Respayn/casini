@@ -38,10 +38,13 @@ class YandexSearchKeywordRowHandler implements TemplateHandlerInterface
             try {
                 $templateProcessor->cloneRow($resolved['phraseKey'], count($rows));
 
+                $expand = $data->shouldExpandPeriodColumns();
                 foreach ($rows as $index => $row) {
                     $rowNumber = $index + 1;
                     $templateProcessor->setValue($resolved['phraseKey'].'#'.$rowNumber, $row['phrase']);
-                    $templateProcessor->setValue($resolved['positionKey'].'#'.$rowNumber, $row['position']);
+                    if (! $expand || ! isset($row['series']) || $row['series'] === []) {
+                        $templateProcessor->setValue($resolved['positionKey'].'#'.$rowNumber, $row['position']);
+                    }
                 }
             } catch (\Throwable $e) {
                 report($e);

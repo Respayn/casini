@@ -26,12 +26,12 @@ class ReportNamingServiceTest extends TestCase
         $this->assertSame('Отчет SEO-продвижение mmk-metiz.ru сентябрь 2026', $name);
     }
 
-    public function test_month_range_stays_in_text(): void
+    public function test_month_range_uses_last_month_in_filename(): void
     {
         $name = (new ReportNamingService)->generateName(
             $this->report(
                 new DateTimeRange(
-                    new DateTimeImmutable('2026-09-01'),
+                    new DateTimeImmutable('2026-03-01'),
                     new DateTimeImmutable('2026-10-31'),
                 ),
                 ProjectType::CONTEXT_AD,
@@ -39,7 +39,7 @@ class ReportNamingServiceTest extends TestCase
             $this->project(ProjectType::CONTEXT_AD, 'example.ru'),
         );
 
-        $this->assertSame('Отчет Контекстная реклама example.ru сентябрь 2026 - октябрь 2026', $name);
+        $this->assertSame('Отчет Контекстная реклама example.ru октябрь 2026', $name);
     }
 
     public function test_unsafe_characters_are_removed_from_filename(): void

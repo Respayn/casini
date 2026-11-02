@@ -48,6 +48,32 @@ class ReportsCreatePageTest extends TestCase
         $this->assertSame('2026-10-01', $component->get('to')->toDateString());
         $this->assertSame('docx', $component->get('format'));
         $this->assertFalse($component->get('hasPendingChanges'));
+        $this->assertFalse($component->get('isMultiMonthPeriod'));
+        $component
+            ->assertDontSee('Группировка колонок в таблицах')
+            ->assertDontSee('Сортировка дат в таблицах')
+            ->assertDontSee('Месяц отчетности');
+    }
+
+    public function test_multi_month_period_shows_grouping_and_locked_reporting_month(): void
+    {
+        $this->actingAsEditor();
+
+        $component = Livewire::test('pages::reports-create')
+            ->set('from', Carbon::parse('2026-03-01'))
+            ->set('to', Carbon::parse('2026-10-01'));
+
+        $this->assertTrue($component->get('isMultiMonthPeriod'));
+        $this->assertSame('months', $component->get('columnGrouping'));
+        $this->assertSame('newest_first', $component->get('dateSort'));
+        $this->assertSame('2026-10', $component->get('reportingMonth'));
+        $component
+            ->assertSee('Группировка колонок в таблицах')
+            ->assertSee('Сортировка дат в таблицах')
+            ->assertSee('Месяц отчетности');
+        $this->assertContains('по месяцам', array_column($component->get('columnGroupingOptions'), 'label'));
+        $this->assertContains('От нового к старому', array_column($component->get('dateSortOptions'), 'label'));
+        $this->assertSame('Октябрь 2026', $component->get('reportingMonthOptions')[0]['label']);
     }
 
     public function test_future_month_is_clamped_to_current_month(): void
@@ -136,9 +162,49 @@ class ReportsCreatePageTest extends TestCase
         $this->assertSame('2026-09-01', $component->get('to')->toDateString());
         $this->assertTrue($component->get('isEditing'));
         $this->assertFalse($component->get('hasPendingChanges'));
+        $this->assertSame('months', $component->get('columnGrouping'));
+        $this->assertSame('newest_first', $component->get('dateSort'));
         $component
             ->assertSee('Редактирование отчета')
             ->assertSee('Сформировать и скачать');
+    }
+
+    public function test_edit_form_restores_grouping_and_sort(): void
+    {
+        $user = $this->actingAsEditor();
+        $project = $this->createProject('Отчет с группировкой', $user->id);
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Шаблон группировки',
+            'path' => 'templates/group-report.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $reportId = DB::table('reports')->insertGetId([
+            'template_id' => $templateId,
+            'template_name' => 'Шаблон группировки',
+            'client_id' => $project->client_id,
+            'project_id' => $project->id,
+            'period_start' => '2026-03-01',
+            'period_end' => '2026-10-31',
+            'specialist_id' => $project->specialist_id,
+            'manager_id' => $user->id,
+            'format' => 'docx',
+            'column_grouping' => 'quarters',
+            'date_sort' => 'oldest_first',
+            'created_by' => $user->id,
+            'path' => 'reports/group-report.docx',
+            'created_at' => '2026-10-15 12:00:00',
+            'updated_at' => '2026-10-15 12:00:00',
+        ]);
+
+        $component = Livewire::test('pages::reports-create', ['reportId' => $reportId]);
+
+        $this->assertTrue($component->get('isMultiMonthPeriod'));
+        $this->assertSame('quarters', $component->get('columnGrouping'));
+        $this->assertSame('oldest_first', $component->get('dateSort'));
+        $this->assertSame('2026-10', $component->get('reportingMonth'));
+        $component->assertSee('Группировка колонок в таблицах');
+        $this->assertContains('по кварталам', array_column($component->get('columnGroupingOptions'), 'label'));
     }
 
     public function test_edit_form_asks_to_pick_another_template_if_original_deleted(): void
@@ -179,12 +245,14 @@ class ReportsCreatePageTest extends TestCase
 
         $this->assertNull($component->get('templateId'));
         $this->assertFalse($component->get('canSubmit'));
-        $component
-            ->assertSee('Шаблон этого отчета удалён. Чтобы пересобрать, выберите другой шаблон.')
-            ->assertSee('Другой шаблон');
+        $component->assertSee('Шаблон этого отчета удалён. Чтобы пересобрать, выберите другой шаблон.');
         $this->assertContains(
             $otherTemplateId,
             array_column($component->get('formData')->templates, 'value')
+        );
+        $this->assertContains(
+            'Другой шаблон',
+            array_column($component->get('formData')->templates, 'label')
         );
     }
 
