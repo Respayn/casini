@@ -4,6 +4,8 @@ namespace Src\Domain\Templates;
 
 final class ReportTagCatalog
 {
+    private const MONTH_COLUMNS = 'Если период длиннее месяца и тег в ячейке таблицы, появятся колонки по месяцам. В абзаце остаётся одно число за весь период.';
+
     /**
      * @return list<ReportTag>
      */
@@ -38,7 +40,14 @@ final class ReportTagCatalog
         return [
             self::tag('current_year', 'Текущий год', $casini, ReportTagKind::Text, true, 'цифры'),
             self::tag('period_from', 'Начало периода цифрами, например 01.09.2026', $casini, ReportTagKind::Text, true, 'цифры'),
-            self::tag('period_to', 'Конец периода цифрами, например 30.09.2026', $casini, ReportTagKind::Text, true, 'цифры'),
+            self::tag(
+                'period_to',
+                'Конец периода цифрами, например 30.09.2026. В шапке таблицы с датами за несколько месяцев вместо тега появятся подписи месяцев',
+                $casini,
+                ReportTagKind::Text,
+                true,
+                'цифры',
+            ),
             self::tag('period_from_text', 'Начало периода текстом, например 1 сентября 2026', $casini, ReportTagKind::Text, true, 'текст'),
             self::tag('period_to_text', 'Конец периода текстом, например 30 сентября 2026', $casini, ReportTagKind::Text, true, 'текст'),
             self::tag('period_month', 'Отчетный месяц текстом, например сентябрь 2026', $casini, ReportTagKind::Text, true, 'текст'),
@@ -62,19 +71,19 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'yandex_search.top_3[1]',
-                'Доля фраз из этой таблицы в топ-3, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
+                'Доля фраз из этой таблицы в топ-3, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. '.self::MONTH_COLUMNS.' [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
                 ReportTagKind::Text,
             ),
             self::tag(
                 'yandex_search.top_5[1]',
-                'Доля фраз из этой таблицы в топ-5, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
+                'Доля фраз из этой таблицы в топ-5, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. '.self::MONTH_COLUMNS.' [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
                 ReportTagKind::Text,
             ),
             self::tag(
                 'yandex_search.top_10[1]',
-                'Доля фраз из этой таблицы в топ-10, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. [1] первый в списке настроек интеграции, [2] второй',
+                'Доля фраз из этой таблицы в топ-10, например 70%. Знак процента уже в значении, ячейку ставят отдельно от строки с фразой. '.self::MONTH_COLUMNS.' [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
                 ReportTagKind::Text,
             ),
@@ -86,16 +95,16 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'yandex_search.position[1]',
-                'Позиция этой фразы. Ставят в ту же строку, что и фразу. [1] первый в списке настроек интеграции, [2] второй',
+                'Позиция этой фразы. Ставят в ту же строку, что и фразу. '.self::MONTH_COLUMNS.' [1] первый в списке настроек интеграции, [2] второй',
                 $searchApi,
                 ReportTagKind::List,
             ),
             self::tag('callibri.table', 'Таблица Callibri', $callibri, ReportTagKind::Table),
             self::tag('yd.table', 'Таблица Яндекс.Директ', $direct, ReportTagKind::Table),
             self::tag('yd.table.utm_campaign_match', 'Таблица сопоставления кампаний', $direct, ReportTagKind::Table),
-            self::tag('ym.table.goals_search_engines', 'Таблица целей по поисковым системам', $metrika, ReportTagKind::Table),
-            self::tag('ym.table.goals_search_engines.yandex', 'Таблица целей Яндекс', $metrika, ReportTagKind::Table),
-            self::tag('ym.table.goals_search_engines.google', 'Таблица целей Google', $metrika, ReportTagKind::Table),
+            self::tag('ym.table.goals_search_engines', 'Таблица целей по поисковым системам. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
+            self::tag('ym.table.goals_search_engines.yandex', 'Таблица целей Яндекс. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
+            self::tag('ym.table.goals_search_engines.google', 'Таблица целей Google. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
             self::tag(
                 'ym.goals_yandex.name',
                 'Цель из Яндекса. Ставят в одну строку таблицы Word рядом с числом',
@@ -106,7 +115,7 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'ym.goals_yandex.value',
-                'Число достижений этой цели из Яндекса. Ставят в ту же строку, что и название',
+                'Число достижений этой цели из Яндекса. Ставят в ту же строку, что и название. '.self::MONTH_COLUMNS,
                 $metrika,
                 ReportTagKind::List,
                 false,
@@ -114,7 +123,7 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'ym.goals_yandex.total',
-                'Сумма достижений выбранных целей из Яндекса',
+                'Сумма достижений выбранных целей из Яндекса. '.self::MONTH_COLUMNS,
                 $metrika,
                 ReportTagKind::Text,
                 false,
@@ -130,7 +139,7 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'ym.goals_google.value',
-                'Число достижений этой цели из Google. Ставят в ту же строку, что и название',
+                'Число достижений этой цели из Google. Ставят в ту же строку, что и название. '.self::MONTH_COLUMNS,
                 $metrika,
                 ReportTagKind::List,
                 false,
@@ -138,24 +147,24 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'ym.goals_google.total',
-                'Сумма достижений выбранных целей из Google',
+                'Сумма достижений выбранных целей из Google. '.self::MONTH_COLUMNS,
                 $metrika,
                 ReportTagKind::Text,
                 false,
                 'цифры',
             ),
             self::tag('ym.table.goals_utm', 'Таблица целей по UTM', $metrika, ReportTagKind::Table),
-            self::tag('ym.table.goals_conversions', 'Таблица конверсий целей', $metrika, ReportTagKind::Table),
-            self::tag('ym.table.goals_direct_summary', 'Таблица целей Директа', $metrika, ReportTagKind::Table),
-            self::tag('ym.search_visits.yandex', 'Переходы из Яндекса', $metrika, ReportTagKind::Text, false, 'цифры'),
-            self::tag('ym.search_visits.google', 'Переходы из Google', $metrika, ReportTagKind::Text, false, 'цифры'),
-            self::tag('ym.search_visits.other', 'Переходы из других поисковых систем', $metrika, ReportTagKind::Text, false, 'цифры'),
-            self::tag('ym.search_visits.total', 'Переходы из поисковых систем, итого', $metrika, ReportTagKind::Text, false, 'цифры'),
-            self::tag('ym.search_visits.plan', 'План посещаемости из поисковых систем', $metrika, ReportTagKind::Text, false, 'цифры'),
-            self::tag('ym.search_visits.fact', 'Факт посещаемости из поисковых систем', $metrika, ReportTagKind::Text, false, 'цифры'),
-            self::tag('ym.search_visits.performance', 'Выполнение плана посещаемости, например 70%', $metrika, ReportTagKind::Text, false, 'цифры'),
-            self::tag('ym.table.visits_search_systems', 'Таблица визитов из поиска', $metrika, ReportTagKind::Table),
-            self::tag('ym.table.visits_geo', 'Таблица визитов по географии', $metrika, ReportTagKind::Table),
+            self::tag('ym.table.goals_conversions', 'Таблица конверсий целей. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
+            self::tag('ym.table.goals_direct_summary', 'Таблица целей Директа. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
+            self::tag('ym.search_visits.yandex', 'Переходы из Яндекса. '.self::MONTH_COLUMNS, $metrika, ReportTagKind::Text, false, 'цифры'),
+            self::tag('ym.search_visits.google', 'Переходы из Google. '.self::MONTH_COLUMNS, $metrika, ReportTagKind::Text, false, 'цифры'),
+            self::tag('ym.search_visits.other', 'Переходы из других поисковых систем. '.self::MONTH_COLUMNS, $metrika, ReportTagKind::Text, false, 'цифры'),
+            self::tag('ym.search_visits.total', 'Переходы из поисковых систем, итого. '.self::MONTH_COLUMNS, $metrika, ReportTagKind::Text, false, 'цифры'),
+            self::tag('ym.search_visits.plan', 'План посещаемости из поисковых систем. '.self::MONTH_COLUMNS, $metrika, ReportTagKind::Text, false, 'цифры'),
+            self::tag('ym.search_visits.fact', 'Факт посещаемости из поисковых систем. '.self::MONTH_COLUMNS, $metrika, ReportTagKind::Text, false, 'цифры'),
+            self::tag('ym.search_visits.performance', 'Выполнение плана посещаемости, например 70%. '.self::MONTH_COLUMNS, $metrika, ReportTagKind::Text, false, 'цифры'),
+            self::tag('ym.table.visits_search_systems', 'Таблица визитов из поиска. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
+            self::tag('ym.table.visits_geo', 'Таблица визитов по географии. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
             self::tag(
                 'ym.visits_geo.city[10]',
                 'Город из отчёта География. Ставят в одну строку таблицы Word рядом с числом переходов. [10]: только города с 10 и более переходами. Без скобок: все города',
@@ -166,13 +175,13 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'ym.visits_geo.visits[10]',
-                'Число переходов из этого города. Ставят в ту же строку, что и город. [10]: только города с 10 и более переходами. Без скобок: все города',
+                'Число переходов из этого города. Ставят в ту же строку, что и город. '.self::MONTH_COLUMNS.' [10]: только города с 10 и более переходами. Без скобок: все города',
                 $metrika,
                 ReportTagKind::List,
                 false,
                 'цифры',
             ),
-            self::tag('ym.table.visits_search_queries', 'Таблица визитов по запросам', $metrika, ReportTagKind::Table),
+            self::tag('ym.table.visits_search_queries', 'Таблица визитов по запросам. За несколько месяцев колонки дат по месяцам', $metrika, ReportTagKind::Table),
             self::tag(
                 'ym.search_queries.phrase[10]',
                 'Поисковая фраза из отчёта Поисковые запросы. Ставят в одну строку таблицы Word рядом с числом переходов. [10]: только фразы с 10 и более переходами. Без скобок: все фразы',
@@ -183,7 +192,7 @@ final class ReportTagCatalog
             ),
             self::tag(
                 'ym.search_queries.visits[10]',
-                'Число переходов этой фразы. Ставят в ту же строку, что и фразу. [10]: только фразы с 10 и более переходами. Без скобок: все фразы',
+                'Число переходов этой фразы. Ставят в ту же строку, что и фразу. '.self::MONTH_COLUMNS.' [10]: только фразы с 10 и более переходами. Без скобок: все фразы',
                 $metrika,
                 ReportTagKind::List,
                 false,
