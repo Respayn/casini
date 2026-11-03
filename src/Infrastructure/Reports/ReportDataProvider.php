@@ -3,6 +3,9 @@
 namespace Src\Infrastructure\Reports;
 
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
+use App\Data\ProjectUtmMappingData;
+use App\Enums\UtmType;
+use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use Illuminate\Support\Facades\Storage;
 use Src\Application\Reports\Generate\ReportData;
@@ -55,6 +58,8 @@ class ReportDataProvider implements ReportDataProviderInterface
 
     private readonly IntegrationProjectCredentials $integrationProjectCredentials;
 
+    private readonly ProjectUtmMappingRepositoryInterface $projectUtmMappingRepository;
+
     public function __construct(
         ProjectRepositoryInterface $projectRepository,
         ClientRepositoryInterface $clientRepository,
@@ -67,6 +72,7 @@ class ReportDataProvider implements ReportDataProviderInterface
         CompletedWorkRepositoryInterface $completedWorkRepository,
         AgencyRepositoryInterface $agencyRepository,
         IntegrationProjectCredentials $integrationProjectCredentials,
+        ProjectUtmMappingRepositoryInterface $projectUtmMappingRepository,
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
@@ -78,6 +84,7 @@ class ReportDataProvider implements ReportDataProviderInterface
         $this->projectPlanValueRepository = $projectPlanValueRepository;
         $this->completedWorkRepository = $completedWorkRepository;
         $this->agencyRepository = $agencyRepository;
+        $this->projectUtmMappingRepository = $projectUtmMappingRepository;
         $this->integrationProjectCredentials = $integrationProjectCredentials;
     }
 
@@ -419,12 +426,15 @@ class ReportDataProvider implements ReportDataProviderInterface
             $builder->table('yd.table.utm_campaign_match', $utmCampaignMatchTable['headers'], $utmCampaignMatchTable['rows']);
         });
 
+        $utmCampaignLabels = $this->utmCampaignLabelsForProject($projectId);
+
         $this->safely($builder, 'Общая статистика Директа не загружена', function () use (
             $builder,
             $projectId,
             $yandexDirectStats,
             $goalsUtmStats,
             $callibriLeads,
+            $utmCampaignLabels,
         ): void {
             $includeCallibri = $this->integrationProjectCredentials->hasEnabled($projectId, 'callibri');
             $includeMetrika = $this->integrationProjectCredentials->hasEnabled($projectId, 'yandex_metrika');
@@ -434,6 +444,7 @@ class ReportDataProvider implements ReportDataProviderInterface
                 $goalsUtmStats,
                 $includeCallibri,
                 $includeMetrika,
+                $utmCampaignLabels,
             );
             $builder->directCampaignStatRows($generalStats['rows']);
             $builder->values($generalStats['totals']);
@@ -444,9 +455,10 @@ class ReportDataProvider implements ReportDataProviderInterface
             $projectId,
             $period,
             $yandexDirectStats,
+            $utmCampaignLabels,
         ): void {
             $goalCampaignStats = $this->yandexMetrikaRepository->getGoalDirectCampaignStats($projectId, $period);
-            $appeals = YandexDirectAppealsStats::build($yandexDirectStats, $goalCampaignStats);
+            $appeals = YandexDirectAppealsStats::build($yandexDirectStats, $goalCampaignStats, $utmCampaignLabels);
             $builder->directAppealsStats($appeals);
         });
 
@@ -455,6 +467,34 @@ class ReportDataProvider implements ReportDataProviderInterface
         }
 
         return $builder->build();
+    }
+
+    /**
+     * Подписи кампаний из блока подмены utm_campaign в клиенто-проекте.
+     *
+     * @return array<string, string> номер кампании => подпись
+     */
+    private function utmCampaignLabelsForProject(int $projectId): array
+    {
+        $labels = [];
+        /** @var iterable<ProjectUtmMappingData> $mappings */
+        $mappings = $this->projectUtmMappingRepository->findBy('project_id', $projectId);
+
+        foreach ($mappings as $mapping) {
+            if ($mapping->utm_type !== UtmType::UTM_CAMPAIGN) {
+                continue;
+            }
+
+            $utmValue = trim($mapping->utm_value);
+            $replacement = trim($mapping->replacement_value);
+            if ($utmValue === '' || $replacement === '') {
+                continue;
+            }
+
+            $labels[$utmValue] = $replacement;
+        }
+
+        return $labels;
     }
 
     /**

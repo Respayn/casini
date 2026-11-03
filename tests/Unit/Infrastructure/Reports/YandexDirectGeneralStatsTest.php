@@ -150,4 +150,51 @@ class YandexDirectGeneralStatsTest extends TestCase
         $this->assertSame('-', $result['totals'][YandexDirectGeneralStats::TOTAL_CPL]);
         $this->assertSame('10.00', $result['rows'][0]['cpc']);
     }
+
+    public function test_replaces_campaign_name_from_utm_mapping_and_keeps_unmapped(): void
+    {
+        $stats = [
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания Б',
+                'campaign_id' => 200,
+                'impressions' => 200,
+                'clicks' => 10,
+                'cost_with_vat' => 50.0,
+                'cost_without_vat' => 40.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания А',
+                'campaign_id' => 100,
+                'impressions' => 100,
+                'clicks' => 5,
+                'cost_with_vat' => 25.0,
+                'cost_without_vat' => 20.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+        ];
+
+        $result = YandexDirectGeneralStats::build(
+            $stats,
+            [],
+            [],
+            false,
+            false,
+            ['100' => 'МК/Банные чаны/ РФ'],
+        );
+
+        $this->assertSame('Кампания Б', $result['rows'][0]['campaign']);
+        $this->assertSame('МК/Банные чаны/ РФ', $result['rows'][1]['campaign']);
+        $this->assertSame('100', $result['rows'][1]['impressions']);
+
+        $withoutLabels = YandexDirectGeneralStats::build($stats, [], [], false, false, []);
+        $this->assertSame('Кампания А', $withoutLabels['rows'][0]['campaign']);
+        $this->assertSame('Кампания Б', $withoutLabels['rows'][1]['campaign']);
+    }
 }

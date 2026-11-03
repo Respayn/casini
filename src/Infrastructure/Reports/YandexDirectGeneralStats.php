@@ -78,6 +78,7 @@ final class YandexDirectGeneralStats
      * @param  list<YandexDirectCampaignStats>  $dailyStats
      * @param  list<CallibriLead>  $callibriLeads
      * @param  list<YandexMetrikaGoalUtm>  $goalsUtm
+     * @param  array<string, string>  $utmCampaignLabels  номер кампании => подпись из клиенто-проекта
      * @return array{
      *     rows: list<array{
      *         campaign: string,
@@ -98,6 +99,7 @@ final class YandexDirectGeneralStats
         array $goalsUtm,
         bool $includeCallibri,
         bool $includeMetrika,
+        array $utmCampaignLabels = [],
     ): array {
         $leadsEnabled = $includeCallibri || $includeMetrika;
         $leadsByCampaign = $leadsEnabled
@@ -127,6 +129,14 @@ final class YandexDirectGeneralStats
             if ($aggregated[$key]['campaign_name'] === '' && $stats->getCampaignName() !== '') {
                 $aggregated[$key]['campaign_name'] = $stats->getCampaignName();
             }
+        }
+
+        foreach ($aggregated as $key => $item) {
+            $aggregated[$key]['campaign_name'] = CampaignDisplayName::resolve(
+                $item['campaign_id'],
+                $item['campaign_name'],
+                $utmCampaignLabels,
+            );
         }
 
         uasort(

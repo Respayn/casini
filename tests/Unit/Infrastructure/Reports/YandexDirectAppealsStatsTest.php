@@ -105,4 +105,64 @@ class YandexDirectAppealsStatsTest extends TestCase
         $this->assertSame([], $result['rows']);
         $this->assertSame([], $result['totals']);
     }
+
+    public function test_replaces_campaign_header_from_utm_mapping_and_keeps_unmapped(): void
+    {
+        $direct = [
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания Б',
+                'campaign_id' => 200,
+                'impressions' => 10,
+                'clicks' => 1,
+                'cost_with_vat' => 1,
+                'cost_without_vat' => 1,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания А',
+                'campaign_id' => 100,
+                'impressions' => 20,
+                'clicks' => 2,
+                'cost_with_vat' => 2,
+                'cost_without_vat' => 2,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+        ];
+
+        $goals = [
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Заявка',
+                'campaign_id' => 100,
+                'campaign_name' => 'Кампания А',
+                'month' => '2026-10-01',
+                'conversions' => 5,
+            ]),
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Заявка',
+                'campaign_id' => 200,
+                'campaign_name' => 'Кампания Б',
+                'month' => '2026-10-01',
+                'conversions' => 1,
+            ]),
+        ];
+
+        $withLabels = YandexDirectAppealsStats::build($direct, $goals, [
+            '100' => 'МК/Банные чаны/ РФ',
+        ]);
+
+        $this->assertSame(['Кампания Б', 'МК/Банные чаны/ РФ'], $withLabels['campaign_names']);
+        $this->assertSame(['1', '5'], $withLabels['rows'][0]['values']);
+        $this->assertSame(['1', '5'], $withLabels['totals']);
+
+        $withoutLabels = YandexDirectAppealsStats::build($direct, $goals, []);
+        $this->assertSame(['Кампания А', 'Кампания Б'], $withoutLabels['campaign_names']);
+    }
 }

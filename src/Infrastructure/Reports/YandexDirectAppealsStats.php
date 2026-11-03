@@ -34,14 +34,18 @@ final class YandexDirectAppealsStats
     /**
      * @param  list<YandexDirectCampaignStats>  $directDailyStats
      * @param  list<YandexMetrikaGoalDirectCampaign>  $goalCampaignStats
+     * @param  array<string, string>  $utmCampaignLabels  номер кампании => подпись из клиенто-проекта
      * @return array{
      *     campaign_names: list<string>,
      *     rows: list<array{goal: string, values: list<string>}>,
      *     totals: list<string>
      * }
      */
-    public static function build(array $directDailyStats, array $goalCampaignStats): array
-    {
+    public static function build(
+        array $directDailyStats,
+        array $goalCampaignStats,
+        array $utmCampaignLabels = [],
+    ): array {
         $campaigns = [];
         foreach ($directDailyStats as $stats) {
             $campaignId = $stats->getCampaignId();
@@ -53,6 +57,14 @@ final class YandexDirectAppealsStats
             } elseif ($campaigns[$campaignId] === '' && $stats->getCampaignName() !== '') {
                 $campaigns[$campaignId] = $stats->getCampaignName();
             }
+        }
+
+        foreach ($campaigns as $campaignId => $directName) {
+            $campaigns[$campaignId] = CampaignDisplayName::resolve(
+                (int) $campaignId,
+                $directName,
+                $utmCampaignLabels,
+            );
         }
 
         uasort($campaigns, static fn (string $a, string $b): int => strcmp($a, $b));
