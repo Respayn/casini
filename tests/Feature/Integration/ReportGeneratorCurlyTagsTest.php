@@ -543,6 +543,41 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
     }
 
+    public function test_skips_keyword_pairs_absent_from_template_without_warning(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $section->addText('Год: {{current_year}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/no-goals-pair.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/no-goals-pair.docx',
+            ReportData::builder()
+                ->value('current_year', '2026')
+                ->keywordPositionPair(
+                    'ym.goals_yandex.name',
+                    'ym.goals_yandex.value',
+                    [['phrase' => 'Заявка', 'position' => '15']],
+                )
+                ->keywordPositionPair(
+                    'ym.goals_google.name',
+                    'ym.goals_google.value',
+                    [['phrase' => 'Lead', 'position' => '3']],
+                )
+                ->build(),
+            'no-goals-pair-report'
+        );
+
+        $this->assertSame([], $generated->warnings);
+        $this->assertStringContainsString('2026', $this->documentText($generated->path));
+    }
+
     public function test_keeps_yandex_goal_name_and_value_on_the_same_row(): void
     {
         Storage::fake();
@@ -761,6 +796,53 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertCount(1, $matched);
         $this->assertSame([], array_values(array_filter($rows, static fn (string $row): bool => str_contains($row, 'Курган'))));
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
+    }
+
+    public function test_expands_direct_appeals_goal_rows_and_campaign_columns(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $header = $table->addRow();
+        $header->addCell()->addText('Цель');
+        $header->addCell()->addText('{{yd.appeals.campaign}}');
+        $data = $table->addRow();
+        $data->addCell()->addText('{{yd.appeals.goal}}');
+        $data->addCell()->addText('{{yd.appeals.value}}');
+        $total = $table->addRow();
+        $total->addCell()->addText('Итого:');
+        $total->addCell()->addText('{{yd.appeals.total}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/yd-appeals.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/yd-appeals.docx',
+            ReportData::builder()
+                ->directAppealsStats([
+                    'campaign_names' => ['Кампания А', 'Кампания Б'],
+                    'rows' => [
+                        ['goal' => 'Заявка', 'values' => ['5', '0']],
+                        ['goal' => 'Звонок', 'values' => ['1', '4']],
+                    ],
+                    'totals' => ['6', '4'],
+                ])
+                ->build(),
+            'yd-appeals-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $joined = implode("\n", $rows);
+        $this->assertStringContainsString('Кампания А', $joined);
+        $this->assertStringContainsString('Кампания Б', $joined);
+        $this->assertStringContainsString('Заявка', $joined);
+        $this->assertStringContainsString('Звонок', $joined);
+        $this->assertStringContainsString('Итого:', $joined);
+        $this->assertStringNotContainsString('{{', $joined);
     }
 
     public function test_clones_direct_general_stats_campaign_row(): void

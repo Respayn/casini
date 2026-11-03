@@ -16,6 +16,11 @@ class ReportData
      *     conversions: string,
      *     cpl: string
      * }>  $directCampaignStatRows
+     * @param  array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }|null  $directAppealsStats
      * @param  array<string, list<string>>  $periodSeries
      * @param  list<string>  $periodColumnLabels
      * @param  list<string>  $warnings
@@ -28,6 +33,7 @@ class ReportData
         private readonly array $conditions = [],
         private readonly array $keywordPositionPairs = [],
         private readonly array $directCampaignStatRows = [],
+        private readonly ?array $directAppealsStats = null,
         private readonly array $warnings = [],
         private readonly array $periodSeries = [],
         private readonly array $periodColumnLabels = [],
@@ -81,6 +87,18 @@ class ReportData
     public function getDirectCampaignStatRows(): array
     {
         return $this->directCampaignStatRows;
+    }
+
+    /**
+     * @return array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }|null
+     */
+    public function getDirectAppealsStats(): ?array
+    {
+        return $this->directAppealsStats;
     }
 
     /**

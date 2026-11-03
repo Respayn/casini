@@ -15,12 +15,23 @@ class YandexSearchKeywordRowHandler implements TemplateHandlerInterface
         ReportData $data,
         ReportGenerationWarnings $warnings,
     ): void {
+        $variables = $templateProcessor->getVariables();
+
         foreach ($data->getKeywordPositionPairs() as $pair) {
             $resolved = KeywordPairThreshold::resolve(
                 $pair['phraseKey'],
                 $pair['positionKey'],
-                $templateProcessor->getVariables(),
+                $variables,
             );
+
+            // Нет тега в шаблоне - не пытаемся cloneRow и не пугаем ложным предупреждением
+            // (как у обработчиков общей статистики и обращений).
+            if (! in_array($resolved['phraseKey'], $variables, true)
+                && ! in_array($pair['phraseKey'], $variables, true)
+            ) {
+                continue;
+            }
+
             $rows = KeywordPairThreshold::filterRows($pair['rows'], $resolved['min']);
             $keysToClear = array_values(array_unique([
                 $pair['phraseKey'],

@@ -1233,6 +1233,131 @@ class YandexMetrikaService
     }
 
     /**
+     * Достижения целей «Директ, сводка» в разрезе кампаний Директа.
+     *
+     * @param  list<int|string>  $goalIds
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     * @return list<array{goal_name: string, campaign_id: int, campaign_name: string, month: string, value: int}>
+     */
+    public function fetchDirectSummaryGoalsByCampaignStats(
+        Carbon $dateFrom,
+        Carbon $dateTo,
+        array $goalIds,
+        string $goalsMetric = YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_METRIC,
+        ?array $filters = null,
+        string $dataMode = YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+        string $attributionModel = YandexMetrikaIntegrationSettingsData::DEFAULT_ATTRIBUTION_MODEL,
+        ?string $timezone = null,
+        ?string $counterTimezone = null
+    ): array {
+        if ($dateFrom->isAfter($dateTo)) {
+            throw new \InvalidArgumentException('Start date must be before end date');
+        }
+
+        $normalizedGoalIds = YandexMetrikaIntegrationSettingsData::normalizeGoalIds($goalIds);
+        if ($normalizedGoalIds === []) {
+            throw new \InvalidArgumentException('Выберите хотя бы одну цель');
+        }
+
+        $metricName = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($goalsMetric) === YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
+            ? 'reaches'
+            : 'visits';
+        $metrics = implode(',', array_map(
+            fn (int $id) => 'ym:s:goal'.$id.$metricName,
+            $normalizedGoalIds
+        ));
+
+        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
+        $dimensions = $includeMonth
+            ? 'ym:s:goal,ym:s:<attribution>DirectClickOrder,ym:s:month'
+            : 'ym:s:goal,ym:s:<attribution>DirectClickOrder';
+
+        try {
+            $params = $this->applyReportFilters([
+                'date1' => $dateFrom->format('Y-m-d'),
+                'date2' => $dateTo->format('Y-m-d'),
+                'metrics' => $metrics,
+                'dimensions' => $dimensions,
+                'limit' => 10000,
+            ], $filters, $dataMode);
+            $params = $this->applyReportAttribution($params, $attributionModel);
+            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+
+            $existingFilters = $params['filters'] ?? '';
+            $directFilter = 'ym:s:<attribution>DirectClickOrder!n';
+            $params['filters'] = $existingFilters !== ''
+                ? $existingFilters.' AND '.$directFilter
+                : $directFilter;
+
+            $response = $this->getClient()->getVisitsReport($params);
+            $response['data'] = $this->filterGoalDimensionRowsByIds(
+                is_array($response['data'] ?? null) ? $response['data'] : [],
+                $normalizedGoalIds
+            );
+
+            return $this->aggregateDirectCampaignGoalRows($response, $dateFrom, $includeMonth);
+        } catch (\InvalidArgumentException $e) {
+            throw $e;
+        } catch (\Exception $e) {
+            $this->logError(__METHOD__, $e, [
+                'start' => $dateFrom->toDateString(),
+                'end' => $dateTo->toDateString(),
+                'goals' => $normalizedGoalIds,
+            ]);
+            throw new \Exception('Failed to get direct summary goals by campaign report', 0, $e);
+        }
+    }
+
+    /**
+     * @return list<array{goal_name: string, campaign_id: int, campaign_name: string, month: string, value: int}>
+     */
+    private function aggregateDirectCampaignGoalRows(array $response, Carbon $fallbackDate, bool $includeMonth): array
+    {
+        $aggregated = [];
+
+        foreach ($response['data'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
+            $goalDim = is_array($dimensions[0] ?? null) ? $dimensions[0] : [];
+            $campaignDim = is_array($dimensions[1] ?? null) ? $dimensions[1] : [];
+            $goalName = (string) ($goalDim['name'] ?? '');
+            $campaignId = (int) ($campaignDim['id'] ?? 0);
+            $campaignName = (string) ($campaignDim['name'] ?? '');
+            if ($goalName === '' || $campaignId <= 0) {
+                continue;
+            }
+
+            $monthName = $includeMonth && is_array($dimensions[2] ?? null)
+                ? (string) ($dimensions[2]['name'] ?? '')
+                : '';
+            $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
+            $value = (int) round(array_sum(array_map('floatval', $metrics)));
+            $month = $this->parseMonthDimension($monthName, $fallbackDate);
+            $key = $goalName.'|'.$campaignId.'|'.$month;
+
+            if (! isset($aggregated[$key])) {
+                $aggregated[$key] = [
+                    'goal_name' => $goalName,
+                    'campaign_id' => $campaignId,
+                    'campaign_name' => $campaignName !== '' ? $campaignName : ('Кампания '.$campaignId),
+                    'month' => $month,
+                    'value' => 0,
+                ];
+            }
+
+            $aggregated[$key]['value'] += $value;
+            if ($campaignName !== '' && ($aggregated[$key]['campaign_name'] === '' || str_starts_with($aggregated[$key]['campaign_name'], 'Кампания '))) {
+                $aggregated[$key]['campaign_name'] = $campaignName;
+            }
+        }
+
+        return array_values($aggregated);
+    }
+
+    /**
      * @param  list<int|string>  $goalIds
      * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
      * @return list<array{goal_name: string, month: string, value: int}>

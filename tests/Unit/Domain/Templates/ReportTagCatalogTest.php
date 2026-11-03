@@ -46,6 +46,10 @@ class ReportTagCatalogTest extends TestCase
         $this->assertSame(ReportTagKind::Text, $tags['yd.stats.total.cpl']->kind);
         $this->assertSame('{{yd.stats.campaign}}', $tags['yd.stats.campaign']->placeholder());
         $this->assertSame('цифры', $tags['yd.stats.conversions']->parameterLabel());
+        $this->assertSame(ReportTagKind::List, $tags['yd.appeals.goal']->kind);
+        $this->assertSame(ReportTagKind::Text, $tags['yd.appeals.campaign']->kind);
+        $this->assertSame('{{yd.appeals.value}}', $tags['yd.appeals.value']->placeholder());
+        $this->assertSame('цифры', $tags['yd.appeals.total']->parameterLabel());
         $this->assertSame(ReportTagKind::Table, $tags['callibri.table']->kind);
         $this->assertArrayNotHasKey('megaplan.list', $tags);
         $this->assertSame(ReportTagKind::Text, $tags['period_from']->kind);

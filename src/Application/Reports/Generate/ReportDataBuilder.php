@@ -30,6 +30,14 @@ class ReportDataBuilder
      */
     private array $directCampaignStatRows = [];
 
+    /** @var array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }|null
+     */
+    private ?array $directAppealsStats = null;
+
     /** @var array<string, list<string>> */
     private array $periodSeries = [];
 
@@ -140,6 +148,20 @@ class ReportDataBuilder
         return $this;
     }
 
+    /**
+     * @param  array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }  $stats
+     */
+    public function directAppealsStats(array $stats): self
+    {
+        $this->directAppealsStats = $stats;
+
+        return $this;
+    }
+
     public function build(): ReportData
     {
         return new ReportData(
@@ -150,6 +172,7 @@ class ReportDataBuilder
             conditions: $this->conditions,
             keywordPositionPairs: $this->keywordPositionPairs,
             directCampaignStatRows: $this->directCampaignStatRows,
+            directAppealsStats: $this->directAppealsStats,
             warnings: $this->warnings,
             periodSeries: $this->periodSeries,
             periodColumnLabels: $this->periodColumnLabels,

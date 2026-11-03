@@ -30,6 +30,8 @@ class TemplateTagSourceTest extends TestCase
             ['yd.table.utm_campaign_match', TemplateTagSource::YANDEX_DIRECT],
             ['yd.stats.campaign', TemplateTagSource::YANDEX_DIRECT],
             ['yd.stats.total.cpl', TemplateTagSource::YANDEX_DIRECT],
+            ['yd.appeals.goal', TemplateTagSource::YANDEX_DIRECT],
+            ['yd.appeals.total', TemplateTagSource::YANDEX_DIRECT],
             ['ym.table.visits_geo', TemplateTagSource::YANDEX_METRIKA],
             ['ym.search_visits.yandex', TemplateTagSource::YANDEX_METRIKA],
             ['ym.search_queries.phrase', TemplateTagSource::YANDEX_METRIKA],

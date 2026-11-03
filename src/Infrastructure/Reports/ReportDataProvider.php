@@ -439,6 +439,17 @@ class ReportDataProvider implements ReportDataProviderInterface
             $builder->values($generalStats['totals']);
         });
 
+        $this->safely($builder, 'Статистика по обращениям не загружена', function () use (
+            $builder,
+            $projectId,
+            $period,
+            $yandexDirectStats,
+        ): void {
+            $goalCampaignStats = $this->yandexMetrikaRepository->getGoalDirectCampaignStats($projectId, $period);
+            $appeals = YandexDirectAppealsStats::build($yandexDirectStats, $goalCampaignStats);
+            $builder->directAppealsStats($appeals);
+        });
+
         if ($buckets->expandColumns) {
             $builder->periodColumns($buckets->labels(), $periodSeries);
         }

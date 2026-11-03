@@ -178,11 +178,17 @@ class YandexMetrikaReportsSync
                     $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
                 )),
             ),
-            self::GOALS_DIRECT_SUMMARY => $this->repository->upsertGoalDirectSummary(
+            self::GOALS_DIRECT_SUMMARY => $this->saveDirectSummaryGoals(
                 $projectId,
-                $this->mapGoalRows($this->metrikaService->fetchDirectSummaryGoalsStats(
-                    $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
-                )),
+                $from,
+                $to,
+                $goalIds,
+                $goalsMetric,
+                $filters,
+                $dataMode,
+                $attributionModel,
+                $timezone,
+                $counterTimezone,
             ),
             self::VISITS_SEARCH_ENGINES => $this->saveSearchEnginesVisits($projectId, $settings, $from, $to, $visitsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone),
             self::VISITS_SEARCH_QUERIES => $this->saveSearchQueriesVisits(
@@ -401,6 +407,46 @@ class YandexMetrikaReportsSync
      * @param  list<array{goal_name: string, month: string, value: int}>  $rows
      * @return list<array{goal_name: string, month: string, conversions: int}>
      */
+    /**
+     * @param  list<int>  $goalIds
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     */
+    private function saveDirectSummaryGoals(
+        int $projectId,
+        Carbon $from,
+        Carbon $to,
+        array $goalIds,
+        string $goalsMetric,
+        ?array $filters,
+        string $dataMode,
+        string $attributionModel,
+        ?string $timezone,
+        ?string $counterTimezone,
+    ): void {
+        $this->repository->upsertGoalDirectSummary(
+            $projectId,
+            $this->mapGoalRows($this->metrikaService->fetchDirectSummaryGoalsStats(
+                $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
+            )),
+        );
+
+        $this->repository->upsertGoalDirectCampaigns(
+            $projectId,
+            array_map(
+                fn (array $row) => [
+                    'goal_name' => $row['goal_name'],
+                    'campaign_id' => $row['campaign_id'],
+                    'campaign_name' => $row['campaign_name'],
+                    'month' => $row['month'],
+                    'conversions' => $row['value'],
+                ],
+                $this->metrikaService->fetchDirectSummaryGoalsByCampaignStats(
+                    $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
+                ),
+            ),
+        );
+    }
+
     private function mapGoalRows(array $rows): array
     {
         return array_map(fn (array $row) => [
