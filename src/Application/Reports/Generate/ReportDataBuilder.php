@@ -17,6 +17,19 @@ class ReportDataBuilder
     /** @var list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string, series?: list<string>}>}> */
     private array $keywordPositionPairs = [];
 
+    /** @var list<array{
+     *     campaign: string,
+     *     impressions: string,
+     *     clicks: string,
+     *     cost: string,
+     *     ctr: string,
+     *     cpc: string,
+     *     conversions: string,
+     *     cpl: string
+     * }>
+     */
+    private array $directCampaignStatRows = [];
+
     /** @var array<string, list<string>> */
     private array $periodSeries = [];
 
@@ -108,6 +121,25 @@ class ReportDataBuilder
         return $this;
     }
 
+    /**
+     * @param  list<array{
+     *     campaign: string,
+     *     impressions: string,
+     *     clicks: string,
+     *     cost: string,
+     *     ctr: string,
+     *     cpc: string,
+     *     conversions: string,
+     *     cpl: string
+     * }>  $rows
+     */
+    public function directCampaignStatRows(array $rows): self
+    {
+        $this->directCampaignStatRows = $rows;
+
+        return $this;
+    }
+
     public function build(): ReportData
     {
         return new ReportData(
@@ -117,6 +149,7 @@ class ReportDataBuilder
             images: $this->images,
             conditions: $this->conditions,
             keywordPositionPairs: $this->keywordPositionPairs,
+            directCampaignStatRows: $this->directCampaignStatRows,
             warnings: $this->warnings,
             periodSeries: $this->periodSeries,
             periodColumnLabels: $this->periodColumnLabels,

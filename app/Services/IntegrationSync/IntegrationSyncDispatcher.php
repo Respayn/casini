@@ -14,6 +14,7 @@ use App\Services\IntegrationSync\Collectors\Bitrix24LaborCollector;
 use App\Services\IntegrationSync\Collectors\Bitrix24WorksCollector;
 use App\Services\IntegrationSync\Collectors\CallibriDailyLeadsCollector;
 use App\Services\IntegrationSync\Collectors\GoogleSheetsSpendingsCollector;
+use App\Services\IntegrationSync\Collectors\YandexDirectCampaignStatsCollector;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
 use App\Services\IntegrationSync\Collectors\YandexMetrikaReportsCollector;
 use App\Services\IntegrationSync\Collectors\YandexSearchApiDailyPositionsCollector;
@@ -200,6 +201,7 @@ class IntegrationSyncDispatcher
     {
         $classes = [
             YandexDirectDailySpendCollector::class,
+            YandexDirectCampaignStatsCollector::class,
             CallibriDailyLeadsCollector::class,
             YandexSearchApiDailyPositionsCollector::class,
             Bitrix24LaborCollector::class,

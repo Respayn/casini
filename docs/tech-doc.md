@@ -868,6 +868,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 Если период длиннее одного месяца, числовой тег в ячейке таблицы Word раскладывается в колонки дат (`ReportPeriodBuckets` + `PeriodColumnExpanderHandler`): по месяцам / календарным кварталам / годам, без колонки «Итого». Один тег может стоять в нескольких таблицах (сводка ТОП-3/5/10 и строка «Выведено в ТОП-10»): ячейка только с тегом раскладывается, ячейка с текстом вроде «запросы в ТОП» остаётся одним числом за период. Шапка колонок - первая строка той же таблицы (в SEO-шаблоне там `{{period_to}}`, его меняют подписи месяцев). Визиты, цели, план и факт в колонке месяца складываются внутри этого месяца; позиция и проценты (доля топа, выполнение плана) - значение этого месяца. Тег в абзаце остаётся одним числом за весь интервал. Готовые таблицы с датами (`ym.table.goals_search_engines` и соседние) собираются по тем же колонкам. Месяц съёма Метрики в сущности - календарный `Y-m-d` (`MetrikaMonth`: Laravel `toArray()` даёт UTC ISO и сдвигает день). `{{period_month}}`, список работ `{{bitrix24.worklist}}` и месяц в имени файла - последний месяц периода; `{{period_from}}` / `{{period_to}}` - границы всего интервала.
 
+**Общая статистика Директа (контекст):** строка кампании в оформленной таблице Word - теги `{{yd.stats.campaign}}`, `impressions`, `clicks`, `cost`, `ctr`, `cpc`, `conversions`, `cpl` (копирует `YandexDirectGeneralStatsRowHandler`). Строка «Итого» - `{{yd.stats.total.*}}`. Показы/клики/расход с НДС/CTR/CPC - из `yandex_direct_campaign_stats` за период (съём `yandex_direct_campaign_stats`). Ключевые конверсии и CPL - как «Лиды»/«CPL» в настройках клиенто-проекта: Callibri и/или цели UTM Метрики при совпадении `utm_campaign` с `campaign_id`; без этих интеграций в ячейках `-`. CTR/CPC/CPL в «Итого» считаются от сумм, не усредняются. Готовый блок `{{yd.table}}` оформление шаблона заменяет и для этой таблицы не используется.
+
 | Что | Как |
 |-----|-----|
 | Фильтр по периоду | по `reports.created_at` (колонка «Дата»), не по периоду отчёта; от `periodFrom` 00:00:00 до последнего дня месяца `periodTo` 23:59:59 (`ReportsListDataProvider`) |
@@ -899,6 +901,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Ключ | Интеграция | Таблица | UI |
 |------|------------|---------|-----|
 | `yandex_direct_daily_spend` | `yandex_direct` | `yandex_direct_daily_spendings` | Каналы: расход; Статистика: «Рекламный бюджет» |
+| `yandex_direct_campaign_stats` | `yandex_direct` | `yandex_direct_campaign_stats` | Отчёты: «Общая статистика» (`{{yd.stats.*}}`). CAMPAIGN_PERFORMANCE_REPORT по дням (показы, клики, расход с/без НДС); уникальность `project_id` + `campaign_id` + `date` |
 | `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
 | `yandex_search_api_daily_positions` | `yandex_search_api` | `serp_positions` + `yandex_search_api_daily_top_percents` | Статистика: «% позиций в ТОП» (SEO + POSITIONS) |
 | `bitrix24_labor` | `bitrix24` | `bitrix24_daily_labor` | Каналы: часы ролей (SEO-специалист, помощник, аналитик, ОРК) |
@@ -917,11 +920,17 @@ Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание в 
 Ячейка `-` = нет строки в дневной таблице за день (нуль пишется как `0` / `0.00`).
 
 ```sql
--- Direct
+-- Direct (расход по аккаунту)
 SELECT date, cost_without_vat, cost_with_vat
 FROM yandex_direct_daily_spendings
 WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
 ORDER BY date;
+
+-- Direct (кампании для отчёта)
+SELECT date, campaign_id, campaign_name, impressions, clicks, cost_with_vat
+FROM yandex_direct_campaign_stats
+WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+ORDER BY date, campaign_id;
 
 -- Callibri
 SELECT date, leads_count

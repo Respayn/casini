@@ -6,6 +6,16 @@ class ReportData
 {
     /**
      * @param  list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string, series?: list<string>}>}>  $keywordPositionPairs
+     * @param  list<array{
+     *     campaign: string,
+     *     impressions: string,
+     *     clicks: string,
+     *     cost: string,
+     *     ctr: string,
+     *     cpc: string,
+     *     conversions: string,
+     *     cpl: string
+     * }>  $directCampaignStatRows
      * @param  array<string, list<string>>  $periodSeries
      * @param  list<string>  $periodColumnLabels
      * @param  list<string>  $warnings
@@ -17,6 +27,7 @@ class ReportData
         private readonly array $images = [],
         private readonly array $conditions = [],
         private readonly array $keywordPositionPairs = [],
+        private readonly array $directCampaignStatRows = [],
         private readonly array $warnings = [],
         private readonly array $periodSeries = [],
         private readonly array $periodColumnLabels = [],
@@ -53,6 +64,23 @@ class ReportData
     public function getKeywordPositionPairs(): array
     {
         return $this->keywordPositionPairs;
+    }
+
+    /**
+     * @return list<array{
+     *     campaign: string,
+     *     impressions: string,
+     *     clicks: string,
+     *     cost: string,
+     *     ctr: string,
+     *     cpc: string,
+     *     conversions: string,
+     *     cpl: string
+     * }>
+     */
+    public function getDirectCampaignStatRows(): array
+    {
+        return $this->directCampaignStatRows;
     }
 
     /**

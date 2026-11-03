@@ -242,7 +242,7 @@ class ReportDataProvider implements ReportDataProviderInterface
                     $stats->getCpc(),
                     $stats->getConversions(),
                     $stats->getCpl(),
-                    $stats->getGoalName() ?? '—',
+                    $stats->getGoalName() ?? '-',
                 ],
                 $yandexDirectStats
             );
@@ -417,6 +417,26 @@ class ReportDataProvider implements ReportDataProviderInterface
                 $callibriLeads
             );
             $builder->table('yd.table.utm_campaign_match', $utmCampaignMatchTable['headers'], $utmCampaignMatchTable['rows']);
+        });
+
+        $this->safely($builder, 'Общая статистика Директа не загружена', function () use (
+            $builder,
+            $projectId,
+            $yandexDirectStats,
+            $goalsUtmStats,
+            $callibriLeads,
+        ): void {
+            $includeCallibri = $this->integrationProjectCredentials->hasEnabled($projectId, 'callibri');
+            $includeMetrika = $this->integrationProjectCredentials->hasEnabled($projectId, 'yandex_metrika');
+            $generalStats = YandexDirectGeneralStats::build(
+                $yandexDirectStats,
+                $callibriLeads,
+                $goalsUtmStats,
+                $includeCallibri,
+                $includeMetrika,
+            );
+            $builder->directCampaignStatRows($generalStats['rows']);
+            $builder->values($generalStats['totals']);
         });
 
         if ($buckets->expandColumns) {

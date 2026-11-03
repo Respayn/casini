@@ -16,6 +16,7 @@ use Src\Infrastructure\Reports\TemplateHandlers\ListHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\PeriodColumnExpanderHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TableHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\TemplateHandlerInterface;
+use Src\Infrastructure\Reports\TemplateHandlers\YandexDirectGeneralStatsRowHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\YandexSearchKeywordRowHandler;
 use Src\Infrastructure\Reports\TemplateHandlers\YandexSearchLeftoverTagHandler;
 use Src\Infrastructure\Templates\ReportTemplateProcessor;
@@ -31,6 +32,7 @@ class ReportGenerator implements ReportGeneratorInterface
             new ConditionHandler,
             new TableHandler,
             new YandexSearchKeywordRowHandler,
+            new YandexDirectGeneralStatsRowHandler,
             new PeriodColumnExpanderHandler,
             new ListHandler,
             new ImageHandler,

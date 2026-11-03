@@ -763,6 +763,93 @@ class ReportGeneratorCurlyTagsTest extends TestCase
         $this->assertStringNotContainsString('{{', implode("\n", $rows));
     }
 
+    public function test_clones_direct_general_stats_campaign_row(): void
+    {
+        Storage::fake();
+
+        $phpWord = new PhpWord;
+        $section = $phpWord->addSection();
+        $table = $section->addTable();
+        $header = $table->addRow();
+        $header->addCell()->addText('Кампания');
+        $header->addCell()->addText('Показы');
+        $header->addCell()->addText('Клики');
+        $header->addCell()->addText('Расход');
+        $header->addCell()->addText('CTR');
+        $header->addCell()->addText('CPC');
+        $header->addCell()->addText('Конверсии');
+        $header->addCell()->addText('CPL');
+        $data = $table->addRow();
+        $data->addCell()->addText('{{yd.stats.campaign}}');
+        $data->addCell()->addText('{{yd.stats.impressions}}');
+        $data->addCell()->addText('{{yd.stats.clicks}}');
+        $data->addCell()->addText('{{yd.stats.cost}}');
+        $data->addCell()->addText('{{yd.stats.ctr}}');
+        $data->addCell()->addText('{{yd.stats.cpc}}');
+        $data->addCell()->addText('{{yd.stats.conversions}}');
+        $data->addCell()->addText('{{yd.stats.cpl}}');
+        $total = $table->addRow();
+        $total->addCell()->addText('Итого');
+        $total->addCell()->addText('{{yd.stats.total.impressions}}');
+        $total->addCell()->addText('{{yd.stats.total.clicks}}');
+        $total->addCell()->addText('{{yd.stats.total.cost}}');
+        $total->addCell()->addText('{{yd.stats.total.ctr}}');
+        $total->addCell()->addText('{{yd.stats.total.cpc}}');
+        $total->addCell()->addText('{{yd.stats.total.conversions}}');
+        $total->addCell()->addText('{{yd.stats.total.cpl}}');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'tpl');
+        IOFactory::createWriter($phpWord, 'Word2007')->save($tmp);
+        Storage::put('templates/yd-general-stats.docx', file_get_contents($tmp));
+        unlink($tmp);
+
+        $generated = (new ReportGenerator)->generate(
+            'templates/yd-general-stats.docx',
+            ReportData::builder()
+                ->directCampaignStatRows([
+                    [
+                        'campaign' => 'Кампания А',
+                        'impressions' => '100',
+                        'clicks' => '10',
+                        'cost' => '200.00',
+                        'ctr' => '10.00%',
+                        'cpc' => '20.00',
+                        'conversions' => '2',
+                        'cpl' => '100.00',
+                    ],
+                    [
+                        'campaign' => 'Кампания Б',
+                        'impressions' => '50',
+                        'clicks' => '0',
+                        'cost' => '5.00',
+                        'ctr' => '0.00%',
+                        'cpc' => '-',
+                        'conversions' => '0',
+                        'cpl' => '-',
+                    ],
+                ])
+                ->values([
+                    'yd.stats.total.impressions' => '150',
+                    'yd.stats.total.clicks' => '10',
+                    'yd.stats.total.cost' => '205.00',
+                    'yd.stats.total.ctr' => '6.67%',
+                    'yd.stats.total.cpc' => '20.50',
+                    'yd.stats.total.conversions' => '2',
+                    'yd.stats.total.cpl' => '102.50',
+                ])
+                ->build(),
+            'yd-general-stats-report'
+        );
+
+        $rows = $this->tableRowTexts($generated->path);
+        $joined = implode("\n", $rows);
+        $this->assertStringContainsString('Кампания А', $joined);
+        $this->assertStringContainsString('Кампания Б', $joined);
+        $this->assertStringContainsString('200.00', $joined);
+        $this->assertStringContainsString('102.50', $joined);
+        $this->assertStringNotContainsString('{{', $joined);
+    }
+
     /**
      * @param  list<string>  $tagNames
      */
