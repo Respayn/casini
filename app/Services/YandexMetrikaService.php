@@ -665,8 +665,8 @@ class YandexMetrikaService
             $normalizedGoalIds
         ));
 
-        // Source и campaign вместе: фильтр settings отсекает лишнее, но оба поля пишутся в БД.
-        $dimensions = 'ym:s:<attribution>UTMSource,ym:s:<attribution>UTMCampaign,ym:s:date';
+        // Цель + source + campaign: имя цели нужно для «Статистики по обращениям».
+        $dimensions = 'ym:s:goal,ym:s:<attribution>UTMSource,ym:s:<attribution>UTMCampaign,ym:s:date';
 
         try {
             $params = $this->applyReportFilters([
@@ -689,6 +689,10 @@ class YandexMetrikaService
             $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
 
             $response = $this->getClient()->getVisitsReport($params);
+            $response['data'] = $this->filterGoalDimensionRowsByIds(
+                is_array($response['data'] ?? null) ? $response['data'] : [],
+                $normalizedGoalIds
+            );
 
             return $this->aggregateUtmGoalRows($response);
         } catch (\InvalidArgumentException $e) {
@@ -706,7 +710,7 @@ class YandexMetrikaService
 
     /**
      * @param  array<string, mixed>  $response
-     * @return list<array{utm_source: string, utm_campaign: string, date: string, value: int}>
+     * @return list<array{goal_name: string, utm_source: string, utm_campaign: string, date: string, value: int}>
      */
     private function aggregateUtmGoalRows(array $response): array
     {
@@ -718,21 +722,28 @@ class YandexMetrikaService
             }
 
             $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
-            $sourceVal = is_array($dimensions[0] ?? null)
-                ? (string) ($dimensions[0]['name'] ?? '')
-                : '';
-            $campaignVal = is_array($dimensions[1] ?? null)
+            $goalDim = is_array($dimensions[0] ?? null) ? $dimensions[0] : [];
+            $goalName = trim((string) ($goalDim['name'] ?? ''));
+            if ($goalName === '') {
+                $goalId = trim((string) ($goalDim['id'] ?? ''));
+                $goalName = $goalId !== '' ? 'Цель '.$goalId : 'Цель';
+            }
+            $sourceVal = is_array($dimensions[1] ?? null)
                 ? (string) ($dimensions[1]['name'] ?? '')
                 : '';
-            $dateVal = is_array($dimensions[2] ?? null)
+            $campaignVal = is_array($dimensions[2] ?? null)
                 ? (string) ($dimensions[2]['name'] ?? '')
+                : '';
+            $dateVal = is_array($dimensions[3] ?? null)
+                ? (string) ($dimensions[3]['name'] ?? '')
                 : '';
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $value = (int) round(array_sum(array_map('floatval', $metrics)));
 
-            $key = $sourceVal.'|'.$campaignVal.'|'.$dateVal;
+            $key = $goalName.'|'.$sourceVal.'|'.$campaignVal.'|'.$dateVal;
             if (! isset($aggregated[$key])) {
                 $aggregated[$key] = [
+                    'goal_name' => $goalName,
                     'utm_source' => $sourceVal,
                     'utm_campaign' => $campaignVal,
                     'date' => $dateVal,

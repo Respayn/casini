@@ -54,12 +54,14 @@ class YandexMetrikaUtmGoalsSyncTest extends TestCase
             $mock->shouldReceive('setupClientFromSettings')->once();
             $mock->shouldReceive('fetchUtmGoalsStats')->once()->andReturn([
                 [
+                    'goal_name' => 'Заявка',
                     'utm_source' => 'yandex',
                     'utm_campaign' => '100',
                     'date' => '2026-08-15',
                     'value' => 2,
                 ],
                 [
+                    'goal_name' => 'Заявка',
                     'utm_source' => 'yandex',
                     'utm_campaign' => '',
                     'date' => '2026-08-16',
@@ -80,6 +82,7 @@ class YandexMetrikaUtmGoalsSyncTest extends TestCase
             ->get();
 
         $this->assertCount(2, $withCampaign);
+        $this->assertSame('Заявка', $withCampaign->first()->goal_name);
         $this->assertSame('yandex', $withCampaign->first()->utm_source);
         $this->assertSame('2026-08-15', $withCampaign->first()->achieved_date->format('Y-m-d'));
 

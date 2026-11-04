@@ -4,6 +4,7 @@ namespace Src\Infrastructure\Reports;
 
 use Src\Domain\YandexDirect\YandexDirectCampaignStats;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalDirectCampaign;
+use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
 
 /**
  * Матрица «Статистика по обращениям»: цели × кампании Директа.
@@ -46,6 +47,77 @@ final class YandexDirectAppealsStats
         array $goalCampaignStats,
         array $utmCampaignLabels = [],
     ): array {
+        $matrix = [];
+        foreach ($goalCampaignStats as $item) {
+            $goalName = $item->getGoalName();
+            $campaignId = $item->getCampaignId();
+            if ($goalName === '' || $campaignId <= 0) {
+                continue;
+            }
+            $matrix[$goalName][$campaignId] = ($matrix[$goalName][$campaignId] ?? 0) + $item->getConversions();
+        }
+
+        return self::renderMatrix($directDailyStats, $matrix, $utmCampaignLabels);
+    }
+
+    /**
+     * Матрица из целей UTM: utm_campaign сопоставляется с campaign_id Директа.
+     *
+     * @param  list<YandexDirectCampaignStats>  $directDailyStats
+     * @param  list<YandexMetrikaGoalUtm>  $goalsUtm
+     * @param  array<string, string>  $utmCampaignLabels
+     * @return array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }
+     */
+    public static function buildFromUtmGoals(
+        array $directDailyStats,
+        array $goalsUtm,
+        array $utmCampaignLabels = [],
+    ): array {
+        $campaignIds = [];
+        foreach ($directDailyStats as $stats) {
+            $campaignId = $stats->getCampaignId();
+            if ($campaignId !== null && $campaignId > 0) {
+                $campaignIds[(string) $campaignId] = $campaignId;
+            }
+        }
+
+        $matrix = [];
+        foreach ($goalsUtm as $goal) {
+            $goalName = trim($goal->getGoalName());
+            if ($goalName === '') {
+                $goalName = 'Цель';
+            }
+            $utmCampaign = trim((string) ($goal->getUtmCampaign() ?? ''));
+            if ($utmCampaign === '' || ! isset($campaignIds[$utmCampaign])) {
+                continue;
+            }
+
+            $campaignId = $campaignIds[$utmCampaign];
+            $matrix[$goalName][$campaignId] = ($matrix[$goalName][$campaignId] ?? 0) + 1;
+        }
+
+        return self::renderMatrix($directDailyStats, $matrix, $utmCampaignLabels);
+    }
+
+    /**
+     * @param  list<YandexDirectCampaignStats>  $directDailyStats
+     * @param  array<string, array<int, int>>  $matrix
+     * @param  array<string, string>  $utmCampaignLabels
+     * @return array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }
+     */
+    private static function renderMatrix(
+        array $directDailyStats,
+        array $matrix,
+        array $utmCampaignLabels,
+    ): array {
         $campaigns = [];
         foreach ($directDailyStats as $stats) {
             $campaignId = $stats->getCampaignId();
@@ -79,15 +151,6 @@ final class YandexDirectAppealsStats
             ];
         }
 
-        $matrix = [];
-        foreach ($goalCampaignStats as $item) {
-            $goalName = $item->getGoalName();
-            $campaignId = $item->getCampaignId();
-            if ($goalName === '' || $campaignId <= 0) {
-                continue;
-            }
-            $matrix[$goalName][$campaignId] = ($matrix[$goalName][$campaignId] ?? 0) + $item->getConversions();
-        }
         ksort($matrix, SORT_STRING);
 
         $rows = [];

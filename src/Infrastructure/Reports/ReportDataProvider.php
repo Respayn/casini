@@ -537,8 +537,48 @@ class ReportDataProvider implements ReportDataProviderInterface
             $yandexDirectStats,
             $utmCampaignLabels,
         ): void {
-            $goalCampaignStats = $this->yandexMetrikaRepository->getGoalDirectCampaignStats($projectId, $period);
-            $appeals = YandexDirectAppealsStats::build($yandexDirectStats, $goalCampaignStats, $utmCampaignLabels);
+            $periodStart = $period->getStart();
+            $periodEnd = $period->getEnd();
+            if ($periodStart === null || $periodEnd === null) {
+                return;
+            }
+
+            $from = Carbon::instance($periodStart)->startOfDay();
+            $to = Carbon::instance($periodEnd)->startOfDay();
+            $metrikaSettings = $this->integrationProjectCredentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+            $countSource = YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($metrikaSettings);
+
+            if ($countSource === YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_UTM) {
+                $goalsUtm = array_map(
+                    static fn ($goal) => YandexMetrikaGoalUtm::restore([
+                        'id' => $goal->id,
+                        'project_id' => $goal->project_id,
+                        'goal_name' => $goal->goal_name,
+                        'achieved_date' => $goal->achieved_date instanceof \DateTimeInterface
+                            ? $goal->achieved_date->format('Y-m-d')
+                            : (string) $goal->achieved_date,
+                        'utm_source' => $goal->utm_source,
+                        'utm_medium' => $goal->utm_medium,
+                        'utm_campaign' => $goal->utm_campaign,
+                        'utm_content' => $goal->utm_content,
+                        'utm_term' => $goal->utm_term,
+                    ]),
+                    $this->projectKpiFacts->filteredMetrikaUtmGoals($projectId, $from, $to),
+                );
+                $appeals = YandexDirectAppealsStats::buildFromUtmGoals(
+                    $yandexDirectStats,
+                    $goalsUtm,
+                    $utmCampaignLabels,
+                );
+            } else {
+                $goalCampaignStats = $this->yandexMetrikaRepository->getGoalDirectCampaignStats($projectId, $period);
+                $appeals = YandexDirectAppealsStats::build(
+                    $yandexDirectStats,
+                    $goalCampaignStats,
+                    $utmCampaignLabels,
+                );
+            }
+
             $builder->directAppealsStats($appeals);
         });
 

@@ -31,6 +31,7 @@ class YandexMetrikaUtmGoalsTest extends TestCase
                 'data' => [
                     [
                         'dimensions' => [
+                            ['id' => '111', 'name' => 'Заявка'],
                             ['name' => 'yandex_sa'],
                             ['name' => '100'],
                             ['name' => '2026-10-15'],
@@ -39,6 +40,7 @@ class YandexMetrikaUtmGoalsTest extends TestCase
                     ],
                     [
                         'dimensions' => [
+                            ['id' => '111', 'name' => 'Заявка'],
                             ['name' => 'yandex_sa'],
                             ['name' => ''],
                             ['name' => '2026-10-16'],
@@ -62,19 +64,21 @@ class YandexMetrikaUtmGoalsTest extends TestCase
         );
 
         $this->assertSame(
-            'ym:s:<attribution>UTMSource,ym:s:<attribution>UTMCampaign,ym:s:date',
+            'ym:s:goal,ym:s:<attribution>UTMSource,ym:s:<attribution>UTMCampaign,ym:s:date',
             $captured['dimensions']
         );
         $this->assertStringContainsString("ym:s:<attribution>UTMSource=@'yandex_sa'", (string) $captured['filters']);
 
         $this->assertSame([
             [
+                'goal_name' => 'Заявка',
                 'utm_source' => 'yandex_sa',
                 'utm_campaign' => '100',
                 'date' => '2026-10-15',
                 'value' => 2,
             ],
             [
+                'goal_name' => 'Заявка',
                 'utm_source' => 'yandex_sa',
                 'utm_campaign' => '',
                 'date' => '2026-10-16',

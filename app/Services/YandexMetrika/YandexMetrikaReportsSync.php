@@ -334,8 +334,9 @@ class YandexMetrikaReportsSync
             $source = trim((string) ($row['utm_source'] ?? ''));
             $campaign = trim((string) ($row['utm_campaign'] ?? ''));
 
+            $goalName = trim((string) ($row['goal_name'] ?? ''));
             $dbRow = [
-                'goal_name' => '',
+                'goal_name' => $goalName !== '' ? $goalName : 'Цель',
                 'achieved_date' => $row['date'],
                 'utm_source' => $source !== '' ? $source : null,
                 'utm_medium' => null,
