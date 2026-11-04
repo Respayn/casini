@@ -518,8 +518,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 [`YandexMetrikaService::fetchUtmGoalsStats()`](app/Services/YandexMetrikaService.php):
 
 - как отчёт [«Метки UTM»](https://yandex.ru/support/metrica/ru/reports/tags-utm.html) / preset `tags_u_t_m`;
-- группировка: `ym:s:<attribution>UTM{Source|Medium|Campaign},ym:s:date` (под выбранную атрибуцию);
-- фильтр UTM строит [`YandexMetrikaUtmFilterBuilder`](src/Domain/YandexMetrika/YandexMetrikaUtmFilterBuilder.php): пустое поле → «не пусто» на том же attribution-измерении, значения через запятую → OR с `=@` / `=*`;
+- группировка всегда: `ym:s:<attribution>UTMSource,ym:s:<attribution>UTMCampaign,ym:s:date` — в строку БД пишутся оба поля (`utm_source` и `utm_campaign`);
+- фильтр UTM (`utm_filter_mode` / значение) строит [`YandexMetrikaUtmFilterBuilder`](src/Domain/YandexMetrika/YandexMetrikaUtmFilterBuilder.php) и отсекает лишние визиты, но не затирает второе поле: пустое поле → «не пусто» на измерении фильтра, значения через запятую → OR с `=@` / `=*`;
 - метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches`;
 - фильтры этапа 2, timezone, attribution — как обычно.
 

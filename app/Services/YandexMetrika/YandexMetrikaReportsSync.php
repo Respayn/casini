@@ -49,12 +49,6 @@ class YandexMetrikaReportsSync
         self::GOALS_DIRECT_SUMMARY,
     ];
 
-    private const UTM_DIMENSION_TO_FIELD = [
-        'ym:s:UTMSource' => 'utm_source',
-        'ym:s:UTMMedium' => 'utm_medium',
-        'ym:s:UTMCampaign' => 'utm_campaign',
-    ];
-
     public function __construct(
         private readonly YandexMetrikaService $metrikaService,
         private readonly YandexMetrikaRepositoryInterface $repository,
@@ -337,16 +331,18 @@ class YandexMetrikaReportsSync
                 continue;
             }
 
+            $source = trim((string) ($row['utm_source'] ?? ''));
+            $campaign = trim((string) ($row['utm_campaign'] ?? ''));
+
             $dbRow = [
                 'goal_name' => '',
                 'achieved_date' => $row['date'],
-                'utm_source' => null,
+                'utm_source' => $source !== '' ? $source : null,
                 'utm_medium' => null,
-                'utm_campaign' => null,
+                'utm_campaign' => $campaign !== '' ? $campaign : null,
                 'utm_content' => null,
                 'utm_term' => null,
             ];
-            $dbRow[self::UTM_DIMENSION_TO_FIELD[$row['utm_dimension']] ?? 'utm_source'] = $row['utm_value'];
 
             for ($i = 0; $i < $row['value']; $i++) {
                 $dbRows[] = $dbRow;

@@ -633,7 +633,7 @@ class YandexMetrikaService
     /**
      * @param  list<int|string>  $goalIds
      * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
-     * @return list<array{utm_dimension: string, utm_value: string, date: string, value: int}>
+     * @return list<array{utm_source: string, utm_campaign: string, date: string, value: int}>
      */
     public function fetchUtmGoalsStats(
         Carbon $dateFrom,
@@ -657,9 +657,6 @@ class YandexMetrikaService
             throw new \InvalidArgumentException('Выберите хотя бы одну цель');
         }
 
-        $utmDimension = $this->utmFilterBuilder->dimension($utmFilterMode)
-            ?? 'ym:s:<attribution>UTMSource';
-
         $metricName = YandexMetrikaIntegrationSettingsData::normalizeGoalsMetric($goalsMetric) === YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
             ? 'reaches'
             : 'visits';
@@ -668,7 +665,8 @@ class YandexMetrikaService
             $normalizedGoalIds
         ));
 
-        $dimensions = $utmDimension.',ym:s:date';
+        // Source и campaign вместе: фильтр settings отсекает лишнее, но оба поля пишутся в БД.
+        $dimensions = 'ym:s:<attribution>UTMSource,ym:s:<attribution>UTMCampaign,ym:s:date';
 
         try {
             $params = $this->applyReportFilters([
@@ -692,7 +690,7 @@ class YandexMetrikaService
 
             $response = $this->getClient()->getVisitsReport($params);
 
-            return $this->aggregateUtmGoalRows($response, $utmDimension);
+            return $this->aggregateUtmGoalRows($response);
         } catch (\InvalidArgumentException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -708,9 +706,9 @@ class YandexMetrikaService
 
     /**
      * @param  array<string, mixed>  $response
-     * @return list<array{utm_dimension: string, utm_value: string, date: string, value: int}>
+     * @return list<array{utm_source: string, utm_campaign: string, date: string, value: int}>
      */
-    private function aggregateUtmGoalRows(array $response, string $utmDimension): array
+    private function aggregateUtmGoalRows(array $response): array
     {
         $aggregated = [];
 
@@ -720,20 +718,23 @@ class YandexMetrikaService
             }
 
             $dimensions = is_array($row['dimensions'] ?? null) ? $row['dimensions'] : [];
-            $utmVal = is_array($dimensions[0] ?? null)
+            $sourceVal = is_array($dimensions[0] ?? null)
                 ? (string) ($dimensions[0]['name'] ?? '')
                 : '';
-            $dateVal = is_array($dimensions[1] ?? null)
+            $campaignVal = is_array($dimensions[1] ?? null)
                 ? (string) ($dimensions[1]['name'] ?? '')
+                : '';
+            $dateVal = is_array($dimensions[2] ?? null)
+                ? (string) ($dimensions[2]['name'] ?? '')
                 : '';
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $value = (int) round(array_sum(array_map('floatval', $metrics)));
 
-            $key = $utmVal.'|'.$dateVal;
+            $key = $sourceVal.'|'.$campaignVal.'|'.$dateVal;
             if (! isset($aggregated[$key])) {
                 $aggregated[$key] = [
-                    'utm_dimension' => $utmDimension,
-                    'utm_value' => $utmVal,
+                    'utm_source' => $sourceVal,
+                    'utm_campaign' => $campaignVal,
                     'date' => $dateVal,
                     'value' => 0,
                 ];
