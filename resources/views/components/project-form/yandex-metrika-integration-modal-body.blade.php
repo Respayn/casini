@@ -53,25 +53,6 @@
         ['value' => 'without_robots', 'label' => 'Без роботов'],
         ['value' => 'with_robots', 'label' => 'С роботами'],
     ];
-    $exclusiveGoalReportKeys = [
-        'goals_search_engines',
-        'goals_utm',
-        'goals_conversions',
-        'goals_direct_summary',
-    ];
-    $seoOnlyVisitReportKeys = [
-        'visits_search_engines',
-        'visits_search_queries',
-        'visits_geo',
-    ];
-    $seoOnlyGoalReportKeys = [
-        'goals_search_engines',
-    ];
-    $exclusiveGoalSourceTooltip = 'Может быть выбран только один источник достижения целей';
-    $seoOnlyVisitTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
-    $seoOnlyGoalTooltip = 'Доступен только для клиенто-проектов с типом SEO-продвижение';
-    $contextOnlyGoalReportKeys = ['goals_direct_summary'];
-    $contextOnlyTooltip = 'Доступен только для клиенто-проектов с типом Контекстная реклама';
     $goalsMetricOptions = [
         ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_TARGET_VISITS, 'label' => 'Целевые визиты'],
         ['value' => YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES, 'label' => 'Достижения цели'],
@@ -80,28 +61,28 @@
         ['value' => YandexMetrikaIntegrationSettingsData::VISITS_METRIC_VISITS, 'label' => 'Визиты'],
         ['value' => YandexMetrikaIntegrationSettingsData::VISITS_METRIC_USERS, 'label' => 'Посетители'],
     ];
-    $searchEnginesTooltip = 'По умолчанию учитываются все поисковые системы, включая те, что появятся в Метрике позже';
-    $searchQueriesMinusTooltip = 'Укажите список минус-фраз, которые не должны попасть в отчет, например брендовые запросы. Каждая минус-фраза с новой строки';
+    $goalsCountSourceOptions = [
+        [
+            'value' => YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_UTM,
+            'label' => 'Из отчёта UTM-метки',
+        ],
+        [
+            'value' => YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_DIRECT_SUMMARY,
+            'label' => 'Из отчёта Директ, сводка',
+        ],
+    ];
     [$resolvedSearchEnginesAll, $resolvedSearchEngines] = YandexMetrikaIntegrationSettingsData::resolveSearchEnginesSelection(
         collect($savedSettings)
     );
-    $reportOptions = [
-        ['key' => 'goals_search_engines', 'label' => 'Достижение целей из отчета Поисковые системы', 'exclusive_goal_source' => true, 'seo_only' => true],
-        ['key' => 'goals_utm', 'label' => 'Достижение целей из отчета UTM-метки', 'exclusive_goal_source' => true],
-        ['key' => 'goals_conversions', 'label' => 'Достижение целей из отчета Конверсии', 'exclusive_goal_source' => true],
-        ['key' => 'goals_direct_summary', 'label' => 'Достижение целей из отчета Директ, сводка', 'exclusive_goal_source' => true, 'context_only' => true],
-        ['key' => 'visits_search_engines', 'label' => 'Переходы из отчета Поисковые системы', 'seo_only' => true],
-        ['key' => 'visits_search_queries', 'label' => 'Переходы из отчета Поисковые запросы', 'seo_only' => true],
-        ['key' => 'visits_geo', 'label' => 'Переходы из отчета География', 'seo_only' => true],
-    ];
-    $primaryReportOption = $reportOptions[0];
-    $utmReportOption = $reportOptions[1];
-    $conversionsReportOption = $reportOptions[2];
-    $directSummaryReportOption = $reportOptions[3];
-    $visitsSearchEnginesReportOption = $reportOptions[4];
-    $visitsSearchQueriesReportOption = $reportOptions[5];
-    $visitsGeoReportOption = $reportOptions[6];
-    $otherReportOptions = array_slice($reportOptions, 7);
+    $resolvedGoalsCountSource = YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource(
+        array_merge(
+            ['reports' => array_merge(
+                YandexMetrikaIntegrationSettingsData::DEFAULT_REPORTS,
+                array_map(fn ($value) => (bool) $value, $savedReports),
+            )],
+            ['goals_count_source' => $getSetting('goals_count_source')],
+        )
+    );
     $filterTypes = [
         'entry_page' => [
             'add' => 'Добавить фильтр по странице входа',
@@ -164,6 +145,7 @@
         'utm_filter_mode' => YandexMetrikaIntegrationSettingsData::normalizeUtmFilterMode(
             $getSetting('utm_filter_mode', YandexMetrikaIntegrationSettingsData::DEFAULT_UTM_FILTER_MODE)
         ),
+        'goals_count_source' => $resolvedGoalsCountSource,
         'utm_source' => (string) $getSetting('utm_source', ''),
         'utm_medium' => (string) $getSetting('utm_medium', ''),
         'utm_campaign' => (string) $getSetting('utm_campaign', ''),
@@ -194,6 +176,7 @@
         attributionSelectOpen: false,
         dataModeSelectOpen: false,
         goalsMetricSelectOpen: false,
+        goalsCountSourceSelectOpen: false,
         visitsMetricSelectOpen: false,
         visitsQueriesMetricSelectOpen: false,
         countersLoading: false,
@@ -267,17 +250,12 @@
             last_search_phrase: {{ Js::from($metrikaSettings['filters']['last_search_phrase'] !== '') }},
             geo: {{ Js::from($metrikaSettings['filters']['geo'] !== '') }},
         },
-        exclusiveGoalReportKeys: {{ Js::from($exclusiveGoalReportKeys) }},
-        seoOnlyVisitReportKeys: {{ Js::from($seoOnlyVisitReportKeys) }},
-        seoOnlyGoalReportKeys: {{ Js::from($seoOnlyGoalReportKeys) }},
-        contextOnlyGoalReportKeys: {{ Js::from($contextOnlyGoalReportKeys) }},
         seoPromotionType: {{ Js::from(ProjectType::SEO_PROMOTION->value) }},
         contextAdType: {{ Js::from(ProjectType::CONTEXT_AD->value) }},
-        exclusiveGoalSourceTooltip: {{ Js::from($exclusiveGoalSourceTooltip) }},
-        seoOnlyVisitTooltip: {{ Js::from($seoOnlyVisitTooltip) }},
-        seoOnlyGoalTooltip: {{ Js::from($seoOnlyGoalTooltip) }},
-        contextOnlyTooltip: {{ Js::from($contextOnlyTooltip) }},
-        reportTooltipKey: null,
+        contextReportKeys: {{ Js::from(YandexMetrikaIntegrationSettingsData::CONTEXT_AD_REPORTS) }},
+        seoReportKeys: {{ Js::from(YandexMetrikaIntegrationSettingsData::SEO_PROMOTION_REPORTS) }},
+        defaultReports: {{ Js::from(YandexMetrikaIntegrationSettingsData::DEFAULT_REPORTS) }},
+        goalsCountSourceOptions: {{ Js::from($goalsCountSourceOptions) }},
 
         currentProjectType() {
             return this.$wire?.clientProjectForm?.projectType ?? '';
@@ -291,78 +269,29 @@
             return this.currentProjectType() === this.contextAdType;
         },
 
-        reportDisabledReason(key) {
-            if (this.seoOnlyVisitReportKeys.includes(key) && !this.isSeoPromotion()) {
-                return this.seoOnlyVisitTooltip;
-            }
+        setReportsPackageFlags() {
+            const next = { ...this.defaultReports };
+            const keys = this.isSeoPromotion()
+                ? this.seoReportKeys
+                : (this.isContextAd() ? this.contextReportKeys : []);
 
-            if (this.seoOnlyGoalReportKeys.includes(key) && !this.isSeoPromotion()) {
-                return this.seoOnlyGoalTooltip;
-            }
-
-            if (this.contextOnlyGoalReportKeys.includes(key) && !this.isContextAd()) {
-                return this.contextOnlyTooltip;
-            }
-
-            if (
-                this.exclusiveGoalReportKeys.includes(key)
-                && this.exclusiveGoalReportKeys.some((other) => other !== key && this.settings.reports[other])
-            ) {
-                return this.exclusiveGoalSourceTooltip;
-            }
-
-            return '';
-        },
-
-        isReportDisabled(key) {
-            return this.reportDisabledReason(key) !== '';
-        },
-
-        normalizeExclusiveGoalReports() {
-            let kept = false;
-
-            this.exclusiveGoalReportKeys.forEach((key) => {
-                if (!this.settings.reports[key]) {
-                    return;
-                }
-
-                if (kept) {
-                    this.settings.reports[key] = false;
-                    return;
-                }
-
-                kept = true;
+            keys.forEach((key) => {
+                next[key] = true;
             });
+
+            this.settings.reports = next;
+
+            if (!this.isContextAd()) {
+                this.settings.goals_count_source = 'utm';
+            }
         },
 
-        normalizeSeoOnlyVisitReports() {
-            if (this.isSeoPromotion()) {
-                return;
+        applyReportsPackage() {
+            this.setReportsPackageFlags();
+
+            if (Object.keys(this.settings.reports || {}).some((key) => key.startsWith('goals_') && this.settings.reports[key])) {
+                this.loadGoals();
             }
-
-            this.seoOnlyVisitReportKeys.forEach((key) => {
-                this.settings.reports[key] = false;
-            });
-        },
-
-        normalizeSeoOnlyGoalReports() {
-            if (this.isSeoPromotion()) {
-                return;
-            }
-
-            this.seoOnlyGoalReportKeys.forEach((key) => {
-                this.settings.reports[key] = false;
-            });
-        },
-
-        normalizeContextOnlyGoalReports() {
-            if (this.isContextAd()) {
-                return;
-            }
-
-            this.contextOnlyGoalReportKeys.forEach((key) => {
-                this.settings.reports[key] = false;
-            });
         },
 
         persistOAuthPending() {
@@ -387,109 +316,23 @@
         },
 
         init() {
-            this.normalizeExclusiveGoalReports();
-            this.normalizeSeoOnlyVisitReports();
-            this.normalizeSeoOnlyGoalReports();
-            this.normalizeContextOnlyGoalReports();
+            this.applyReportsPackage();
 
             if (this.$wire && typeof this.$wire.$watch === 'function') {
                 this.$wire.$watch('clientProjectForm.projectType', () => {
-                    this.normalizeSeoOnlyVisitReports();
-                    this.normalizeSeoOnlyGoalReports();
-                    this.normalizeContextOnlyGoalReports();
+                    this.applyReportsPackage();
                 });
             }
 
-            this.$watch('settings.reports.goals_search_engines', (enabled) => {
-                if (enabled) {
-                    this.loadGoals();
-                    return;
-                }
-
+            this.$watch('settings.goals_count_source', () => {
                 this.testPanelOpen = false;
                 this.testDate = '';
                 this.testCount = null;
                 this.testError = null;
             });
 
-            this.$watch('settings.reports.goals_utm', (enabled) => {
-                if (enabled) {
-                    this.loadGoals();
-                    return;
-                }
-
-                this.utmTestPanelOpen = false;
-                this.utmTestDate = '';
-                this.utmTestCount = null;
-                this.utmTestError = null;
-            });
-
-            this.$watch('settings.reports.goals_conversions', (enabled) => {
-                if (enabled) {
-                    this.loadGoals();
-                    return;
-                }
-
-                this.conversionsTestPanelOpen = false;
-                this.conversionsTestDate = '';
-                this.conversionsTestCount = null;
-                this.conversionsTestError = null;
-            });
-
-            this.$watch('settings.reports.goals_direct_summary', (enabled) => {
-                if (enabled) {
-                    this.loadGoals();
-                    return;
-                }
-
-                this.directSummaryTestPanelOpen = false;
-                this.directSummaryTestDate = '';
-                this.directSummaryTestCount = null;
-                this.directSummaryTestError = null;
-            });
-
-            this.$watch('settings.reports.visits_search_engines', (enabled) => {
-                if (enabled) {
-                    this.loadSearchEngines();
-                    return;
-                }
-
-                this.visitsSearchEnginesTestPanelOpen = false;
-                this.visitsSearchEnginesTestDate = '';
-                this.visitsSearchEnginesTestCount = null;
-                this.visitsSearchEnginesTestError = null;
-            });
-
-            this.$watch('settings.reports.visits_search_queries', (enabled) => {
-                if (enabled) {
-                    return;
-                }
-
-                this.visitsSearchQueriesTestPanelOpen = false;
-                this.visitsSearchQueriesTestDate = '';
-                this.visitsSearchQueriesTestCount = null;
-                this.visitsSearchQueriesTestError = null;
-            });
-
-            this.$watch('settings.reports.visits_geo', (enabled) => {
-                if (enabled) {
-                    return;
-                }
-
-                this.visitsGeoTestPanelOpen = false;
-                this.visitsGeoTestDate = '';
-                this.visitsGeoTestCount = null;
-                this.visitsGeoTestError = null;
-            });
-
             this.$watch('settings.counter_id', () => {
-                if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions || this.settings.reports.goals_direct_summary) {
-                    this.loadGoals();
-                }
-
-                if (this.settings.reports.visits_search_engines) {
-                    this.loadSearchEngines();
-                }
+                this.loadGoals();
             });
 
             this.$watch('settings.is_enabled', (enabled) => {
@@ -649,13 +492,15 @@
                 return false;
             }
 
-            if (this.settings.reports?.goals_search_engines || this.settings.reports?.goals_utm || this.settings.reports?.goals_conversions || this.settings.reports?.goals_direct_summary) {
-                if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
-                    return false;
-                }
+            if (!this.isContextAd() && !this.isSeoPromotion()) {
+                return false;
             }
 
-            return Object.values(this.settings.reports || {}).some(Boolean);
+            if (!Array.isArray(this.settings.goals) || this.settings.goals.length === 0) {
+                return false;
+            }
+
+            return true;
         },
 
         get syncEnabledLabel() {
@@ -1328,13 +1173,7 @@
 
             this.countersLoading = false;
 
-            if (this.settings.reports.goals_search_engines || this.settings.reports.goals_utm || this.settings.reports.goals_conversions || this.settings.reports.goals_direct_summary) {
-                this.loadGoals();
-            }
-
-            if (this.settings.reports.visits_search_engines) {
-                this.loadSearchEngines();
-            }
+            this.loadGoals();
         },
 
         async loadGoals() {
@@ -1404,7 +1243,14 @@
             this.testError = null;
             this.testCount = null;
 
-            const result = await $wire.testYandexMetrikaGoalsSearchEnginesIntegration(this.settings, this.testDate);
+            let result;
+            if (this.isSeoPromotion()) {
+                result = await $wire.testYandexMetrikaGoalsSearchEnginesIntegration(this.settings, this.testDate);
+            } else if (this.settings.goals_count_source === 'direct_summary') {
+                result = await $wire.testYandexMetrikaGoalsDirectSummaryIntegration(this.settings, this.testDate);
+            } else {
+                result = await $wire.testYandexMetrikaGoalsUtmIntegration(this.settings, this.testDate);
+            }
 
             if (result.error) {
                 this.testError = result.error;
@@ -1413,6 +1259,38 @@
             }
 
             this.testLoading = false;
+        },
+
+        goalsCountSourceLabel() {
+            const option = this.goalsCountSourceOptions.find(
+                o => String(o.value) === String(this.settings.goals_count_source)
+            );
+
+            return option ? option.label : 'Из отчёта UTM-метки';
+        },
+
+        goalsTestTooltip() {
+            if (this.isSeoPromotion()) {
+                return 'Дата, за которую сверяем цифры с отчётом Поисковые системы в Яндекс Метрике';
+            }
+
+            if (this.settings.goals_count_source === 'direct_summary') {
+                return 'Дата, за которую сверяем цифры с отчётом Директ, сводка в Яндекс Метрике';
+            }
+
+            return 'Дата, за которую сверяем цифры с отчётом UTM-метки в Яндекс Метрике';
+        },
+
+        goalsTestResultLabel() {
+            if (this.isSeoPromotion()) {
+                return 'Количество достижений целей из отчета Поисковые системы: ';
+            }
+
+            if (this.settings.goals_count_source === 'direct_summary') {
+                return 'Количество достижений целей из отчета Директ, сводка: ';
+            }
+
+            return 'Количество достижений целей из отчета UTM-метки: ';
         },
 
         toggleUtmTestPanel() {
@@ -1674,10 +1552,15 @@
                 return;
             }
 
+            this.setReportsPackageFlags();
+
             const payload = { ...this.settings };
             payload.reports = {
                 ...(this.settings.reports || {}),
             };
+            payload.goals_count_source = this.isContextAd()
+                ? (this.settings.goals_count_source || 'utm')
+                : 'utm';
             payload.goals = (this.settings.goals || []).map(Number).filter(id => id > 0);
             payload.filters = {
                 entry_page: this.shownFilters.entry_page && this.settings.filters.entry_page.trim() !== ''
@@ -2003,1472 +1886,329 @@
             </div>
         </x-form.form-field>
 
-        @php
-            $reportKey = $primaryReportOption['key'];
-        @endphp
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline" required>
-                Какие отчеты нужно подтянуть из Яндекс Метрики?
-            </x-form.form-label>
-            <div class="w-[305px]">
-                <label
-                    class="flex items-center justify-between gap-2 text-sm"
-                    x-ref="goalReport_{{ $reportKey }}"
-                    x-bind:class="isReportDisabled('{{ $reportKey }}') && 'cursor-not-allowed text-secondary-text'"
-                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $reportKey }}') ? '{{ $reportKey }}' : null"
-                    x-on:mouseleave="reportTooltipKey = null"
-                >
-                    <span>{{ $primaryReportOption['label'] }}</span>
-                    <x-form.checkbox
-                        x-model="settings.reports.{{ $reportKey }}"
-                        x-bind:disabled="isReportDisabled('{{ $reportKey }}')"
-                    />
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="reportTooltipKey === '{{ $reportKey }}'"
-                            x-cloak
-                            x-anchor.bottom="$refs.goalReport_{{ $reportKey }}"
-                            x-text="reportDisabledReason('{{ $reportKey }}')"
-                        ></div>
-                    </template>
-                </label>
-            </div>
-        </x-form.form-field>
-
-        <div
-            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
-            x-show="settings.reports.{{ $reportKey }}"
-            x-cloak
-        >
-
-        <div
-            class="flex flex-col gap-2"
-            x-show="settings.reports.goals_search_engines"
-            x-cloak
-        >
-            <x-form.form-label required>
-                Выберите цели, по которым хотите получать статистику
-            </x-form.form-label>
-            <div>
-                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
-                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
-                <p
-                    class="text-secondary-text text-sm"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
-                    x-cloak
-                >У счётчика нет целей</p>
-                <div
-                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
-                    x-cloak
-                >
-                    <template x-for="goal in goalOptions" :key="goal.id">
-                        <label
-                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
-                            x-on:click.prevent="toggleGoal(goal.id)"
-                        >
-                            <x-form.checkbox
-                                x-bind:checked="isGoalSelected(goal.id)"
-                            />
-                            <span class="min-w-0">
-                                <span x-text="goal.name"></span>
-                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
+        {{-- Контекстная реклама: цели + пакет отчётов --}}
+        <div class="flex flex-col gap-5" x-show="isContextAd()" x-cloak>
+            <x-form.form-field>
+                <x-form.form-label class="self-baseline" required>
+                    Откуда считаем цели?
+                </x-form.form-label>
+                <div class="flex w-[305px] flex-col gap-3">
+                    <div class="text-input-text relative select-none">
+                        <div class="group" x-ref="goalsCountSourceSelectButton">
+                            <div
+                                class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                                x-on:click="goalsMetricSelectOpen = false; utmFilterModeSelectOpen = false; goalsCountSourceSelectOpen = !goalsCountSourceSelectOpen"
+                                x-bind:class="{
+                                    'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsCountSourceSelectOpen,
+                                    'rounded-[5px]': !goalsCountSourceSelectOpen,
+                                }"
+                            >
+                                <span class="overflow-hidden" x-text="goalsCountSourceLabel()"></span>
+                            </div>
+                            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                <x-icons.arrow
+                                    class="transition-transform duration-300"
+                                    x-bind:class="{ 'rotate-180 group-hover:text-white': goalsCountSourceSelectOpen }"
+                                />
                             </span>
-                        </label>
-                    </template>
-                </div>
-            </div>
-        </div>
-
-        <x-form.form-field x-show="settings.reports.goals_search_engines" x-cloak>
-            <x-form.form-label class="self-baseline">
-                По какому параметру рассчитываем достижение целей?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="goalsMetricSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
-                                'rounded-[5px]': !goalsMetricSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
                         </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
-                            />
-                        </span>
+                        <div
+                            class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                            x-cloak
+                            x-show="goalsCountSourceSelectOpen"
+                            x-anchor.no-style="$refs.goalsCountSourceSelectButton"
+                            x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                            x-on:click.outside="goalsCountSourceSelectOpen = false"
+                        >
+                            <template x-for="option in goalsCountSourceOptions" :key="option.value">
+                                <div
+                                    class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                    x-on:click="settings.goals_count_source = option.value; goalsCountSourceSelectOpen = false"
+                                    x-text="option.label"
+                                ></div>
+                            </template>
+                        </div>
                     </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="goalsMetricSelectOpen"
-                        x-anchor.no-style="$refs.goalsMetricSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="goalsMetricSelectOpen = false"
-                    >
-                        <template x-for="option in goalsMetricOptions" :key="option.value">
+                </div>
+            </x-form.form-field>
+
+            <div class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5">
+                <div class="flex flex-col gap-2">
+                    <x-form.form-label required>
+                        Выберите цели, по которым хотите получать статистику
+                    </x-form.form-label>
+                    <div>
+                        <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
+                        <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
+                        <p
+                            class="text-secondary-text text-sm"
+                            x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
+                            x-cloak
+                        >У счётчика нет целей</p>
+                        <div
+                            class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
+                            x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
+                            x-cloak
+                        >
+                            <template x-for="goal in goalOptions" :key="goal.id">
+                                <label
+                                    class="flex cursor-pointer items-center gap-2 py-2 text-sm"
+                                    x-on:click.prevent="toggleGoal(goal.id)"
+                                >
+                                    <x-form.checkbox x-bind:checked="isGoalSelected(goal.id)" />
+                                    <span class="min-w-0">
+                                        <span x-text="goal.name"></span>
+                                        <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
+                                    </span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <x-form.form-field>
+                    <x-form.form-label class="self-baseline">
+                        По какому параметру рассчитываем достижение целей?
+                    </x-form.form-label>
+                    <div class="flex w-[305px] flex-col gap-3">
+                        <div class="text-input-text relative select-none">
+                            <div class="group" x-ref="goalsMetricSelectButton">
+                                <div
+                                    class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                                    x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
+                                    x-bind:class="{
+                                        'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
+                                        'rounded-[5px]': !goalsMetricSelectOpen,
+                                    }"
+                                >
+                                    <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
+                                </div>
+                                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <x-icons.arrow
+                                        class="transition-transform duration-300"
+                                        x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
+                                    />
+                                </span>
+                            </div>
                             <div
-                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                                x-on:click="selectGoalsMetric(option.value)"
-                                x-text="option.label"
-                            ></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        <x-form.form-field x-show="settings.reports.goals_search_engines" x-cloak>
-            <div
-                class="flex cursor-pointer items-center gap-3 self-start text-primary"
-                x-on:click="toggleTestPanel()"
-                x-bind:aria-expanded="testPanelOpen"
-            >
-                <x-button.button
-                    class="pointer-events-none self-start"
-                    type="button"
-                    variant="action"
-                    wrap
-                    label="Проверить работу интеграции"
-                />
-                <span
-                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
-                    x-bind:class="{ 'rotate-90': testPanelOpen, 'rotate-270': !testPanelOpen }"
-                >
-                    <x-icons.arrow-left />
-                </span>
-            </div>
-            <span class="w-[305px]" aria-hidden="true"></span>
-        </x-form.form-field>
-
-        <div
-            class="flex flex-col gap-3"
-            x-ref="metrikaTestPanel"
-            x-show="settings.reports.goals_search_engines && testPanelOpen"
-            x-cloak
-        >
-            <x-form.form-field>
-                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Поисковые системы в Яндекс Метрике">
-                    Дата
-                </x-form.form-label>
-                <div class="flex w-[305px] flex-col gap-3">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="Выберите дату"
-                        :max="now()->toDateString()"
-                        x-model="testDate"
-                    ></x-form.date-picker>
-                    <div
-                        class="w-full"
-                        x-ref="testButtonWrap"
-                        x-on:mouseenter="testDateHintOpen = !testDate"
-                        x-on:mouseleave="testDateHintOpen = false"
-                    >
-                        <x-button.button
-                            type="button"
-                            icon="icons.refresh"
-                            class="w-full"
-                            label="Проверить"
-                            x-bind:disabled="!testDate || testLoading || !(settings.goals || []).length"
-                            x-on:click="runTest()"
-                        />
-                    </div>
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="testDateHintOpen && !testDate"
-                            x-cloak
-                            x-anchor.bottom="$refs.testButtonWrap"
-                        >
-                            Выберите дату
-                        </div>
-                    </template>
-                </div>
-            </x-form.form-field>
-
-            <x-form.form-field>
-                <span class="invisible text-sm" aria-hidden="true">Дата</span>
-                <div class="w-[305px]">
-                    <span class="text-sm" x-show="testCount !== null" x-text="'Достижений цели в отчете Поисковые системы: ' + testCount" x-cloak></span>
-                    <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
-                </div>
-            </x-form.form-field>
-        </div>
-        </div>
-
-        {{-- UTM report checkbox --}}
-        @php $utmKey = $utmReportOption['key']; @endphp
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-            </x-form.form-label>
-            <div class="w-[305px]">
-                <label
-                    class="flex items-center justify-between gap-2 text-sm"
-                    x-ref="goalReport_{{ $utmKey }}"
-                    x-bind:class="isReportDisabled('{{ $utmKey }}') && 'cursor-not-allowed text-secondary-text'"
-                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $utmKey }}') ? '{{ $utmKey }}' : null"
-                    x-on:mouseleave="reportTooltipKey = null"
-                >
-                    <span>{{ $utmReportOption['label'] }}</span>
-                    <x-form.checkbox
-                        x-model="settings.reports.{{ $utmKey }}"
-                        x-bind:disabled="isReportDisabled('{{ $utmKey }}')"
-                    />
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="reportTooltipKey === '{{ $utmKey }}'"
-                            x-cloak
-                            x-anchor.bottom="$refs.goalReport_{{ $utmKey }}"
-                            x-text="reportDisabledReason('{{ $utmKey }}')"
-                        ></div>
-                    </template>
-                </label>
-            </div>
-        </x-form.form-field>
-
-        {{-- UTM report details border --}}
-        <div
-            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
-            x-show="settings.reports.{{ $utmKey }}"
-            x-cloak
-        >
-
-        {{-- Goals list (shared with search engines) --}}
-        <div
-            class="flex flex-col gap-2"
-            x-show="settings.reports.goals_utm"
-            x-cloak
-        >
-            <x-form.form-label required>
-                Выберите цели, по которым хотите получать статистику
-            </x-form.form-label>
-            <div>
-                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
-                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
-                <p
-                    class="text-secondary-text text-sm"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
-                    x-cloak
-                >У счётчика нет целей</p>
-                <div
-                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
-                    x-cloak
-                >
-                    <template x-for="goal in goalOptions" :key="goal.id">
-                        <label
-                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
-                            x-on:click.prevent="toggleGoal(goal.id)"
-                        >
-                            <x-form.checkbox
-                                x-bind:checked="isGoalSelected(goal.id)"
-                            />
-                            <span class="min-w-0">
-                                <span x-text="goal.name"></span>
-                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
-                            </span>
-                        </label>
-                    </template>
-                </div>
-            </div>
-        </div>
-
-        {{-- Goals metric select --}}
-        <x-form.form-field x-show="settings.reports.goals_utm" x-cloak>
-            <x-form.form-label class="self-baseline">
-                По какому параметру рассчитываем достижение целей?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="utmGoalsMetricSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
-                                'rounded-[5px]': !goalsMetricSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
-                        </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
-                            />
-                        </span>
-                    </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="goalsMetricSelectOpen"
-                        x-anchor.no-style="$refs.utmGoalsMetricSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="goalsMetricSelectOpen = false"
-                    >
-                        <template x-for="option in goalsMetricOptions" :key="option.value">
-                            <div
-                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                                x-on:click="selectGoalsMetric(option.value)"
-                                x-text="option.label"
-                            ></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        {{-- UTM filter mode select --}}
-        <x-form.form-field x-show="settings.reports.goals_utm" x-cloak>
-            <x-form.form-label class="self-baseline">
-                С каких UTM-меток нужно забирать достижение целей?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="utmFilterModeSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="utmFilterModeSelectOpen = !utmFilterModeSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': utmFilterModeSelectOpen,
-                                'rounded-[5px]': !utmFilterModeSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="utmFilterModeLabel()"></span>
-                        </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': utmFilterModeSelectOpen }"
-                            />
-                        </span>
-                    </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="utmFilterModeSelectOpen"
-                        x-anchor.no-style="$refs.utmFilterModeSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="utmFilterModeSelectOpen = false"
-                    >
-                        <div
-                            class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 hover:text-white"
-                            x-on:click="settings.utm_filter_mode = 'source'; utmFilterModeSelectOpen = false"
-                        >Только с UTM_source</div>
-                        <div
-                            class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 hover:text-white"
-                            x-on:click="settings.utm_filter_mode = 'medium'; utmFilterModeSelectOpen = false"
-                        >Только с UTM_medium</div>
-                        <div
-                            class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                            x-on:click="settings.utm_filter_mode = 'campaign'; utmFilterModeSelectOpen = false"
-                        >Только с UTM_campaign</div>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        {{-- UTM source field --}}
-        <x-form.form-field x-show="settings.reports.goals_utm && settings.utm_filter_mode === 'source'" x-cloak>
-            <x-form.form-label
-                tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_source."
-            >Какие цели забираем с меткой UTM_source?</x-form.form-label>
-            <div class="w-[305px]">
-                <x-form.input-text x-model="settings.utm_source"></x-form.input-text>
-            </div>
-        </x-form.form-field>
-
-        {{-- UTM medium field --}}
-        <x-form.form-field x-show="settings.reports.goals_utm && settings.utm_filter_mode === 'medium'" x-cloak>
-            <x-form.form-label
-                tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_medium."
-            >Какие цели забираем с меткой UTM_medium?</x-form.form-label>
-            <div class="w-[305px]">
-                <x-form.input-text x-model="settings.utm_medium"></x-form.input-text>
-            </div>
-        </x-form.form-field>
-
-        {{-- UTM campaign field --}}
-        <x-form.form-field x-show="settings.reports.goals_utm && settings.utm_filter_mode === 'campaign'" x-cloak>
-            <x-form.form-label
-                tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_campaign."
-            >Какие цели забираем с меткой UTM_campaign?</x-form.form-label>
-            <div class="w-[305px]">
-                <x-form.input-text x-model="settings.utm_campaign"></x-form.input-text>
-            </div>
-        </x-form.form-field>
-
-        {{-- UTM test integration --}}
-        <x-form.form-field x-show="settings.reports.goals_utm" x-cloak>
-            <div
-                class="flex cursor-pointer items-center gap-3 self-start text-primary"
-                x-on:click="toggleUtmTestPanel()"
-                x-bind:aria-expanded="utmTestPanelOpen"
-            >
-                <x-button.button
-                    class="pointer-events-none self-start"
-                    type="button"
-                    variant="action"
-                    wrap
-                    label="Проверить работу интеграции"
-                />
-                <span
-                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
-                    x-bind:class="{ 'rotate-90': utmTestPanelOpen, 'rotate-270': !utmTestPanelOpen }"
-                >
-                    <x-icons.arrow-left />
-                </span>
-            </div>
-            <span class="w-[305px]" aria-hidden="true"></span>
-        </x-form.form-field>
-
-        <div
-            class="flex flex-col gap-3"
-            x-ref="metrikaUtmTestPanel"
-            x-show="settings.reports.goals_utm && utmTestPanelOpen"
-            x-cloak
-        >
-            <x-form.form-field>
-                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом UTM-метки в Яндекс Метрике">
-                    Дата
-                </x-form.form-label>
-                <div class="flex w-[305px] flex-col gap-3">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="Выберите дату"
-                        :max="now()->toDateString()"
-                        x-model="utmTestDate"
-                    ></x-form.date-picker>
-                    <div
-                        class="w-full"
-                        x-ref="utmTestButtonWrap"
-                        x-on:mouseenter="utmTestDateHintOpen = !utmTestDate"
-                        x-on:mouseleave="utmTestDateHintOpen = false"
-                    >
-                        <x-button.button
-                            type="button"
-                            icon="icons.refresh"
-                            class="w-full"
-                            label="Проверить"
-                            x-bind:disabled="!utmTestDate || utmTestLoading || !(settings.goals || []).length"
-                            x-on:click="runUtmTest()"
-                        />
-                    </div>
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="utmTestDateHintOpen && !utmTestDate"
-                            x-cloak
-                            x-anchor.bottom="$refs.utmTestButtonWrap"
-                        >
-                            Выберите дату
-                        </div>
-                    </template>
-                </div>
-            </x-form.form-field>
-
-            <x-form.form-field>
-                <span class="invisible text-sm" aria-hidden="true">Дата</span>
-                <div class="w-[305px]">
-                    <span class="text-sm" x-show="utmTestCount !== null" x-text="'Достижений цели в отчете UTM-метки: ' + utmTestCount" x-cloak></span>
-                    <p class="text-warning-red mt-1 text-xs" x-show="utmTestError" x-text="utmTestError" x-cloak></p>
-                </div>
-            </x-form.form-field>
-        </div>
-        </div>
-
-        {{-- Conversions report checkbox --}}
-        @php $conversionsKey = $conversionsReportOption['key']; @endphp
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-            </x-form.form-label>
-            <div class="w-[305px]">
-                <label
-                    class="flex items-center justify-between gap-2 text-sm"
-                    x-ref="goalReport_{{ $conversionsKey }}"
-                    x-bind:class="isReportDisabled('{{ $conversionsKey }}') && 'cursor-not-allowed text-secondary-text'"
-                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $conversionsKey }}') ? '{{ $conversionsKey }}' : null"
-                    x-on:mouseleave="reportTooltipKey = null"
-                >
-                    <span>{{ $conversionsReportOption['label'] }}</span>
-                    <x-form.checkbox
-                        x-model="settings.reports.{{ $conversionsKey }}"
-                        x-bind:disabled="isReportDisabled('{{ $conversionsKey }}')"
-                    />
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="reportTooltipKey === '{{ $conversionsKey }}'"
-                            x-cloak
-                            x-anchor.bottom="$refs.goalReport_{{ $conversionsKey }}"
-                            x-text="reportDisabledReason('{{ $conversionsKey }}')"
-                        ></div>
-                    </template>
-                </label>
-            </div>
-        </x-form.form-field>
-
-        {{-- Conversions report details border --}}
-        <div
-            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
-            x-show="settings.reports.{{ $conversionsKey }}"
-            x-cloak
-        >
-
-        {{-- Goals list --}}
-        <div
-            class="flex flex-col gap-2"
-            x-show="settings.reports.goals_conversions"
-            x-cloak
-        >
-            <x-form.form-label required>
-                Выберите цели, по которым хотите получать статистику
-            </x-form.form-label>
-            <div>
-                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
-                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
-                <p
-                    class="text-secondary-text text-sm"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
-                    x-cloak
-                >У счётчика нет целей</p>
-                <div
-                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
-                    x-cloak
-                >
-                    <template x-for="goal in goalOptions" :key="goal.id">
-                        <label
-                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
-                            x-on:click.prevent="toggleGoal(goal.id)"
-                        >
-                            <x-form.checkbox
-                                x-bind:checked="isGoalSelected(goal.id)"
-                            />
-                            <span class="min-w-0">
-                                <span x-text="goal.name"></span>
-                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
-                            </span>
-                        </label>
-                    </template>
-                </div>
-            </div>
-        </div>
-
-        {{-- Goals metric select --}}
-        <x-form.form-field x-show="settings.reports.goals_conversions" x-cloak>
-            <x-form.form-label class="self-baseline">
-                По какому параметру рассчитываем достижение целей?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="conversionsGoalsMetricSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
-                                'rounded-[5px]': !goalsMetricSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
-                        </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
-                            />
-                        </span>
-                    </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="goalsMetricSelectOpen"
-                        x-anchor.no-style="$refs.conversionsGoalsMetricSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="goalsMetricSelectOpen = false"
-                    >
-                        <template x-for="option in goalsMetricOptions" :key="option.value">
-                            <div
-                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                                x-on:click="selectGoalsMetric(option.value)"
-                                x-text="option.label"
-                            ></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        {{-- Conversions test integration --}}
-        <x-form.form-field x-show="settings.reports.goals_conversions" x-cloak>
-            <div
-                class="flex cursor-pointer items-center gap-3 self-start text-primary"
-                x-on:click="toggleConversionsTestPanel()"
-                x-bind:aria-expanded="conversionsTestPanelOpen"
-            >
-                <x-button.button
-                    class="pointer-events-none self-start"
-                    type="button"
-                    variant="action"
-                    wrap
-                    label="Проверить работу интеграции"
-                />
-                <span
-                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
-                    x-bind:class="{ 'rotate-90': conversionsTestPanelOpen, 'rotate-270': !conversionsTestPanelOpen }"
-                >
-                    <x-icons.arrow-left />
-                </span>
-            </div>
-            <span class="w-[305px]" aria-hidden="true"></span>
-        </x-form.form-field>
-
-        <div
-            class="flex flex-col gap-3"
-            x-ref="metrikaConversionsTestPanel"
-            x-show="settings.reports.goals_conversions && conversionsTestPanelOpen"
-            x-cloak
-        >
-            <x-form.form-field>
-                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Конверсии в Яндекс Метрике">
-                    Дата
-                </x-form.form-label>
-                <div class="flex w-[305px] flex-col gap-3">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="Выберите дату"
-                        :max="now()->toDateString()"
-                        x-model="conversionsTestDate"
-                    ></x-form.date-picker>
-                    <div
-                        class="w-full"
-                        x-ref="conversionsTestButtonWrap"
-                        x-on:mouseenter="conversionsTestDateHintOpen = !conversionsTestDate"
-                        x-on:mouseleave="conversionsTestDateHintOpen = false"
-                    >
-                        <x-button.button
-                            type="button"
-                            icon="icons.refresh"
-                            class="w-full"
-                            label="Проверить"
-                            x-bind:disabled="!conversionsTestDate || conversionsTestLoading || !(settings.goals || []).length"
-                            x-on:click="runConversionsTest()"
-                        />
-                    </div>
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="conversionsTestDateHintOpen && !conversionsTestDate"
-                            x-cloak
-                            x-anchor.bottom="$refs.conversionsTestButtonWrap"
-                        >
-                            Выберите дату
-                        </div>
-                    </template>
-                </div>
-            </x-form.form-field>
-
-            <x-form.form-field>
-                <span class="invisible text-sm" aria-hidden="true">Дата</span>
-                <div class="w-[305px]">
-                    <span class="text-sm" x-show="conversionsTestCount !== null" x-text="'Достижений цели в отчете Конверсии: ' + conversionsTestCount" x-cloak></span>
-                    <p class="text-warning-red mt-1 text-xs" x-show="conversionsTestError" x-text="conversionsTestError" x-cloak></p>
-                </div>
-            </x-form.form-field>
-        </div>
-        </div>
-
-        {{-- Direct Summary report checkbox --}}
-        @php $directSummaryKey = $directSummaryReportOption['key']; @endphp
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-            </x-form.form-label>
-            <div class="w-[305px]">
-                <label
-                    class="flex items-center justify-between gap-2 text-sm"
-                    x-ref="goalReport_{{ $directSummaryKey }}"
-                    x-bind:class="isReportDisabled('{{ $directSummaryKey }}') && 'cursor-not-allowed text-secondary-text'"
-                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $directSummaryKey }}') ? '{{ $directSummaryKey }}' : null"
-                    x-on:mouseleave="reportTooltipKey = null"
-                >
-                    <span>{{ $directSummaryReportOption['label'] }}</span>
-                    <x-form.checkbox
-                        x-model="settings.reports.{{ $directSummaryKey }}"
-                        x-bind:disabled="isReportDisabled('{{ $directSummaryKey }}')"
-                    />
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="reportTooltipKey === '{{ $directSummaryKey }}'"
-                            x-cloak
-                            x-anchor.bottom="$refs.goalReport_{{ $directSummaryKey }}"
-                            x-text="reportDisabledReason('{{ $directSummaryKey }}')"
-                        ></div>
-                    </template>
-                </label>
-            </div>
-        </x-form.form-field>
-
-        {{-- Direct Summary report details border --}}
-        <div
-            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
-            x-show="settings.reports.{{ $directSummaryKey }}"
-            x-cloak
-        >
-
-        {{-- Goals list --}}
-        <div
-            class="flex flex-col gap-2"
-            x-show="settings.reports.goals_direct_summary"
-            x-cloak
-        >
-            <x-form.form-label required>
-                Выберите цели, по которым хотите получать статистику
-            </x-form.form-label>
-            <div>
-                <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
-                <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
-                <p
-                    class="text-secondary-text text-sm"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length === 0"
-                    x-cloak
-                >У счётчика нет целей</p>
-                <div
-                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
-                    x-show="!goalsLoading && !goalsError && goalOptions.length > 0"
-                    x-cloak
-                >
-                    <template x-for="goal in goalOptions" :key="goal.id">
-                        <label
-                            class="flex cursor-pointer items-center gap-2 py-2 text-sm"
-                            x-on:click.prevent="toggleGoal(goal.id)"
-                        >
-                            <x-form.checkbox
-                                x-bind:checked="isGoalSelected(goal.id)"
-                            />
-                            <span class="min-w-0">
-                                <span x-text="goal.name"></span>
-                                <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
-                            </span>
-                        </label>
-                    </template>
-                </div>
-            </div>
-        </div>
-
-        {{-- Goals metric select --}}
-        <x-form.form-field x-show="settings.reports.goals_direct_summary" x-cloak>
-            <x-form.form-label class="self-baseline">
-                По какому параметру рассчитываем достижение целей?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="directSummaryGoalsMetricSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
-                                'rounded-[5px]': !goalsMetricSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
-                        </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }"
-                            />
-                        </span>
-                    </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="goalsMetricSelectOpen"
-                        x-anchor.no-style="$refs.directSummaryGoalsMetricSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="goalsMetricSelectOpen = false"
-                    >
-                        <template x-for="option in goalsMetricOptions" :key="option.value">
-                            <div
-                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                                x-on:click="selectGoalsMetric(option.value)"
-                                x-text="option.label"
-                            ></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        {{-- Direct Summary test integration --}}
-        <x-form.form-field x-show="settings.reports.goals_direct_summary" x-cloak>
-            <div
-                class="flex cursor-pointer items-center gap-3 self-start text-primary"
-                x-on:click="toggleDirectSummaryTestPanel()"
-                x-bind:aria-expanded="directSummaryTestPanelOpen"
-            >
-                <x-button.button
-                    class="pointer-events-none self-start"
-                    type="button"
-                    variant="action"
-                    wrap
-                    label="Проверить работу интеграции"
-                />
-                <span
-                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
-                    x-bind:class="{ 'rotate-90': directSummaryTestPanelOpen, 'rotate-270': !directSummaryTestPanelOpen }"
-                >
-                    <x-icons.arrow-left />
-                </span>
-            </div>
-            <span class="w-[305px]" aria-hidden="true"></span>
-        </x-form.form-field>
-
-        <div
-            class="flex flex-col gap-3"
-            x-ref="metrikaDirectSummaryTestPanel"
-            x-show="settings.reports.goals_direct_summary && directSummaryTestPanelOpen"
-            x-cloak
-        >
-            <x-form.form-field>
-                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Директ, сводка в Яндекс Метрике">
-                    Дата
-                </x-form.form-label>
-                <div class="flex w-[305px] flex-col gap-3">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="Выберите дату"
-                        :max="now()->toDateString()"
-                        x-model="directSummaryTestDate"
-                    ></x-form.date-picker>
-                    <div
-                        class="w-full"
-                        x-ref="directSummaryTestButtonWrap"
-                        x-on:mouseenter="directSummaryTestDateHintOpen = !directSummaryTestDate"
-                        x-on:mouseleave="directSummaryTestDateHintOpen = false"
-                    >
-                        <x-button.button
-                            type="button"
-                            icon="icons.refresh"
-                            class="w-full"
-                            label="Проверить"
-                            x-bind:disabled="!directSummaryTestDate || directSummaryTestLoading || !(settings.goals || []).length"
-                            x-on:click="runDirectSummaryTest()"
-                        />
-                    </div>
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="directSummaryTestDateHintOpen && !directSummaryTestDate"
-                            x-cloak
-                            x-anchor.bottom="$refs.directSummaryTestButtonWrap"
-                        >
-                            Выберите дату
-                        </div>
-                    </template>
-                </div>
-            </x-form.form-field>
-
-            <x-form.form-field>
-                <span class="invisible text-sm" aria-hidden="true">Дата</span>
-                <div class="w-[305px]">
-                    <span class="text-sm" x-show="directSummaryTestCount !== null" x-text="'Достижений цели в отчете Директ, сводка: ' + directSummaryTestCount" x-cloak></span>
-                    <p class="text-warning-red mt-1 text-xs" x-show="directSummaryTestError" x-text="directSummaryTestError" x-cloak></p>
-                </div>
-            </x-form.form-field>
-        </div>
-        </div>
-
-        {{-- Visits Search Engines report checkbox --}}
-        @php $visitsSearchEnginesKey = $visitsSearchEnginesReportOption['key']; @endphp
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-            </x-form.form-label>
-            <div class="w-[305px]">
-                <label
-                    class="flex items-center justify-between gap-2 text-sm"
-                    x-ref="goalReport_{{ $visitsSearchEnginesKey }}"
-                    x-bind:class="isReportDisabled('{{ $visitsSearchEnginesKey }}') && 'cursor-not-allowed text-secondary-text'"
-                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $visitsSearchEnginesKey }}') ? '{{ $visitsSearchEnginesKey }}' : null"
-                    x-on:mouseleave="reportTooltipKey = null"
-                >
-                    <span>{{ $visitsSearchEnginesReportOption['label'] }}</span>
-                    <x-form.checkbox
-                        x-model="settings.reports.{{ $visitsSearchEnginesKey }}"
-                        x-bind:disabled="isReportDisabled('{{ $visitsSearchEnginesKey }}')"
-                    />
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="reportTooltipKey === '{{ $visitsSearchEnginesKey }}'"
-                            x-cloak
-                            x-anchor.bottom="$refs.goalReport_{{ $visitsSearchEnginesKey }}"
-                            x-text="reportDisabledReason('{{ $visitsSearchEnginesKey }}')"
-                        ></div>
-                    </template>
-                </label>
-            </div>
-        </x-form.form-field>
-
-        {{-- Visits Search Engines report details border --}}
-        <div
-            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
-            x-show="settings.reports.{{ $visitsSearchEnginesKey }}"
-            x-cloak
-        >
-
-        <div class="flex flex-col gap-2">
-            <x-form.form-label tooltip="{{ $searchEnginesTooltip }}">
-                Выберите поисковые системы для отчётов
-            </x-form.form-label>
-            <div>
-                <p class="text-secondary-text text-sm" x-show="searchEnginesLoading" x-cloak>Загрузка поисковых систем…</p>
-                <p class="text-warning-red text-sm" x-show="searchEnginesError" x-text="searchEnginesError" x-cloak></p>
-                <p
-                    class="text-secondary-text text-sm"
-                    x-show="!searchEnginesLoading && !searchEnginesError && searchEngineOptions.length === 0"
-                    x-cloak
-                >За выбранный период у счётчика нет данных по поисковым системам</p>
-                <div
-                    class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2"
-                    x-show="!searchEnginesLoading && !searchEnginesError && searchEngineOptions.length > 0"
-                    x-cloak
-                >
-                    <label
-                        class="flex cursor-pointer items-center gap-2 py-2 text-sm"
-                        x-on:click.prevent="toggleAllSearchEngines()"
-                    >
-                        <x-form.checkbox
-                            x-bind:checked="isAllSearchEnginesSelected()"
-                        />
-                        <span class="min-w-0">Все поисковые системы</span>
-                    </label>
-                    <template x-for="engine in searchEngineOptions" :key="engine.id">
-                        <label
-                            class="flex items-center gap-2 py-2 text-sm"
-                            x-bind:class="isAllSearchEnginesSelected() ? 'cursor-not-allowed' : 'cursor-pointer'"
-                            x-on:click.prevent="!isAllSearchEnginesSelected() && toggleSearchEngine(engine.id)"
-                        >
-                            <x-form.checkbox
-                                x-bind:checked="isSearchEngineSelected(engine.id)"
-                                x-bind:disabled="isAllSearchEnginesSelected()"
-                            />
-                            <span class="min-w-0" x-text="engine.name"></span>
-                        </label>
-                    </template>
-                </div>
-            </div>
-        </div>
-
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-                По какому параметру рассчитываем переходы?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="visitsMetricSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="visitsMetricSelectOpen = !visitsMetricSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': visitsMetricSelectOpen,
-                                'rounded-[5px]': !visitsMetricSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="visitsMetricSelectLabel()"></span>
-                        </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': visitsMetricSelectOpen }"
-                            />
-                        </span>
-                    </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="visitsMetricSelectOpen"
-                        x-anchor.no-style="$refs.visitsMetricSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="visitsMetricSelectOpen = false"
-                    >
-                        <template x-for="option in visitsMetricOptions" :key="option.value">
-                            <div
-                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                                x-on:click="selectVisitsMetric(option.value)"
-                                x-text="option.label"
-                            ></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        <x-form.form-field>
-            <div
-                class="flex cursor-pointer items-center gap-3 self-start text-primary"
-                x-on:click="toggleVisitsSearchEnginesTestPanel()"
-                x-bind:aria-expanded="visitsSearchEnginesTestPanelOpen"
-            >
-                <x-button.button
-                    class="pointer-events-none self-start"
-                    type="button"
-                    variant="action"
-                    wrap
-                    label="Проверить работу интеграции"
-                />
-                <span
-                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
-                    x-bind:class="{ 'rotate-90': visitsSearchEnginesTestPanelOpen, 'rotate-270': !visitsSearchEnginesTestPanelOpen }"
-                >
-                    <x-icons.arrow-left />
-                </span>
-            </div>
-            <span class="w-[305px]" aria-hidden="true"></span>
-        </x-form.form-field>
-
-        <div
-            class="flex flex-col gap-3"
-            x-ref="metrikaVisitsSearchEnginesTestPanel"
-            x-show="settings.reports.visits_search_engines && visitsSearchEnginesTestPanelOpen"
-            x-cloak
-        >
-            <x-form.form-field>
-                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Поисковые системы в Яндекс Метрике">
-                    Дата
-                </x-form.form-label>
-                <div class="flex w-[305px] flex-col gap-3">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="Выберите дату"
-                        :max="now()->toDateString()"
-                        x-model="visitsSearchEnginesTestDate"
-                    ></x-form.date-picker>
-                    <div
-                        class="w-full"
-                        x-ref="visitsSearchEnginesTestButtonWrap"
-                        x-on:mouseenter="visitsSearchEnginesTestDateHintOpen = !visitsSearchEnginesTestDate"
-                        x-on:mouseleave="visitsSearchEnginesTestDateHintOpen = false"
-                    >
-                        <x-button.button
-                            type="button"
-                            icon="icons.refresh"
-                            class="w-full"
-                            label="Проверить"
-                            x-bind:disabled="!visitsSearchEnginesTestDate || visitsSearchEnginesTestLoading"
-                            x-on:click="runVisitsSearchEnginesTest()"
-                        />
-                    </div>
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="visitsSearchEnginesTestDateHintOpen && !visitsSearchEnginesTestDate"
-                            x-cloak
-                            x-anchor.bottom="$refs.visitsSearchEnginesTestButtonWrap"
-                        >
-                            Выберите дату
-                        </div>
-                    </template>
-                </div>
-            </x-form.form-field>
-
-            <x-form.form-field>
-                <span class="invisible text-sm" aria-hidden="true">Дата</span>
-                <div class="w-[305px]">
-                    <span class="text-sm" x-show="visitsSearchEnginesTestCount !== null" x-text="'Количество переходов из отчета Поисковые системы: ' + visitsSearchEnginesTestCount" x-cloak></span>
-                    <p class="text-warning-red mt-1 text-xs" x-show="visitsSearchEnginesTestError" x-text="visitsSearchEnginesTestError" x-cloak></p>
-                </div>
-            </x-form.form-field>
-        </div>
-        </div>
-
-        {{-- Visits Search Queries report checkbox --}}
-        @php $visitsSearchQueriesKey = $visitsSearchQueriesReportOption['key']; @endphp
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-            </x-form.form-label>
-            <div class="w-[305px]">
-                <label
-                    class="flex items-center justify-between gap-2 text-sm"
-                    x-ref="goalReport_{{ $visitsSearchQueriesKey }}"
-                    x-bind:class="isReportDisabled('{{ $visitsSearchQueriesKey }}') && 'cursor-not-allowed text-secondary-text'"
-                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $visitsSearchQueriesKey }}') ? '{{ $visitsSearchQueriesKey }}' : null"
-                    x-on:mouseleave="reportTooltipKey = null"
-                >
-                    <span>{{ $visitsSearchQueriesReportOption['label'] }}</span>
-                    <x-form.checkbox
-                        x-model="settings.reports.{{ $visitsSearchQueriesKey }}"
-                        x-bind:disabled="isReportDisabled('{{ $visitsSearchQueriesKey }}')"
-                    />
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="reportTooltipKey === '{{ $visitsSearchQueriesKey }}'"
-                            x-cloak
-                            x-anchor.bottom="$refs.goalReport_{{ $visitsSearchQueriesKey }}"
-                            x-text="reportDisabledReason('{{ $visitsSearchQueriesKey }}')"
-                        ></div>
-                    </template>
-                </label>
-            </div>
-        </x-form.form-field>
-
-        {{-- Visits Search Queries report details border --}}
-        <div
-            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
-            x-show="settings.reports.{{ $visitsSearchQueriesKey }}"
-            x-cloak
-        >
-
-        <x-form.form-field>
-            <x-form.form-label tooltip="{{ $searchQueriesMinusTooltip }}">
-                Минус-фразы
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="relative">
-                    <x-form.textarea
-                        class="min-h-[84px] w-full rounded-[5px] border border-input-border px-3 py-2"
-                        rows="3"
-                        x-model="settings.search_queries_minus"
-                    />
-                    <div
-                        class="text-secondary-text pointer-events-none absolute inset-0 px-3 py-2 text-sm"
-                        x-show="!(settings.search_queries_minus || '').trim()"
-                        x-cloak
-                    >
-                        <div>Например:</div>
-                        <div class="italic">Вакансии</div>
-                        <div class="italic">Реквизиты</div>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-                По какому параметру рассчитываем переходы?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="visitsQueriesMetricSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="visitsQueriesMetricSelectOpen = !visitsQueriesMetricSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': visitsQueriesMetricSelectOpen,
-                                'rounded-[5px]': !visitsQueriesMetricSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="visitsMetricSelectLabel()"></span>
-                        </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': visitsQueriesMetricSelectOpen }"
-                            />
-                        </span>
-                    </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="visitsQueriesMetricSelectOpen"
-                        x-anchor.no-style="$refs.visitsQueriesMetricSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="visitsQueriesMetricSelectOpen = false"
-                    >
-                        <template x-for="option in visitsMetricOptions" :key="option.value">
-                            <div
-                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                                x-on:click="selectVisitsMetric(option.value); visitsQueriesMetricSelectOpen = false"
-                                x-text="option.label"
-                            ></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        <x-form.form-field>
-            <div
-                class="flex cursor-pointer items-center gap-3 self-start text-primary"
-                x-on:click="toggleVisitsSearchQueriesTestPanel()"
-                x-bind:aria-expanded="visitsSearchQueriesTestPanelOpen"
-            >
-                <x-button.button
-                    class="pointer-events-none self-start"
-                    type="button"
-                    variant="action"
-                    wrap
-                    label="Проверить работу интеграции"
-                />
-                <span
-                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
-                    x-bind:class="{ 'rotate-90': visitsSearchQueriesTestPanelOpen, 'rotate-270': !visitsSearchQueriesTestPanelOpen }"
-                >
-                    <x-icons.arrow-left />
-                </span>
-            </div>
-            <span class="w-[305px]" aria-hidden="true"></span>
-        </x-form.form-field>
-
-        <div
-            class="flex flex-col gap-3"
-            x-ref="metrikaVisitsSearchQueriesTestPanel"
-            x-show="settings.reports.visits_search_queries && visitsSearchQueriesTestPanelOpen"
-            x-cloak
-        >
-            <x-form.form-field>
-                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом Поисковые запросы в Яндекс Метрике">
-                    Дата
-                </x-form.form-label>
-                <div class="flex w-[305px] flex-col gap-3">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="Выберите дату"
-                        :max="now()->toDateString()"
-                        x-model="visitsSearchQueriesTestDate"
-                    ></x-form.date-picker>
-                    <div
-                        class="w-full"
-                        x-ref="visitsSearchQueriesTestButtonWrap"
-                        x-on:mouseenter="visitsSearchQueriesTestDateHintOpen = !visitsSearchQueriesTestDate"
-                        x-on:mouseleave="visitsSearchQueriesTestDateHintOpen = false"
-                    >
-                        <x-button.button
-                            type="button"
-                            icon="icons.refresh"
-                            class="w-full"
-                            label="Проверить"
-                            x-bind:disabled="!visitsSearchQueriesTestDate || visitsSearchQueriesTestLoading"
-                            x-on:click="runVisitsSearchQueriesTest()"
-                        />
-                    </div>
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="visitsSearchQueriesTestDateHintOpen && !visitsSearchQueriesTestDate"
-                            x-cloak
-                            x-anchor.bottom="$refs.visitsSearchQueriesTestButtonWrap"
-                        >
-                            Выберите дату
-                        </div>
-                    </template>
-                </div>
-            </x-form.form-field>
-
-            <x-form.form-field>
-                <span class="invisible text-sm" aria-hidden="true">Дата</span>
-                <div class="w-[305px]">
-                    <span class="text-sm" x-show="visitsSearchQueriesTestCount !== null" x-text="'Количество переходов из отчета Поисковые запросы: ' + visitsSearchQueriesTestCount" x-cloak></span>
-                    <p class="text-warning-red mt-1 text-xs" x-show="visitsSearchQueriesTestError" x-text="visitsSearchQueriesTestError" x-cloak></p>
-                </div>
-            </x-form.form-field>
-        </div>
-        </div>
-
-        {{-- Visits Geo report checkbox --}}
-        @php $visitsGeoKey = $visitsGeoReportOption['key']; @endphp
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-            </x-form.form-label>
-            <div class="w-[305px]">
-                <label
-                    class="flex items-center justify-between gap-2 text-sm"
-                    x-ref="goalReport_{{ $visitsGeoKey }}"
-                    x-bind:class="isReportDisabled('{{ $visitsGeoKey }}') && 'cursor-not-allowed text-secondary-text'"
-                    x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $visitsGeoKey }}') ? '{{ $visitsGeoKey }}' : null"
-                    x-on:mouseleave="reportTooltipKey = null"
-                >
-                    <span>{{ $visitsGeoReportOption['label'] }}</span>
-                    <x-form.checkbox
-                        x-model="settings.reports.{{ $visitsGeoKey }}"
-                        x-bind:disabled="isReportDisabled('{{ $visitsGeoKey }}')"
-                    />
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="reportTooltipKey === '{{ $visitsGeoKey }}'"
-                            x-cloak
-                            x-anchor.bottom="$refs.goalReport_{{ $visitsGeoKey }}"
-                            x-text="reportDisabledReason('{{ $visitsGeoKey }}')"
-                        ></div>
-                    </template>
-                </label>
-            </div>
-        </x-form.form-field>
-
-        {{-- Visits Geo report details border --}}
-        <div
-            class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5"
-            x-show="settings.reports.{{ $visitsGeoKey }}"
-            x-cloak
-        >
-
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-                По какому параметру рассчитываем переходы?
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                <div class="text-input-text relative select-none">
-                    <div class="group" x-ref="visitsGeoMetricSelectButton">
-                        <div
-                            class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
-                            x-on:click="visitsGeoMetricSelectOpen = !visitsGeoMetricSelectOpen"
-                            x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': visitsGeoMetricSelectOpen,
-                                'rounded-[5px]': !visitsGeoMetricSelectOpen,
-                            }"
-                        >
-                            <span class="overflow-hidden" x-text="visitsMetricSelectLabel()"></span>
-                        </div>
-                        <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-                            <x-icons.arrow
-                                class="transition-transform duration-300"
-                                x-bind:class="{ 'rotate-180 group-hover:text-white': visitsGeoMetricSelectOpen }"
-                            />
-                        </span>
-                    </div>
-                    <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
-                        x-cloak
-                        x-show="visitsGeoMetricSelectOpen"
-                        x-anchor.no-style="$refs.visitsGeoMetricSelectButton"
-                        x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="visitsGeoMetricSelectOpen = false"
-                    >
-                        <template x-for="option in visitsMetricOptions" :key="option.value">
-                            <div
-                                class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
-                                x-on:click="selectVisitsMetric(option.value); visitsGeoMetricSelectOpen = false"
-                                x-text="option.label"
-                            ></div>
-                        </template>
-                    </div>
-                </div>
-            </div>
-        </x-form.form-field>
-
-        <x-form.form-field>
-            <div
-                class="flex cursor-pointer items-center gap-3 self-start text-primary"
-                x-on:click="toggleVisitsGeoTestPanel()"
-                x-bind:aria-expanded="visitsGeoTestPanelOpen"
-            >
-                <x-button.button
-                    class="pointer-events-none self-start"
-                    type="button"
-                    variant="action"
-                    wrap
-                    label="Проверить работу интеграции"
-                />
-                <span
-                    class="inline-flex shrink-0 rotate-270 transition-transform duration-300"
-                    x-bind:class="{ 'rotate-90': visitsGeoTestPanelOpen, 'rotate-270': !visitsGeoTestPanelOpen }"
-                >
-                    <x-icons.arrow-left />
-                </span>
-            </div>
-            <span class="w-[305px]" aria-hidden="true"></span>
-        </x-form.form-field>
-
-        <div
-            class="flex flex-col gap-3"
-            x-ref="metrikaVisitsGeoTestPanel"
-            x-show="settings.reports.visits_geo && visitsGeoTestPanelOpen"
-            x-cloak
-        >
-            <x-form.form-field>
-                <x-form.form-label tooltip="Дата, за которую сверяем цифры с отчётом География в Яндекс Метрике">
-                    Дата
-                </x-form.form-label>
-                <div class="flex w-[305px] flex-col gap-3">
-                    <x-form.date-picker
-                        class="w-full"
-                        placeholder="Выберите дату"
-                        :max="now()->toDateString()"
-                        x-model="visitsGeoTestDate"
-                    ></x-form.date-picker>
-                    <div
-                        class="w-full"
-                        x-ref="visitsGeoTestButtonWrap"
-                        x-on:mouseenter="visitsGeoTestDateHintOpen = !visitsGeoTestDate"
-                        x-on:mouseleave="visitsGeoTestDateHintOpen = false"
-                    >
-                        <x-button.button
-                            type="button"
-                            icon="icons.refresh"
-                            class="w-full"
-                            label="Проверить"
-                            x-bind:disabled="!visitsGeoTestDate || visitsGeoTestLoading"
-                            x-on:click="runVisitsGeoTest()"
-                        />
-                    </div>
-                    <template x-teleport="body">
-                        <div
-                            class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                            x-show="visitsGeoTestDateHintOpen && !visitsGeoTestDate"
-                            x-cloak
-                            x-anchor.bottom="$refs.visitsGeoTestButtonWrap"
-                        >
-                            Выберите дату
-                        </div>
-                    </template>
-                </div>
-            </x-form.form-field>
-
-            <x-form.form-field>
-                <span class="invisible text-sm" aria-hidden="true">Дата</span>
-                <div class="w-[305px]">
-                    <span class="text-sm" x-show="visitsGeoTestCount !== null" x-text="'Количество переходов из отчета География: ' + visitsGeoTestCount" x-cloak></span>
-                    <p class="text-warning-red mt-1 text-xs" x-show="visitsGeoTestError" x-text="visitsGeoTestError" x-cloak></p>
-                </div>
-            </x-form.form-field>
-        </div>
-        </div>
-
-        <x-form.form-field>
-            <x-form.form-label class="self-baseline">
-            </x-form.form-label>
-            <div class="flex w-[305px] flex-col gap-3">
-                @foreach ($otherReportOptions as $reportOption)
-                    @php
-                        $reportKey = $reportOption['key'];
-                    @endphp
-                    <label
-                        class="flex items-center justify-between gap-2 text-sm"
-                        x-ref="goalReport_{{ $reportKey }}"
-                        x-bind:class="isReportDisabled('{{ $reportKey }}') && 'cursor-not-allowed text-secondary-text'"
-                        x-on:mouseenter="reportTooltipKey = isReportDisabled('{{ $reportKey }}') ? '{{ $reportKey }}' : null"
-                        x-on:mouseleave="reportTooltipKey = null"
-                    >
-                        <span>{{ $reportOption['label'] }}</span>
-                        <x-form.checkbox
-                            x-model="settings.reports.{{ $reportKey }}"
-                            x-bind:disabled="isReportDisabled('{{ $reportKey }}')"
-                        />
-                        <template x-teleport="body">
-                            <div
-                                class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                x-show="reportTooltipKey === '{{ $reportKey }}'"
+                                class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
                                 x-cloak
-                                x-anchor.bottom="$refs.goalReport_{{ $reportKey }}"
-                                x-text="reportDisabledReason('{{ $reportKey }}')"
-                            ></div>
-                        </template>
-                    </label>
-                @endforeach
+                                x-show="goalsMetricSelectOpen"
+                                x-anchor.no-style="$refs.goalsMetricSelectButton"
+                                x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                                x-on:click.outside="goalsMetricSelectOpen = false"
+                            >
+                                <template x-for="option in goalsMetricOptions" :key="option.value">
+                                    <div
+                                        class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
+                                        x-on:click="selectGoalsMetric(option.value)"
+                                        x-text="option.label"
+                                    ></div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <x-form.form-label class="self-baseline">
+                        С каких UTM-меток нужно забирать достижение целей?
+                    </x-form.form-label>
+                    <div class="flex w-[305px] flex-col gap-3">
+                        <div class="text-input-text relative select-none">
+                            <div class="group" x-ref="utmFilterModeSelectButton">
+                                <div
+                                    class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                                    x-on:click="utmFilterModeSelectOpen = !utmFilterModeSelectOpen"
+                                    x-bind:class="{
+                                        'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': utmFilterModeSelectOpen,
+                                        'rounded-[5px]': !utmFilterModeSelectOpen,
+                                    }"
+                                >
+                                    <span class="overflow-hidden" x-text="utmFilterModeLabel()"></span>
+                                </div>
+                                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <x-icons.arrow
+                                        class="transition-transform duration-300"
+                                        x-bind:class="{ 'rotate-180 group-hover:text-white': utmFilterModeSelectOpen }"
+                                    />
+                                </span>
+                            </div>
+                            <div
+                                class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                                x-cloak
+                                x-show="utmFilterModeSelectOpen"
+                                x-anchor.no-style="$refs.utmFilterModeSelectButton"
+                                x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                                x-on:click.outside="utmFilterModeSelectOpen = false"
+                            >
+                                <div class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 hover:text-white" x-on:click="settings.utm_filter_mode = 'source'; utmFilterModeSelectOpen = false">Только с UTM_source</div>
+                                <div class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 hover:text-white" x-on:click="settings.utm_filter_mode = 'medium'; utmFilterModeSelectOpen = false">Только с UTM_medium</div>
+                                <div class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white" x-on:click="settings.utm_filter_mode = 'campaign'; utmFilterModeSelectOpen = false">Только с UTM_campaign</div>
+                            </div>
+                        </div>
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field x-show="settings.utm_filter_mode === 'source'" x-cloak>
+                    <x-form.form-label tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_source.">
+                        Какие цели забираем с меткой UTM_source?
+                    </x-form.form-label>
+                    <div class="w-[305px]">
+                        <x-form.input-text x-model="settings.utm_source"></x-form.input-text>
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field x-show="settings.utm_filter_mode === 'medium'" x-cloak>
+                    <x-form.form-label tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_medium.">
+                        Какие цели забираем с меткой UTM_medium?
+                    </x-form.form-label>
+                    <div class="w-[305px]">
+                        <x-form.input-text x-model="settings.utm_medium"></x-form.input-text>
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field x-show="settings.utm_filter_mode === 'campaign'" x-cloak>
+                    <x-form.form-label tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_campaign.">
+                        Какие цели забираем с меткой UTM_campaign?
+                    </x-form.form-label>
+                    <div class="w-[305px]">
+                        <x-form.input-text x-model="settings.utm_campaign"></x-form.input-text>
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <div
+                        class="flex cursor-pointer items-center gap-3 self-start text-primary"
+                        x-on:click="toggleTestPanel()"
+                        x-bind:aria-expanded="testPanelOpen"
+                    >
+                        <x-button.button class="pointer-events-none self-start" type="button" variant="action" wrap label="Проверить работу интеграции" />
+                        <span class="inline-flex shrink-0 rotate-270 transition-transform duration-300" x-bind:class="{ 'rotate-90': testPanelOpen, 'rotate-270': !testPanelOpen }">
+                            <x-icons.arrow-left />
+                        </span>
+                    </div>
+                    <span class="w-[305px]" aria-hidden="true"></span>
+                </x-form.form-field>
+
+                <div class="flex flex-col gap-3" x-ref="metrikaTestPanel" x-show="testPanelOpen" x-cloak>
+                    <x-form.form-field>
+                        <x-form.form-label>Дата</x-form.form-label>
+                        <div class="flex w-[305px] flex-col gap-3">
+                            <x-form.date-picker class="w-full" placeholder="Выберите дату" :max="now()->toDateString()" x-model="testDate"></x-form.date-picker>
+                            <div class="w-full" x-ref="goalsTestButtonWrap" x-on:mouseenter="testDateHintOpen = !testDate" x-on:mouseleave="testDateHintOpen = false">
+                                <x-button.button type="button" icon="icons.refresh" class="w-full" label="Проверить" x-bind:disabled="!testDate || testLoading" x-on:click="runTest()" />
+                            </div>
+                            <template x-teleport="body">
+                                <div class="z-[1000] w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white" x-show="testDateHintOpen && !testDate" x-cloak x-anchor.bottom="$refs.goalsTestButtonWrap">Выберите дату</div>
+                            </template>
+                        </div>
+                    </x-form.form-field>
+                    <x-form.form-field>
+                        <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                        <div class="w-[305px]">
+                            <span class="text-sm" x-show="testCount !== null" x-text="goalsTestResultLabel() + testCount" x-cloak></span>
+                            <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
+                        </div>
+                    </x-form.form-field>
+                </div>
             </div>
-        </x-form.form-field>
+
+        </div>
+
+        {{-- SEO: цели из отчёта Поисковые системы --}}
+        <div class="flex flex-col gap-5" x-show="isSeoPromotion()" x-cloak>
+            <div class="border-primary/30 bg-primary/[0.02] flex flex-col gap-5 rounded-lg border p-5">
+                <p class="text-sm text-primary-text">Достижение целей из отчета Поисковые системы</p>
+
+                <div class="flex flex-col gap-2">
+                    <x-form.form-label required>
+                        Выберите цели, по которым хотите получать статистику
+                    </x-form.form-label>
+                    <div>
+                        <p class="text-secondary-text text-sm" x-show="goalsLoading" x-cloak>Загрузка целей…</p>
+                        <p class="text-warning-red text-sm" x-show="goalsError" x-text="goalsError" x-cloak></p>
+                        <p class="text-secondary-text text-sm" x-show="!goalsLoading && !goalsError && goalOptions.length === 0" x-cloak>У счётчика нет целей</p>
+                        <div class="pretty-scroll border-input-border max-h-[196px] overflow-y-auto rounded-[5px] border px-3 py-2" x-show="!goalsLoading && !goalsError && goalOptions.length > 0" x-cloak>
+                            <template x-for="goal in goalOptions" :key="'seo-' + goal.id">
+                                <label class="flex cursor-pointer items-center gap-2 py-2 text-sm" x-on:click.prevent="toggleGoal(goal.id)">
+                                    <x-form.checkbox x-bind:checked="isGoalSelected(goal.id)" />
+                                    <span class="min-w-0">
+                                        <span x-text="goal.name"></span>
+                                        <span class="text-secondary-text" x-text="' (№' + goal.id + ')'"></span>
+                                    </span>
+                                </label>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+
+                <x-form.form-field>
+                    <x-form.form-label class="self-baseline">
+                        По какому параметру рассчитываем достижение целей?
+                    </x-form.form-label>
+                    <div class="flex w-[305px] flex-col gap-3">
+                        <div class="text-input-text relative select-none">
+                            <div class="group" x-ref="seoGoalsMetricSelectButton">
+                                <div
+                                    class="border-input-border flex min-h-[42px] w-full cursor-pointer items-center rounded-[5px] border pe-10 ps-4"
+                                    x-on:click="goalsMetricSelectOpen = !goalsMetricSelectOpen"
+                                    x-bind:class="{
+                                        'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': goalsMetricSelectOpen,
+                                        'rounded-[5px]': !goalsMetricSelectOpen,
+                                    }"
+                                >
+                                    <span class="overflow-hidden" x-text="goalsMetricSelectLabel()"></span>
+                                </div>
+                                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <x-icons.arrow class="transition-transform duration-300" x-bind:class="{ 'rotate-180 group-hover:text-white': goalsMetricSelectOpen }" />
+                                </span>
+                            </div>
+                            <div
+                                class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                                x-cloak
+                                x-show="goalsMetricSelectOpen"
+                                x-anchor.no-style="$refs.seoGoalsMetricSelectButton"
+                                x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
+                                x-on:click.outside="goalsMetricSelectOpen = false"
+                            >
+                                <template x-for="option in goalsMetricOptions" :key="'seo-metric-' + option.value">
+                                    <div class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white" x-on:click="selectGoalsMetric(option.value)" x-text="option.label"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </x-form.form-field>
+
+                <x-form.form-field>
+                    <div class="flex cursor-pointer items-center gap-3 self-start text-primary" x-on:click="toggleTestPanel()" x-bind:aria-expanded="testPanelOpen">
+                        <x-button.button class="pointer-events-none self-start" type="button" variant="action" wrap label="Проверить работу интеграции" />
+                        <span class="inline-flex shrink-0 rotate-270 transition-transform duration-300" x-bind:class="{ 'rotate-90': testPanelOpen, 'rotate-270': !testPanelOpen }">
+                            <x-icons.arrow-left />
+                        </span>
+                    </div>
+                    <span class="w-[305px]" aria-hidden="true"></span>
+                </x-form.form-field>
+
+                <div class="flex flex-col gap-3" x-ref="metrikaSeoTestPanel" x-show="testPanelOpen" x-cloak>
+                    <x-form.form-field>
+                        <x-form.form-label>Дата</x-form.form-label>
+                        <div class="flex w-[305px] flex-col gap-3">
+                            <x-form.date-picker class="w-full" placeholder="Выберите дату" :max="now()->toDateString()" x-model="testDate"></x-form.date-picker>
+                            <x-button.button type="button" icon="icons.refresh" class="w-full" label="Проверить" x-bind:disabled="!testDate || testLoading" x-on:click="runTest()" />
+                        </div>
+                    </x-form.form-field>
+                    <x-form.form-field>
+                        <span class="invisible text-sm" aria-hidden="true">Дата</span>
+                        <div class="w-[305px]">
+                            <span class="text-sm" x-show="testCount !== null" x-text="goalsTestResultLabel() + testCount" x-cloak></span>
+                            <p class="text-warning-red mt-1 text-xs" x-show="testError" x-text="testError" x-cloak></p>
+                        </div>
+                    </x-form.form-field>
+                </div>
+            </div>
+        </div>
+
     </x-form.form>
     </x-panel.scroll-panel>
 

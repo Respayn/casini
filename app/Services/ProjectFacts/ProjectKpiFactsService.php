@@ -2,10 +2,14 @@
 
 namespace App\Services\ProjectFacts;
 
+use App\Clients\Callibri\Filters\UtmFilter;
+use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Factories\CallibriFilterFactory;
+use App\Models\CallibriDailyLeadCount;
 use App\Models\CallibriLead;
 use App\Models\YandexDirectCampaignStats;
 use App\Models\YandexDirectDailySpending;
+use App\Models\YandexMetrikaGoalDirectSummary;
 use App\Models\YandexMetrikaGoalUtm;
 use App\Models\YandexMetrikaSearchEnginesStats;
 use App\Models\YandexSearchApiDailyTopPercent;
@@ -71,11 +75,28 @@ class ProjectKpiFactsService
         }
 
         if ($this->credentials->hasEnabled($projectId, 'yandex_metrika')) {
-            foreach ($this->filteredMetrikaUtmGoals($projectId, $from, $to) as $goal) {
-                $day = $goal->achieved_date instanceof Carbon
-                    ? $goal->achieved_date->toDateString()
-                    : Carbon::parse((string) $goal->achieved_date)->toDateString();
-                $map[$day] = ($map[$day] ?? 0) + 1;
+            $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+            $countSource = YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($settings);
+
+            if ($countSource === YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_DIRECT_SUMMARY) {
+                foreach ($this->directSummaryGoalsByMonth($projectId, $from, $to) as $month => $conversions) {
+                    $day = Carbon::parse($month)->endOfMonth();
+                    if ($day->greaterThan($to)) {
+                        $day = $to->copy();
+                    }
+                    if ($day->lessThan($from)) {
+                        $day = $from->copy();
+                    }
+                    $key = $day->toDateString();
+                    $map[$key] = ($map[$key] ?? 0) + $conversions;
+                }
+            } else {
+                foreach ($this->filteredMetrikaUtmGoals($projectId, $from, $to) as $goal) {
+                    $day = $goal->achieved_date instanceof Carbon
+                        ? $goal->achieved_date->toDateString()
+                        : Carbon::parse((string) $goal->achieved_date)->toDateString();
+                    $map[$day] = ($map[$day] ?? 0) + 1;
+                }
             }
         }
 
@@ -242,7 +263,7 @@ class ProjectKpiFactsService
         foreach ($filters as $filter) {
             // AppealType / LeadCost без полей в БД не отсекают сохранённые лиды:
             // при съёме они уже применены. На чтении оставляем UTM.
-            if ($filter instanceof \App\Clients\Callibri\Filters\UtmFilter) {
+            if ($filter instanceof UtmFilter) {
                 $asArrays = array_values($filter->apply($asArrays));
             }
         }
@@ -254,6 +275,8 @@ class ProjectKpiFactsService
     }
 
     /**
+     * Цели UTM для общей статистики, когда источник числа - UTM-метки.
+     *
      * @return list<YandexMetrikaGoalUtm>
      */
     public function filteredMetrikaUtmGoals(int $projectId, Carbon $from, Carbon $to): array
@@ -261,6 +284,12 @@ class ProjectKpiFactsService
         $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
         $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
         if (! ($reports['goals_utm'] ?? false)) {
+            return [];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($settings)
+            !== YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_UTM
+        ) {
             return [];
         }
 
@@ -298,6 +327,64 @@ class ProjectKpiFactsService
     }
 
     /**
+     * Сумма целей «Директ, сводка» за месяцы периода. Без разреза по кампаниям.
+     */
+    public function directSummaryGoalsTotal(int $projectId, Carbon $from, Carbon $to): ?int
+    {
+        $byMonth = $this->directSummaryGoalsByMonth($projectId, $from, $to);
+        if ($byMonth === []) {
+            return null;
+        }
+
+        return (int) array_sum($byMonth);
+    }
+
+    /**
+     * @return array<string, int> Y-m-01 => conversions
+     */
+    public function directSummaryGoalsByMonth(int $projectId, Carbon $from, Carbon $to): array
+    {
+        $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['goals_direct_summary'] ?? false)) {
+            return [];
+        }
+
+        if (YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($settings)
+            !== YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_DIRECT_SUMMARY
+        ) {
+            return [];
+        }
+
+        [$from, $to] = $this->clampPeriod($from, $to);
+        if ($from->greaterThan($to)) {
+            return [];
+        }
+
+        $monthStart = $from->copy()->startOfMonth()->toDateString();
+        $monthEnd = $to->copy()->startOfMonth()->toDateString();
+
+        $rows = YandexMetrikaGoalDirectSummary::query()
+            ->where('project_id', $projectId)
+            ->whereBetween('month', [$monthStart, $monthEnd])
+            ->get(['month', 'conversions']);
+
+        if ($rows->isEmpty()) {
+            return [];
+        }
+
+        $map = [];
+        foreach ($rows as $row) {
+            $month = $row->month instanceof Carbon
+                ? $row->month->copy()->startOfMonth()->toDateString()
+                : Carbon::parse((string) $row->month)->startOfMonth()->toDateString();
+            $map[$month] = ($map[$month] ?? 0) + (int) $row->conversions;
+        }
+
+        return $map;
+    }
+
+    /**
      * Пересчитать дневные счётчики Callibri из сохранённых лидов (после фильтров UTM).
      */
     public function recountCallibriDailyCounts(int $projectId, Carbon $from, Carbon $to): void
@@ -315,7 +402,7 @@ class ProjectKpiFactsService
 
         for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
             $key = $day->toDateString();
-            \App\Models\CallibriDailyLeadCount::query()->updateOrCreate(
+            CallibriDailyLeadCount::query()->updateOrCreate(
                 [
                     'project_id' => $projectId,
                     'date' => $key,

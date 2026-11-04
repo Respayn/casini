@@ -510,6 +510,10 @@ class ReportDataProvider implements ReportDataProviderInterface
                 )
                 : [];
 
+            $metrikaGoalsTotal = $includeMetrika
+                ? $this->projectKpiFacts->directSummaryGoalsTotal($projectId, $from, $to)
+                : null;
+
             $budgetTotal = $this->projectKpiFacts->directBudget($projectId, $from, $to, true);
 
             $generalStats = YandexDirectGeneralStats::build(
@@ -520,6 +524,7 @@ class ReportDataProvider implements ReportDataProviderInterface
                 $includeMetrika,
                 $utmCampaignLabels,
                 $budgetTotal,
+                $metrikaGoalsTotal,
             );
             $builder->directCampaignStatRows($generalStats['rows']);
             $builder->values($generalStats['totals']);

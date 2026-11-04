@@ -416,7 +416,14 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `search_queries_minus` | минус-фразы для отчёта «Поисковые запросы» (каждая с новой строки) | `''` |
 | `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчётов «Переходы» | `visits` |
 
-Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines`, `visits_search_queries` и `visits_geo` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. На экране галочек нет: пакет включает Касини при сохранении по типу проекта ([`YandexMetrikaIntegrationSettingsData::reportsPackageFor`](app/Data/IntegrationSettings/YandexMetrikaIntegrationSettingsData.php)).
+
+| Тип проекта | Пакет `reports.*` |
+|-------------|-------------------|
+| `context_ad` | `goals_utm`, `goals_conversions`, `goals_direct_summary` |
+| `seo_promotion` | `goals_search_engines`, `visits_search_engines`, `visits_search_queries`, `visits_geo` |
+
+Дополнительно для контекста: `goals_count_source` = `utm` (по умолчанию) или `direct_summary`. Это источник числа целей в общей статистике Директа: UTM раскладывается по `utm_campaign`, «Директ, сводка» идёт только в итог без разреза по кампаниям. Старые проекты без ключа: если был включён только `goals_direct_summary`, источник `direct_summary`, иначе `utm`. Для любого пакета целей нужны выбранные `goals` и `goals_metric`.
 
 ### Фильтры в запросах к API (этап 2)
 

@@ -96,6 +96,7 @@ final class YandexDirectGeneralStats
     /**
      * @param  array<string, string>  $utmCampaignLabels
      * @param  float|null  $budgetTotalOverride  расход из yandex_direct_daily_spendings (как в Каналах)
+     * @param  int|null  $metrikaGoalsTotal  сумма «Директ, сводка» без разреза по кампаниям
      */
     public static function build(
         array $dailyStats,
@@ -105,10 +106,12 @@ final class YandexDirectGeneralStats
         bool $includeMetrika,
         array $utmCampaignLabels = [],
         ?float $budgetTotalOverride = null,
+        ?int $metrikaGoalsTotal = null,
     ): array {
         $leadsEnabled = $includeCallibri || $includeMetrika;
-        $leadsSplit = $leadsEnabled
-            ? self::leadsByCampaign($callibriLeads, $goalsUtm, $includeCallibri, $includeMetrika, $dailyStats)
+        $splitMetrikaByCampaign = $includeMetrika && $metrikaGoalsTotal === null;
+        $leadsSplit = ($includeCallibri || $splitMetrikaByCampaign)
+            ? self::leadsByCampaign($callibriLeads, $goalsUtm, $includeCallibri, $splitMetrikaByCampaign, $dailyStats)
             : ['matched' => [], 'unmatched' => 0];
 
         $aggregated = [];
@@ -190,6 +193,10 @@ final class YandexDirectGeneralStats
 
         if ($budgetTotalOverride !== null) {
             $totalCost = $budgetTotalOverride;
+        }
+
+        if ($includeMetrika && $metrikaGoalsTotal !== null) {
+            $totalConversions += $metrikaGoalsTotal;
         }
 
         $totals = self::formatTotals(

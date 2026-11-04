@@ -660,11 +660,21 @@ class extends Component
         }
 
         if ($integration?->code === 'yandex_metrika') {
-            $reports = is_array($projectIntegrationData->settings['reports'] ?? null)
-                ? $projectIntegrationData->settings['reports']
-                : [];
+            $projectType = (string) $this->clientProjectForm->projectType;
+            $reports = YandexMetrikaIntegrationSettingsData::reportsPackageFor($projectType);
+            $projectIntegrationData->settings['reports'] = $reports;
+            $projectIntegrationData->settings['goals_count_source'] = YandexMetrikaIntegrationSettingsData::normalizeGoalsCountSource(
+                $projectIntegrationData->settings['goals_count_source'] ?? null
+            );
 
-            $needsGoals = ($reports['goals_search_engines'] ?? false) || ($reports['goals_utm'] ?? false) || ($reports['goals_conversions'] ?? false) || ($reports['goals_direct_summary'] ?? false);
+            if ($projectType === ProjectType::SEO_PROMOTION->value) {
+                $projectIntegrationData->settings['goals_count_source'] = YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_COUNT_SOURCE;
+            }
+
+            $needsGoals = ($reports['goals_search_engines'] ?? false)
+                || ($reports['goals_utm'] ?? false)
+                || ($reports['goals_conversions'] ?? false)
+                || ($reports['goals_direct_summary'] ?? false);
 
             if ($needsGoals) {
                 $goals = YandexMetrikaIntegrationSettingsData::normalizeGoalIds(
@@ -692,10 +702,16 @@ class extends Component
                 $projectIntegrationData->settings['utm_campaign'] = trim((string) ($projectIntegrationData->settings['utm_campaign'] ?? ''));
             }
 
-            if ($reports['visits_search_engines'] ?? false) {
+            if (($reports['visits_search_engines'] ?? false)
+                || ($reports['visits_search_queries'] ?? false)
+                || ($reports['visits_geo'] ?? false)
+            ) {
                 $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
                     $projectIntegrationData->settings['visits_metric'] ?? null
                 );
+            }
+
+            if ($reports['visits_search_engines'] ?? false) {
                 $searchEnginesAll = (bool) ($projectIntegrationData->settings['search_engines_all'] ?? true);
                 $projectIntegrationData->settings['search_engines_all'] = $searchEnginesAll;
                 $projectIntegrationData->settings['search_engines'] = $searchEnginesAll
@@ -707,21 +723,10 @@ class extends Component
             }
 
             if ($reports['visits_search_queries'] ?? false) {
-                $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
-                    $projectIntegrationData->settings['visits_metric'] ?? null
-                );
                 $projectIntegrationData->settings['search_queries_minus'] = (string) (
                     $projectIntegrationData->settings['search_queries_minus'] ?? ''
                 );
             }
-
-            if ($reports['visits_geo'] ?? false) {
-                $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
-                    $projectIntegrationData->settings['visits_metric'] ?? null
-                );
-            }
-
-            $projectIntegrationData->settings['reports'] = $reports;
         }
 
         if ($integration?->code === 'bitrix24') {

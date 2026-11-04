@@ -815,5 +815,6 @@
         :platform-configured="$this->isSelectedIntegrationPlatformConfigured"
         :body-revision="$integrationModalBodyRevision"
         :can-edit="$canEdit"
+        :project-type="$clientProjectForm->projectType"
     />
 </div>

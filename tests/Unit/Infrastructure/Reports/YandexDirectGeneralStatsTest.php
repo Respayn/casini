@@ -187,6 +187,39 @@ class YandexDirectGeneralStatsTest extends TestCase
         $this->assertSame('390778.04', $result['totals'][YandexDirectGeneralStats::TOTAL_COST]);
     }
 
+    public function test_metrika_goals_total_adds_to_totals_without_campaign_split(): void
+    {
+        $stats = [
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания А',
+                'campaign_id' => 100,
+                'impressions' => 100,
+                'clicks' => 10,
+                'cost_with_vat' => 100.0,
+                'cost_without_vat' => 80.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+        ];
+
+        $result = YandexDirectGeneralStats::build(
+            $stats,
+            [],
+            [],
+            false,
+            true,
+            [],
+            null,
+            17,
+        );
+
+        $this->assertSame('0', $result['rows'][0]['conversions']);
+        $this->assertCount(1, $result['rows']);
+        $this->assertSame('17', $result['totals'][YandexDirectGeneralStats::TOTAL_CONVERSIONS]);
+    }
+
     public function test_without_lead_integrations_conversions_and_cpl_are_dash(): void
     {
         $stats = [

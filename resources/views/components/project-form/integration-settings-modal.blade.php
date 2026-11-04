@@ -4,6 +4,7 @@
     'platformConfigured' => true,
     'bodyRevision' => 0,
     'canEdit' => true,
+    'projectType' => null,
 ])
 
 @php
@@ -34,7 +35,7 @@
         : 'empty';
 
     $modalSidebarKey = $projectIntegration
-        ? $integrationCode.'-'.$bodyRevision
+        ? $integrationCode.'-'.$bodyRevision.'-'.(string) $projectType
         : 'empty';
 @endphp
 
@@ -66,7 +67,14 @@
 
         <x-slot:sidebar>
             <div wire:key="integration-modal-sidebar-{{ $modalSidebarKey }}">
-                <x-dynamic-component component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar" />
+                @if ($integrationCode === 'yandex_metrika')
+                    <x-dynamic-component
+                        component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar"
+                        :project-type="$projectType"
+                    />
+                @else
+                    <x-dynamic-component component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar" />
+                @endif
             </div>
         </x-slot:sidebar>
     @endif

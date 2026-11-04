@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 use PHPUnit\Framework\Attributes\Test;
 use Spatie\Permission\Models\Permission;
+use Src\Domain\ValueObjects\ProjectType;
 use Tests\TestCase;
 
 class YandexMetrikaModalTest extends TestCase
@@ -72,6 +73,7 @@ class YandexMetrikaModalTest extends TestCase
 
         Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')
+            ->set('clientProjectForm.projectType', ProjectType::CONTEXT_AD->value)
             ->call('selectIntegration', 'yandex_metrika')
             ->assertSet('selectedIntegration.integration.code', 'yandex_metrika')
             ->assertDispatched('modal-show')
@@ -79,26 +81,23 @@ class YandexMetrikaModalTest extends TestCase
             ->assertSee('Сначала включите синхронизацию')
             ->assertSee('часовым поясом счётчика в Яндекс Метрике')
             ->assertSee('Добавить фильтр по странице входа')
-            ->assertSee('Достижение целей из отчета Поисковые системы')
-            ->assertSee('Достижение целей из отчета UTM-метки')
-            ->assertSee('Достижение целей из отчета Конверсии')
-            ->assertSee('Достижение целей из отчета Директ, сводка')
-            ->assertSee('Переходы из отчета Поисковые системы')
-            ->assertSee('Переходы из отчета Поисковые запросы')
+            ->assertSee('Откуда считаем цели?')
+            ->assertSee('Из отчёта UTM-метки')
+            ->assertSee('Из отчёта Директ, сводка')
             ->assertSee('Выберите цели, по которым хотите получать статистику')
             ->assertSee('По какому параметру рассчитываем достижение целей?')
-            ->assertSee('Проверить работу интеграции')
-            ->assertSee('Выберите дату');
+            ->assertSee('Проверить работу интеграции');
     }
 
     #[Test]
-    public function test_set_integration_settings_stores_counter_filters_and_reports(): void
+    public function test_set_integration_settings_applies_context_reports_package(): void
     {
         $user = $this->createUserWithAgency();
         $integration = Integration::query()->where('code', 'yandex_metrika')->firstOrFail();
 
         Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')
+            ->set('clientProjectForm.projectType', ProjectType::CONTEXT_AD->value)
             ->call('setIntegrationSettings', $integration->id, [
                 'is_enabled' => true,
                 'oauth_token' => 'token',
@@ -121,6 +120,7 @@ class YandexMetrikaModalTest extends TestCase
                     'visits_search_queries' => false,
                     'visits_geo' => false,
                 ],
+                'goals_count_source' => 'direct_summary',
                 'goals' => [111, 222],
                 'goals_metric' => 'goal_reaches',
             ])
@@ -130,10 +130,43 @@ class YandexMetrikaModalTest extends TestCase
             ->assertSet("integrationSettings.{$integration->id}.settings.attribution_model", 'automatic')
             ->assertSet("integrationSettings.{$integration->id}.settings.data_mode", 'without_robots')
             ->assertSet("integrationSettings.{$integration->id}.settings.filters.entry_page", '!*promo*')
-            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_search_engines", true)
-            ->assertSet("integrationSettings.{$integration->id}.settings.reports.visits_search_engines", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_utm", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_conversions", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_direct_summary", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_search_engines", false)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.visits_search_engines", false)
+            ->assertSet("integrationSettings.{$integration->id}.settings.goals_count_source", 'direct_summary')
             ->assertSet("integrationSettings.{$integration->id}.settings.goals", [111, 222])
             ->assertSet("integrationSettings.{$integration->id}.settings.goals_metric", 'goal_reaches');
+    }
+
+    #[Test]
+    public function test_set_integration_settings_applies_seo_reports_package(): void
+    {
+        $user = $this->createUserWithAgency();
+        $integration = Integration::query()->where('code', 'yandex_metrika')->firstOrFail();
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.client-project-form')
+            ->set('clientProjectForm.projectType', ProjectType::SEO_PROMOTION->value)
+            ->call('setIntegrationSettings', $integration->id, [
+                'is_enabled' => true,
+                'oauth_token' => 'token',
+                'counter_id' => 12345678,
+                'goals_count_source' => 'direct_summary',
+                'goals' => [111],
+                'goals_metric' => 'target_visits',
+                'visits_metric' => 'users',
+                'search_engines_all' => true,
+            ])
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_search_engines", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.visits_search_engines", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.visits_search_queries", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.visits_geo", true)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_utm", false)
+            ->assertSet("integrationSettings.{$integration->id}.settings.reports.goals_direct_summary", false)
+            ->assertSet("integrationSettings.{$integration->id}.settings.goals_count_source", 'utm')
+            ->assertSet("integrationSettings.{$integration->id}.settings.visits_metric", 'users');
     }
 
     #[Test]
@@ -311,6 +344,7 @@ class YandexMetrikaModalTest extends TestCase
 
         Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')
+            ->set('clientProjectForm.projectType', ProjectType::SEO_PROMOTION->value)
             ->call('setIntegrationSettings', $integration->id, [
                 'is_enabled' => true,
                 'oauth_token' => 'token',
@@ -402,25 +436,18 @@ class YandexMetrikaModalTest extends TestCase
     }
 
     #[Test]
-    public function test_modal_shows_utm_report_labels(): void
+    public function test_modal_shows_goals_count_source_options_for_context(): void
     {
         $user = $this->createUserWithAgency();
 
         Livewire::actingAs($user)
             ->test('pages::system-settings.client-project-form')
+            ->set('clientProjectForm.projectType', ProjectType::CONTEXT_AD->value)
             ->call('selectIntegration', 'yandex_metrika')
-            ->assertSee('Достижение целей из отчета UTM-метки');
-    }
-
-    #[Test]
-    public function test_modal_shows_conversions_report_label(): void
-    {
-        $user = $this->createUserWithAgency();
-
-        Livewire::actingAs($user)
-            ->test('pages::system-settings.client-project-form')
-            ->call('selectIntegration', 'yandex_metrika')
-            ->assertSee('Достижение целей из отчета Конверсии');
+            ->assertSee('Откуда считаем цели?')
+            ->assertSee('Из отчёта UTM-метки')
+            ->assertSee('Из отчёта Директ, сводка')
+            ->assertDontSee('Эти три отчёта Касини забирает всегда');
     }
 
     #[Test]
