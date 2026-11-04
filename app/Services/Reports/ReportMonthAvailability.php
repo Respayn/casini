@@ -75,6 +75,7 @@ class ReportMonthAvailability
                 $leadsByDay,
                 $topPercentsByDay,
                 [],
+                [],
                 $today,
             );
 
