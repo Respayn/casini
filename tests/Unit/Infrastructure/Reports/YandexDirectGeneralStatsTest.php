@@ -103,7 +103,7 @@ class YandexDirectGeneralStatsTest extends TestCase
 
         $result = YandexDirectGeneralStats::build($stats, $callibri, $metrika, true, true);
 
-        $this->assertCount(2, $result['rows']);
+        $this->assertCount(3, $result['rows']);
         $this->assertSame('Кампания А', $result['rows'][0]['campaign']);
         $this->assertSame('1500', $result['rows'][0]['impressions']);
         $this->assertSame('75', $result['rows'][0]['clicks']);
@@ -118,11 +118,73 @@ class YandexDirectGeneralStatsTest extends TestCase
         $this->assertSame('-', $result['rows'][1]['cpc']);
         $this->assertSame('-', $result['rows'][1]['cpl']);
 
+        $this->assertSame('Без кампании', $result['rows'][2]['campaign']);
+        $this->assertSame('1', $result['rows'][2]['conversions']);
+
         $this->assertSame('1700', $result['totals'][YandexDirectGeneralStats::TOTAL_IMPRESSIONS]);
         $this->assertSame('75', $result['totals'][YandexDirectGeneralStats::TOTAL_CLICKS]);
         $this->assertSame('760.00', $result['totals'][YandexDirectGeneralStats::TOTAL_COST]);
-        $this->assertSame('3', $result['totals'][YandexDirectGeneralStats::TOTAL_CONVERSIONS]);
-        $this->assertSame('253.33', $result['totals'][YandexDirectGeneralStats::TOTAL_CPL]);
+        $this->assertSame('4', $result['totals'][YandexDirectGeneralStats::TOTAL_CONVERSIONS]);
+        $this->assertSame('190.00', $result['totals'][YandexDirectGeneralStats::TOTAL_CPL]);
+    }
+
+    public function test_budget_override_and_unmatched_leads_sum_to_statistics_total(): void
+    {
+        $stats = [
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания А',
+                'campaign_id' => 100,
+                'impressions' => 100,
+                'clicks' => 10,
+                'cost_with_vat' => 50.0,
+                'cost_without_vat' => 40.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+        ];
+
+        $callibri = [
+            CallibriLead::restore([
+                'id' => 1,
+                'project_id' => 1,
+                'external_id' => 'a',
+                'date' => '2026-10-01 12:00:00',
+                'utm_source' => 'yandex',
+                'utm_campaign' => '100',
+                'utm_medium' => 'cpc',
+                'utm_content' => null,
+                'utm_term' => null,
+            ]),
+            CallibriLead::restore([
+                'id' => 2,
+                'project_id' => 1,
+                'external_id' => 'b',
+                'date' => '2026-10-01 13:00:00',
+                'utm_source' => 'yandex',
+                'utm_campaign' => '999',
+                'utm_medium' => 'cpc',
+                'utm_content' => null,
+                'utm_term' => null,
+            ]),
+        ];
+
+        $result = YandexDirectGeneralStats::build(
+            $stats,
+            $callibri,
+            [],
+            true,
+            false,
+            [],
+            390778.04,
+        );
+
+        $this->assertSame('1', $result['rows'][0]['conversions']);
+        $this->assertSame('Без кампании', $result['rows'][1]['campaign']);
+        $this->assertSame('1', $result['rows'][1]['conversions']);
+        $this->assertSame('2', $result['totals'][YandexDirectGeneralStats::TOTAL_CONVERSIONS]);
+        $this->assertSame('390778.04', $result['totals'][YandexDirectGeneralStats::TOTAL_COST]);
     }
 
     public function test_without_lead_integrations_conversions_and_cpl_are_dash(): void

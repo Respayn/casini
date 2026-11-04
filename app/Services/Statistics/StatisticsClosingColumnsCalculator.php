@@ -24,7 +24,8 @@ class StatisticsClosingColumnsCalculator
      * @param  array<string, float>  $spendByDay
      * @param  array<string, int>  $leadsByDay
      * @param  array<string, float>  $topPercentsByDay
-     * @param  array<string, float|int>  $visitsByDay  пока пусто (Метрика)
+     * @param  array<string, float|int>  $visitsByDay
+     * @param  array<string, int>  $conversionsByDay
      * @return array{
      *     summary: list<array{value: mixed, format: mixed, plan_percent?: int|null}>,
      *     prediction: list<array{value: mixed, format: mixed, kind?: string}>,
@@ -39,6 +40,7 @@ class StatisticsClosingColumnsCalculator
         array $leadsByDay = [],
         array $topPercentsByDay = [],
         array $visitsByDay = [],
+        array $conversionsByDay = [],
         ?Carbon $today = null,
     ): array {
         $today ??= Carbon::now()->startOfDay();
@@ -57,6 +59,7 @@ class StatisticsClosingColumnsCalculator
             $leadsByDay,
             $topPercentsByDay,
             $visitsByDay,
+            $conversionsByDay,
         );
 
         $prediction = $this->buildPrediction(
@@ -93,6 +96,7 @@ class StatisticsClosingColumnsCalculator
      * @param  array<string, int>  $leadsByDay
      * @param  array<string, float>  $topPercentsByDay
      * @param  array<string, float|int>  $visitsByDay
+     * @param  array<string, int>  $conversionsByDay
      * @return list<array{value: mixed, format: mixed, plan_percent?: int|null, highlight?: bool}>
      */
     private function buildSummary(
@@ -104,6 +108,7 @@ class StatisticsClosingColumnsCalculator
         array $leadsByDay,
         array $topPercentsByDay,
         array $visitsByDay,
+        array $conversionsByDay = [],
     ): array {
         $lastDayKey = $month->copy()->endOfMonth()->toDateString();
         $monthStart = $month->copy()->startOfMonth()->startOfDay();
@@ -112,6 +117,7 @@ class StatisticsClosingColumnsCalculator
         $budgetSum = $this->sumDays($spendByDay, $monthStart, $monthEnd);
         $leadsSum = $this->sumDaysInt($leadsByDay, $monthStart, $monthEnd);
         $visitsSum = $this->sumDays($visitsByDay, $monthStart, $monthEnd);
+        $conversionsSum = $this->sumDaysInt($conversionsByDay, $monthStart, $monthEnd);
 
         $slots = [];
         foreach ($parameterCodes as $index => $code) {
@@ -123,6 +129,7 @@ class StatisticsClosingColumnsCalculator
                 $leadsByDay,
                 $topPercentsByDay,
                 $visitsByDay,
+                $conversionsByDay,
             );
 
             if (! $hasLastDay) {
@@ -146,11 +153,11 @@ class StatisticsClosingColumnsCalculator
                     'format' => null,
                 ],
                 'visits' => [
-                    'value' => $visitsSum,
+                    'value' => $visitsSum !== null ? (int) round($visitsSum) : null,
                     'format' => null,
                 ],
                 'conversions' => [
-                    'value' => null,
+                    'value' => $conversionsSum,
                     'format' => null,
                 ],
                 'cpl' => [
@@ -341,12 +348,13 @@ class StatisticsClosingColumnsCalculator
         array $leadsByDay,
         array $topPercentsByDay,
         array $visitsByDay,
+        array $conversionsByDay = [],
     ): bool {
         return match ($code) {
             'budget' => array_key_exists($lastDayKey, $spendByDay),
             'leads' => array_key_exists($lastDayKey, $leadsByDay),
             'visits' => array_key_exists($lastDayKey, $visitsByDay),
-            'conversions' => false,
+            'conversions' => array_key_exists($lastDayKey, $conversionsByDay),
             'top_percent' => array_key_exists($lastDayKey, $topPercentsByDay),
             'cpl' => array_key_exists($lastDayKey, $spendByDay)
                 && array_key_exists($lastDayKey, $leadsByDay),

@@ -7,6 +7,8 @@ use App\Data\ProjectUtmMappingData;
 use App\Enums\UtmType;
 use App\Repositories\Interfaces\ProjectUtmMappingRepositoryInterface;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
+use App\Services\ProjectFacts\ProjectKpiFactsService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Src\Application\Reports\Generate\ReportData;
 use Src\Application\Reports\Generate\ReportDataBuilder;
@@ -60,6 +62,8 @@ class ReportDataProvider implements ReportDataProviderInterface
 
     private readonly ProjectUtmMappingRepositoryInterface $projectUtmMappingRepository;
 
+    private readonly ProjectKpiFactsService $projectKpiFacts;
+
     public function __construct(
         ProjectRepositoryInterface $projectRepository,
         ClientRepositoryInterface $clientRepository,
@@ -73,6 +77,7 @@ class ReportDataProvider implements ReportDataProviderInterface
         AgencyRepositoryInterface $agencyRepository,
         IntegrationProjectCredentials $integrationProjectCredentials,
         ProjectUtmMappingRepositoryInterface $projectUtmMappingRepository,
+        ProjectKpiFactsService $projectKpiFacts,
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
@@ -86,6 +91,7 @@ class ReportDataProvider implements ReportDataProviderInterface
         $this->agencyRepository = $agencyRepository;
         $this->projectUtmMappingRepository = $projectUtmMappingRepository;
         $this->integrationProjectCredentials = $integrationProjectCredentials;
+        $this->projectKpiFacts = $projectKpiFacts;
     }
 
     public function getData(
@@ -233,6 +239,29 @@ class ReportDataProvider implements ReportDataProviderInterface
                     YandexSearchIndexedTags::key('position', $index),
                     $pairRows,
                 );
+            }
+
+            // % в топ-10 как в Статистике: среднее дневных снимков Search API.
+            $periodStart = $period->getStart();
+            $periodEnd = $period->getEnd();
+            if ($periodStart !== null && $periodEnd !== null) {
+                $from = Carbon::instance($periodStart)->startOfDay();
+                $to = Carbon::instance($periodEnd)->startOfDay();
+                $top10Average = $this->projectKpiFacts->top10Average($projectId, $from, $to);
+                if ($top10Average !== null) {
+                    foreach (YandexSearchIndexedTags::numberedRegions($regions) as $region) {
+                        $index = $region['index'];
+                        $builder->value(
+                            YandexSearchIndexedTags::key('top_10', $index),
+                            YandexSearchIndexedTags::formatShare($top10Average, true),
+                        );
+                        $periodSeries[YandexSearchIndexedTags::key('top_10', $index)] = $buckets->seriesFromMonthly(
+                            $this->top10MonthlyFromSearchApi($projectId, $buckets),
+                            '-',
+                            false,
+                        );
+                    }
+                }
             }
         });
 
@@ -431,20 +460,66 @@ class ReportDataProvider implements ReportDataProviderInterface
         $this->safely($builder, 'Общая статистика Директа не загружена', function () use (
             $builder,
             $projectId,
+            $period,
             $yandexDirectStats,
-            $goalsUtmStats,
-            $callibriLeads,
             $utmCampaignLabels,
         ): void {
             $includeCallibri = $this->integrationProjectCredentials->hasEnabled($projectId, 'callibri');
             $includeMetrika = $this->integrationProjectCredentials->hasEnabled($projectId, 'yandex_metrika');
+            $periodStart = $period->getStart();
+            $periodEnd = $period->getEnd();
+            if ($periodStart === null || $periodEnd === null) {
+                return;
+            }
+            $from = Carbon::instance($periodStart)->startOfDay();
+            $to = Carbon::instance($periodEnd)->startOfDay();
+
+            $filteredCallibri = $includeCallibri
+                ? array_map(
+                    static fn ($lead) => CallibriLead::restore([
+                        'id' => $lead->id,
+                        'project_id' => $lead->project_id,
+                        'external_id' => $lead->external_id,
+                        'date' => (string) $lead->date,
+                        'utm_source' => $lead->utm_source,
+                        'utm_campaign' => $lead->utm_campaign,
+                        'utm_medium' => $lead->utm_medium,
+                        'utm_content' => $lead->utm_content,
+                        'utm_term' => $lead->utm_term,
+                    ]),
+                    $this->projectKpiFacts->filteredCallibriLeads($projectId, $from, $to),
+                )
+                : [];
+
+            $filteredMetrika = $includeMetrika
+                ? array_map(
+                    static fn ($goal) => YandexMetrikaGoalUtm::restore([
+                        'id' => $goal->id,
+                        'project_id' => $goal->project_id,
+                        'goal_name' => $goal->goal_name,
+                        'achieved_date' => $goal->achieved_date instanceof \DateTimeInterface
+                            ? $goal->achieved_date->format('Y-m-d')
+                            : (string) $goal->achieved_date,
+                        'utm_source' => $goal->utm_source,
+                        'utm_medium' => $goal->utm_medium,
+                        'utm_campaign' => $goal->utm_campaign,
+                        'utm_content' => $goal->utm_content,
+                        'utm_term' => $goal->utm_term,
+                    ]),
+                    $this->projectKpiFacts->filteredMetrikaUtmGoals($projectId, $from, $to),
+                )
+                : [];
+
+            $budgetTotal = $this->projectKpiFacts->directBudget($projectId, $from, $to, true);
+
             $generalStats = YandexDirectGeneralStats::build(
                 $yandexDirectStats,
-                $callibriLeads,
-                $goalsUtmStats,
+                $filteredCallibri,
+                $filteredMetrika,
                 $includeCallibri,
                 $includeMetrika,
                 $utmCampaignLabels,
+                $budgetTotal,
             );
             $builder->directCampaignStatRows($generalStats['rows']);
             $builder->values($generalStats['totals']);
@@ -467,6 +542,34 @@ class ReportDataProvider implements ReportDataProviderInterface
         }
 
         return $builder->build();
+    }
+
+    /**
+     * Средний % в топ-10 Search API по месяцам периода (ключ Y-m).
+     *
+     * @return array<string, float>
+     */
+    private function top10MonthlyFromSearchApi(int $projectId, ReportPeriodBuckets $buckets): array
+    {
+        $monthly = [];
+        foreach ($buckets->items as $bucket) {
+            $current = Carbon::instance($bucket->start)->startOfMonth();
+            $last = Carbon::instance($bucket->end)->startOfMonth();
+            while ($current->lte($last)) {
+                $monthKey = $current->format('Y-m');
+                if (! isset($monthly[$monthKey])) {
+                    $from = $current->copy()->startOfMonth();
+                    $to = $current->copy()->endOfMonth()->startOfDay();
+                    $avg = $this->projectKpiFacts->top10Average($projectId, $from, $to);
+                    if ($avg !== null) {
+                        $monthly[$monthKey] = $avg;
+                    }
+                }
+                $current->addMonth();
+            }
+        }
+
+        return $monthly;
     }
 
     /**

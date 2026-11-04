@@ -93,6 +93,10 @@ final class YandexDirectGeneralStats
      *     totals: array<string, string>
      * }
      */
+    /**
+     * @param  array<string, string>  $utmCampaignLabels
+     * @param  float|null  $budgetTotalOverride  расход из yandex_direct_daily_spendings (как в Каналах)
+     */
     public static function build(
         array $dailyStats,
         array $callibriLeads,
@@ -100,11 +104,12 @@ final class YandexDirectGeneralStats
         bool $includeCallibri,
         bool $includeMetrika,
         array $utmCampaignLabels = [],
+        ?float $budgetTotalOverride = null,
     ): array {
         $leadsEnabled = $includeCallibri || $includeMetrika;
-        $leadsByCampaign = $leadsEnabled
-            ? self::leadsByCampaign($callibriLeads, $goalsUtm, $includeCallibri, $includeMetrika)
-            : [];
+        $leadsSplit = $leadsEnabled
+            ? self::leadsByCampaign($callibriLeads, $goalsUtm, $includeCallibri, $includeMetrika, $dailyStats)
+            : ['matched' => [], 'unmatched' => 0];
 
         $aggregated = [];
         foreach ($dailyStats as $stats) {
@@ -153,7 +158,7 @@ final class YandexDirectGeneralStats
         foreach ($aggregated as $item) {
             $campaignIdStr = $item['campaign_id'] !== null ? (string) $item['campaign_id'] : null;
             $conversions = ($leadsEnabled && $campaignIdStr !== null)
-                ? ($leadsByCampaign[$campaignIdStr] ?? 0)
+                ? ($leadsSplit['matched'][$campaignIdStr] ?? 0)
                 : null;
 
             $rows[] = self::formatRow(
@@ -172,6 +177,21 @@ final class YandexDirectGeneralStats
             }
         }
 
+        if ($leadsEnabled && $leadsSplit['unmatched'] > 0) {
+            $rows[] = self::formatRow(
+                'Без кампании',
+                0,
+                0,
+                0.0,
+                $leadsSplit['unmatched'],
+            );
+            $totalConversions += $leadsSplit['unmatched'];
+        }
+
+        if ($budgetTotalOverride !== null) {
+            $totalCost = $budgetTotalOverride;
+        }
+
         $totals = self::formatTotals(
             $totalImpressions,
             $totalClicks,
@@ -188,37 +208,56 @@ final class YandexDirectGeneralStats
     /**
      * @param  list<CallibriLead>  $callibriLeads
      * @param  list<YandexMetrikaGoalUtm>  $goalsUtm
-     * @return array<string, int>
+     * @param  list<YandexDirectCampaignStats>  $dailyStats
+     * @return array{matched: array<string, int>, unmatched: int}
      */
     private static function leadsByCampaign(
         array $callibriLeads,
         array $goalsUtm,
         bool $includeCallibri,
         bool $includeMetrika,
+        array $dailyStats = [],
     ): array {
-        $map = [];
+        $campaignIds = [];
+        foreach ($dailyStats as $stats) {
+            $campaignId = $stats->getCampaignId();
+            if ($campaignId !== null && $campaignId > 0) {
+                $campaignIds[(string) $campaignId] = true;
+            }
+        }
+
+        $matched = [];
+        $unmatched = 0;
+
+        $consume = static function (?string $utmCampaign) use (&$matched, &$unmatched, $campaignIds): void {
+            if ($utmCampaign === null || $utmCampaign === '') {
+                $unmatched++;
+
+                return;
+            }
+            if (isset($campaignIds[$utmCampaign])) {
+                $matched[$utmCampaign] = ($matched[$utmCampaign] ?? 0) + 1;
+            } else {
+                $unmatched++;
+            }
+        };
 
         if ($includeCallibri) {
             foreach ($callibriLeads as $lead) {
-                $utmCampaign = $lead->getUtmCampaign();
-                if ($utmCampaign === null || $utmCampaign === '') {
-                    continue;
-                }
-                $map[$utmCampaign] = ($map[$utmCampaign] ?? 0) + 1;
+                $consume($lead->getUtmCampaign());
             }
         }
 
         if ($includeMetrika) {
             foreach ($goalsUtm as $goal) {
-                $utmCampaign = $goal->getUtmCampaign();
-                if ($utmCampaign === null || $utmCampaign === '') {
-                    continue;
-                }
-                $map[$utmCampaign] = ($map[$utmCampaign] ?? 0) + 1;
+                $consume($goal->getUtmCampaign());
             }
         }
 
-        return $map;
+        return [
+            'matched' => $matched,
+            'unmatched' => $unmatched,
+        ];
     }
 
     /**

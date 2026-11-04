@@ -9,6 +9,7 @@ use App\Models\CallibriDailyLeadCount;
 use App\Models\Project;
 use App\Services\CallibriService;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
+use App\Services\ProjectFacts\ProjectKpiFactsService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 
@@ -21,6 +22,7 @@ class CallibriDailyLeadsCollector implements IntegrationSyncCollector
     public function __construct(
         private readonly IntegrationProjectCredentials $credentials,
         private readonly CallibriService $callibriService,
+        private readonly ProjectKpiFactsService $projectKpiFacts,
     ) {}
 
     public function key(): string
@@ -77,7 +79,25 @@ class CallibriDailyLeadsCollector implements IntegrationSyncCollector
 
         try {
             for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
-                $leads = $this->callibriService->getAndSaveLeadsByDay($project, $day->copy());
+                try {
+                    $this->callibriService->getAndSaveLeadsByDay($project, $day->copy());
+                } catch (\Throwable $e) {
+                    // Не затираем дневной счётчик нулём при сбое API: старые лиды в БД остаются.
+                    Log::warning('Integration sync: Callibri day fetch failed', [
+                        'project_id' => $projectId,
+                        'date' => $day->toDateString(),
+                        'message' => $e->getMessage(),
+                    ]);
+
+                    continue;
+                }
+
+                // Счётчик = лиды дня после текущих фильтров интеграции (не «сырые» все подряд).
+                $count = count($this->projectKpiFacts->filteredCallibriLeads(
+                    $projectId,
+                    $day->copy()->startOfDay(),
+                    $day->copy()->startOfDay(),
+                ));
 
                 CallibriDailyLeadCount::query()->updateOrCreate(
                     [
@@ -85,7 +105,7 @@ class CallibriDailyLeadsCollector implements IntegrationSyncCollector
                         'date' => $day->toDateString(),
                     ],
                     [
-                        'leads_count' => $leads->count(),
+                        'leads_count' => $count,
                     ]
                 );
             }
