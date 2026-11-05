@@ -351,11 +351,23 @@ class extends Component
 
     public function updatedClientProjectFormProjectType(mixed $value): void
     {
+        unset(
+            $this->analyticsIntegrations,
+            $this->configuredAnalyticsIntegrations,
+            $this->toolsIntegrations,
+            $this->configuredToolsIntegrations,
+        );
         $this->rebuildParameterCalculationRows();
     }
 
     public function updatedClientProjectFormKpi(mixed $value): void
     {
+        unset(
+            $this->analyticsIntegrations,
+            $this->configuredAnalyticsIntegrations,
+            $this->toolsIntegrations,
+            $this->configuredToolsIntegrations,
+        );
         $this->rebuildParameterCalculationRows();
     }
 
@@ -397,15 +409,21 @@ class extends Component
     #[Computed]
     public function analyticsIntegrations(): Collection
     {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+
         return $this->integrations()
-            ->filter(fn ($integration) => $integration->category === IntegrationCategory::ANALYTICS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::ANALYTICS)
+            ->reject(fn ($integration) => in_array((string) $integration->code, $hiddenCodes, true));
     }
 
     #[Computed]
     public function toolsIntegrations(): Collection
     {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+
         return $this->integrations()
-            ->filter(fn ($integration) => $integration->category === IntegrationCategory::TOOLS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::TOOLS)
+            ->reject(fn ($integration) => in_array((string) $integration->code, $hiddenCodes, true));
     }
 
     #[Computed]
@@ -469,6 +487,52 @@ class extends Component
             $kpi,
             $this->enabledIntegrationCodes()
         );
+    }
+
+    /**
+     * Интеграции, которые не показываем для текущего типа/KPI.
+     *
+     * @return list<string>
+     */
+    private function hiddenIntegrationCodes(): array
+    {
+        $projectType = (string) $this->clientProjectForm->projectType;
+
+        if ($projectType === ProjectType::SEO_PROMOTION->value) {
+            return ['yandex_direct'];
+        }
+
+        if ($projectType !== ProjectType::CONTEXT_AD->value) {
+            return [];
+        }
+
+        $codes = ['yandex_search_api'];
+
+        if ((string) $this->clientProjectForm->kpi === Kpi::TRAFFIC->value) {
+            $codes[] = 'yandex_metrika';
+            $codes[] = 'callibri';
+        }
+
+        return $codes;
+    }
+
+    private function disableHiddenIntegrations(): void
+    {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+        if ($hiddenCodes === []) {
+            return;
+        }
+
+        foreach ($this->integrationSettings as $setting) {
+            $code = (string) ($setting->integration->code ?? '');
+            if (! in_array($code, $hiddenCodes, true)) {
+                continue;
+            }
+
+            if ((bool) ($setting->isEnabled ?? false)) {
+                $setting->isEnabled = false;
+            }
+        }
     }
 
     protected function refreshParameterCalculationRows(): void
@@ -598,6 +662,10 @@ class extends Component
             return;
         }
 
+        if (in_array($code, $this->hiddenIntegrationCodes(), true)) {
+            return;
+        }
+
         $integration = $this->integrations()->firstWhere('code', $code);
 
         if ($integration === null) {
@@ -631,6 +699,12 @@ class extends Component
         $this->ensureCanEdit();
 
         $integration = $this->integrations()->firstWhere('id', $integrationId);
+
+        if ($integration !== null
+            && in_array((string) $integration->code, $this->hiddenIntegrationCodes(), true)
+        ) {
+            return;
+        }
 
         $projectIntegrationData = new ProjectIntegrationData;
         $projectIntegrationData->integration = IntegrationData::from($integration);
@@ -1738,6 +1812,8 @@ class extends Component
 
             // Сохраняем UTM-мэппинги через сервис
             $this->projectService->saveProjectUtmMapping($utmMappingsData, $project->id);
+
+            $this->disableHiddenIntegrations();
 
             $this->integrationService->updateIntegrationsSettings($project->id, $this->integrationSettings);
 

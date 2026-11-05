@@ -5,8 +5,11 @@ namespace App\Services\Reports;
 use App\Models\CallibriDailyLeadCount;
 use App\Models\Project;
 use App\Models\YandexDirectDailySpending;
+use App\Models\YandexMetrikaSearchEnginesStats;
 use App\Models\YandexSearchApiDailyTopPercent;
+use App\Services\ProjectFacts\ProjectKpiFactsService;
 use Illuminate\Support\Carbon;
+use Src\Domain\ValueObjects\ProjectType;
 
 /**
  * Месяцы, в которых у клиенто-проекта заполнена колонка «Итог» в Статистике.
@@ -22,6 +25,10 @@ class ReportMonthAvailability
         'App\\Services\\Statistics\\StatisticsClosingColumnsCalculator',
         'App\\Domain\\Statistics\\Services\\StatisticsClosingColumnsCalculator',
     ];
+
+    public function __construct(
+        private readonly ProjectKpiFactsService $projectKpiFacts,
+    ) {}
 
     /**
      * @return list<string> Месяцы в формате Y-m, от старых к новым
@@ -57,7 +64,15 @@ class ReportMonthAvailability
             static fn (mixed $value): float => (float) $value,
         );
 
-        $earliest = $this->earliestDay($spendByDay, $leadsByDay, $topPercentsByDay);
+        [$visitsByDay, $conversionsByDay] = $this->loadSeoMonthlyFactsByLastDay($project, $today);
+
+        $earliest = $this->earliestDay(
+            $spendByDay,
+            $leadsByDay,
+            $topPercentsByDay,
+            $visitsByDay,
+            $conversionsByDay,
+        );
         if ($earliest === null) {
             return [];
         }
@@ -74,8 +89,8 @@ class ReportMonthAvailability
                 $spendByDay,
                 $leadsByDay,
                 $topPercentsByDay,
-                [],
-                [],
+                $visitsByDay,
+                $conversionsByDay,
                 $today,
             );
 
@@ -87,6 +102,48 @@ class ReportMonthAvailability
         }
 
         return $months;
+    }
+
+    /**
+     * Как в Статистике: месячные визиты/конверсии Метрики кладём на последний день месяца.
+     *
+     * @return array{0: array<string, int>, 1: array<string, int>}
+     */
+    private function loadSeoMonthlyFactsByLastDay(Project $project, Carbon $today): array
+    {
+        if ($project->project_type !== ProjectType::SEO_PROMOTION) {
+            return [[], []];
+        }
+
+        $months = YandexMetrikaSearchEnginesStats::query()
+            ->where('project_id', $project->id)
+            ->where('month', '<=', $today->copy()->startOfMonth()->toDateString())
+            ->distinct()
+            ->orderBy('month')
+            ->pluck('month');
+
+        $visitsByDay = [];
+        $conversionsByDay = [];
+
+        foreach ($months as $month) {
+            $monthStart = $month instanceof Carbon
+                ? $month->copy()->startOfMonth()->startOfDay()
+                : Carbon::parse((string) $month)->startOfMonth()->startOfDay();
+            $monthEnd = $monthStart->copy()->endOfMonth()->startOfDay();
+            $lastDayKey = $monthEnd->toDateString();
+
+            $visits = $this->projectKpiFacts->seoSearchVisits((int) $project->id, $monthStart, $monthEnd);
+            if ($visits !== null) {
+                $visitsByDay[$lastDayKey] = $visits;
+            }
+
+            $conversions = $this->projectKpiFacts->seoSearchConversions((int) $project->id, $monthStart, $monthEnd);
+            if ($conversions !== null) {
+                $conversionsByDay[$lastDayKey] = $conversions;
+            }
+        }
+
+        return [$visitsByDay, $conversionsByDay];
     }
 
     private function makeCalculator(): object
@@ -118,13 +175,22 @@ class ReportMonthAvailability
      * @param  array<string, float|int>  $spendByDay
      * @param  array<string, int>  $leadsByDay
      * @param  array<string, float>  $topPercentsByDay
+     * @param  array<string, int>  $visitsByDay
+     * @param  array<string, int>  $conversionsByDay
      */
-    private function earliestDay(array $spendByDay, array $leadsByDay, array $topPercentsByDay): ?Carbon
-    {
+    private function earliestDay(
+        array $spendByDay,
+        array $leadsByDay,
+        array $topPercentsByDay,
+        array $visitsByDay = [],
+        array $conversionsByDay = [],
+    ): ?Carbon {
         $keys = array_merge(
             array_keys($spendByDay),
             array_keys($leadsByDay),
             array_keys($topPercentsByDay),
+            array_keys($visitsByDay),
+            array_keys($conversionsByDay),
         );
 
         if ($keys === []) {

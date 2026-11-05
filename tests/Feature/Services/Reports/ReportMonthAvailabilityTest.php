@@ -7,6 +7,7 @@ use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
 use App\Models\YandexDirectDailySpending;
+use App\Models\YandexMetrikaSearchEnginesStats;
 use App\Models\YandexSearchApiDailyTopPercent;
 use App\Services\Reports\ReportMonthAvailability;
 use Database\Seeders\PermissionSeeder;
@@ -79,6 +80,22 @@ class ReportMonthAvailabilityTest extends TestCase
         $months = app(ReportMonthAvailability::class)->monthsWithSummary($project->id);
 
         $this->assertSame([], $months);
+    }
+
+    public function test_seo_traffic_month_available_from_metrika_search_engines(): void
+    {
+        $project = $this->createProject(ProjectType::SEO_PROMOTION, Kpi::TRAFFIC);
+        YandexMetrikaSearchEnginesStats::query()->create([
+            'project_id' => $project->id,
+            'search_engine' => 'yandex',
+            'month' => '2026-09-01',
+            'visits' => 100,
+            'conversions' => 5,
+        ]);
+
+        $months = app(ReportMonthAvailability::class)->monthsWithSummary($project->id);
+
+        $this->assertSame(['2026-09'], $months);
     }
 
     public function test_positions_kpi_uses_search_api_last_day(): void

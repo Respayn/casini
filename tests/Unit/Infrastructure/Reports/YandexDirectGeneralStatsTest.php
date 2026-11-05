@@ -5,6 +5,7 @@ namespace Tests\Unit\Infrastructure\Reports;
 use PHPUnit\Framework\TestCase;
 use Src\Domain\Leads\CallibriLead;
 use Src\Domain\YandexDirect\YandexDirectCampaignStats;
+use Src\Domain\YandexMetrika\YandexMetrikaGoalDirectCampaign;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
 use Src\Infrastructure\Reports\YandexDirectGeneralStats;
 
@@ -218,6 +219,149 @@ class YandexDirectGeneralStatsTest extends TestCase
         $this->assertSame('0', $result['rows'][0]['conversions']);
         $this->assertCount(1, $result['rows']);
         $this->assertSame('17', $result['totals'][YandexDirectGeneralStats::TOTAL_CONVERSIONS]);
+    }
+
+    public function test_direct_summary_goals_match_by_campaign_id(): void
+    {
+        $stats = [
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания А',
+                'campaign_id' => 100,
+                'impressions' => 100,
+                'clicks' => 10,
+                'cost_with_vat' => 100.0,
+                'cost_without_vat' => 80.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Кампания Б',
+                'campaign_id' => 200,
+                'impressions' => 50,
+                'clicks' => 5,
+                'cost_with_vat' => 50.0,
+                'cost_without_vat' => 40.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+        ];
+
+        $goalDirectCampaigns = [
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Заявка',
+                'campaign_id' => 100,
+                'campaign_name' => 'Кампания А',
+                'month' => '2026-10-01',
+                'conversions' => 7,
+            ]),
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Заявка',
+                'campaign_id' => 200,
+                'campaign_name' => 'Кампания Б',
+                'month' => '2026-10-01',
+                'conversions' => 3,
+            ]),
+        ];
+
+        $result = YandexDirectGeneralStats::build(
+            $stats,
+            [],
+            [],
+            false,
+            true,
+            [],
+            null,
+            null,
+            $goalDirectCampaigns,
+        );
+
+        $this->assertSame('7', $result['rows'][0]['conversions']);
+        $this->assertSame('3', $result['rows'][1]['conversions']);
+        $this->assertCount(2, $result['rows']);
+        $this->assertSame('10', $result['totals'][YandexDirectGeneralStats::TOTAL_CONVERSIONS]);
+    }
+
+    public function test_direct_summary_goals_match_by_exact_name_when_ids_differ(): void
+    {
+        $stats = [
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Аудитории / Рыба опт',
+                'campaign_id' => 103620440,
+                'impressions' => 100,
+                'clicks' => 10,
+                'cost_with_vat' => 100.0,
+                'cost_without_vat' => 80.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Выставки /РСЯ',
+                'campaign_id' => 112468072,
+                'impressions' => 50,
+                'clicks' => 5,
+                'cost_with_vat' => 50.0,
+                'cost_without_vat' => 40.0,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+        ];
+
+        $goalDirectCampaigns = [
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Novaya_Sdelka',
+                'campaign_id' => 203620440,
+                'campaign_name' => 'Аудитории / Рыба опт',
+                'month' => '2026-10-01',
+                'conversions' => 7,
+            ]),
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Novaya_Sdelka',
+                'campaign_id' => 212468072,
+                'campaign_name' => 'Выставки /РСЯ',
+                'month' => '2026-10-01',
+                'conversions' => 18,
+            ]),
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Novaya_Sdelka',
+                'campaign_id' => 999,
+                'campaign_name' => 'Чужая кампания',
+                'month' => '2026-10-01',
+                'conversions' => 5,
+            ]),
+        ];
+
+        $result = YandexDirectGeneralStats::build(
+            $stats,
+            [],
+            [],
+            false,
+            true,
+            [],
+            null,
+            58,
+            $goalDirectCampaigns,
+        );
+
+        $this->assertSame('Аудитории / Рыба опт', $result['rows'][0]['campaign']);
+        $this->assertSame('7', $result['rows'][0]['conversions']);
+        $this->assertSame('Выставки /РСЯ', $result['rows'][1]['campaign']);
+        $this->assertSame('18', $result['rows'][1]['conversions']);
+        $this->assertSame('Без кампании', $result['rows'][2]['campaign']);
+        $this->assertSame('5', $result['rows'][2]['conversions']);
+        $this->assertSame('30', $result['totals'][YandexDirectGeneralStats::TOTAL_CONVERSIONS]);
     }
 
     public function test_without_lead_integrations_conversions_and_cpl_are_dash(): void

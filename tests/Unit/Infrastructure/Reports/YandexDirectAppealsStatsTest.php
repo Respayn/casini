@@ -107,6 +107,70 @@ class YandexDirectAppealsStatsTest extends TestCase
         $this->assertSame([], $result['totals']);
     }
 
+    public function test_matches_direct_summary_goals_by_exact_name_when_ids_differ(): void
+    {
+        $direct = [
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Выставки /РСЯ',
+                'campaign_id' => 112468072,
+                'impressions' => 10,
+                'clicks' => 1,
+                'cost_with_vat' => 1,
+                'cost_without_vat' => 1,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+            YandexDirectCampaignStats::restore([
+                'project_id' => 1,
+                'campaign_name' => 'Аудитории / Рыба опт',
+                'campaign_id' => 103620440,
+                'impressions' => 20,
+                'clicks' => 2,
+                'cost_with_vat' => 2,
+                'cost_without_vat' => 2,
+                'conversions' => 0,
+                'goal_name' => null,
+                'date' => '2026-10-01',
+            ]),
+        ];
+
+        $goals = [
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Novaya_Sdelka',
+                'campaign_id' => 203620440,
+                'campaign_name' => 'Аудитории / Рыба опт',
+                'month' => '2026-10-01',
+                'conversions' => 7,
+            ]),
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Novaya_Sdelka',
+                'campaign_id' => 212468072,
+                'campaign_name' => 'Выставки /РСЯ',
+                'month' => '2026-10-01',
+                'conversions' => 18,
+            ]),
+            YandexMetrikaGoalDirectCampaign::restore([
+                'project_id' => 1,
+                'goal_name' => 'Novaya_Sdelka',
+                'campaign_id' => 999,
+                'campaign_name' => 'Чужая кампания',
+                'month' => '2026-10-01',
+                'conversions' => 5,
+            ]),
+        ];
+
+        $result = YandexDirectAppealsStats::build($direct, $goals);
+
+        $this->assertSame(['Аудитории / Рыба опт', 'Выставки /РСЯ'], $result['campaign_names']);
+        $this->assertSame('Novaya_Sdelka', $result['rows'][0]['goal']);
+        $this->assertSame(['7', '18'], $result['rows'][0]['values']);
+        $this->assertSame(['7', '18'], $result['totals']);
+    }
+
     public function test_replaces_campaign_header_from_utm_mapping_and_keeps_unmapped(): void
     {
         $direct = [

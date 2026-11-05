@@ -491,7 +491,15 @@ class ReportDataProvider implements ReportDataProviderInterface
                 )
                 : [];
 
-            $filteredMetrika = $includeMetrika
+            $metrikaSettings = $includeMetrika
+                ? ($this->integrationProjectCredentials->settingsFor($projectId, 'yandex_metrika') ?? [])
+                : [];
+            $countSource = $includeMetrika
+                ? YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($metrikaSettings)
+                : null;
+
+            $filteredMetrika = ($includeMetrika
+                && $countSource === YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_UTM)
                 ? array_map(
                     static fn ($goal) => YandexMetrikaGoalUtm::restore([
                         'id' => $goal->id,
@@ -510,9 +518,16 @@ class ReportDataProvider implements ReportDataProviderInterface
                 )
                 : [];
 
-            $metrikaGoalsTotal = $includeMetrika
-                ? $this->projectKpiFacts->directSummaryGoalsTotal($projectId, $from, $to)
-                : null;
+            $goalDirectCampaigns = [];
+            $metrikaGoalsTotal = null;
+            if ($includeMetrika
+                && $countSource === YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_DIRECT_SUMMARY
+            ) {
+                $goalDirectCampaigns = $this->yandexMetrikaRepository->getGoalDirectCampaignStats($projectId, $period);
+                if ($goalDirectCampaigns === []) {
+                    $metrikaGoalsTotal = $this->projectKpiFacts->directSummaryGoalsTotal($projectId, $from, $to);
+                }
+            }
 
             $budgetTotal = $this->projectKpiFacts->directBudget($projectId, $from, $to, true);
 
@@ -525,6 +540,7 @@ class ReportDataProvider implements ReportDataProviderInterface
                 $utmCampaignLabels,
                 $budgetTotal,
                 $metrikaGoalsTotal,
+                $goalDirectCampaigns,
             );
             $builder->directCampaignStatRows($generalStats['rows']);
             $builder->values($generalStats['totals']);

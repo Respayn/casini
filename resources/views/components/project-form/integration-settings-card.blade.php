@@ -2,9 +2,16 @@
     'title' => null,
     'description' => null,
     'configuredIntegrations' => [],
+    'availableIntegrations' => null,
+    'addDisabledMessage' => 'Нет доступных интеграций для этого типа клиенто-проекта и KPI',
     'modalTriggerName',
     'canEdit' => true,
 ])
+
+@php
+    $canAdd = $canEdit
+        && ($availableIntegrations === null || count($availableIntegrations) > 0);
+@endphp
 
 <x-panel.card class="flex-1">
     <x-slot:title>{{ $title }}</x-slot:title>
@@ -55,7 +62,7 @@
         @endif
     </x-slot:content>
     <x-slot:footer>
-        @if ($canEdit)
+        @if ($canAdd)
             <x-overlay.modal-trigger :name="$modalTriggerName">
                 <x-button.button
                     class="w-full"
@@ -65,7 +72,10 @@
                 />
             </x-overlay.modal-trigger>
         @else
-            <x-permissions.field-guard :enabled="false">
+            <x-permissions.field-guard
+                :enabled="false"
+                :message="$canEdit ? $addDisabledMessage : null"
+            >
                 <x-button.button
                     class="w-full"
                     variant="primary"

@@ -37,29 +37,31 @@
                 <span class="text-sm font-semibold">Выберите период отчетности *</span>
             </div>
             <div>
-                <div class="flex max-w-80 justify-between gap-4">
-                    <x-form.month-picker
-                        wire:key="report-period-from-{{ $this->projectId }}"
-                        wire:model.live="from"
-                        placeholder="Месяц и год"
-                        disable-future
-                        :available-months="$this->availablePeriodMonths"
-                        :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
-                    />
-                    <x-form.month-picker
-                        wire:key="report-period-to-{{ $this->projectId }}"
-                        wire:model.live="to"
-                        placeholder="Месяц и год"
-                        disable-future
-                        :available-months="$this->availablePeriodMonths"
-                        :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
-                    />
+                <div class="max-w-80">
+                    <div class="flex justify-between gap-4">
+                        <x-form.month-picker
+                            wire:key="report-period-from-{{ $this->projectId }}"
+                            wire:model.live="from"
+                            placeholder="Месяц и год"
+                            disable-future
+                            :available-months="$this->availablePeriodMonths"
+                            :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
+                        />
+                        <x-form.month-picker
+                            wire:key="report-period-to-{{ $this->projectId }}"
+                            wire:model.live="to"
+                            placeholder="Месяц и год"
+                            disable-future
+                            :available-months="$this->availablePeriodMonths"
+                            :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
+                        />
+                    </div>
+                    @if ($this->availablePeriodMonths === [])
+                        <span class="text-warning-red mt-2 block text-[12px]">
+                            {{ \App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP }}
+                        </span>
+                    @endif
                 </div>
-                @if ($this->availablePeriodMonths === [])
-                    <p class="text-caption-text mt-2 text-sm">
-                        {{ \App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP }}
-                    </p>
-                @endif
             </div>
 
             @if ($this->isMultiMonthPeriod)

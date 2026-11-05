@@ -538,6 +538,7 @@
                         title="Инструменты"
                         description="Подключите рекламные инструменты, например Яндекс Директ"
                         :configured-integrations="$this->configuredToolsIntegrations"
+                        :available-integrations="$this->toolsIntegrations"
                         modal-trigger-name="tools-integrations-modal"
                         :can-edit="$canEdit"
                     />
@@ -552,6 +553,7 @@
                         title="Аналитика"
                         description="Интеграции, с помощью которых будете получать количество визитов, конверсий или позиции"
                         :configured-integrations="$this->configuredAnalyticsIntegrations"
+                        :available-integrations="$this->analyticsIntegrations"
                         modal-trigger-name="analytics-integrations-modal"
                         :can-edit="$canEdit"
                     />

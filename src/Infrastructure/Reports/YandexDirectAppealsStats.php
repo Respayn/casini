@@ -47,17 +47,9 @@ final class YandexDirectAppealsStats
         array $goalCampaignStats,
         array $utmCampaignLabels = [],
     ): array {
-        $matrix = [];
-        foreach ($goalCampaignStats as $item) {
-            $goalName = $item->getGoalName();
-            $campaignId = $item->getCampaignId();
-            if ($goalName === '' || $campaignId <= 0) {
-                continue;
-            }
-            $matrix[$goalName][$campaignId] = ($matrix[$goalName][$campaignId] ?? 0) + $item->getConversions();
-        }
+        $matched = DirectCampaignGoalMatcher::match($directDailyStats, $goalCampaignStats);
 
-        return self::renderMatrix($directDailyStats, $matrix, $utmCampaignLabels);
+        return self::renderMatrix($directDailyStats, $matched['matrix'], $utmCampaignLabels);
     }
 
     /**

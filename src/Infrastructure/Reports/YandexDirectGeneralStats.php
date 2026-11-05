@@ -4,6 +4,7 @@ namespace Src\Infrastructure\Reports;
 
 use Src\Domain\Leads\CallibriLead;
 use Src\Domain\YandexDirect\YandexDirectCampaignStats;
+use Src\Domain\YandexMetrika\YandexMetrikaGoalDirectCampaign;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
 
 /**
@@ -79,6 +80,9 @@ final class YandexDirectGeneralStats
      * @param  list<CallibriLead>  $callibriLeads
      * @param  list<YandexMetrikaGoalUtm>  $goalsUtm
      * @param  array<string, string>  $utmCampaignLabels  номер кампании => подпись из клиенто-проекта
+     * @param  float|null  $budgetTotalOverride  расход из yandex_direct_daily_spendings (как в Каналах)
+     * @param  int|null  $metrikaGoalsTotal  сумма «Директ, сводка» без разреза (fallback, если разреза нет)
+     * @param  list<YandexMetrikaGoalDirectCampaign>  $goalDirectCampaigns  разрез «Директ, сводка» по кампаниям
      * @return array{
      *     rows: list<array{
      *         campaign: string,
@@ -93,11 +97,6 @@ final class YandexDirectGeneralStats
      *     totals: array<string, string>
      * }
      */
-    /**
-     * @param  array<string, string>  $utmCampaignLabels
-     * @param  float|null  $budgetTotalOverride  расход из yandex_direct_daily_spendings (как в Каналах)
-     * @param  int|null  $metrikaGoalsTotal  сумма «Директ, сводка» без разреза по кампаниям
-     */
     public static function build(
         array $dailyStats,
         array $callibriLeads,
@@ -107,12 +106,22 @@ final class YandexDirectGeneralStats
         array $utmCampaignLabels = [],
         ?float $budgetTotalOverride = null,
         ?int $metrikaGoalsTotal = null,
+        array $goalDirectCampaigns = [],
     ): array {
         $leadsEnabled = $includeCallibri || $includeMetrika;
-        $splitMetrikaByCampaign = $includeMetrika && $metrikaGoalsTotal === null;
+        $splitMetrikaByCampaign = $includeMetrika && $metrikaGoalsTotal === null && $goalDirectCampaigns === [];
         $leadsSplit = ($includeCallibri || $splitMetrikaByCampaign)
             ? self::leadsByCampaign($callibriLeads, $goalsUtm, $includeCallibri, $splitMetrikaByCampaign, $dailyStats)
             : ['matched' => [], 'unmatched' => 0];
+
+        if ($includeMetrika && $goalDirectCampaigns !== []) {
+            $directSplit = DirectCampaignGoalMatcher::match($dailyStats, $goalDirectCampaigns);
+            foreach ($directSplit['matched'] as $campaignId => $count) {
+                $leadsSplit['matched'][$campaignId] = ($leadsSplit['matched'][$campaignId] ?? 0) + $count;
+            }
+            $leadsSplit['unmatched'] += $directSplit['unmatched'];
+            $metrikaGoalsTotal = null;
+        }
 
         $aggregated = [];
         foreach ($dailyStats as $stats) {
