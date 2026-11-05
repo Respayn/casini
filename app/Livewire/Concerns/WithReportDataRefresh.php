@@ -3,8 +3,11 @@
 namespace App\Livewire\Concerns;
 
 use App\Data\TableReportData;
+use App\Repositories\AgencyRepository;
 use App\Services\IntegrationSync\IntegrationManualRefreshTimestamp;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
+use App\Services\IntegrationSync\IntegrationProjectCredentials;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 trait WithReportDataRefresh
@@ -30,6 +33,8 @@ trait WithReportDataRefresh
     public function refreshAllData(
         IntegrationMetricsRefreshService $metricsRefreshService,
         IntegrationManualRefreshTimestamp $timestamps,
+        IntegrationProjectCredentials $credentials,
+        AgencyRepository $agencyRepository,
     ): void {
         $projectIds = $this->visibleReportProjectIds();
 
@@ -68,13 +73,24 @@ trait WithReportDataRefresh
                 );
             }
 
+            $message = sprintf(
+                'Обновлено: %d, ошибок: %d, пропущено: %d',
+                $stats['updated'],
+                $stats['failed'],
+                $stats['skipped'],
+            );
+
+            $searchApiNote = $this->searchApiHistoricalRefreshNote(
+                $projectIds,
+                $credentials,
+                $agencyRepository,
+            );
+            if ($searchApiNote !== null) {
+                $message .= ' '.$searchApiNote;
+            }
+
             $this->setActionMessage(
-                sprintf(
-                    'Обновлено: %d, ошибок: %d, пропущено: %d',
-                    $stats['updated'],
-                    $stats['failed'],
-                    $stats['skipped'],
-                ),
+                $message,
                 $stats['failed'] > 0 ? 'error' : 'success',
             );
 
@@ -83,6 +99,39 @@ trait WithReportDataRefresh
             $this->isReportDataRefreshing = false;
             $this->dispatch('report-data-refresh-finished');
         }
+    }
+
+    /**
+     * Search API на ручном обновлении дергает API только за вчера и сегодня.
+     *
+     * @param  list<int>  $projectIds
+     */
+    protected function searchApiHistoricalRefreshNote(
+        array $projectIds,
+        IntegrationProjectCredentials $credentials,
+        AgencyRepository $agencyRepository,
+    ): ?string {
+        $hasSearchApi = false;
+        foreach ($projectIds as $projectId) {
+            if ($credentials->yandexSearchApi($projectId) !== null) {
+                $hasSearchApi = true;
+                break;
+            }
+        }
+
+        if (! $hasSearchApi) {
+            return null;
+        }
+
+        $timezone = $agencyRepository->getPrimaryTimeZone();
+        $yesterday = Carbon::now($timezone)->startOfDay()->subDay();
+        $from = Carbon::parse((string) $this->queryData->dateFrom)->startOfDay();
+
+        if ($from->greaterThanOrEqualTo($yesterday)) {
+            return null;
+        }
+
+        return 'Search API (% в топ-10): живой съём только за вчера и сегодня. За более ранние дни периода берутся только уже сохранённые позиции.';
     }
 
     public function cancelReportDataRefresh(): void
