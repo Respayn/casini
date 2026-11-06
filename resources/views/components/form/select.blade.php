@@ -12,14 +12,44 @@
 
 @php
     $wireModel = $attributes->wire('model')->value();
+    $optionsForJs = $options instanceof \Illuminate\Support\Collection
+        ? $options->values()->all()
+        : (array) $options;
+
+    // SSR-подпись до старта Alpine/Livewire (иначе мигает placeholder)
+    $currentValue = null;
+    try {
+        $livewire = \Livewire\Livewire::current();
+        if ($livewire && filled($wireModel)) {
+            $currentValue = data_get($livewire, $wireModel);
+        }
+    } catch (\Throwable $e) {
+        $currentValue = null;
+    }
+
+    $initialLabel = $placeholder;
+    if ($currentValue !== null && $currentValue !== '') {
+        foreach ($optionsForJs as $option) {
+            if (! is_array($option)) {
+                continue;
+            }
+            if (($option[$valueKey] ?? null) == $currentValue) {
+                $initialLabel = (string) ($option[$labelKey] ?? $placeholder);
+                break;
+            }
+        }
+    } elseif ($optionsForJs === []) {
+        $initialLabel = $emptyPlaceholder;
+    }
 @endphp
 
 <div
     class="flex w-full flex-col gap-2"
     x-data="{
         open: false,
-        options: {{ json_encode($options) }},
-        selected: '',
+        options: @js($optionsForJs),
+        {{-- Сразу значение из Livewire, иначе мигает placeholder до гидрации --}}
+        selected: @entangle($attributes->wire('model')),
         disabled: {{ $disabled ? 'true' : 'false' }},
         searchable: {{ $searchable ? 'true' : 'false' }},
         searchQuery: '',
@@ -95,8 +125,7 @@
             this.searchQuery = '';
         }
     }"
-    x-modelable="selected"
-    {{ $attributes }}
+    {{ $attributes->whereDoesntStartWith('wire:model') }}
 >
     @if ($label)
         <label class="text-primary-text text-sm font-semibold">
@@ -142,7 +171,7 @@
                             'opacity-50': !hasSelectedValue() && hasOptions,
                             'text-gray-400 italic': !hasOptions
                         }"
-                    ></span>
+                    >{{ $initialLabel }}</span>
                 @else
                     <span
                         x-text="getDisplayText()"
@@ -151,7 +180,7 @@
                             'opacity-50': !hasSelectedValue() && hasOptions,
                             'text-gray-400 italic': !hasOptions
                         }"
-                    ></span>
+                    >{{ $initialLabel }}</span>
                 @endif
             </div>
 

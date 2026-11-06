@@ -59,7 +59,11 @@
                                 {{ $clientProjectForm->isActive ? 'Активен' : 'Неактивный' }}
                             </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                <x-form.toggle-switch x-model="on" :disabled="! $canEdit">
+                                <x-form.toggle-switch
+                                    x-model="on"
+                                    :checked="$clientProjectForm->isActive"
+                                    :disabled="! $canEdit"
+                                >
                                 </x-form.toggle-switch>
                             </x-permissions.field-guard>
                         </div>
@@ -150,7 +154,7 @@
                         class="self-baseline"
                         tooltip="Менеджер указывается на уровне настроек клиента в Клиенты и клиенто-проекты"
                     >Менеджер</x-form.form-label>
-                    <div>
+                    <div wire:key="client-manager-{{ $clientProjectForm->client }}-{{ $clientProjectForm->manager }}">
                         <x-form.select
                             :options="$this->managers->map(function ($item) {
                                 return ['label' => $item->first_name . ' ' . $item->last_name, 'value' => $item->id];
@@ -270,7 +274,11 @@
                             {{ $clientProjectForm->isInternal ? 'Свой проект' : 'Проект клиента' }}
                         </label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch x-model="on" :disabled="! $canEdit"></x-form.toggle-switch>
+                            <x-form.toggle-switch
+                                x-model="on"
+                                :checked="$clientProjectForm->isInternal"
+                                :disabled="! $canEdit"
+                            ></x-form.toggle-switch>
                         </x-permissions.field-guard>
                     </div>
                 </x-form.form-field>
@@ -410,7 +418,11 @@
                                 {{ $bonusGuaranteeForm->bonusesEnabled ? 'Есть бонусы' : 'Нет бонусов' }}
                             </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                <x-form.toggle-switch x-model="bonusesOn" :disabled="! $canEdit" />
+                                <x-form.toggle-switch
+                                    x-model="bonusesOn"
+                                    :checked="$bonusGuaranteeForm->bonusesEnabled"
+                                    :disabled="! $canEdit"
+                                />
                             </x-permissions.field-guard>
                         </div>
                     </x-form.form-field>
@@ -434,7 +446,11 @@
                                     {{ $bonusGuaranteeForm->calculateInPercentage ? 'Да' : 'Нет' }}
                                 </label>
                                 <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                    <x-form.toggle-switch x-model="pct" :disabled="! $canEdit" />
+                                    <x-form.toggle-switch
+                                        x-model="pct"
+                                        :checked="$bonusGuaranteeForm->calculateInPercentage"
+                                        :disabled="! $canEdit"
+                                    />
                                 </x-permissions.field-guard>
                             </div>
                         </x-form.form-field>

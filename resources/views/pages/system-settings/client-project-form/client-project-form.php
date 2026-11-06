@@ -183,6 +183,18 @@ class extends Component
         }
     }
 
+    public function updatedClientProjectFormClient(mixed $value): void
+    {
+        if (blank($value)) {
+            $this->clientProjectForm->manager = null;
+
+            return;
+        }
+
+        $client = $this->clientRepository->findById((int) $value);
+        $this->clientProjectForm->manager = $client->getManagerId();
+    }
+
     public function updatedClientProjectFormIsInternal(mixed $value): void
     {
         if (! filter_var($value, FILTER_VALIDATE_BOOLEAN)) {

@@ -76,14 +76,16 @@
                 @if ($canSeeAgency)
                     @if ($isAgencyExist)
                         <x-button.button
-                            class="hover:!bg-primary hover:!text-white"
+                            size="none"
+                            class="flex h-full min-h-10 items-center justify-center rounded-lg px-3.5 py-2 text-center leading-5 hover:!bg-primary hover:!text-white"
                             :href="route('system-settings.agency')"
                             label="Настройки агентства"
                             :variant="request()->routeIs('system-settings.agency*') ? 'primary' : 'outlined'"
                         />
                     @else
                         <x-button.button
-                            class="hover:bg-primary hover:text-white"
+                            size="none"
+                            class="flex h-full min-h-10 items-center justify-center rounded-lg px-3.5 py-2 text-center leading-5 hover:bg-primary hover:text-white"
                             variant="outlined"
                             label="Настройки агентства"
                             x-data
