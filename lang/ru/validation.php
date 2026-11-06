@@ -29,5 +29,14 @@ return [
     'attributes' => [
         'form.photo' => 'фото пользователя',
         'photo' => 'фото пользователя',
+        'clientProjectForm.name' => 'название клиенто-проекта',
+        'clientProjectForm.client' => 'клиент',
+        'clientProjectForm.domain' => 'URL-адрес сайта',
+        'clientProjectForm.manager' => 'менеджер',
+        'clientProjectForm.specialist' => 'специалист',
+        'clientProjectForm.kpi' => 'KPI',
+        'clientProjectForm.projectType' => 'тип клиенто-проекта',
+        'clientProjectForm.isActive' => 'статус клиенто-проекта',
+        'clientProjectForm.isInternal' => 'свой проект',
     ],
 ];

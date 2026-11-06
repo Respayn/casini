@@ -21,7 +21,6 @@ use App\Models\Agency;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
-use App\Services\ClientProject\MonthPeriodNormalizer;
 use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
 use App\Services\GoogleSheetsService;
@@ -98,10 +97,6 @@ class extends Component
 
     public $phraseDocxFile;
 
-    public ?Carbon $statisticsRebuildFrom = null;
-
-    public ?Carbon $statisticsRebuildTo = null;
-
     /** После возврата из OAuth форма уже содержит несохранённые данные */
     public bool $startWithPendingChanges = false;
 
@@ -146,6 +141,16 @@ class extends Component
             return false;
         }
 
+        if (
+            blank($this->clientProjectForm->name)
+            || blank($this->clientProjectForm->client)
+            || blank($this->clientProjectForm->domain)
+            || blank($this->clientProjectForm->kpi)
+            || blank($this->clientProjectForm->projectType)
+        ) {
+            return false;
+        }
+
         if ($this->bonusGuaranteeForm->bonusesEnabled) {
             foreach (array_keys($this->getErrorBag()->messages()) as $key) {
                 if (str_starts_with($key, 'bonusGuaranteeForm.')) {
@@ -165,56 +170,6 @@ class extends Component
         }
 
         return true;
-    }
-
-    #[Computed]
-    public function canRebuildStatistics(): bool
-    {
-        return $this->canEditClientsAndProjects
-            && $this->statisticsRebuildFrom !== null
-            && $this->statisticsRebuildTo !== null
-            && $this->statisticsRebuildFrom->lte($this->statisticsRebuildTo);
-    }
-
-    public function statisticsRebuildFromMax(): string
-    {
-        return $this->monthPeriod()->fromMax($this->statisticsRebuildTo);
-    }
-
-    public function statisticsRebuildToMin(): ?string
-    {
-        return $this->monthPeriod()->toMin($this->statisticsRebuildFrom);
-    }
-
-    public function updatedStatisticsRebuildFrom(mixed $value): void
-    {
-        $this->statisticsRebuildFrom = $this->monthPeriod()->clampMonth(
-            $this->statisticsRebuildFrom,
-            false
-        );
-        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = $this->monthPeriod()->alignRange(
-            $this->statisticsRebuildFrom,
-            $this->statisticsRebuildTo,
-            'from'
-        );
-    }
-
-    public function updatedStatisticsRebuildTo(mixed $value): void
-    {
-        $this->statisticsRebuildTo = $this->monthPeriod()->clampMonth(
-            $this->statisticsRebuildTo,
-            true
-        );
-        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = $this->monthPeriod()->alignRange(
-            $this->statisticsRebuildFrom,
-            $this->statisticsRebuildTo,
-            'to'
-        );
-    }
-
-    private function monthPeriod(): MonthPeriodNormalizer
-    {
-        return app(MonthPeriodNormalizer::class);
     }
 
     public function updatedClientProjectFormIsActive(mixed $value): void
@@ -246,11 +201,17 @@ class extends Component
     {
         $projectId = $this->clientProjectForm->id;
 
+        if ($projectId) {
+            return $this->redirect(
+                route('system-settings.clients-and-projects.projects.manage', [
+                    'projectId' => $projectId,
+                ]),
+                navigate: true
+            );
+        }
+
         return $this->redirect(
-            route(
-                'system-settings.clients-and-projects.projects.manage',
-                $projectId ? ['projectId' => $projectId] : []
-            ),
+            route('system-settings.clients-and-projects'),
             navigate: true
         );
     }

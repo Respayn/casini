@@ -29,7 +29,8 @@
     ></div>
 
     <x-panel.scroll-panel
-        class="mb-3 mt-4 max-h-[calc(100vh-300px)]"
+        class="mb-3 mt-4"
+        style="max-height: calc(100vh - 300px);"
     >
         <x-form.form
             :is-normalized="true"
@@ -87,7 +88,7 @@
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-form.input-text
-                                wire:model="clientProjectForm.name"
+                                wire:model.blur="clientProjectForm.name"
                                 placeholder="-"
                                 :disabled="! $canEdit"
                             ></x-form.input-text>
@@ -104,7 +105,7 @@
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-form.select
-                                wire:model="clientProjectForm.client"
+                                wire:model.live="clientProjectForm.client"
                                 placeholder="-"
                                 :options="$clients->map(function ($item) {
                                     return ['label' => $item->name, 'value' => $item->id];
@@ -126,7 +127,7 @@
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-form.input-url
-                                wire:model="clientProjectForm.domain"
+                                wire:model.blur="clientProjectForm.domain"
                                 placeholder="example.com"
                                 :disabled="! $canEdit"
                             />
@@ -569,7 +570,7 @@
                 <div class="flex items-center gap-3">
                     <h1>Настройка параметров</h1>
                     <x-overlay.tooltip>
-                        Блок носит информационный характер - для понимания логики расчета параметров в отчетах. Изменить логику расчета параметров вы можете включив или выключив интеграции. После внесения изменений - пересоберите статистику в клиенто-проекте
+                        Блок носит информационный характер - для понимания логики расчета параметров в отчетах. Изменить логику расчета параметров вы можете включив или выключив интеграции. После внесения изменений обновите данные вручную в Каналах или Статистике
                     </x-overlay.tooltip>
                 </div>
 
@@ -579,11 +580,11 @@
                 </x-form.form-field>
 
                 @if (empty($clientProjectForm->projectType) || empty($clientProjectForm->kpi))
-                    <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
-                        Выберите KPI и Тип клиенто-проекта
+                    <span class="text-caption-text flex items-center justify-center">
+                        Выберите KPI и тип клиенто-проекта
                     </span>
                 @elseif ($parameterCalculationRows === [])
-                    <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
+                    <span class="text-caption-text flex items-center justify-center">
                         Для выбранных KPI и типа нет схемы параметров
                     </span>
                 @else
@@ -604,76 +605,6 @@
                         </x-form.form-field>
                     @endforeach
                 @endif
-            </div>
-
-            <div class="mt-4 flex flex-col gap-4">
-                <h1>Пересбор статистики клиенто-проекта</h1>
-                <x-form.form-field>
-                    <x-form.form-label
-                        tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций"
-                    >Выберите период</x-form.form-label>
-                    <div class="flex flex-col gap-2">
-                        <div class="flex w-full min-w-0 flex-row items-center gap-2">
-                            <div class="min-w-0 flex-1">
-                                <x-form.month-picker
-                                    wire:model.live="statisticsRebuildFrom"
-                                    :max="$this->statisticsRebuildFromMax()"
-                                />
-                            </div>
-                            <span class="shrink-0">-</span>
-                            <div class="min-w-0 flex-1">
-                                <x-form.month-picker
-                                    wire:model.live="statisticsRebuildTo"
-                                    :min="$this->statisticsRebuildToMin()"
-                                    :max="now()->toDateString()"
-                                />
-                            </div>
-                        </div>
-                        <x-permissions.field-guard :enabled="$canEdit">
-                            <div
-                                @class(['relative block w-full'])
-                                @if (! $this->canRebuildStatistics)
-                                    x-data="{ open: false }"
-                                @endif
-                            >
-                                <span
-                                    class="block w-full"
-                                    @if (! $this->canRebuildStatistics)
-                                        x-ref="rebuildStatisticsTrigger"
-                                        @mouseenter="open = true"
-                                        @mouseleave="open = false"
-                                    @endif
-                                >
-                                    <x-button.button
-                                        class="w-full"
-                                        label="Пересобрать статистику"
-                                        :disabled="! $this->canRebuildStatistics"
-                                    />
-                                </span>
-                                @if ($canEdit && ! $this->canRebuildStatistics)
-                                    <template x-teleport="body">
-                                        <div
-                                            class="z-1000 w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                            x-show="open"
-                                            x-cloak
-                                            x-anchor.top="$refs.rebuildStatisticsTrigger"
-                                        >
-                                            Сначала выберите период
-                                        </div>
-                                    </template>
-                                @endif
-                            </div>
-                        </x-permissions.field-guard>
-                    </div>
-                </x-form.form-field>
-                <x-form.form-field>
-                    <x-form.form-label>Статус обновления</x-form.form-label>
-                    <div>
-                        <div class="ml-auto rounded-full bg-red-100 px-3 py-1 text-center">
-                            Не начато
-                        </div>
-                    </div>
-                </x-form.form-field>
             </div>
 
             @if ($clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
