@@ -50,6 +50,10 @@ html {
     scrollbar-gutter: stable;
 }
 
+.app-main > .overflow-y-auto {
+    scrollbar-gutter: stable;
+}
+
 body:has(.modal.open) {
     overflow: hidden
 }

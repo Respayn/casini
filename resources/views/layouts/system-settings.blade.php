@@ -63,9 +63,16 @@
 </head>
 
 <body
-    class="bg-body text-primary-text flex gap-5 font-sans"
+    class="bg-body text-primary-text flex font-sans"
     x-data
 >
+    <script>
+        try {
+            if (localStorage.getItem('casini.sidebarOpen') === 'false') {
+                document.documentElement.classList.add('sidebar-collapsed');
+            }
+        } catch (e) {}
+    </script>
     <livewire:sidebar />
     <div class="app-main flex h-screen min-h-0 w-full min-w-0 flex-col gap-[25px] pe-[20px]">
         <livewire:header />
@@ -96,7 +103,7 @@
             </x-slot:after>
         </x-menu.navbar>
 
-        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto rounded-l-2xl bg-white p-5">
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto rounded-2xl bg-white p-5 [scrollbar-gutter:stable]">
             {{ $slot }}
         </div>
     </div>

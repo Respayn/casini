@@ -1,4 +1,4 @@
-<div class="w-full rounded-bl-2xl bg-white py-[10px] pe-[20px] ps-[15px]">
+<div class="w-full rounded-bl-2xl rounded-br-2xl bg-white py-[10px] pe-[20px] ps-[15px]">
     <div class="flex items-center justify-between">
         @php
             use App\Support\SystemSettingsSectionPermissions;

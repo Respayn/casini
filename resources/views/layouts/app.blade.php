@@ -27,12 +27,19 @@
 </head>
 
 <body
-    class="bg-body text-primary-text flex gap-5 font-sans"
+    class="bg-body text-primary-text flex font-sans"
     x-data
 >
+    <script>
+        try {
+            if (localStorage.getItem('casini.sidebarOpen') === 'false') {
+                document.documentElement.classList.add('sidebar-collapsed');
+            }
+        } catch (e) {}
+    </script>
     <livewire:sidebar />
 
-    <div class="app-main flex h-screen w-full flex-col gap-[25px]">
+    <div class="app-main flex h-screen w-full flex-col gap-[25px] pe-[20px]">
         <livewire:header />
 
         <x-menu.navbar :items="collect([
@@ -47,7 +54,7 @@
             return $item;
         })->values()->all()" />
 
-        <div class="rounded-tl-2xl bg-white p-5 flex-1">
+        <div class="flex-1 rounded-2xl bg-white p-5">
             {{ $slot }}
         </div>
     </div>
