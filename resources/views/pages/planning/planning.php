@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Support\SharedProductFilters;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -60,6 +61,8 @@ new
         {
             $this->year = Carbon::now()->year;
             $this->loadedYear = $this->year;
+            $this->showInactive = SharedProductFilters::resolveShowInactive($this->showInactive);
+            $this->includeVat = SharedProductFilters::resolveIncludeVat($this->includeVat);
             $this->loadTableData();
         }
 
@@ -74,6 +77,7 @@ new
 
         public function updatedShowInactive(): void
         {
+            SharedProductFilters::rememberShowInactive($this->showInactive);
             $this->reloadTableAfterFilterChange();
         }
 
@@ -83,6 +87,7 @@ new
          */
         public function updatedIncludeVat(): void
         {
+            SharedProductFilters::rememberIncludeVat($this->includeVat);
             $this->js('window.dispatchEvent(new CustomEvent("planning-vat-sync"))');
             $this->skipRender();
         }

@@ -18,6 +18,7 @@ use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\BonusService;
 use App\Services\GoogleSheetsService;
+use App\Support\IntegrationLogo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Src\Domain\ValueObjects\ProjectType;
@@ -460,7 +461,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
         ]);
 
         return $report;
@@ -572,7 +573,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $seoProjects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $seoIntegrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
         ]);
 
         $contextGroup->summary = new Collection([
@@ -587,7 +588,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $contextProjects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $contextIntegrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
         ]);
 
         $report->groups = new Collection([$seoGroup, $contextGroup]);
@@ -604,7 +605,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
         ]);
 
         return $report;
@@ -670,7 +671,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                     'inactive' => $clientProjects->filter(fn ($project) => ! $project->is_active)->count(),
                 ],
                 'tool' => $clientIntegrations->flatten()
-                    ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                    ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
             ]);
 
             $report->groups->push($group);
@@ -688,7 +689,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
         ]);
 
         return $report;
@@ -762,7 +763,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                     'inactive' => $projectsByIntegration->filter(fn ($project) => ! $project->is_active)->count(),
                 ],
                 'tool' => [
-                    $this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count(),
+                    IntegrationLogo::component($integrationGroup->integration->code) => $projectsByIntegration->count(),
                 ],
             ]);
 
@@ -839,7 +840,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
         ]);
 
         return $report;
@@ -918,7 +919,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                         'inactive' => $projectsWithRole->filter(fn ($project) => ! $project->is_active)->count(),
                     ],
                     'tool' => $roleIntegrations->flatten()
-                        ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                        ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
 
                 ]);
 
@@ -938,7 +939,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 'inactive' => $projects->filter(fn ($project) => ! $project->is_active)->count(),
             ],
             'tool' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
         ]);
 
         return $report;
@@ -1124,7 +1125,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             // Сделана проверка на совпадение с кодом интеграции потому что в отчете некоторые интеграции могут быть сгруппированы
             // под одним значком. Например может быть настроено 3 разные интеграции с 1С, но на фронте они будут объединены в 1.
             // Вложенные ключи используются для рендеринга соответствующей иконки.
-            $logoComponent = $this->getIntegrationLogoComponent($integrationCode);
+            $logoComponent = IntegrationLogo::component($integrationCode);
             if (isset($carry['tool'][$logoComponent])) {
                 $carry['tool'][$logoComponent] += 1;
             } else {
@@ -1141,20 +1142,5 @@ class ChannelReportService implements ChannelReportServiceInterface
         }, $initialColumnsData);
 
         return $columnsData;
-    }
-
-    // TODO: вынести в отдельный класс, например IntegrationLogoMapper
-    private function getIntegrationLogoComponent(string $code): string
-    {
-        // ? Возможно стоит использовать enum?
-        return match ($code) {
-            'yandex_direct' => 'yandex-direct',
-            'yandex_metrika' => 'yandex-metrika',
-            'callibri' => 'callibri',
-            'yandex_search_api' => 'yandex-search-api',
-            'google_sheets' => 'google-sheets',
-            'bitrix24' => 'bitrix24',
-            default => 'default'
-        };
     }
 }

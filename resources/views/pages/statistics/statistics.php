@@ -8,6 +8,7 @@ use App\Data\TableReportData;
 use App\Livewire\Concerns\WithReportDataRefresh;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
 use App\Services\Statistics\StatisticsService;
+use App\Support\SharedProductFilters;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
@@ -45,6 +46,25 @@ class extends Component
             Auth::user()->id,
         );
         $this->queryData->clampPeriodToPresent();
+        $this->applySharedProductFilters();
+    }
+
+    public function updatedQueryDataShowInactive(): void
+    {
+        SharedProductFilters::rememberShowInactive($this->queryData->showInactive);
+        unset($this->reportData);
+    }
+
+    public function updatedQueryDataIncludeVat(): void
+    {
+        SharedProductFilters::rememberIncludeVat($this->queryData->includeVat);
+        unset($this->reportData);
+    }
+
+    private function applySharedProductFilters(): void
+    {
+        $this->queryData->showInactive = SharedProductFilters::resolveShowInactive($this->queryData->showInactive);
+        $this->queryData->includeVat = SharedProductFilters::resolveIncludeVat($this->queryData->includeVat);
     }
 
     protected function afterSidebarProjectFilterChanged(): void

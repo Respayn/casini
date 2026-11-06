@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Support\SharedProductFilters;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -96,6 +97,13 @@ new
 
             $this->periodFrom = Carbon::now()->startOfMonth()->startOfDay();
             $this->periodTo = $this->periodFrom->copy();
+            $this->showInactiveProjects = SharedProductFilters::resolveShowInactive($this->showInactiveProjects);
+        }
+
+        public function updatedShowInactiveProjects(): void
+        {
+            SharedProductFilters::rememberShowInactive($this->showInactiveProjects);
+            unset($this->reports);
         }
 
         public function updatedPeriodFrom(): void
