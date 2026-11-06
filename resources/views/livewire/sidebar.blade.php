@@ -34,9 +34,10 @@
 
         <div class="mb-4">
             <x-button.button
+                class="w-full"
                 variant="secondary"
-                label="Удалить фильтры"
-                icon="icons.delete"
+                label="Сбросить фильтр"
+                icon="icons.filter-alt-off"
                 :disabled="! $this->canClearFilters"
                 wire:click="clearFilters"
             />
