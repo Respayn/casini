@@ -65,7 +65,8 @@
         @if ($canAdd)
             <x-overlay.modal-trigger :name="$modalTriggerName">
                 <x-button.button
-                    class="w-full"
+                    class="h-auto min-h-10 w-full whitespace-normal rounded-lg px-3 py-2 text-sm leading-snug"
+                    size="none"
                     variant="primary"
                     label="Добавить интеграцию"
                     icon="icons.plus"
@@ -77,7 +78,8 @@
                 :message="$canEdit ? $addDisabledMessage : null"
             >
                 <x-button.button
-                    class="w-full"
+                    class="h-auto min-h-10 w-full whitespace-normal rounded-lg px-3 py-2 text-sm leading-snug"
+                    size="none"
                     variant="primary"
                     label="Добавить интеграцию"
                     icon="icons.plus"
