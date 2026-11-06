@@ -51,6 +51,7 @@
             Alpine.data('scrollpanel', () => ({
                 horizontalThumbWidth: 0,
                 verticalThumbHeight: 0,
+                headerOffset: 0,
                 isDragging: false,
                 dragType: null,
                 dragStartX: 0,
@@ -113,7 +114,7 @@
                         const deltaY = event.clientY - this.dragStartY;
 
                         const scrollableHeight = content.scrollHeight - content.clientHeight;
-                        const verticalTrackHeight = container.clientHeight - this.verticalThumbHeight - 10;
+                        const verticalTrackHeight = container.clientHeight - this.headerOffset - this.verticalThumbHeight - 10;
                         const scrollRatio = scrollableHeight / verticalTrackHeight;
                         const newScrollTop = this.contentStartScrollTop + (deltaY * scrollRatio);
                         content.scrollTop = Math.max(0, Math.min(scrollableHeight, newScrollTop));
@@ -153,13 +154,22 @@
                     const maxThumbLeft = containerWidth - this.horizontalThumbWidth - 10;
                     thumbX.style.left = `${(content.scrollLeft / maxScrollLeft) * maxThumbLeft}px`;
 
-                    // Set vertical scrollbar height and position
-                    this.verticalThumbHeight = Math.max(30, containerHeight * scrollRatioY);
+                    // Полоса начинается под шапкой таблицы, чтобы не закрывать названия колонок.
+                    const thead = content.querySelector(':scope > table > thead');
+                    this.headerOffset = thead ? thead.offsetHeight : 0;
+                    const trackGap = 10;
+                    const trackHeight = Math.max(0, containerHeight - this.headerOffset - trackGap);
+                    barY.style.top = `${this.headerOffset}px`;
+                    barY.style.height = `${trackHeight}px`;
+
+                    this.verticalThumbHeight = Math.min(trackHeight, Math.max(30, trackHeight * scrollRatioY));
                     thumbY.style.height = `${this.verticalThumbHeight}px`;
 
                     const maxScrollTop = scrollHeight - containerHeight;
-                    const maxThumbTop = containerHeight - this.verticalThumbHeight - 10;
-                    thumbY.style.top = `${(content.scrollTop / maxScrollTop) * maxThumbTop}px`;
+                    const maxThumbTop = Math.max(0, trackHeight - this.verticalThumbHeight);
+                    thumbY.style.top = maxScrollTop > 0
+                        ? `${(content.scrollTop / maxScrollTop) * maxThumbTop}px`
+                        : '0px';
 
                     // Show/hide scrollbars based on content size
                     barX.style.display = scrollWidth > containerWidth ? 'block' : 'none';
@@ -211,6 +221,13 @@
             display: none;
         }
 
+        /* Шапка таблицы остаётся на месте, когда строки уезжают вверх. Только внешняя таблица, не «План / Факт» внутри ячейки. */
+        .scrollpanel-content > table > thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
         .scrollpanel-bar {
             position: absolute;
             opacity: 0;
@@ -224,7 +241,6 @@
         }
 
         .scrollpanel-bar-y {
-            height: calc(100% - 10px);
             width: var(--scrollpanel-bar-size);
             right: 0px;
         }
