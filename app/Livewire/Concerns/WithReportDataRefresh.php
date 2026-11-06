@@ -3,11 +3,14 @@
 namespace App\Livewire\Concerns;
 
 use App\Data\TableReportData;
-use App\Repositories\AgencyRepository;
+use App\Data\TableReportGroupData;
+use App\Data\TableReportRowData;
+use App\Models\Notification;
+use App\Services\IntegrationSync\IntegrationManualRefreshProgress;
 use App\Services\IntegrationSync\IntegrationManualRefreshTimestamp;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
-use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
 trait WithReportDataRefresh
@@ -16,133 +19,137 @@ trait WithReportDataRefresh
 
     public bool $isReportDataRefreshing = false;
 
-    public function mountWithReportDataRefresh(IntegrationManualRefreshTimestamp $timestamps): void
-    {
+    /** @var list<array{id: int, label: string, group: ?string}> */
+    public array $refreshPendingProjects = [];
+
+    public int $refreshTotal = 0;
+
+    public int $refreshCurrentIndex = 0;
+
+    public ?string $refreshProgressLabel = null;
+
+    public ?int $refreshStepStartedAt = null;
+
+    public function mountWithReportDataRefresh(
+        IntegrationManualRefreshTimestamp $timestamps,
+        IntegrationManualRefreshProgress $progress,
+    ): void {
         $userId = Auth::id();
 
         if ($userId === null) {
             return;
         }
 
-        $this->lastDataRefreshLabel = $timestamps->formattedLabel(
-            (int) $userId,
-            $this->reportRefreshProductKey(),
-        );
+        $product = $this->reportRefreshProductKey();
+
+        $this->lastDataRefreshLabel = $timestamps->formattedLabel((int) $userId, $product);
+        $this->hydrateRefreshProgressFromCache($progress, (int) $userId, $product);
+        $this->consumeUnreadRefreshNotification((int) $userId, $product);
     }
 
     public function refreshAllData(
         IntegrationMetricsRefreshService $metricsRefreshService,
-        IntegrationManualRefreshTimestamp $timestamps,
-        IntegrationProjectCredentials $credentials,
-        AgencyRepository $agencyRepository,
+        IntegrationManualRefreshProgress $progress,
     ): void {
-        $projectIds = $this->visibleReportProjectIds();
+        $userId = Auth::id();
 
-        if ($projectIds === []) {
+        if ($userId === null) {
+            $this->setActionMessage('Нужна авторизация', 'error');
+
+            return;
+        }
+
+        if ($this->isReportDataRefreshing) {
+            return;
+        }
+
+        $pending = $this->buildRefreshPendingProjects();
+
+        if ($pending === []) {
             $this->setActionMessage('Нет клиенто-проектов для обновления', 'error');
-            $this->dispatch('report-data-refresh-finished');
+
+            return;
+        }
+
+        $product = $this->reportRefreshProductKey();
+        $queued = $metricsRefreshService->queueReportDataRefresh(
+            userId: (int) $userId,
+            product: $product,
+            pendingProjects: $pending,
+            periodFrom: $this->queryData->dateFrom,
+            periodTo: $this->queryData->dateTo,
+            includeVat: (bool) $this->queryData->includeVat,
+            withDirectBudget: $this->shouldRefreshDirectBudget(),
+            recalculateBonuses: $product === 'statistics' && $this->queryData->isSingleMonthPeriod(),
+        );
+
+        if (! ($queued['ok'] ?? false)) {
+            $this->setActionMessage($queued['error'] ?? 'Не удалось запустить обновление', 'error');
 
             return;
         }
 
         $this->isReportDataRefreshing = true;
-
-        try {
-            $stats = $metricsRefreshService->refreshReportData(
-                $projectIds,
-                $this->queryData->dateFrom,
-                $this->queryData->dateTo,
-                $this->queryData->includeVat,
-                $this->shouldRefreshDirectBudget(),
-            );
-
-            unset($this->reportData);
-
-            if (! empty($stats['error'])) {
-                $this->setActionMessage($stats['error'], 'error');
-
-                return;
-            }
-
-            $userId = Auth::id();
-            if ($userId !== null) {
-                $timestamps->record((int) $userId, $this->reportRefreshProductKey());
-                $this->lastDataRefreshLabel = $timestamps->formattedLabel(
-                    (int) $userId,
-                    $this->reportRefreshProductKey(),
-                );
-            }
-
-            $message = sprintf(
-                'Обновлено: %d, ошибок: %d, пропущено: %d',
-                $stats['updated'],
-                $stats['failed'],
-                $stats['skipped'],
-            );
-
-            $searchApiNote = $this->searchApiHistoricalRefreshNote(
-                $projectIds,
-                $credentials,
-                $agencyRepository,
-            );
-            if ($searchApiNote !== null) {
-                $message .= ' '.$searchApiNote;
-            }
-
-            $this->setActionMessage(
-                $message,
-                $stats['failed'] > 0 ? 'error' : 'success',
-            );
-
-            $this->afterSuccessfulReportDataRefresh($projectIds);
-        } finally {
-            $this->isReportDataRefreshing = false;
-            $this->dispatch('report-data-refresh-finished');
-        }
+        $this->refreshPendingProjects = $pending;
+        $this->refreshTotal = count($pending);
+        $this->refreshCurrentIndex = 0;
+        $this->refreshProgressLabel = null;
+        $this->refreshStepStartedAt = time();
+        unset($this->reportData);
     }
 
-    /**
-     * Search API на ручном обновлении дергает API только за вчера и сегодня.
-     *
-     * @param  list<int>  $projectIds
-     */
-    protected function searchApiHistoricalRefreshNote(
-        array $projectIds,
-        IntegrationProjectCredentials $credentials,
-        AgencyRepository $agencyRepository,
-    ): ?string {
-        $hasSearchApi = false;
-        foreach ($projectIds as $projectId) {
-            if ($credentials->yandexSearchApi($projectId) !== null) {
-                $hasSearchApi = true;
-                break;
+    public function pollRefreshProgress(
+        IntegrationManualRefreshProgress $progress,
+        IntegrationManualRefreshTimestamp $timestamps,
+    ): void {
+        $userId = Auth::id();
+
+        if ($userId === null) {
+            return;
+        }
+
+        $product = $this->reportRefreshProductKey();
+        $state = $progress->get((int) $userId, $product);
+
+        if ($state === null) {
+            if ($this->isReportDataRefreshing) {
+                $this->isReportDataRefreshing = false;
+                $this->refreshPendingProjects = [];
+                $this->refreshProgressLabel = null;
+                $this->refreshStepStartedAt = null;
+                unset($this->reportData);
             }
+
+            return;
         }
 
-        if (! $hasSearchApi) {
-            return null;
+        $pendingBefore = array_map(
+            static fn (array $item): int => (int) $item['id'],
+            $this->refreshPendingProjects,
+        );
+
+        $this->applyProgressState($state);
+
+        $pendingAfter = array_map(
+            static fn (array $item): int => (int) $item['id'],
+            $this->refreshPendingProjects,
+        );
+
+        if ($pendingBefore !== $pendingAfter) {
+            unset($this->reportData);
         }
 
-        $timezone = $agencyRepository->getPrimaryTimeZone();
-        $yesterday = Carbon::now($timezone)->startOfDay()->subDay();
-        $from = Carbon::parse((string) $this->queryData->dateFrom)->startOfDay();
-
-        if ($from->greaterThanOrEqualTo($yesterday)) {
-            return null;
+        if (($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_DONE) {
+            $this->finishRefreshFromProgress($progress, $timestamps, $state, (int) $userId, $product);
         }
-
-        return 'Search API (% в топ-10): живой съём только за вчера и сегодня. За более ранние дни периода берутся только уже сохранённые позиции.';
     }
 
     public function cancelReportDataRefresh(): void
     {
-        $this->isReportDataRefreshing = false;
+        // Фоновый съём не отменяем: задачи уже в очереди.
     }
 
     /**
-     * Хук после успешного обновления данных отчёта (метрики API).
-     * Статистика — пересчёт снимков бонусов; Каналы — no-op.
-     *
      * @param  list<int>  $projectIds
      */
     protected function afterSuccessfulReportDataRefresh(array $projectIds): void {}
@@ -162,6 +169,195 @@ trait WithReportDataRefresh
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<array{id: int, label: string, group: ?string}>
+     */
+    protected function buildRefreshPendingProjects(): array
+    {
+        /** @var TableReportData $reportData */
+        $reportData = $this->reportData;
+        $pending = [];
+
+        foreach ($reportData->groups as $group) {
+            $groupLabel = filled($group->groupLabel) ? (string) $group->groupLabel : null;
+
+            foreach ($group->rows as $row) {
+                $id = (int) $row->id;
+                if ($id <= 0) {
+                    continue;
+                }
+
+                $pending[] = [
+                    'id' => $id,
+                    'label' => $this->refreshRowLabel($row),
+                    'group' => $groupLabel,
+                ];
+            }
+        }
+
+        return $pending;
+    }
+
+    protected function refreshRowLabel(TableReportRowData $row): string
+    {
+        $clientProject = $row->data->get('client-project');
+
+        if (is_array($clientProject) && filled($clientProject['name'] ?? null)) {
+            return (string) $clientProject['name'];
+        }
+
+        return '№'.$row->id;
+    }
+
+    protected function filterReportDataExcludingPending(TableReportData $reportData): TableReportData
+    {
+        if (! $this->isReportDataRefreshing || $this->refreshPendingProjects === []) {
+            return $reportData;
+        }
+
+        $pendingIds = array_flip(array_map(
+            static fn (array $item): int => (int) $item['id'],
+            $this->refreshPendingProjects,
+        ));
+
+        $filtered = new TableReportData;
+        $visibleRows = new Collection;
+
+        foreach ($reportData->groups as $group) {
+            $rows = $group->rows
+                ->filter(static fn (TableReportRowData $row): bool => ! isset($pendingIds[(int) $row->id]))
+                ->values();
+
+            if ($rows->isEmpty()) {
+                continue;
+            }
+
+            $nextGroup = new TableReportGroupData;
+            $nextGroup->groupLabel = $group->groupLabel;
+            $nextGroup->rows = $rows;
+            $nextGroup->summary = $rows->count() === $group->rows->count()
+                ? $group->summary
+                : null;
+            $filtered->groups->push($nextGroup);
+            $visibleRows = $visibleRows->concat($rows);
+        }
+
+        if ($visibleRows->isEmpty()) {
+            $filtered->summary = new Collection;
+
+            return $filtered;
+        }
+
+        $filtered->summary = $reportData->summary;
+
+        return $filtered;
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     */
+    private function applyProgressState(array $state): void
+    {
+        $this->isReportDataRefreshing = ($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_RUNNING;
+        $this->refreshPendingProjects = array_values($state['pending'] ?? []);
+        $this->refreshTotal = (int) ($state['total'] ?? count($this->refreshPendingProjects));
+        $this->refreshCurrentIndex = (int) ($state['current_index'] ?? 0);
+        $this->refreshProgressLabel = isset($state['current_label'])
+            ? (is_string($state['current_label']) ? $state['current_label'] : null)
+            : null;
+        $this->refreshStepStartedAt = isset($state['step_started_at'])
+            ? (int) $state['step_started_at']
+            : null;
+    }
+
+    private function hydrateRefreshProgressFromCache(
+        IntegrationManualRefreshProgress $progress,
+        int $userId,
+        string $product,
+    ): void {
+        $state = $progress->get($userId, $product);
+
+        if ($state === null) {
+            return;
+        }
+
+        if (($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_RUNNING) {
+            $this->applyProgressState($state);
+
+            return;
+        }
+
+        if (($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_DONE
+            && empty($state['noticed'])
+        ) {
+            $this->finishRefreshFromProgress(
+                $progress,
+                app(IntegrationManualRefreshTimestamp::class),
+                $state,
+                $userId,
+                $product,
+            );
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     */
+    private function finishRefreshFromProgress(
+        IntegrationManualRefreshProgress $progress,
+        IntegrationManualRefreshTimestamp $timestamps,
+        array $state,
+        int $userId,
+        string $product,
+    ): void {
+        $failed = (int) ($state['failed'] ?? 0);
+        $productTitle = IntegrationManualRefreshProgress::productTitle($product);
+        $message = "Данные в {$productTitle} обновлены";
+        if ($failed > 0) {
+            $message .= ". Ошибок: {$failed}";
+        }
+
+        $this->setActionMessage($message, $failed > 0 ? 'error' : 'success');
+        $this->lastDataRefreshLabel = $timestamps->formattedLabel($userId, $product);
+        $this->isReportDataRefreshing = false;
+        $this->refreshPendingProjects = [];
+        $this->refreshProgressLabel = null;
+        $this->refreshStepStartedAt = null;
+        $this->refreshCurrentIndex = 0;
+        $progress->markNoticed($userId, $product);
+        unset($this->reportData);
+    }
+
+    private function consumeUnreadRefreshNotification(int $userId, string $product): void
+    {
+        if ($this->actionMessage !== null) {
+            return;
+        }
+
+        $notification = Notification::query()
+            ->where('user_id', $userId)
+            ->where('type', IntegrationManualRefreshProgress::TYPE_REFRESHED)
+            ->whereNull('read_at')
+            ->orderByDesc('id')
+            ->get()
+            ->first(function (Notification $item) use ($product): bool {
+                $payload = is_array($item->payload) ? $item->payload : [];
+
+                return ($payload['product'] ?? null) === $product;
+            });
+
+        if ($notification === null) {
+            return;
+        }
+
+        $failed = (int) (is_array($notification->payload) ? ($notification->payload['failed'] ?? 0) : 0);
+        $this->setActionMessage(
+            (string) $notification->text,
+            $failed > 0 ? 'error' : 'success',
+        );
+        $notification->forceFill(['read_at' => Carbon::now()])->save();
     }
 
     abstract protected function reportRefreshProductKey(): string;

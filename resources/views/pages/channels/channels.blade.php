@@ -31,13 +31,14 @@
 
     {{-- Фильтры --}}
     @php
-        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, refreshAllData, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
     @endphp
 
     <div
         class="flex flex-wrap items-center gap-y-3"
         wire:loading.class="pointer-events-none opacity-60"
         wire:target="{{ $reportLoadingTargets }}"
+        @if ($isReportDataRefreshing) wire:poll.3s="pollRefreshProgress" @endif
     >
         <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
@@ -55,7 +56,10 @@
             <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
         </div>
 
-        <x-report.table-toolbar :last-refresh-label="$lastDataRefreshLabel" />
+        <x-report.table-toolbar
+            :last-refresh-label="$lastDataRefreshLabel"
+            :confirm-unfiltered-refresh="$sidebarProjectId === null"
+        />
     </div>
 
     @if ($actionMessage)
@@ -67,8 +71,12 @@
         </x-feedback.notice>
     @endif
 
+    @if ($isReportDataRefreshing)
+        <x-report.refresh-pending-tree :projects="$refreshPendingProjects" />
+    @endif
+
     <x-report.table-loading :targets="$reportLoadingTargets">
-        @if ($this->reportData->groups->isEmpty())
+        @if ($this->reportData->groups->isEmpty() && ! $isReportDataRefreshing)
             <div class="mt-20 flex flex-col items-center gap-4">
                 <span class="text-caption-text">Нет клиенто-проектов для отображения каналов</span>
                 <div>
@@ -79,7 +87,7 @@
                     />
                 </div>
             </div>
-        @else
+        @elseif (! $this->reportData->groups->isEmpty())
             <div x-data="{ expandedGroups: {} }">
                 <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                     <x-data.table>
@@ -223,6 +231,8 @@
             </div>
         </x-slot>
     </x-overlay.modal>
+
+    <x-report.refresh-all-confirm-modal />
 
     <livewire:channels.group-settings-modal :initial-grouping="$queryData->grouping" />
 </x-report.refresh-navigation-guard>
