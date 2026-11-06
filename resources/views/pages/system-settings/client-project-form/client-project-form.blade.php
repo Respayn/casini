@@ -109,6 +109,8 @@
                                 :options="$clients->map(function ($item) {
                                     return ['label' => $item->name, 'value' => $item->id];
                                 })"
+                                searchable
+                                search-placeholder="Начните вводить название"
                                 :disabled="! $canEdit"
                             ></x-form.select>
                         </x-permissions.field-guard>
