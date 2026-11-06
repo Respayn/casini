@@ -194,7 +194,8 @@
 
         .scrollpanel-content {
             height: 100%;
-            max-height: 100%;
+            /* inherit, не 100%: у родителя высота задана через max-height, процент не считается и таблица обрезается без полосы */
+            max-height: inherit;
             min-height: 0;
             padding-inline: 0 calc(2 * var(--scrollpanel-bar-size));
             position: relative;
