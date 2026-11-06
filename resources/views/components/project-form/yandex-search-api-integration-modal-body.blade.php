@@ -297,14 +297,14 @@
                                     x-bind:class="isPhraseDuplicate(regionIndex, phraseIndex) ? 'border-warning-red' : ''"
                                 ></x-form.input-text>
                             </div>
-                            <button
+                            <x-button.button
                                 type="button"
-                                class="text-secondary-text shrink-0 p-1"
+                                class="shrink-0"
+                                icon="icons.delete"
+                                title="Удалить"
                                 x-show="region.phrases.length > 1"
                                 x-on:click="removePhrase(regionIndex, phraseIndex)"
-                            >
-                                <x-icons.close class="h-4 w-4" />
-                            </button>
+                            />
                         </div>
                     </template>
 
