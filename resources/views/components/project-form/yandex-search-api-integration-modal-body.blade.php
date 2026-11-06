@@ -284,6 +284,8 @@
                             <x-form.select
                                 :options="App\Enums\SearchRegion::options()"
                                 placeholder="Выберите регион"
+                                searchable
+                                search-placeholder="Начните вводить название"
                                 x-model="region.code"
                             ></x-form.select>
                         </div>
