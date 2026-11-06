@@ -20,7 +20,7 @@
             {{ $description }}
         </div>
         @if (count($configuredIntegrations) > 0)
-            <div class="mt-6 flex flex-col gap-2.5">
+            <div class="mt-auto flex flex-col gap-2.5 pt-6">
                 @foreach ($configuredIntegrations as $integration)
                     <div class="flex min-h-10 items-center justify-between gap-3">
                         <div class="flex min-w-0 items-center gap-3">
