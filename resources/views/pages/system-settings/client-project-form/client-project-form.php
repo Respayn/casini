@@ -378,8 +378,11 @@ class extends Component
     #[Computed]
     public function moneyIntegrations(): Collection
     {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+
         return $this->integrations()
-            ->filter(fn ($integration) => $integration->category === IntegrationCategory::MONEY);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::MONEY)
+            ->reject(fn ($integration) => in_array((string) $integration->code, $hiddenCodes, true));
     }
 
     #[Computed]
@@ -472,17 +475,22 @@ class extends Component
      */
     private function hiddenIntegrationCodes(): array
     {
+        // Пока не подключены в продукте - не предлагать в модалке «Деньги»
+        $codes = ['1c_check', '1c_ad_budget_flow'];
+
         $projectType = (string) $this->clientProjectForm->projectType;
 
         if ($projectType === ProjectType::SEO_PROMOTION->value) {
-            return ['yandex_direct'];
+            $codes[] = 'yandex_direct';
+
+            return $codes;
         }
 
         if ($projectType !== ProjectType::CONTEXT_AD->value) {
-            return [];
+            return $codes;
         }
 
-        $codes = ['yandex_search_api'];
+        $codes[] = 'yandex_search_api';
 
         if ((string) $this->clientProjectForm->kpi === Kpi::TRAFFIC->value) {
             $codes[] = 'yandex_metrika';

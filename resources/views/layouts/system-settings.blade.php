@@ -67,7 +67,7 @@
     x-data
 >
     <livewire:sidebar />
-    <div class="app-main flex w-full flex-col gap-[25px]">
+    <div class="app-main flex h-screen min-h-0 w-full min-w-0 flex-col gap-[25px] pe-[20px]">
         <livewire:header />
 
         <x-menu.navbar :items="$navbarItems">
@@ -94,7 +94,7 @@
             </x-slot:after>
         </x-menu.navbar>
 
-        <div class="rounded-l-2xl bg-white p-5">
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto rounded-l-2xl bg-white p-5">
             {{ $slot }}
         </div>
     </div>

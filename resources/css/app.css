@@ -45,6 +45,11 @@
     --scrollpanel-transition-duration: 0.2s;
 }
 
+/* Место под полосу прокрутки всегда: иначе при её появлении контент прыгает влево */
+html {
+    scrollbar-gutter: stable;
+}
+
 body:has(.modal.open) {
     overflow: hidden
 }

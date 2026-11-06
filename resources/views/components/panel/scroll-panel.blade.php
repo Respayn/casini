@@ -174,6 +174,9 @@
             position: relative;
             height: 100%;
             max-height: inherit;
+            /* Иначе flex-потомок с длинным контентом раздувает панель и появляется скролл страницы */
+            min-height: 0;
+            overflow: hidden;
             display: flex;
         }
 
@@ -182,19 +185,29 @@
             width: 100%;
             height: 100%;
             max-height: inherit;
+            min-height: 0;
+            min-width: 0;
+            flex: 1 1 auto;
             position: relative;
             z-index: 1;
-            float: left;
         }
 
         .scrollpanel-content {
             height: 100%;
-            max-height: inherit;
+            max-height: 100%;
+            min-height: 0;
             padding-inline: 0 calc(2 * var(--scrollpanel-bar-size));
             position: relative;
             overflow: auto;
             box-sizing: border-box;
             scrollbar-width: none;
+        }
+
+        /* Chrome/Safari: иначе при появлении overflow нативная полоса сужает контент */
+        .scrollpanel-content::-webkit-scrollbar {
+            width: 0;
+            height: 0;
+            display: none;
         }
 
         .scrollpanel-bar {
