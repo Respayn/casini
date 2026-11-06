@@ -131,4 +131,23 @@ class ProjectBonusGuaranteeForm extends Form
         $this->startMonth = $bonusCondition->start_month;
         $this->intervals = $bonusCondition->intervals->toArray();
     }
+
+    /**
+     * Сброс блока «Бонусы и гарантии» (например, для своего проекта).
+     */
+    public function resetToDefaults(): void
+    {
+        $this->bonusesEnabled = false;
+        $this->calculateInPercentage = false;
+        $this->clientPayment = null;
+        $this->startMonth = 1;
+        $this->intervals = [
+            [
+                'fromPercentage' => '',
+                'toPercentage' => '',
+                'bonusAmount' => '',
+                'bonusPercentage' => '',
+            ],
+        ];
+    }
 }

@@ -37,7 +37,7 @@
             wire:submit.prevent="save"
         >
             <div class="flex max-w-[950px] flex-col gap-4">
-                <h1>Добавить клиенто-проект</h1>
+                <h1>{{ filled($clientProjectForm->id) ? 'Редактирование клиенто-проекта' : 'Добавление клиенто-проекта' }}</h1>
             <div class="flex flex-col gap-4">
                 <h2>Основная информация</h2>
                 <x-form.form-field>
@@ -46,12 +46,15 @@
                         required
                     >Статус клиенто-проекта</x-form.form-label>
                     <div>
-                        <div class="flex items-center justify-end gap-3">
-                            <label>
+                        <div
+                            class="flex items-center justify-end gap-3"
+                            x-data="{ on: @entangle('clientProjectForm.isActive').live }"
+                        >
+                            <label x-text="on ? 'Активен' : 'Неактивный'">
                                 {{ $clientProjectForm->isActive ? 'Активен' : 'Неактивный' }}
                             </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                <x-form.toggle-switch wire:model.live="clientProjectForm.isActive" :disabled="! $canEdit">
+                                <x-form.toggle-switch x-model="on" :disabled="! $canEdit">
                                 </x-form.toggle-switch>
                             </x-permissions.field-guard>
                         </div>
@@ -69,16 +72,18 @@
                     </div>
                 </x-form.form-field>
 
-                <x-form.form-field>
-                    <x-form.form-label>Дата архивации клиенто-проекта</x-form.form-label>
-                    <div wire:key="archived-at-{{ $clientProjectForm->isActive ? 'active' : 'archived-'.$clientProjectForm->archivedAt }}">
-                        <x-form.input-text
-                            :value="$clientProjectForm->isActive ? '' : $clientProjectForm->archivedAt"
-                            placeholder="дд.мм.гггг"
-                            disabled
-                        />
-                    </div>
-                </x-form.form-field>
+                @if (! $clientProjectForm->isActive && filled($clientProjectForm->archivedAt))
+                    <x-form.form-field>
+                        <x-form.form-label>Дата архивации клиенто-проекта</x-form.form-label>
+                        <div wire:key="archived-at-{{ $clientProjectForm->archivedAt }}">
+                            <x-form.input-text
+                                :value="$clientProjectForm->archivedAt"
+                                placeholder="дд.мм.гггг"
+                                disabled
+                            />
+                        </div>
+                    </x-form.form-field>
+                @endif
 
                 <x-form.form-field>
                     <x-form.form-label
@@ -249,10 +254,15 @@
 
                 <x-form.form-field>
                     <x-form.form-label class="self-baseline">Свой проект</x-form.form-label>
-                    <div class="flex items-center justify-end gap-3">
-                        <label>{{ $clientProjectForm->isInternal ? 'Свой проект' : 'Проект клиента' }}</label>
+                    <div
+                        class="flex items-center justify-end gap-3"
+                        x-data="{ on: @entangle('clientProjectForm.isInternal').live }"
+                    >
+                        <label x-text="on ? 'Свой проект' : 'Проект клиента'">
+                            {{ $clientProjectForm->isInternal ? 'Свой проект' : 'Проект клиента' }}
+                        </label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch wire:model.live="clientProjectForm.isInternal" :disabled="! $canEdit"></x-form.toggle-switch>
+                            <x-form.toggle-switch x-model="on" :disabled="! $canEdit"></x-form.toggle-switch>
                         </x-permissions.field-guard>
                     </div>
                 </x-form.form-field>
@@ -350,6 +360,7 @@
                 </x-form.form-field>
             </div>
             @endif
+            @if (! $clientProjectForm->isInternal)
             <div class="mt-4 flex flex-col gap-4">
                 <!-- Бонусы и гарантии -->
                 <h2>Бонусы и гарантии</h2>
@@ -375,10 +386,15 @@
                     >
                         В договоре предусмотрены бонусы и/или гарантии
                     </x-form.form-label>
-                    <div class="flex items-center justify-end gap-3">
-                        <label>{{ $bonusGuaranteeForm->bonusesEnabled ? 'Есть бонусы' : 'Нет бонусов' }}</label>
+                    <div
+                        class="flex items-center justify-end gap-3"
+                        x-data="{ on: @entangle('bonusGuaranteeForm.bonusesEnabled').live }"
+                    >
+                        <label x-text="on ? 'Есть бонусы' : 'Нет бонусов'">
+                            {{ $bonusGuaranteeForm->bonusesEnabled ? 'Есть бонусы' : 'Нет бонусов' }}
+                        </label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.bonusesEnabled" :disabled="! $canEdit" />
+                            <x-form.toggle-switch x-model="on" :disabled="! $canEdit" />
                         </x-permissions.field-guard>
                     </div>
                 </x-form.form-field>
@@ -389,10 +405,15 @@
                         <x-form.form-label>
                             Бонус и/или гарантия рассчитывается в % от суммы чека клиента
                         </x-form.form-label>
-                        <div class="flex items-center justify-end gap-3">
-                            <label>{{ $bonusGuaranteeForm->calculateInPercentage ? 'Да' : 'Нет' }}</label>
+                        <div
+                            class="flex items-center justify-end gap-3"
+                            x-data="{ on: @entangle('bonusGuaranteeForm.calculateInPercentage').live }"
+                        >
+                            <label x-text="on ? 'Да' : 'Нет'">
+                                {{ $bonusGuaranteeForm->calculateInPercentage ? 'Да' : 'Нет' }}
+                            </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.calculateInPercentage" :disabled="! $canEdit" />
+                                <x-form.toggle-switch x-model="on" :disabled="! $canEdit" />
                             </x-permissions.field-guard>
                         </div>
                     </x-form.form-field>
@@ -530,6 +551,7 @@
                     </div>
                 @endif
             </div>
+            @endif
 
             <div class="mt-4 flex flex-col gap-4">
                 <h1>Интеграции</h1>
@@ -707,7 +729,7 @@
                     :disabled="! $canEdit || ! $this->canSubmitClientProject"
                 >
                     <x-slot:label>
-                        Сохранить клиенто-проект
+                        {{ filled($clientProjectForm->id) ? 'Сохранить клиенто-проект' : 'Создать клиенто-проект' }}
                     </x-slot:label>
                 </x-button.button>
             </x-permissions.field-guard>

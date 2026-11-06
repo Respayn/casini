@@ -56,7 +56,7 @@ use Src\Domain\ValueObjects\ProjectType;
 
 new
 #[Layout('layouts::system-settings')]
-#[Title('Создание проекта')]
+#[Title('Клиенто-проект')]
 class extends Component
 {
     use WithFileUploads;
@@ -180,6 +180,21 @@ class extends Component
 
         if ($this->clientProjectForm->archivedAt === '') {
             $this->clientProjectForm->archivedAt = now()->format('d.m.Y');
+        }
+    }
+
+    public function updatedClientProjectFormIsInternal(mixed $value): void
+    {
+        if (! filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        $this->bonusGuaranteeForm->resetToDefaults();
+
+        foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+            if (str_starts_with($key, 'bonusGuaranteeForm.')) {
+                $this->resetErrorBag($key);
+            }
         }
     }
 
@@ -1693,7 +1708,12 @@ class extends Component
 
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
-        $this->bonusGuaranteeForm->validate();
+
+        if ($this->clientProjectForm->isInternal) {
+            $this->bonusGuaranteeForm->resetToDefaults();
+        } else {
+            $this->bonusGuaranteeForm->validate();
+        }
 
         if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
             $this->utmMappingForm->validate();
