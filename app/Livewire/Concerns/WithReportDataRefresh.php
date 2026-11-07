@@ -298,19 +298,6 @@ trait WithReportDataRefresh
      */
     private function applyProgressState(array $state): void
     {
-        $this->isReportDataRefreshing = ($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_RUNNING;
-        $this->refreshPendingProjects = array_values($state['pending'] ?? []);
-        $this->refreshTotal = (int) ($state['total'] ?? count($this->refreshPendingProjects));
-        $this->refreshCurrentIndex = (int) ($state['current_index'] ?? 0);
-        $this->refreshProgressLabel = isset($state['current_label'])
-            ? (is_string($state['current_label']) ? $state['current_label'] : null)
-            : null;
-        $this->refreshProgressProject = isset($state['current_project_label'])
-            ? (is_string($state['current_project_label']) ? $state['current_project_label'] : null)
-            : null;
-        $this->refreshStepStartedAt = isset($state['step_started_at'])
-            ? (int) $state['step_started_at']
-            : null;
         $this->refreshPeriodFrom = isset($state['period_from']) && is_string($state['period_from'])
             ? $state['period_from']
             : null;
@@ -318,6 +305,125 @@ trait WithReportDataRefresh
             ? $state['period_to']
             : null;
         $this->refreshIncludeVat = (bool) ($state['include_vat'] ?? false);
+
+        $isRunning = ($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_RUNNING;
+
+        if (! $isRunning) {
+            $this->isReportDataRefreshing = false;
+            $this->refreshPendingProjects = [];
+            $this->refreshTotal = 0;
+            $this->refreshCurrentIndex = 0;
+            $this->refreshProgressLabel = null;
+            $this->refreshProgressProject = null;
+            $this->refreshStepStartedAt = null;
+
+            return;
+        }
+
+        if (! $this->refreshStateTouchesVisibleProjects($state)) {
+            $this->clearRefreshUiState();
+
+            return;
+        }
+
+        $visibleIds = $this->visibleRefreshProjectIdSet();
+        $pending = [];
+
+        foreach (array_values($state['pending'] ?? []) as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $id = (int) ($item['id'] ?? 0);
+            if ($id > 0 && isset($visibleIds[$id])) {
+                $pending[] = $item;
+            }
+        }
+
+        $currentProjectId = isset($state['current_project_id']) ? (int) $state['current_project_id'] : 0;
+        $currentIsVisible = $currentProjectId > 0 && isset($visibleIds[$currentProjectId]);
+
+        $this->isReportDataRefreshing = true;
+        $this->refreshPendingProjects = $pending;
+        $this->refreshStepStartedAt = isset($state['step_started_at'])
+            ? (int) $state['step_started_at']
+            : null;
+
+        if ($currentIsVisible) {
+            $this->refreshTotal = (int) ($state['total'] ?? count($state['pending'] ?? []));
+            $this->refreshCurrentIndex = (int) ($state['current_index'] ?? 0);
+            $this->refreshProgressLabel = isset($state['current_label']) && is_string($state['current_label'])
+                ? $state['current_label']
+                : null;
+            $this->refreshProgressProject = isset($state['current_project_label']) && is_string($state['current_project_label'])
+                ? $state['current_project_label']
+                : null;
+
+            return;
+        }
+
+        $this->refreshTotal = 0;
+        $this->refreshCurrentIndex = 0;
+        $this->refreshProgressLabel = null;
+        $this->refreshProgressProject = null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     * @return list<int>
+     */
+    private function refreshStateProjectIds(array $state): array
+    {
+        $ids = [];
+
+        foreach ($state['all_ids'] ?? [] as $id) {
+            $ids[] = (int) $id;
+        }
+
+        if ($ids === []) {
+            foreach ($state['pending'] ?? [] as $item) {
+                if (is_array($item)) {
+                    $ids[] = (int) ($item['id'] ?? 0);
+                }
+            }
+
+            if (isset($state['current_project_id'])) {
+                $ids[] = (int) $state['current_project_id'];
+            }
+        }
+
+        return array_values(array_unique(array_filter(
+            $ids,
+            static fn (int $id): bool => $id > 0,
+        )));
+    }
+
+    /**
+     * @return array<int, true>
+     */
+    private function visibleRefreshProjectIdSet(): array
+    {
+        return array_fill_keys($this->visibleReportProjectIds(), true);
+    }
+
+    /**
+     * @param  array<string, mixed>  $state
+     */
+    private function refreshStateTouchesVisibleProjects(array $state): bool
+    {
+        $visibleIds = $this->visibleRefreshProjectIdSet();
+
+        if ($visibleIds === []) {
+            return false;
+        }
+
+        foreach ($this->refreshStateProjectIds($state) as $id) {
+            if (isset($visibleIds[$id])) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function clearRefreshUiState(): void
@@ -377,6 +483,13 @@ trait WithReportDataRefresh
 
         if ($progress->wasNoticed($state, $userId, $product)) {
             $this->clearRefreshUiState();
+
+            return;
+        }
+
+        if (! $this->refreshStateTouchesVisibleProjects($state)) {
+            $this->clearRefreshUiState();
+            $progress->markNoticed($agencyId, $userId, $product);
 
             return;
         }
