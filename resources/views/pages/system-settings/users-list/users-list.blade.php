@@ -62,7 +62,7 @@
                         {{ $user['last_name'] }} {{ $user['first_name'] }}
                     </x-data.table-cell>
                     <x-data.table-cell>
-                        {{ \App\Enums\Role::tryFrom($user['roles'][0] ?? '')?->label() ?? '-' }}
+                        {{ $user['role_label'] ?? '-' }}
                     </x-data.table-cell>
                     <x-data.table-cell>
                         <div class="flex justify-center">
