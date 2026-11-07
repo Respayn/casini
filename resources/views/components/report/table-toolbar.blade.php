@@ -11,7 +11,8 @@
         ? 'Последнее обновление данных: '.$lastRefreshLabel
         : 'Последнее обновление данных: ещё не обновлялось';
 
-    $tooltipStyle = 'position: absolute; right: 0; bottom: calc(100% + 0.5rem); z-index: 9999; width: max-content; max-width: min(16rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); white-space: nowrap;';
+    $tooltipStyle = 'position: absolute; right: 0; bottom: calc(100% + 0.5rem); z-index: 9999; width: max-content; max-width: min(20rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);';
+    $refreshTooltipStyle = 'position: absolute; right: calc(100% + 0.5rem); top: 50%; transform: translateY(-50%); z-index: 9999; width: max-content; max-width: min(16rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); white-space: normal;';
 @endphp
 
 <div {{ $attributes->class(['ml-auto flex flex-wrap items-center']) }}>
@@ -123,9 +124,9 @@
             x-cloak
             role="tooltip"
             class="pointer-events-none"
-            style="{{ $tooltipStyle }}"
+            style="{{ $refreshTooltipStyle }}"
         >
-            <div x-show="refreshing()" class="leading-snug">
+            <div x-show="refreshing()" class="leading-snug whitespace-nowrap">
                 <div x-text="label()"></div>
                 <div x-text="secondLine()"></div>
             </div>
