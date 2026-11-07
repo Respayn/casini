@@ -3,6 +3,7 @@
 namespace App\Repositories\Notifications;
 
 use App\Models\Notification;
+use App\Models\User;
 use Illuminate\Support\Collection;
 
 class NotificationRepository
@@ -43,16 +44,19 @@ class NotificationRepository
         ?string $notifiableType = null,
         ?int $notifiableId = null,
     ): Notification {
+        $user = User::query()->find($userId);
+
         return Notification::create([
-            'user_id'         => $userId,
-            'text'            => $text,
-            'link_url'        => $linkUrl,
-            'links'           => $links,
-            'type'            => $type,
-            'payload'         => $payload,
-            'project_id'      => $projectId,
-            'notifiable_type' => $notifiableType ?? \App\Models\User::class,
-            'notifiable_id'   => $notifiableId ?? $userId,
+            'user_id' => $userId,
+            'text' => $text,
+            'link_url' => $linkUrl,
+            'links' => $links,
+            'type' => $type,
+            'payload' => $payload,
+            'project_id' => $projectId,
+            'read_at' => $user?->storesNotificationsAsRead() ? now() : null,
+            'notifiable_type' => $notifiableType ?? User::class,
+            'notifiable_id' => $notifiableId ?? $userId,
         ]);
     }
 }

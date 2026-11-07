@@ -33,6 +33,8 @@ return [
     'uploaded' => 'Не удалось загрузить файл :attribute. Попробуйте ещё раз или выберите другой файл.',
     'attributes' => [
         'form.photo' => 'фото пользователя',
+        'form.first_name' => 'имя',
+        'first_name' => 'имя',
         'photo' => 'фото пользователя',
         'clientProjectForm.name' => 'название клиенто-проекта',
         'clientProjectForm.client' => 'клиент',

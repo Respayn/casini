@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Notifications\ProjectNotificationRecipientResolver;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class ProjectNotificationRecipientResolverTest extends TestCase
@@ -40,16 +41,16 @@ class ProjectNotificationRecipientResolverTest extends TestCase
         $client = Client::factory()->create(['manager_id' => $manager->id]);
         $project = Project::factory()->create([
             'client_id' => $client->id,
-            'specialist_id' => $specialist->id,
+            'specialist_id' => $mutedSpecialist->id,
             'is_active' => true,
         ]);
 
         $ids = app(ProjectNotificationRecipientResolver::class)->userIdsForProject($project->id);
 
-        $this->assertContains($specialist->id, $ids);
+        $this->assertContains($mutedSpecialist->id, $ids);
         $this->assertContains($manager->id, $ids);
+        $this->assertNotContains($specialist->id, $ids);
         $this->assertNotContains($stranger->id, $ids);
-        $this->assertNotContains($mutedSpecialist->id, $ids);
         $this->assertNotContains($inactiveManager->id, $ids);
     }
 
@@ -62,7 +63,7 @@ class ProjectNotificationRecipientResolverTest extends TestCase
 
         Permission::findOrCreate('read clients and projects all', 'web');
         $viewer->givePermissionTo('read clients and projects all');
-        app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+        app()[PermissionRegistrar::class]->forgetCachedPermissions();
 
         $client = Client::factory()->create();
         $project = Project::factory()->create([

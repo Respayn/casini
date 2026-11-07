@@ -67,7 +67,7 @@
     @endif
 
     <x-report.table-loading :targets="$reportLoadingTargets">
-        @if ($this->reportData->groups->isEmpty())
+        @if (! $this->reportData->hasProjectRows())
             <div class="mt-20 flex flex-col items-center gap-4">
                 <span class="text-caption-text">Нет клиенто-проектов для отображения статистики</span>
                 <div>

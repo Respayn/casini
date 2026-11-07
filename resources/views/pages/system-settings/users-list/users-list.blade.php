@@ -74,13 +74,15 @@
                                     'inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium',
                                     'bg-green-50 text-green-700' => $status === 'active',
                                     'bg-red-100 text-red-700' => $status === 'inactive',
-                                    'bg-amber-50 text-amber-800' => $status === 'pending_email',
+                                    'bg-secondary text-primary' => $status === 'pending_email',
                                 ])
                             >
                                 @if ($status === 'active')
                                     <x-icons.play class="mr-1 h-4 w-4 text-green-500" />
                                 @elseif ($status === 'inactive')
                                     <x-icons.pause class="mr-1 h-4 w-4 text-red-500" />
+                                @elseif ($status === 'pending_email')
+                                    <x-icons.hourglass class="mr-1 h-4 w-4 shrink-0" />
                                 @endif
                                 {{ $user['account_status_label'] ?? ($user['is_active'] ? 'Активный' : 'Неактивный') }}
                             </span>

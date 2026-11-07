@@ -30,7 +30,6 @@ class ProjectNotificationRecipientResolver
 
         $users = User::query()
             ->where('is_active', true)
-            ->where('enable_important_notifications', true)
             ->with(['roles.permissions', 'roles.childRoles.permissions', 'permissions'])
             ->get();
 

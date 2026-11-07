@@ -19,6 +19,7 @@ use App\Repositories\ProjectRepository;
 use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\ProjectFacts\ProjectKpiFactsService;
+use App\Support\ClientProjectVisibility;
 use App\Support\IntegrationLogo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -93,16 +94,11 @@ class StatisticsService
     {
         $user = Auth::user();
 
-        $clients = $this->clientRepository->all();
-        if ($user->isManager() && ! $user->hasAnyPermission(['read statistics', 'all statistics'])) {
-            $clients = $clients->filter(fn ($client) => $client->manager_id === $user->id);
-        }
-
-        $projects = $this->projectRepository->all();
-        $projects = $projects->filter(fn ($project) => $clients->pluck('id')->contains($project->client_id));
-        if ($user->isSpecialist() && ! $user->hasAnyPermission(['read statistics', 'full statistics'])) {
-            $projects = $projects->filter(fn ($project) => $project->specialist_id === $user->id);
-        }
+        [$clients, $projects] = ClientProjectVisibility::limit(
+            $user,
+            $this->clientRepository->all(),
+            $this->projectRepository->all(),
+        );
 
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));

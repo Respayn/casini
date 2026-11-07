@@ -18,6 +18,7 @@ use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\BonusService;
 use App\Services\GoogleSheetsService;
+use App\Support\ClientProjectVisibility;
 use App\Support\IntegrationLogo;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -98,16 +99,11 @@ class ChannelReportService implements ChannelReportServiceInterface
     {
         $user = Auth::user();
 
-        $clients = $this->clientRepository->all();
-        if ($user->isManager() && ! $user->hasAnyPermission(['read clients and projects all', 'full clients and projects all'])) {
-            $clients = $clients->filter(fn ($client) => $client->manager_id === $user->id);
-        }
-
-        $projects = $this->projectRepository->all();
-        $projects = $projects->filter(fn ($project) => $clients->pluck('id')->contains($project->client_id));
-        if ($user->isSpecialist() && ! $user->hasAnyPermission(['read clients and projects all', 'full clients and projects all'])) {
-            $projects = $projects->filter(fn ($project) => $project->specialist_id === $user->id);
-        }
+        [$clients, $projects] = ClientProjectVisibility::limit(
+            $user,
+            $this->clientRepository->all(),
+            $this->projectRepository->all(),
+        );
 
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));

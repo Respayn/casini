@@ -65,22 +65,27 @@
         },
 
         get filteredOptions() {
+            const selectable = this.options.filter((option) => option.selectable !== false);
+
             if (! this.searchable) {
-                return this.options;
+                return selectable;
             }
 
             const query = this.searchQuery.trim().toLowerCase();
             if (! query) {
-                return this.options;
+                return selectable;
             }
 
-            return this.options.filter((option) =>
+            return selectable.filter((option) =>
                 String(option[this.labelKey] ?? '').toLowerCase().includes(query)
             );
         },
 
         select(value) {
             if (this.disabled || ! this.hasOptions) return;
+
+            const option = this.options.find((item) => item[this.valueKey] == value);
+            if (option && option.selectable === false) return;
 
             this.selected = value;
             this.open = false;

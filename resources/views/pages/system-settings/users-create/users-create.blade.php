@@ -30,7 +30,7 @@
                 wire:click="save"
                 wire:loading.attr="disabled"
                 wire:target="save"
-                label="Создать пользователя"
+                label="Создать и отправить инструкции на email"
             />
             <x-button.button
                 type="button"

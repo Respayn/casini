@@ -4,6 +4,7 @@ namespace App\Livewire\SystemSettings\Users;
 
 use App\Livewire\Forms\SystemSettings\Users\UserForm;
 use App\Models\User;
+use App\Services\NotificationService;
 use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
@@ -107,7 +108,7 @@ class extends Component
         );
     }
 
-    public function save(UserService $userService)
+    public function save(UserService $userService, NotificationService $notificationService)
     {
         if (! UserProfileAccess::canSaveUser($this->user)) {
             throw UnauthorizedException::forPermissions(
@@ -157,6 +158,7 @@ class extends Component
             dd($exception);
         }
 
+        $this->form->mirrorNotificationFlag();
         $data = $this->form->toArray();
         unset(
             $data['current_password'],
@@ -179,6 +181,10 @@ class extends Component
         }
 
         $userService->update($this->form->id, $data);
+
+        if (! $this->form->enable_notifications) {
+            $notificationService->markAllAsRead((int) $this->form->id);
+        }
 
         $this->form->clearPasswordFields();
         $this->user = $this->user->fresh();

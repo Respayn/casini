@@ -46,25 +46,14 @@
                 </x-permissions.field-guard>
             </x-form.form-field>
 
-            @if(!isset($form->id))
-                <x-form.form-field>
-                    <x-form.form-label required tooltip="Минимум 8 символов">Пароль</x-form.form-label>
-                    <x-form.input-text type="password" wire:model="form.password" placeholder="Пароль" />
-                </x-form.form-field>
-                <x-form.form-field>
-                    <x-form.form-label required>Повторить пароль</x-form.form-label>
-                    <x-form.input-text type="password" wire:model="form.password_confirmation" placeholder="Повторите пароль" />
-                </x-form.form-field>
-            @endif
-
             <x-form.form-field>
                 <x-form.form-label required tooltip="Пользователь сможет войти только если активен">Статус</x-form.form-label>
                 <x-permissions.field-guard :enabled="$canEditUserAdminFields">
                     <x-form.select
                         wire:model="form.account_status"
-                        :options="\App\Enums\UserAccountStatus::selectOptions()"
+                        :options="\App\Enums\UserAccountStatus::selectOptions($form->account_status)"
                         placeholder="Выберите значение"
-                        :disabled="! $canEditUserAdminFields"
+                        :disabled="! isset($form->id) || ! $canEditUserAdminFields"
                     />
                 </x-permissions.field-guard>
             </x-form.form-field>
@@ -151,8 +140,12 @@
         <div class="flex flex-col gap-4">
 
             <x-form.form-field>
-                <x-form.form-label>Имя</x-form.form-label>
-                <x-form.input-text wire:model="form.first_name" placeholder="Имя" />
+                <x-form.form-label required>Имя</x-form.form-label>
+                <x-form.input-text
+                    wire:model.blur="form.first_name"
+                    wire:blur="validateFormField('first_name')"
+                    placeholder="Имя"
+                />
             </x-form.form-field>
 
             <x-form.form-field>
@@ -166,7 +159,7 @@
                     wire:model.live="form.email"
                     wire:blur="validateFormField('email')"
                     type="email"
-                    placeholder="email@siteactiv.ru"
+                    placeholder="email@example.ru"
                 />
             </x-form.form-field>
 
@@ -304,16 +297,22 @@
         <h2 class="font-semibold mt-6 mb-1">Прочее</h2>
 
         <x-form.form-field>
-            <x-form.form-label>Важные уведомления</x-form.form-label>
-            <x-form.toggle-switch wire:model="form.enable_important_notifications" />
-        </x-form.form-field>
-
-        <x-form.form-field>
-            <x-form.form-label>Обновление сервиса</x-form.form-label>
-            <x-form.toggle-switch
-                wire:model="form.enable_notifications"
-                :disabled="true"
-            />
+            <x-form.form-label class="self-baseline">Уведомления</x-form.form-label>
+            <div
+                class="flex items-center justify-end gap-3"
+                x-data="{ on: @entangle('form.enable_notifications').live }"
+            >
+                <label
+                    class="inline-block w-[10ch] shrink-0 whitespace-nowrap text-right"
+                    x-text="on ? 'Включены' : 'Выключены'"
+                >
+                    {{ $form->enable_notifications ? 'Включены' : 'Выключены' }}
+                </label>
+                <x-form.toggle-switch
+                    x-model="on"
+                    :checked="$form->enable_notifications"
+                />
+            </div>
         </x-form.form-field>
 
         @if ($showInlineActions ?? true)

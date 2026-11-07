@@ -131,6 +131,10 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 Права просматривающего: `clients and projects all` — все пользователи роли; только `self` — только свой узел; без прав — пусто.
 
+Каналы, Статистика и Планирование берут тот же круг клиенто-проектов (`App\Support\ClientProjectVisibility`). Право `read` или `full clients and projects all` показывает всех. Роль из списка менеджеров без этого права видит только клиентов, где она менеджер. Роль из списка специалистов видит только проекты, где она специалист. Право на продукт (`read statistics`, `read planning`) открывает экран, но не чужие клиенто-проекты. Если строк нет, вместо пустой таблицы с нулями показывается заглушка.
+
+После задания пароля по приглашению человек попадает в Каналы. Адрес страницы, открытой до входа, не подставляется. То же после подтверждения email при самостоятельной регистрации.
+
 ### Фильтрация продуктов по клиенто-проекту
 
 Выбор клиенто-проекта в сайдбаре фильтрует продуктовые страницы: **Каналы**, **Статистика**, **Планирование**, **Отчёты**, **Клиенты и клиенто-проекты**.
@@ -225,6 +229,12 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 
 Загрузка фото (Livewire temporary upload): PHP-FPM `upload_max_filesize` должен быть не меньше лимита в форме (подсказка «До 2 Мб», правило `max:2048`). На staging выставлено `upload_max_filesize=8M` при `post_max_size=8M`. При заниженном лимите PHP пользователь видит «Не удалось загрузить файл…», а не сообщение о размере. Общий временный приём Livewire пускает файл до 12 Мб, поэтому форма сама отсекает фото больше 2 Мб в момент выбора (`guardPhoto`) и при сохранении. Текст ошибки: «Можно загружать фото не больше 2 Мб». В `lang/ru/validation.php` у `min` и `max` должны оставаться ключи `string` и `file`, иначе вместо фразы на экране появляется сырой ключ `validation.min.string` или `validation.max.file`.
 
+## Уведомления пользователя
+
+В форме пользователя один ползунок «Уведомления» (по умолчанию включен). Он пишет одно и то же значение в `users.enable_notifications` и `users.enable_important_notifications`.
+
+Если ползунок выключен, колокольчик не копит непрочитанное: уже лежащие записи помечаются прочитанными при сохранении пользователя, а новые (`NotificationRepository::create`) сразу получают `read_at`. Получатели проектных уведомлений при этом не отсекаются.
+
 ## Авторизация
 
 - Livewire-страница: `resources/views/pages/auth/login/`.
@@ -233,7 +243,7 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
   - **Активен** (`is_active=true`) — вход разрешён;
   - **Неактивен** (`is_active=false`, `email_verified_at` задан) — вход запрещён, сообщение `auth.inactive`;
   - **Подтвердить email** (`is_active=false`, `email_verified_at=null`) — вход запрещён, сообщение `auth.pending_email`, на форме входа ссылка «Повторно выслать письмо» (`LoginService::resendVerificationEmail`, письмо `VerifyRegistrationMail`, throttle 3/10 мин).
-- Чтение статуса: `User::accountStatus()` / `User::statusFromFlags()` (и `UserData::accountStatus()` в списке). Запись из формы: `User::persistenceForAccountStatus()`. Enum — справочник подписей и options для select, без зависимости на модель.
+- Чтение статуса: `User::accountStatus()` / `User::statusFromFlags()` (и `UserData::accountStatus()` в списке). Запись из формы: `User::persistenceForAccountStatus()`. При создании пользователя пароль не задаётся: кнопка «Создать и отправить инструкции на email» создаёт учётку в статусе «Подтвердить email» и отправляет письмо со ссылкой на 7 дней (`UserInvitationService`, страница `invitation.accept`). По ссылке человек задаёт пароль, после этого учётка становится активной и почта считается подтверждённой. Поле статуса на создании заблокировано и показывает этот служебный статус. В карточке уже существующего пользователя в списке только «Активен» и «Неактивен». «Подтвердить email» в этот список выбрать нельзя. Правило формы пускает его только для новой учётки и для пользователя, у которого он уже стоит.
 - Middleware `App\Http\Middleware\EnsureUserIsActive` в группе `web`: если сессия есть, а `is_active=false` — logout, invalidate session, redirect на login с flash `inactive` или `pending_email`.
 - Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`, `pending_email`, `verification_resent`, `verification_resend_throttle`).
 - Пароли: в Eloquent передаётся plain-text; cast `password => hashed` в `User` хеширует при сохранении. Не вызывать `Hash::make` / `bcrypt` перед записью в модель.
