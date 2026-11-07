@@ -10,6 +10,7 @@ use App\Services\RoleService;
 use App\Services\UserService;
 use App\Support\SystemSettingsSectionPermissions;
 use App\Support\UserProfileAccess;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -34,6 +35,8 @@ class extends Component
     public array $roles = [];
 
     public User $user;
+
+    public ?string $deleteError = null;
 
     public function mount(
         RateService $ratesService,
@@ -65,6 +68,15 @@ class extends Component
     public function canEditUserAdminFields(): bool
     {
         return UserProfileAccess::canEditAdminFields();
+    }
+
+    #[Computed]
+    public function canDeleteUser(): bool
+    {
+        return ! $this->isOwnProfile
+            && SystemSettingsSectionPermissions::userCanFull(
+                SystemSettingsSectionPermissions::users()
+            );
     }
 
     #[Computed]
@@ -222,5 +234,42 @@ class extends Component
         }
         $this->form->image_path = null;
         $this->form->photo = null;
+    }
+
+    public function deleteUser(UserService $userService): mixed
+    {
+        $this->deleteError = null;
+
+        if (! $this->canDeleteUser) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::fullPermissionNames(
+                    SystemSettingsSectionPermissions::users()
+                )
+            );
+        }
+
+        if ($userService->isLinkedToClientsOrProjects($this->user->id)) {
+            $this->deleteError = 'Нельзя удалить пользователя: на нем есть клиенты или клиенто-проекты.';
+
+            return null;
+        }
+
+        $imagePath = $this->user->image_path;
+
+        try {
+            $userService->delete($this->user->id);
+        } catch (QueryException) {
+            $this->deleteError = 'Нельзя удалить пользователя: на него ссылаются отчеты.';
+
+            return null;
+        }
+
+        if ($imagePath) {
+            Storage::disk('public')->delete($imagePath);
+        }
+
+        session()->flash('success', 'Пользователь удален');
+
+        return $this->redirect(route('system-settings.users'), navigate: true);
     }
 };

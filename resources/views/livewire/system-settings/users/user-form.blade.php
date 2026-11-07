@@ -1,19 +1,32 @@
 @php
     $canEditUserAdminFields = $canEditUserAdminFields ?? true;
     $isOwnProfile = $isOwnProfile ?? false;
+    $canDeleteUser = $canDeleteUser ?? false;
 @endphp
 
 <x-form.form :is-normalized="true" wire:submit.prevent="save" class="mt-4">
     <div class="flex flex-col gap-4">
-        <h1 class="text-xl font-semibold">
-            @if (! isset($form->id))
-                Добавить пользователя
-            @elseif ($isOwnProfile)
-                Настройки профиля
-            @else
-                Редактировать пользователя
+        <div class="flex items-center justify-between gap-4">
+            <h1 class="text-xl font-semibold">
+                @if (! isset($form->id))
+                    Добавить пользователя
+                @elseif ($isOwnProfile)
+                    Настройки профиля
+                @else
+                    Редактировать пользователя
+                @endif
+            </h1>
+
+            @if ($canDeleteUser)
+                <x-button.button
+                    type="button"
+                    label="Удалить пользователя"
+                    wire:click="deleteUser"
+                    wire:loading.attr="disabled"
+                    wire:target="deleteUser"
+                />
             @endif
-        </h1>
+        </div>
 
         @if ($showInlineActions ?? true)
             @if (session('password_updated'))

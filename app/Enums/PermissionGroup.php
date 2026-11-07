@@ -140,7 +140,6 @@ enum PermissionGroup: string
             self::REPORTS,
             self::SYSTEM_SETTINGS,
             self::SYSTEM_SETTINGS_DICTIONARIES,
-            self::SYSTEM_SETTINGS_USERS,
             self::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS,
         ];
     }

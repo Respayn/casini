@@ -3,6 +3,8 @@
 namespace App\Repositories;
 
 use App\Data\UserData;
+use App\Models\Client;
+use App\Models\Project;
 use App\Models\RateUser;
 use App\Models\User;
 use Illuminate\Support\Collection;
@@ -204,6 +206,29 @@ class UserRepository extends EloquentRepository
             }
 
             return $user;
+        });
+    }
+
+    public function isLinkedToClientsOrProjects(int $userId): bool
+    {
+        if (Client::query()->where('manager_id', $userId)->exists()) {
+            return true;
+        }
+
+        return Project::query()->where('specialist_id', $userId)->exists();
+    }
+
+    public function deleteById(int $userId): void
+    {
+        DB::transaction(function () use ($userId): void {
+            /** @var User $user */
+            $user = User::query()->findOrFail($userId);
+
+            $user->agencies()->detach();
+            $user->roles()->detach();
+            $user->rateUser()->delete();
+
+            $user->delete();
         });
     }
 

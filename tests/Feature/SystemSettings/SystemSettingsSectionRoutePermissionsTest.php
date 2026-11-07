@@ -135,12 +135,15 @@ class SystemSettingsSectionRoutePermissionsTest extends TestCase
     {
         foreach ([
             PermissionGroup::SYSTEM_SETTINGS_DICTIONARIES,
-            PermissionGroup::SYSTEM_SETTINGS_USERS,
             PermissionGroup::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS,
         ] as $group) {
             $this->assertTrue($group->isFullAccessLockedForNonAdmin());
             $this->assertFalse($group->isEditAccessLockedForNonAdmin());
             $this->assertFalse($group->isSecondary());
         }
+
+        $this->assertFalse(PermissionGroup::SYSTEM_SETTINGS_USERS->isFullAccessLockedForNonAdmin());
+        $this->assertFalse(PermissionGroup::SYSTEM_SETTINGS_USERS->isEditAccessLockedForNonAdmin());
+        $this->assertFalse(PermissionGroup::SYSTEM_SETTINGS_USERS->isSecondary());
     }
 }

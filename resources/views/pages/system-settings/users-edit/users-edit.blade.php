@@ -19,6 +19,12 @@
         x-text="successMessage"
     ></div>
 
+    @if ($deleteError)
+        <x-feedback.notice class="mt-4 mb-0 max-w-[950px]" variant="error">
+            {{ $deleteError }}
+        </x-feedback.notice>
+    @endif
+
     <x-panel.scroll-panel
         class="mb-3 mt-4"
         style="max-height: calc(100vh - 300px);"
@@ -29,6 +35,7 @@
                 'showInlineActions' => false,
                 'isOwnProfile' => $this->isOwnProfile,
                 'canEditUserAdminFields' => $this->canEditUserAdminFields,
+                'canDeleteUser' => $this->canDeleteUser,
             ])
         </div>
     </x-panel.scroll-panel>
