@@ -443,6 +443,7 @@
             height: 20px;
             flex-shrink: 0;
             display: flex;
+            color: #94A8C1;
         }
 
         .monthpicker-trigger__icon svg {

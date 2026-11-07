@@ -6,12 +6,14 @@
         <div class="mb-7 flex items-center gap-2">
             <h1>Каналы</h1>
             <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button
-                    icon="icons.gear"
-                    variant="outlined"
-                    rounded
+                <button
+                    type="button"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-secondary-text transition hover:text-primary disabled:cursor-not-allowed"
                     title="Настроить отчет"
-                />
+                    aria-label="Настроить отчет"
+                >
+                    <x-icons.settings />
+                </button>
             </x-overlay.modal-trigger>
         </div>
         <div>

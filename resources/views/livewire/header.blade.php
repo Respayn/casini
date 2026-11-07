@@ -30,16 +30,19 @@
         </div>
         <div class="flex items-center">
             @if ($settingsRoute)
-                <x-button.button
+                <a
                     href="{{ route($settingsRoute) }}"
-                    icon="icons.gear"
-                    :variant="$isOnSystemSettings ? 'primary' : 'outlined'"
-                    rounded
+                    wire:navigate
+                    title="Настройки"
+                    aria-label="Настройки"
                     @class([
-                        'hover:bg-primary hover:text-white' => ! $isOnSystemSettings,
-                        'hover:!bg-primary hover:!text-white' => $isOnSystemSettings,
+                        'inline-flex h-10 w-10 items-center justify-center rounded-md transition',
+                        'text-primary' => $isOnSystemSettings,
+                        'text-secondary-text hover:text-primary' => ! $isOnSystemSettings,
                     ])
-                />
+                >
+                    <x-icons.settings-applications />
+                </a>
             @endif
             <x-notifications.bell-button />
 

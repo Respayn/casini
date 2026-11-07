@@ -2,6 +2,13 @@
     $svc = app(\App\Services\NotificationService::class);
     $unread = auth()->check() ? $svc->getUnreadCount(auth()->id()) : 0;
     $display = $unread > 99 ? '99+' : $unread;
+    $refererPath = parse_url((string) request()->headers->get('referer'), PHP_URL_PATH);
+    // Предыдущую страницу учитываем только когда шапка обновляется сама
+    // (запрос Livewire). Иначе переход из уведомлений в настройки
+    // оставляет колокольчик синим.
+    $headerRefresh = request()->is('livewire-*/update');
+    $onNotifications = request()->is('notifications')
+        || ($headerRefresh && rtrim((string) $refererPath, '/') === '/notifications');
 @endphp
 
 <div
@@ -15,12 +22,23 @@
         "
     @endif
 >
-    <x-button.button
+    <a
         href="{{ route('notifications.index') }}"
-        icon="icons.bell"
-        variant="outlined"
-        rounded
-    />
+        wire:navigate
+        title="Уведомления"
+        aria-label="Уведомления"
+        @class([
+            'inline-flex h-10 w-10 items-center justify-center rounded-md transition',
+            'text-primary' => $onNotifications,
+            'text-secondary-text hover:text-primary' => ! $onNotifications,
+        ])
+    >
+        @if ($unread)
+            <x-icons.notifications-active class="notify-ring" />
+        @else
+            <x-icons.notifications />
+        @endif
+    </a>
     @if($unread)
         <span class="notify-badge" :class="{ 'notify-badge-nudge': nudge }">{{ $display }}</span>
     @endif
@@ -60,5 +78,19 @@
 
 .notify-badge-nudge {
   animation: notify-badge-nudge 1s ease;
+}
+
+@keyframes notify-ring {
+  0%, 78%, 100% { transform: rotate(0deg); }
+  82% { transform: rotate(14deg); }
+  86% { transform: rotate(-12deg); }
+  90% { transform: rotate(8deg); }
+  94% { transform: rotate(-5deg); }
+  98% { transform: rotate(0deg); }
+}
+
+.notify-ring {
+  transform-origin: 50% 15%;
+  animation: notify-ring 6s ease-in-out infinite;
 }
 </style>
