@@ -27,6 +27,7 @@
             <x-button.button
                 type="button"
                 variant="primary"
+                icon="icons.send"
                 wire:click="save"
                 wire:loading.attr="disabled"
                 wire:target="save"

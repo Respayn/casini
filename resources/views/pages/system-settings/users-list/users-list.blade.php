@@ -6,7 +6,7 @@
             <div class="flex items-center gap-3">
                 <label class="inline-flex items-center">
                     <span class="mr-2 text-[14px]">Показывать только активные</span>
-                    <x-form.checkbox wire:model="onlyActive"/>
+                    <x-form.checkbox wire:model.live="onlyActive"/>
                 </label>
             </div>
         </div>
