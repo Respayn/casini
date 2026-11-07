@@ -223,7 +223,7 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 
 Фото пользователей и логотипы агентства отдаются по URL `/storage/...` через симлинк `public/storage` → `storage/app/public`. Без `php artisan storage:link` браузер получает 403/битую картинку при живом файле на диске. Smoke: `scripts/staging-smoke.sh` проверяет наличие симлинка.
 
-Загрузка фото (Livewire temporary upload): PHP-FPM `upload_max_filesize` должен быть не меньше лимита в форме (сейчас подсказка «До 2 Мб», правило `max:2048`). На staging выставлено `upload_max_filesize=8M` при `post_max_size=8M`. При заниженном лимите PHP пользователь видит `validation.uploaded` («Не удалось загрузить файл…»), а не сообщение о размере.
+Загрузка фото (Livewire temporary upload): PHP-FPM `upload_max_filesize` должен быть не меньше лимита в форме (подсказка «До 2 Мб», правило `max:2048`). На staging выставлено `upload_max_filesize=8M` при `post_max_size=8M`. При заниженном лимите PHP пользователь видит «Не удалось загрузить файл…», а не сообщение о размере. Общий временный приём Livewire пускает файл до 12 Мб, поэтому форма сама отсекает фото больше 2 Мб в момент выбора (`guardPhoto`) и при сохранении. Текст ошибки: «Можно загружать фото не больше 2 Мб». В `lang/ru/validation.php` у `min` и `max` должны оставаться ключи `string` и `file`, иначе вместо фразы на экране появляется сырой ключ `validation.min.string` или `validation.max.file`.
 
 ## Авторизация
 

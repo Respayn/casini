@@ -44,6 +44,11 @@ class extends Component
         $this->form->validateOnly($field);
     }
 
+    public function updatedFormPhoto(): void
+    {
+        $this->form->guardPhoto();
+    }
+
     public function save(UserService $userService)
     {
         if (! SystemSettingsSectionPermissions::userCanEdit(

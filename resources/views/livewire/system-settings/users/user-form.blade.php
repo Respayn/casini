@@ -177,7 +177,12 @@
 
             <x-form.form-field>
                 <x-form.form-label tooltip="Можно загружать только jpg, jpeg, png. До 2 Мб">Фото пользователя</x-form.form-label>
-                <div class="flex w-[305px] max-w-[305px] flex-col items-stretch gap-1">
+                <div
+                    class="flex w-[305px] max-w-[305px] flex-col items-stretch gap-1"
+                    x-data="{ photoError: '' }"
+                    x-on:photo-too-big="photoError = 'Можно загружать фото не больше 2 Мб'"
+                    x-on:photo-ok="photoError = ''"
+                >
                     @if($form->photo)
                         {{-- Превью до сохранения: клик по фото — выбрать другое --}}
                         <div
@@ -194,6 +199,16 @@
                                 accept=".jpg,.jpeg,.png"
                                 class="sr-only"
                                 wire:model="form.photo"
+                                x-on:change.capture="
+                                    const file = $event.target.files && $event.target.files[0];
+                                    if (file && file.size > 2 * 1024 * 1024) {
+                                        $dispatch('photo-too-big');
+                                        $event.target.value = '';
+                                        $event.stopImmediatePropagation();
+                                    } else {
+                                        $dispatch('photo-ok');
+                                    }
+                                "
                                 @click.stop
                             />
                         </div>
@@ -221,6 +236,16 @@
                                 accept=".jpg,.jpeg,.png"
                                 class="sr-only"
                                 wire:model="form.photo"
+                                x-on:change.capture="
+                                    const file = $event.target.files && $event.target.files[0];
+                                    if (file && file.size > 2 * 1024 * 1024) {
+                                        $dispatch('photo-too-big');
+                                        $event.target.value = '';
+                                        $event.stopImmediatePropagation();
+                                    } else {
+                                        $dispatch('photo-ok');
+                                    }
+                                "
                                 @click.stop
                             />
                         </div>
@@ -246,14 +271,30 @@
                                 accept=".jpg,.jpeg,.png"
                                 class="sr-only"
                                 wire:model="form.photo"
+                                x-on:change.capture="
+                                    const file = $event.target.files && $event.target.files[0];
+                                    if (file && file.size > 2 * 1024 * 1024) {
+                                        $dispatch('photo-too-big');
+                                        $event.target.value = '';
+                                        $event.stopImmediatePropagation();
+                                    } else {
+                                        $dispatch('photo-ok');
+                                    }
+                                "
                                 @click.stop
                             />
                             <span class="mt-2 block w-full text-center text-sm text-secondary-text">Загрузить фото</span>
                         </div>
                     @endif
 
+                    <span
+                        x-show="photoError"
+                        x-cloak
+                        x-text="photoError"
+                        class="text-warning-red text-[12px]"
+                    ></span>
                     @error('form.photo')
-                    <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                    <span x-show="!photoError" class="text-warning-red text-[12px]">{{ $message }}</span>
                     @enderror
                 </div>
             </x-form.form-field>

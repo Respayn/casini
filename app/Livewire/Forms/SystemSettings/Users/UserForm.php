@@ -5,6 +5,7 @@ namespace App\Livewire\Forms\SystemSettings\Users;
 use App\Enums\UserAccountStatus;
 use App\Models\User;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
@@ -142,10 +143,35 @@ class UserForm extends Form
             'email.unique' => 'Пользователь с таким email уже существует',
             'login.required' => 'Поле логин обязательно для заполнения',
             'login.unique' => 'Пользователь с таким логином уже существует',
+            'password.required' => 'Поле пароль обязательно для заполнения',
+            'password.min' => 'слишком короткий пароль',
+            'password.regex' => 'пароль должен состоять не менее чем из 6 символов и содержит латинские буквы и цифры',
+            'password_confirmation.required' => 'Поле повторите пароль обязательно для заполнения',
+            'password_confirmation.min' => 'слишком короткий пароль',
+            'password_confirmation.same' => 'пароли не совпадают',
+            'photo.max' => 'Можно загружать фото не больше 2 Мб',
+            'photo.image' => 'Можно загружать только jpg, jpeg, png или gif',
+            'photo.mimes' => 'Можно загружать только jpg, jpeg, png или gif',
             'bitrix24_id.integer' => 'ID в Битрикс24 должен быть числом',
             'bitrix24_id.min' => 'ID в Битрикс24 должен быть числом',
             'bitrix24_id.unique' => 'Этот ID Битрикс24 уже указан у другого пользователя',
         ];
+    }
+
+    public function guardPhoto(): void
+    {
+        if ($this->photo === null) {
+            return;
+        }
+
+        try {
+            $this->validateOnly('photo');
+        } catch (ValidationException $exception) {
+            $this->photo->delete();
+            $this->photo = null;
+
+            throw $exception;
+        }
     }
 
     public function isEmailValid(): bool
