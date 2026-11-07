@@ -100,7 +100,7 @@
                                     <x-data.table-cell :rowspan="$projectCount">
                                         @if ($canEdit)
                                             <button
-                                                class="link"
+                                                class="link text-left"
                                                 x-on:click="$dispatch('client-edit', {{ $clientEditPayload }})"
                                             >
                                                 {{ $client->name }}
@@ -140,7 +140,7 @@
                             <x-data.table-cell>
                                 @if ($canEdit)
                                     <button
-                                        class="link"
+                                        class="link text-left"
                                         wire:click="$dispatch('client-edit', {{ $clientEditPayload }})"
                                     >
                                         {{ $client->name }}

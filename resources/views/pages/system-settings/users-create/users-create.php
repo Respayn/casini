@@ -12,6 +12,7 @@ use App\Services\UserService;
 use App\Support\SystemSettingsSectionPermissions;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -31,8 +32,6 @@ class extends Component
 
     public array $roles = [];
 
-    public bool $buttonDisabled = true;
-
     public function mount(): void
     {
         $this->form->account_status = UserAccountStatus::PendingEmail->value;
@@ -45,6 +44,32 @@ class extends Component
         $this->rates = $ratesService->getRates(); // Получить список ставок для селекта
         // Получение ролей для выпадающего списка, если нужно
         $this->roles = $roleService->getRoleOptions();
+    }
+
+    #[Computed]
+    public function isSaveReady(): bool
+    {
+        if (! filled(trim((string) $this->form->login))) {
+            return false;
+        }
+
+        if (! filled(trim((string) $this->form->first_name))) {
+            return false;
+        }
+
+        if (! filled($this->form->role_id)) {
+            return false;
+        }
+
+        if (! filled((string) $this->form->account_status)) {
+            return false;
+        }
+
+        if (! $this->form->isEmailValid() || $this->getErrorBag()->has('form.email')) {
+            return false;
+        }
+
+        return true;
     }
 
     public function validateFormField(string $field): void

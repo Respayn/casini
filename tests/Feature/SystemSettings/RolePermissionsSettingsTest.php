@@ -5,6 +5,7 @@ namespace Tests\Feature\SystemSettings;
 use App\Enums\PermissionGroup;
 use App\Enums\Role as RoleEnum;
 use App\Models\Role;
+use App\Repositories\RoleRepository;
 use App\Services\RoleService;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
@@ -131,7 +132,7 @@ class RolePermissionsSettingsTest extends TestCase
         $this->assertTrue($manager->hasPermissionTo('read system settings dictionaries'));
     }
 
-    public function test_save_strips_locked_full_access_for_clients_and_projects_parent(): void
+    public function test_save_keeps_full_access_for_clients_and_projects_parent(): void
     {
         $roles = $this->roleService->getRolesAndPermissionsForSettingsPage();
         $roles = collect($roles)->map(function (array $role) {
@@ -157,7 +158,7 @@ class RolePermissionsSettingsTest extends TestCase
         $this->assertTrue($result->isSuccess());
 
         $manager = Role::findByName(RoleEnum::MANAGER->value);
-        $this->assertFalse($manager->hasPermissionTo('full clients and projects'));
+        $this->assertTrue($manager->hasPermissionTo('full clients and projects'));
         $this->assertTrue($manager->hasPermissionTo('edit clients and projects'));
         $this->assertTrue($manager->hasPermissionTo('read clients and projects'));
     }
@@ -304,7 +305,7 @@ class RolePermissionsSettingsTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Нельзя удалить роль администратор');
 
-        app(\App\Repositories\RoleRepository::class)->deleteRole($admin->id);
+        app(RoleRepository::class)->deleteRole($admin->id);
     }
 
     public function test_load_normalizes_read_and_edit_when_only_full_in_db(): void
@@ -406,7 +407,7 @@ class RolePermissionsSettingsTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage(__('permissions.default_role_undeletable'));
 
-        app(\App\Repositories\RoleRepository::class)->deleteRole($default->id);
+        app(RoleRepository::class)->deleteRole($default->id);
     }
 
     public function test_default_role_cannot_be_deleted_when_missing_from_payload(): void

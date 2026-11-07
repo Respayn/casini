@@ -145,5 +145,9 @@ class SystemSettingsSectionRoutePermissionsTest extends TestCase
         $this->assertFalse(PermissionGroup::SYSTEM_SETTINGS_USERS->isFullAccessLockedForNonAdmin());
         $this->assertFalse(PermissionGroup::SYSTEM_SETTINGS_USERS->isEditAccessLockedForNonAdmin());
         $this->assertFalse(PermissionGroup::SYSTEM_SETTINGS_USERS->isSecondary());
+
+        $this->assertFalse(PermissionGroup::CLIENTS_AND_PROJECTS->isFullAccessLockedForNonAdmin());
+        $this->assertTrue(PermissionGroup::CLIENTS_AND_PROJECTS_SELF->isFullAccessLockedForNonAdmin());
+        $this->assertTrue(PermissionGroup::CLIENTS_AND_PROJECTS_ALL->isFullAccessLockedForNonAdmin());
     }
 }
