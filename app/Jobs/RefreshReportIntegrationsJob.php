@@ -2,10 +2,10 @@
 
 namespace App\Jobs;
 
+use App\Services\IntegrationSync\IntegrationManualRefreshNotifier;
 use App\Services\IntegrationSync\IntegrationManualRefreshProgress;
 use App\Services\IntegrationSync\IntegrationManualRefreshTimestamp;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
-use App\Services\NotificationService;
 use App\Services\Statistics\StatisticsService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -29,6 +29,7 @@ class RefreshReportIntegrationsJob implements ShouldQueue
 
     public function __construct(
         public int $userId,
+        public int $agencyId,
         public string $product,
         public int $projectId,
         public int $projectIndex,
@@ -44,10 +45,10 @@ class RefreshReportIntegrationsJob implements ShouldQueue
         IntegrationMetricsRefreshService $metricsRefreshService,
         IntegrationManualRefreshProgress $progress,
         IntegrationManualRefreshTimestamp $timestamps,
-        NotificationService $notifications,
+        IntegrationManualRefreshNotifier $notifier,
         StatisticsService $statisticsService,
     ): void {
-        $state = $progress->get($this->userId, $this->product);
+        $state = $progress->get($this->agencyId);
 
         if ($state === null
             || ($state['run_id'] ?? null) !== $this->runId
@@ -65,8 +66,7 @@ class RefreshReportIntegrationsJob implements ShouldQueue
 
         try {
             $outcome = $metricsRefreshService->refreshSingleProject(
-                $this->userId,
-                $this->product,
+                $this->agencyId,
                 $this->projectId,
                 $this->projectIndex,
                 Carbon::parse($this->periodFrom)->startOfDay(),
@@ -76,6 +76,7 @@ class RefreshReportIntegrationsJob implements ShouldQueue
         } catch (Throwable $e) {
             Log::warning('Manual refresh job failed', [
                 'project_id' => $this->projectId,
+                'agency_id' => $this->agencyId,
                 'product' => $this->product,
                 'message' => $e->getMessage(),
             ]);
@@ -83,8 +84,7 @@ class RefreshReportIntegrationsJob implements ShouldQueue
         }
 
         $after = $progress->markProjectFinished(
-            $this->userId,
-            $this->product,
+            $this->agencyId,
             $this->projectId,
             $outcome,
         );
@@ -100,7 +100,7 @@ class RefreshReportIntegrationsJob implements ShouldQueue
         $this->finalizeRun(
             $progress,
             $timestamps,
-            $notifications,
+            $notifier,
             $statisticsService,
             $after,
         );
@@ -112,7 +112,7 @@ class RefreshReportIntegrationsJob implements ShouldQueue
     private function finalizeRun(
         IntegrationManualRefreshProgress $progress,
         IntegrationManualRefreshTimestamp $timestamps,
-        NotificationService $notifications,
+        IntegrationManualRefreshNotifier $notifier,
         StatisticsService $statisticsService,
         array $state,
     ): void {
@@ -122,8 +122,7 @@ class RefreshReportIntegrationsJob implements ShouldQueue
 
             if ($from->equalTo($to)) {
                 $progress->setCurrentStep(
-                    $this->userId,
-                    $this->product,
+                    $this->agencyId,
                     $this->projectId,
                     'bonuses',
                     (int) ($state['total'] ?? $this->projectIndex),
@@ -144,31 +143,17 @@ class RefreshReportIntegrationsJob implements ShouldQueue
             }
         }
 
-        $progress->markDone($this->userId, $this->product);
-        $timestamps->record($this->userId, $this->product);
+        $progress->markDone($this->agencyId);
+        $timestamps->record($this->agencyId);
 
-        $failed = (int) ($state['failed'] ?? 0);
-        $productTitle = IntegrationManualRefreshProgress::productTitle($this->product);
-        $text = "Данные в {$productTitle} обновлены";
-        if ($failed > 0) {
-            $text .= ". Ошибок: {$failed}";
-        }
-
-        $routeName = $this->product === 'statistics' ? 'statistics' : 'channels';
-
-        $notifications->create(
-            userId: $this->userId,
-            text: $text,
-            linkUrl: route($routeName),
-            links: [],
-            type: IntegrationManualRefreshProgress::TYPE_REFRESHED,
-            payload: [
-                'product' => $this->product,
-                'updated' => (int) ($state['updated'] ?? 0),
-                'failed' => $failed,
-                'skipped' => (int) ($state['skipped'] ?? 0),
-                'run_id' => $this->runId,
-            ],
+        $notifier->notifyAgency(
+            agencyId: $this->agencyId,
+            fallbackUserId: $this->userId,
+            startedProduct: $this->product,
+            runId: $this->runId,
+            updated: (int) ($state['updated'] ?? 0),
+            failed: (int) ($state['failed'] ?? 0),
+            skipped: (int) ($state['skipped'] ?? 0),
         );
     }
 }

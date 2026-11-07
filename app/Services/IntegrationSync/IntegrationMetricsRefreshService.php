@@ -53,6 +53,7 @@ class IntegrationMetricsRefreshService
      */
     public function queueReportDataRefresh(
         int $userId,
+        int $agencyId,
         string $product,
         array $pendingProjects,
         Carbon $periodFrom,
@@ -65,6 +66,14 @@ class IntegrationMetricsRefreshService
 
         if ($ids === []) {
             return ['ok' => false, 'error' => 'Нет клиенто-проектов для обновления'];
+        }
+
+        if ($agencyId <= 0) {
+            return ['ok' => false, 'error' => 'Не выбрано агентство'];
+        }
+
+        if ($this->progress->isRunning($agencyId)) {
+            return ['ok' => false, 'error' => 'Обновление уже выполняется'];
         }
 
         $throttle = $this->apiThrottle->consume($userId);
@@ -96,12 +105,22 @@ class IntegrationMetricsRefreshService
             ];
         }
 
-        $state = $this->progress->start($userId, $product, $orderedPending);
+        $periodFromKey = $periodFrom->copy()->startOfMonth()->toDateString();
+        $periodToKey = $periodTo->copy()->startOfMonth()->toDateString();
+        $state = $this->progress->start(
+            $agencyId,
+            $product,
+            $orderedPending,
+            $periodFromKey,
+            $periodToKey,
+            $includeVat,
+        );
         [$from, $to] = $this->resolvePeriod($periodFrom, $periodTo);
 
         foreach ($orderedPending as $index => $item) {
             RefreshReportIntegrationsJob::dispatch(
                 userId: $userId,
+                agencyId: $agencyId,
                 product: $product,
                 projectId: (int) $item['id'],
                 projectIndex: $index + 1,
@@ -126,8 +145,7 @@ class IntegrationMetricsRefreshService
      * @return 'updated'|'failed'|'skipped'
      */
     public function refreshSingleProject(
-        int $userId,
-        string $product,
+        int $agencyId,
         int $projectId,
         int $projectIndex,
         Carbon $periodFrom,
@@ -149,8 +167,7 @@ class IntegrationMetricsRefreshService
         foreach ($applicable as $collector) {
             $hadWork = true;
             $this->progress->setCurrentStep(
-                $userId,
-                $product,
+                $agencyId,
                 $projectId,
                 $collector->key(),
                 $projectIndex,
@@ -187,8 +204,7 @@ class IntegrationMetricsRefreshService
         if ($withDirectBudget) {
             $hadWork = true;
             $this->progress->setCurrentStep(
-                $userId,
-                $product,
+                $agencyId,
                 $projectId,
                 'direct_budget',
                 $projectIndex,

@@ -170,9 +170,7 @@ class extends Component
     {
         $this->persistUserSettings();
 
-        return $this->filterReportDataExcludingPending(
-            $this->channelReportService->getReportData($this->queryData, $this->sidebarProjectId),
-        );
+        return $this->channelReportService->getReportData($this->queryData, $this->sidebarProjectId);
     }
 
     #[On('group-settings-applied')]

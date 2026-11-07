@@ -71,12 +71,8 @@
         </x-feedback.notice>
     @endif
 
-    @if ($isReportDataRefreshing)
-        <x-report.refresh-pending-tree :projects="$refreshPendingProjects" />
-    @endif
-
     <x-report.table-loading :targets="$reportLoadingTargets">
-        @if ($this->reportData->groups->isEmpty() && ! $isReportDataRefreshing)
+        @if ($this->reportData->groups->isEmpty())
             <div class="mt-20 flex flex-col items-center gap-4">
                 <span class="text-caption-text">Нет клиенто-проектов для отображения каналов</span>
                 <div>
@@ -87,7 +83,7 @@
                     />
                 </div>
             </div>
-        @elseif (! $this->reportData->groups->isEmpty())
+        @else
             <div x-data="{ expandedGroups: {} }">
                 <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                     <x-data.table>
@@ -129,13 +125,17 @@
                                     </x-data.table-cell>
                                 </x-data.table-row>
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary" data-channels-group-summary>
-                                    @foreach ($this->visibleColumns as $column)
-                                        <x-dynamic-component
-                                            :component="'channels.rows.summary.' . $column->component"
-                                            :params="$group->summary->get($column->field)"
-                                            :bold="true"
-                                        />
-                                    @endforeach
+                                    @if ($this->isRefreshGroupPending($group))
+                                        <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                    @else
+                                        @foreach ($this->visibleColumns as $column)
+                                            <x-dynamic-component
+                                                :component="'channels.rows.summary.' . $column->component"
+                                                :params="$group->summary->get($column->field)"
+                                                :bold="true"
+                                            />
+                                        @endforeach
+                                    @endif
                                 </x-data.table-row>
                             @endunless
                             {{-- Строки группы --}}
@@ -143,18 +143,23 @@
                                 @php
                                     $rowBgColor = $clientProjectStripe % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
                                     $clientProjectStripe++;
+                                    $rowPending = $this->isRefreshRowPending((int) $row->id);
                                 @endphp
                                 @if ($queryData->grouping->value === 'none')
                                     <x-data.table-row
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
                                     >
-                                        @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component
-                                                :component="'channels.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)"
-                                            />
-                                        @endforeach
+                                        @if ($rowPending)
+                                            <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                        @else
+                                            @foreach ($this->visibleColumns as $column)
+                                                <x-dynamic-component
+                                                    :component="'channels.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endforeach
+                                        @endif
                                     </x-data.table-row>
                                 @else
                                     <x-data.table-row
@@ -162,25 +167,33 @@
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
                                     >
-                                        @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component
-                                                :component="'channels.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)"
-                                            />
-                                        @endforeach
+                                        @if ($rowPending)
+                                            <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                        @else
+                                            @foreach ($this->visibleColumns as $column)
+                                                <x-dynamic-component
+                                                    :component="'channels.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endforeach
+                                        @endif
                                     </x-data.table-row>
                                 @endif
                             @endforeach
                         @endforeach
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
-                            @foreach ($this->visibleColumns as $column)
-                                <x-dynamic-component
-                                    :component="'channels.rows.summary.' . $column->component"
-                                    :params="$this->reportData->summary->get($column->field)"
-                                    :bold="true"
-                                />
-                            @endforeach
+                            @if ($this->isRefreshTableSummaryPending())
+                                <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                            @else
+                                @foreach ($this->visibleColumns as $column)
+                                    <x-dynamic-component
+                                        :component="'channels.rows.summary.' . $column->component"
+                                        :params="$this->reportData->summary->get($column->field)"
+                                        :bold="true"
+                                    />
+                                @endforeach
+                            @endif
                         </x-data.table-row>
                     </x-data.table-rows>
                 </x-data.table>

@@ -11,8 +11,7 @@
         ? 'Последнее обновление данных: '.$lastRefreshLabel
         : 'Последнее обновление данных: ещё не обновлялось';
 
-    $tooltipStyle = 'position: absolute; right: 0; bottom: calc(100% + 0.5rem); z-index: 9999; width: max-content; max-width: min(20rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);';
-    $refreshTooltipStyle = 'position: absolute; right: calc(100% + 0.5rem); top: 50%; transform: translateY(-50%); z-index: 9999; width: max-content; max-width: min(16rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); white-space: normal;';
+    $tooltipBox = 'z-index: 9999; width: max-content; max-width: min(16rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);';
 @endphp
 
 <div {{ $attributes->class(['ml-auto flex flex-wrap items-center']) }}>
@@ -22,25 +21,30 @@
         @mouseenter="open = true"
         @mouseleave="open = false"
     >
-        <x-overlay.modal-trigger :name="$columnModal" :wire:click="$columnTriggerAction">
-            <x-button.button
-                icon="icons.columns"
-                variant="link"
-                size="sm"
-                aria-label="Настроить колонки"
-            />
-        </x-overlay.modal-trigger>
+        <span x-ref="columnsButton" class="inline-flex">
+            <x-overlay.modal-trigger :name="$columnModal" :wire:click="$columnTriggerAction">
+                <x-button.button
+                    icon="icons.columns"
+                    variant="link"
+                    size="sm"
+                    aria-label="Настроить колонки"
+                />
+            </x-overlay.modal-trigger>
+        </span>
 
-        {{-- Inline styles: avoid Alpine :style (it overwrote position) and group-hover utilities missing from staging build. --}}
-        <div
-            x-show="open"
-            x-cloak
-            role="tooltip"
-            class="pointer-events-none"
-            style="{{ $tooltipStyle }}"
-        >
-            Настроить колонки
-        </div>
+        {{-- Как x-overlay.tooltip: к телу страницы и к самой иконке, иначе пузырь уезжает к чужой кнопке. --}}
+        <template x-teleport="body">
+            <div
+                x-show="open"
+                x-cloak
+                x-anchor.left.offset.6="$refs.columnsButton"
+                role="tooltip"
+                class="pointer-events-none"
+                style="{{ $tooltipBox }}"
+            >
+                Настроить колонки
+            </div>
+        </template>
     </div>
 
     @if ($refreshable)
@@ -63,10 +67,13 @@
             refreshing() {
                 return !! $wire.isReportDataRefreshing;
             },
-            label() {
+            projectLine() {
+                return $wire.refreshProgressProject || '';
+            },
+            sourceLine() {
                 return $wire.refreshProgressLabel || 'Обновление…';
             },
-            secondLine() {
+            counterLine() {
                 if (! this.refreshing()) {
                     return '';
                 }
@@ -102,6 +109,7 @@
     >
         <button
             type="button"
+            x-ref="refreshButton"
             class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-primary-text transition hover:text-primary disabled:cursor-not-allowed disabled:opacity-60"
             x-bind:disabled="refreshing()"
             aria-label="Обновить данные"
@@ -119,21 +127,25 @@
             </span>
         </button>
 
-        <div
-            x-show="refreshing() || open"
-            x-cloak
-            role="tooltip"
-            class="pointer-events-none"
-            style="{{ $refreshTooltipStyle }}"
-        >
-            <div x-show="refreshing()" class="leading-snug whitespace-nowrap">
-                <div x-text="label()"></div>
-                <div x-text="secondLine()"></div>
+        <template x-teleport="body">
+            <div
+                x-show="refreshing() || open"
+                x-cloak
+                x-anchor.left.offset.6="$refs.refreshButton"
+                role="tooltip"
+                class="pointer-events-none"
+                style="{{ $tooltipBox }}"
+            >
+                <div x-show="refreshing()" class="leading-snug">
+                    <div x-show="projectLine()" x-text="projectLine()" class="break-words"></div>
+                    <div x-text="sourceLine()"></div>
+                    <div x-text="counterLine()"></div>
+                </div>
+                <div x-show="! refreshing()">
+                    {{ $refreshTooltip }}
+                </div>
             </div>
-            <div x-show="! refreshing()">
-                {{ $refreshTooltip }}
-            </div>
-        </div>
+        </template>
     </div>
     @endif
 </div>

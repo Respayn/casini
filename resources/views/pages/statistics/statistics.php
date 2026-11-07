@@ -186,9 +186,7 @@ class extends Component
             $this->queryData,
         );
 
-        return $this->filterReportDataExcludingPending(
-            $this->statisticsService->getReportData($this->queryData, $this->sidebarProjectId),
-        );
+        return $this->statisticsService->getReportData($this->queryData, $this->sidebarProjectId);
     }
 
     private function rebuildQueryDataForPeriod(): void

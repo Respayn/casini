@@ -6,24 +6,29 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 /**
- * Прогресс ручного обновления Каналов / Статистики в фоне.
+ * Прогресс ручного обновления Каналов / Статистики в фоне (один на агентство).
  *
  * @phpstan-type PendingProject array{id: int, label: string, group: ?string}
  * @phpstan-type ProgressState array{
  *     status: string,
  *     run_id: string,
+ *     agency_id: int,
  *     product: string,
  *     pending: list<PendingProject>,
  *     total: int,
  *     current_index: int,
  *     current_project_id: ?int,
+ *     current_project_label: ?string,
  *     current_label: ?string,
  *     step_started_at: ?int,
+ *     period_from: string,
+ *     period_to: string,
+ *     include_vat: bool,
  *     all_ids: list<int>,
  *     updated: int,
  *     failed: int,
  *     skipped: int,
- *     noticed: bool
+ *     noticed: list<string>
  * }
  */
 class IntegrationManualRefreshProgress
@@ -68,15 +73,38 @@ class IntegrationManualRefreshProgress
         };
     }
 
+    public static function sharedFinishMessage(int $failed = 0): string
+    {
+        $message = 'Данные в Каналах и Статистике обновлены';
+
+        if ($failed > 0) {
+            $message .= ". Ошибок: {$failed}";
+        }
+
+        return $message;
+    }
+
+    public static function noticeKey(int $userId, string $product): string
+    {
+        return $userId.':'.$product;
+    }
+
     /**
      * @param  list<PendingProject>  $pending
      * @return ProgressState
      */
-    public function start(int $userId, string $product, array $pending): array
-    {
+    public function start(
+        int $agencyId,
+        string $product,
+        array $pending,
+        string $periodFrom,
+        string $periodTo,
+        bool $includeVat,
+    ): array {
         $state = [
             'status' => self::STATUS_RUNNING,
             'run_id' => (string) Str::uuid(),
+            'agency_id' => $agencyId,
             'product' => $product,
             'pending' => array_values($pending),
             'all_ids' => array_values(array_map(
@@ -86,53 +114,97 @@ class IntegrationManualRefreshProgress
             'total' => count($pending),
             'current_index' => 0,
             'current_project_id' => null,
+            'current_project_label' => null,
             'current_label' => null,
             'step_started_at' => null,
+            'period_from' => $periodFrom,
+            'period_to' => $periodTo,
+            'include_vat' => $includeVat,
             'updated' => 0,
             'failed' => 0,
             'skipped' => 0,
-            'noticed' => false,
+            'noticed' => [],
         ];
 
-        $this->put($userId, $product, $state);
+        $this->put($agencyId, $state);
 
         return $state;
     }
 
     /**
+     * Строка ещё в очереди и на экране тот же период / НДС, что при клике.
+     *
+     * @param  ProgressState|array<string, mixed>  $state
+     */
+    public static function isProjectPendingInSlice(
+        array $state,
+        int $projectId,
+        string $periodFrom,
+        string $periodTo,
+        bool $includeVat,
+    ): bool {
+        if (($state['status'] ?? null) !== self::STATUS_RUNNING) {
+            return false;
+        }
+
+        if (($state['period_from'] ?? null) !== $periodFrom
+            || ($state['period_to'] ?? null) !== $periodTo
+            || (bool) ($state['include_vat'] ?? false) !== $includeVat
+        ) {
+            return false;
+        }
+
+        foreach ($state['pending'] ?? [] as $item) {
+            if ((int) ($item['id'] ?? 0) === $projectId) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return ProgressState|null
      */
-    public function get(int $userId, string $product): ?array
+    public function get(int $agencyId): ?array
     {
-        $raw = Cache::get($this->cacheKey($userId, $product));
+        $raw = Cache::get($this->cacheKey($agencyId));
 
         return is_array($raw) ? $raw : null;
     }
 
+    public function isRunning(int $agencyId): bool
+    {
+        $state = $this->get($agencyId);
+
+        return ($state['status'] ?? null) === self::STATUS_RUNNING;
+    }
+
     public function setCurrentStep(
-        int $userId,
-        string $product,
+        int $agencyId,
         int $projectId,
         string $sourceKey,
         int $currentIndex,
     ): void {
-        $this->mutate($userId, $product, function (array $state) use ($projectId, $sourceKey, $currentIndex): array {
+        $this->mutate($agencyId, function (array $state) use ($projectId, $sourceKey, $currentIndex): array {
             $state['current_project_id'] = $projectId;
             $state['current_label'] = self::labelForSource($sourceKey);
             $state['current_index'] = $currentIndex;
             $state['step_started_at'] = time();
+            $state['current_project_label'] = $sourceKey === 'bonuses'
+                ? null
+                : $this->labelForProject($state, $projectId);
 
             return $state;
         });
     }
 
     public function markProjectFinished(
-        int $userId,
-        string $product,
+        int $agencyId,
         int $projectId,
         string $outcome,
     ): ?array {
-        return $this->mutate($userId, $product, function (array $state) use ($projectId, $outcome): array {
+        return $this->mutate($agencyId, function (array $state) use ($projectId, $outcome): array {
             $state['pending'] = array_values(array_filter(
                 $state['pending'] ?? [],
                 static fn (array $item): bool => (int) ($item['id'] ?? 0) !== $projectId,
@@ -147,6 +219,7 @@ class IntegrationManualRefreshProgress
             }
 
             $state['current_project_id'] = null;
+            $state['current_project_label'] = null;
             $state['current_label'] = null;
             $state['step_started_at'] = null;
 
@@ -154,12 +227,13 @@ class IntegrationManualRefreshProgress
         });
     }
 
-    public function markDone(int $userId, string $product): ?array
+    public function markDone(int $agencyId): ?array
     {
-        return $this->mutate($userId, $product, function (array $state): array {
+        return $this->mutate($agencyId, function (array $state): array {
             $state['status'] = self::STATUS_DONE;
             $state['pending'] = [];
             $state['current_project_id'] = null;
+            $state['current_project_label'] = null;
             $state['current_label'] = null;
             $state['step_started_at'] = null;
 
@@ -167,23 +241,53 @@ class IntegrationManualRefreshProgress
         });
     }
 
-    public function markNoticed(int $userId, string $product): void
+    public function markNoticed(int $agencyId, int $userId, string $product): void
     {
-        $this->mutate($userId, $product, function (array $state): array {
-            $state['noticed'] = true;
+        $noticeKey = self::noticeKey($userId, $product);
+
+        $this->mutate($agencyId, function (array $state) use ($noticeKey): array {
+            $noticed = array_values(array_map(
+                static fn ($item): string => (string) $item,
+                $state['noticed'] ?? [],
+            ));
+
+            if (! in_array($noticeKey, $noticed, true)) {
+                $noticed[] = $noticeKey;
+            }
+
+            $state['noticed'] = $noticed;
 
             return $state;
         });
     }
 
-    public function clear(int $userId, string $product): void
+    public function wasNoticed(array $state, int $userId, string $product): bool
     {
-        Cache::forget($this->cacheKey($userId, $product));
+        $noticeKey = self::noticeKey($userId, $product);
+        $noticed = $state['noticed'] ?? [];
+
+        if (is_bool($noticed)) {
+            return $noticed;
+        }
+
+        if (! is_array($noticed)) {
+            return false;
+        }
+
+        return in_array($noticeKey, array_map('strval', $noticed), true);
     }
 
-    public function pendingIds(int $userId, string $product): array
+    public function clear(int $agencyId): void
     {
-        $state = $this->get($userId, $product);
+        Cache::forget($this->cacheKey($agencyId));
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function pendingIds(int $agencyId): array
+    {
+        $state = $this->get($agencyId);
 
         if ($state === null || ($state['status'] ?? null) !== self::STATUS_RUNNING) {
             return [];
@@ -196,23 +300,39 @@ class IntegrationManualRefreshProgress
     }
 
     /**
+     * @param  ProgressState|array<string, mixed>  $state
+     */
+    private function labelForProject(array $state, int $projectId): ?string
+    {
+        foreach ($state['pending'] ?? [] as $item) {
+            if ((int) ($item['id'] ?? 0) === $projectId) {
+                $label = (string) ($item['label'] ?? '');
+
+                return $label !== '' ? $label : null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @param  callable(ProgressState): ProgressState  $callback
      * @return ProgressState|null
      */
-    private function mutate(int $userId, string $product, callable $callback): ?array
+    private function mutate(int $agencyId, callable $callback): ?array
     {
-        $key = $this->cacheKey($userId, $product);
+        $key = $this->cacheKey($agencyId);
         $lock = Cache::lock($key.':lock', 10);
 
-        return $lock->block(5, function () use ($userId, $product, $callback) {
-            $state = $this->get($userId, $product);
+        return $lock->block(5, function () use ($agencyId, $callback) {
+            $state = $this->get($agencyId);
 
             if ($state === null) {
                 return null;
             }
 
             $next = $callback($state);
-            $this->put($userId, $product, $next);
+            $this->put($agencyId, $next);
 
             return $next;
         });
@@ -221,13 +341,13 @@ class IntegrationManualRefreshProgress
     /**
      * @param  ProgressState  $state
      */
-    private function put(int $userId, string $product, array $state): void
+    private function put(int $agencyId, array $state): void
     {
-        Cache::put($this->cacheKey($userId, $product), $state, self::TTL_SECONDS);
+        Cache::put($this->cacheKey($agencyId), $state, self::TTL_SECONDS);
     }
 
-    private function cacheKey(int $userId, string $product): string
+    private function cacheKey(int $agencyId): string
     {
-        return "integrations.manual_refresh.{$userId}.{$product}";
+        return "integrations.manual_refresh.{$agencyId}";
     }
 }
