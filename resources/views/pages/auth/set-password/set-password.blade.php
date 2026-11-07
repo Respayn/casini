@@ -50,6 +50,7 @@
                             type="submit"
                             label="Активировать доступ"
                             variant="primary"
+                            loading="savePassword"
                             :disabled="!$this->isStep1Ready"
                         />
                     </div>

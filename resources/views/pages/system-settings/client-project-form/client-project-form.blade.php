@@ -764,8 +764,7 @@
                     type="button"
                     variant="primary"
                     wire:click="save"
-                    wire:loading.attr="disabled"
-                    wire:target="save"
+                    loading="save"
                     :disabled="! $canEdit || ! $this->canSubmitClientProject"
                 >
                     <x-slot:label>

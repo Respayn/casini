@@ -161,7 +161,7 @@
                         'disabled:cursor-not-allowed disabled:border-0 disabled:bg-secondary disabled:text-default-button-disabled',
                     ])
                     @disabled(! $this->canSubmit)
-                    wire:loading.attr="disabled"
+                    wire:loading.class="pointer-events-none"
                     wire:target="create"
                 >
                     <span class="relative inline-flex size-5 shrink-0 items-center justify-center">

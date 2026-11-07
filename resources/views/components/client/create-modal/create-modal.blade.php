@@ -33,8 +33,13 @@
                 </div>
             </x-form.form-field>
             <div class="flex justify-between">
-                <x-button.button icon="icons.check" variant="primary" type="submit"
-                    label="{{ $this->confirmButtonLabel }}" />
+                <x-button.button
+                    icon="icons.check"
+                    variant="primary"
+                    type="submit"
+                    loading="saveClient"
+                    label="{{ $this->confirmButtonLabel }}"
+                />
                 <x-button.button x-on:click="$dispatch('modal-hide', { name: 'client-modal' })" label="Отменить" />
             </div>
         </x-form.form>

@@ -29,8 +29,7 @@
                 variant="primary"
                 icon="icons.send"
                 wire:click="save"
-                wire:loading.attr="disabled"
-                wire:target="save"
+                loading="save"
                 label="Создать и отправить инструкции на email"
             />
             <x-button.button

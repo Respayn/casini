@@ -121,7 +121,7 @@
                                                         type="button"
                                                         class="inline-flex h-10 w-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-default-button text-default-button transition hover:not-disabled:bg-default-button hover:not-disabled:text-white disabled:cursor-not-allowed disabled:border-0 disabled:bg-secondary disabled:text-default-button-disabled"
                                                         wire:click="download({{ $report->reportId }})"
-                                                        wire:loading.attr="disabled"
+                                                        wire:loading.class="pointer-events-none"
                                                         wire:target="download({{ $report->reportId }})"
                                                         title="Скачать"
                                                     >

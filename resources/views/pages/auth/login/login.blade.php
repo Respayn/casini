@@ -88,6 +88,7 @@
                     type="submit"
                     label="Войти"
                     variant="primary"
+                    loading="login"
                     :disabled="!$this->isLoginReady"
                 />
             </div>

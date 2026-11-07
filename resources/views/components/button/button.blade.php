@@ -9,13 +9,15 @@
     'iconClasses' => '',
     'square' => null,
     'type' => 'button',
-    'target' => '_self'
+    'target' => '_self',
+    'loading' => null,
 ])
 @php
     // Если параметр square не передан, делаем кнопку квадратной, если label пустой
     $square ??= empty($label) && $slot->isEmpty();
     $isAction = in_array($variant, ['action', 'implicit-action']);
     $size = $isAction ? 'xs-action' : $size;
+    $hasLoading = filled($loading);
 
     // TODO: добавить severity для изменения цветовой темы. Пример - https://primevue.org/button/#severity
     $variantClasses = match ($variant) {
@@ -56,12 +58,41 @@
 @if ($href)
     <a href="{{ $href }}" @if($useSpaNavigation) wire:navigate @endif {{ $attributes->class($classes) }} target="{{ $target }}">
 @else
-    <button type="{{ $type }}" {{ $attributes->class($classes) }} @disabled($disabled)>
+    <button
+        type="{{ $type }}"
+        {{ $attributes->class($classes) }}
+        @disabled($disabled)
+        @if ($hasLoading)
+            wire:loading.class="pointer-events-none"
+            wire:target="{{ $loading }}"
+        @endif
+    >
 @endif
-    @if ($icon)
+    @if ($hasLoading && $icon)
+        <span class="relative inline-flex size-5 shrink-0 items-center justify-center">
+            <x-dynamic-component
+                :component="$icon"
+                @class(['size-5', $iconClasses])
+                wire:loading.remove
+                wire:target="{{ $loading }}"
+            />
+            <x-icons.progress-activity
+                class="absolute inset-0 size-5 animate-spin"
+                wire:loading
+                wire:target="{{ $loading }}"
+            />
+        </span>
+    @elseif ($hasLoading)
+        <span
+            class="relative inline-flex size-5 shrink-0 items-center justify-center"
+            wire:loading
+            wire:target="{{ $loading }}"
+        >
+            <x-icons.progress-activity class="size-5 animate-spin" />
+        </span>
+    @elseif ($icon)
         <x-dynamic-component :component="$icon" @class([$iconClasses])/>
     @endif
-        
 
     @if ($label || $slot->isNotEmpty())
         <span @class(['relative' => $underlineColor])>
@@ -81,7 +112,7 @@
         @endif
         </span>
     @endif
-    
+
 @if ($href)
     </a>
 @else

@@ -65,6 +65,7 @@
                             type="submit"
                             label="Далее"
                             variant="primary"
+                            loading="nextStep"
                             :disabled="!$this->isStep1Ready"
                         />
                     </div>
@@ -143,6 +144,7 @@
                             type="submit"
                             label="Завершить регистрацию"
                             variant="primary"
+                            loading="register"
                             :disabled="!$this->isStep2Ready"
                         />
                     </div>

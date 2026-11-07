@@ -22,8 +22,7 @@
                     type="button"
                     label="Удалить пользователя"
                     wire:click="deleteUser"
-                    wire:loading.attr="disabled"
-                    wire:target="deleteUser"
+                    loading="deleteUser"
                 />
             @endif
         </div>

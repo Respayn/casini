@@ -292,8 +292,7 @@
                 type="button"
                 variant="primary"
                 wire:click="save"
-                wire:loading.attr="disabled"
-                wire:target="save"
+                loading="save"
                 :disabled="! $this->canSubmitAgencySettings"
             >
                 <x-slot:label>Сохранить</x-slot:label>

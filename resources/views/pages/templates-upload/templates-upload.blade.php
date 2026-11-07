@@ -170,8 +170,7 @@
                                 type="button"
                                 label="Выбрать файл"
                                 x-on:click="$refs.templateInput.click()"
-                                wire:loading.attr="disabled"
-                                wire:target="newTemplate"
+                                loading="newTemplate"
                             />
                             <span
                                 class="text-secondary-text text-sm"
