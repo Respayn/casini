@@ -31,7 +31,7 @@ class ProcessIntegrationSyncItem implements ShouldQueue
      */
     public int $tries = 1;
 
-    public int $timeout = 120;
+    public int $timeout = 600;
 
     public function __construct(
         public int $itemId,

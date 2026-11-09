@@ -953,7 +953,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Отдельные `Schedule::command` для интеграций не заводим: ночью всё идёт через `integrations:dispatch-due-syncs`. Команды `metrika:sync {report}` и `google-sheets:sync-spendings` остались только для ручного запуска.
 
-Staging: cron `schedule:run` + Supervisor `queue:work --sleep=1 --tries=1 --timeout=600` (10 мин на одну ручную задачу проекта; ночной `ProcessIntegrationSyncItem` сам задаёт `$timeout = 120`). Расписание в `bootstrap/app.php` → `withSchedule()`.
+Staging: cron `schedule:run` + Supervisor `queue:work --sleep=1 --tries=1 --timeout=600` (10 мин на одну ручную задачу проекта; ночной `ProcessIntegrationSyncItem` сам задаёт `$timeout = 600`, те же 10 минут). Расписание в `bootstrap/app.php` → `withSchedule()`.
 
 ### Диагностика пропусков
 
