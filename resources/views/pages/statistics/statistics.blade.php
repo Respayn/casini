@@ -33,7 +33,11 @@
         class="flex flex-wrap items-center gap-y-3"
         wire:loading.class="pointer-events-none opacity-60"
         wire:target="{{ $reportLoadingTargets }}"
-        @if ($isReportDataRefreshing) wire:poll.3s="pollRefreshProgress" @endif
+        @if ($isReportDataRefreshing)
+            wire:poll.3s="pollRefreshProgress"
+        @else
+            wire:poll.30s="pollRefreshProgress"
+        @endif
     >
         <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>

@@ -5,6 +5,7 @@ namespace App\Livewire\Concerns;
 use App\Data\TableReportData;
 use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
+use App\Services\IntegrationSync\IntegrationAutomaticSyncStatus;
 use App\Services\IntegrationSync\IntegrationManualRefreshProgress;
 use App\Services\IntegrationSync\IntegrationManualRefreshTimestamp;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
@@ -15,6 +16,8 @@ trait WithReportDataRefresh
     public ?string $lastDataRefreshLabel = null;
 
     public bool $isReportDataRefreshing = false;
+
+    public bool $isAutomaticDataRefresh = false;
 
     /** @var list<array{id: int, label: string, group: ?string}> */
     public array $refreshPendingProjects = [];
@@ -38,6 +41,7 @@ trait WithReportDataRefresh
     public function mountWithReportDataRefresh(
         IntegrationManualRefreshTimestamp $timestamps,
         IntegrationManualRefreshProgress $progress,
+        IntegrationAutomaticSyncStatus $automaticSync,
     ): void {
         $userId = Auth::id();
         $agencyId = $this->currentRefreshAgencyId();
@@ -48,11 +52,16 @@ trait WithReportDataRefresh
 
         $this->lastDataRefreshLabel = $timestamps->formattedLabel($agencyId);
         $this->hydrateRefreshProgressFromCache($progress, $agencyId, (int) $userId);
+
+        if (! $this->isReportDataRefreshing || $this->isAutomaticDataRefresh) {
+            $this->hydrateAutomaticSyncStatus($automaticSync);
+        }
     }
 
     public function refreshAllData(
         IntegrationMetricsRefreshService $metricsRefreshService,
         IntegrationManualRefreshProgress $progress,
+        IntegrationAutomaticSyncStatus $automaticSync,
     ): void {
         $userId = Auth::id();
         $agencyId = $this->currentRefreshAgencyId();
@@ -65,6 +74,15 @@ trait WithReportDataRefresh
 
         if ($agencyId === null) {
             $this->setActionMessage('Не выбрано агентство', 'error');
+
+            return;
+        }
+
+        if ($automaticSync->isRunning()) {
+            $this->setActionMessage(
+                'Сейчас идёт автоматический съём данных. Ручное обновление недоступно.',
+                'error',
+            );
 
             return;
         }
@@ -100,6 +118,7 @@ trait WithReportDataRefresh
             return;
         }
 
+        $this->isAutomaticDataRefresh = false;
         $this->isReportDataRefreshing = true;
         $this->refreshPendingProjects = $pending;
         $this->refreshTotal = count($pending);
@@ -116,6 +135,7 @@ trait WithReportDataRefresh
     public function pollRefreshProgress(
         IntegrationManualRefreshProgress $progress,
         IntegrationManualRefreshTimestamp $timestamps,
+        IntegrationAutomaticSyncStatus $automaticSync,
     ): void {
         $userId = Auth::id();
         $agencyId = $this->currentRefreshAgencyId();
@@ -125,33 +145,31 @@ trait WithReportDataRefresh
         }
 
         $state = $progress->get($agencyId);
+        $manualStatus = is_array($state) ? ($state['status'] ?? null) : null;
 
-        if ($state === null) {
-            if ($this->isReportDataRefreshing) {
-                $this->clearRefreshUiState();
+        if ($manualStatus === IntegrationManualRefreshProgress::STATUS_RUNNING) {
+            $this->isAutomaticDataRefresh = false;
+
+            $pendingBefore = array_map(
+                static fn (array $item): int => (int) $item['id'],
+                $this->refreshPendingProjects,
+            );
+
+            $this->applyProgressState($state);
+
+            $pendingAfter = array_map(
+                static fn (array $item): int => (int) $item['id'],
+                $this->refreshPendingProjects,
+            );
+
+            if ($pendingBefore !== $pendingAfter) {
                 unset($this->reportData);
             }
 
             return;
         }
 
-        $pendingBefore = array_map(
-            static fn (array $item): int => (int) $item['id'],
-            $this->refreshPendingProjects,
-        );
-
-        $this->applyProgressState($state);
-
-        $pendingAfter = array_map(
-            static fn (array $item): int => (int) $item['id'],
-            $this->refreshPendingProjects,
-        );
-
-        if ($pendingBefore !== $pendingAfter) {
-            unset($this->reportData);
-        }
-
-        if (($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_DONE) {
+        if ($manualStatus === IntegrationManualRefreshProgress::STATUS_DONE) {
             $this->finishRefreshFromProgress(
                 $progress,
                 $timestamps,
@@ -160,6 +178,8 @@ trait WithReportDataRefresh
                 (int) $userId,
             );
         }
+
+        $this->hydrateAutomaticSyncStatus($automaticSync);
     }
 
     public function cancelReportDataRefresh(): void
@@ -267,6 +287,7 @@ trait WithReportDataRefresh
     protected function matchesRefreshSlice(): bool
     {
         if (! $this->isReportDataRefreshing
+            || $this->isAutomaticDataRefresh
             || $this->refreshPeriodFrom === null
             || $this->refreshPeriodTo === null
         ) {
@@ -368,6 +389,64 @@ trait WithReportDataRefresh
         $this->refreshProgressProject = null;
     }
 
+    private function hydrateAutomaticSyncStatus(IntegrationAutomaticSyncStatus $automaticSync): void
+    {
+        $snapshot = $automaticSync->currentSnapshot();
+
+        if ($snapshot === null) {
+            if ($this->isAutomaticDataRefresh) {
+                $this->clearRefreshUiState();
+                unset($this->reportData);
+            }
+
+            return;
+        }
+
+        if (! $this->refreshStateTouchesVisibleProjects($snapshot)) {
+            if ($this->isAutomaticDataRefresh || $this->isReportDataRefreshing) {
+                $this->clearRefreshUiState();
+            }
+
+            return;
+        }
+
+        $wasAutomatic = $this->isAutomaticDataRefresh;
+        $this->isAutomaticDataRefresh = true;
+        $this->refreshPeriodFrom = null;
+        $this->refreshPeriodTo = null;
+        $this->refreshIncludeVat = false;
+
+        $visibleIds = $this->visibleRefreshProjectIdSet();
+        $currentProjectId = isset($snapshot['current_project_id']) ? (int) $snapshot['current_project_id'] : 0;
+        $currentIsVisible = $currentProjectId > 0 && isset($visibleIds[$currentProjectId]);
+
+        $this->isReportDataRefreshing = true;
+        $this->refreshPendingProjects = [];
+        $this->refreshStepStartedAt = isset($snapshot['step_started_at'])
+            ? (int) $snapshot['step_started_at']
+            : null;
+
+        if ($currentIsVisible) {
+            $this->refreshTotal = (int) ($snapshot['total'] ?? 0);
+            $this->refreshCurrentIndex = (int) ($snapshot['current_index'] ?? 0);
+            $this->refreshProgressLabel = isset($snapshot['current_label']) && is_string($snapshot['current_label'])
+                ? $snapshot['current_label']
+                : null;
+            $this->refreshProgressProject = isset($snapshot['current_project_label']) && is_string($snapshot['current_project_label'])
+                ? $snapshot['current_project_label']
+                : null;
+        } else {
+            $this->refreshTotal = 0;
+            $this->refreshCurrentIndex = 0;
+            $this->refreshProgressLabel = null;
+            $this->refreshProgressProject = null;
+        }
+
+        if (! $wasAutomatic) {
+            unset($this->reportData);
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $state
      * @return list<int>
@@ -429,11 +508,13 @@ trait WithReportDataRefresh
     private function clearRefreshUiState(): void
     {
         $this->isReportDataRefreshing = false;
+        $this->isAutomaticDataRefresh = false;
         $this->refreshPendingProjects = [];
         $this->refreshProgressLabel = null;
         $this->refreshProgressProject = null;
         $this->refreshStepStartedAt = null;
         $this->refreshCurrentIndex = 0;
+        $this->refreshTotal = 0;
         $this->refreshPeriodFrom = null;
         $this->refreshPeriodTo = null;
         $this->refreshIncludeVat = false;
@@ -451,6 +532,7 @@ trait WithReportDataRefresh
         }
 
         if (($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_RUNNING) {
+            $this->isAutomaticDataRefresh = false;
             $this->applyProgressState($state);
 
             return;

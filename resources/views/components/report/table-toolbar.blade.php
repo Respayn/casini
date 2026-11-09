@@ -67,11 +67,21 @@
             refreshing() {
                 return !! $wire.isReportDataRefreshing;
             },
+            automaticMode() {
+                return !! $wire.isAutomaticDataRefresh;
+            },
+            modeLine() {
+                return this.automaticMode() ? 'Автоматический съём данных' : '';
+            },
             projectLine() {
                 return $wire.refreshProgressProject || '';
             },
             sourceLine() {
-                return $wire.refreshProgressLabel || 'Обновление…';
+                if ($wire.refreshProgressLabel) {
+                    return $wire.refreshProgressLabel;
+                }
+
+                return this.automaticMode() ? '' : 'Обновление…';
             },
             counterLine() {
                 if (! this.refreshing()) {
@@ -137,9 +147,10 @@
                 style="{{ $tooltipBox }}"
             >
                 <div x-show="refreshing()" class="leading-snug">
+                    <div x-show="modeLine()" x-text="modeLine()" class="break-words"></div>
                     <div x-show="projectLine()" x-text="projectLine()" class="break-words"></div>
-                    <div x-text="sourceLine()"></div>
-                    <div x-text="counterLine()"></div>
+                    <div x-show="sourceLine()" x-text="sourceLine()"></div>
+                    <div x-show="counterLine()" x-text="counterLine()"></div>
                 </div>
                 <div x-show="! refreshing()">
                     {{ $refreshTooltip }}
