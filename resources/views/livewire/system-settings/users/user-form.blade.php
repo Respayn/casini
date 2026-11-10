@@ -115,6 +115,7 @@
                     <x-form.form-label>Текущий пароль</x-form.form-label>
                     <x-form.input-text
                         type="password"
+                        icon="icons.lock"
                         wire:model.blur="form.current_password"
                         wire:blur="validatePasswordField('current_password')"
                         autocomplete="current-password"
@@ -129,6 +130,7 @@
                     </x-form.form-label>
                     <x-form.input-text
                         type="password"
+                        icon="icons.lock"
                         wire:model.blur="form.password"
                         wire:blur="validatePasswordField('password')"
                         autocomplete="new-password"
@@ -139,6 +141,7 @@
                     <x-form.form-label>Повторите новый пароль</x-form.form-label>
                     <x-form.input-text
                         type="password"
+                        icon="icons.lock"
                         wire:model.blur="form.password_confirmation"
                         wire:blur="validatePasswordField('password_confirmation')"
                         autocomplete="new-password"
