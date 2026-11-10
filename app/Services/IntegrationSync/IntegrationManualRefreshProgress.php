@@ -65,6 +65,38 @@ class IntegrationManualRefreshProgress
         return self::sourceLabels()[$key] ?? $key;
     }
 
+    /**
+     * Код интеграции для уведомлений о доступе (несколько collectors одного сервиса схлопываются).
+     */
+    public static function accessIntegrationCode(string $collector): string
+    {
+        return match ($collector) {
+            'yandex_direct_daily_spend', 'yandex_direct_campaign_stats', 'direct_budget' => 'yandex_direct',
+            'callibri_daily_leads' => 'callibri',
+            'yandex_search_api_daily_positions' => 'yandex_search_api',
+            'bitrix24_labor', 'bitrix24_works' => 'bitrix24',
+            'yandex_metrika' => 'yandex_metrika',
+            'google_sheets' => 'google_sheets',
+            default => $collector,
+        };
+    }
+
+    /**
+     * Человеческое имя интеграции в уведомлении «доступ больше не действует».
+     */
+    public static function accessIntegrationName(string $collector): string
+    {
+        return match (self::accessIntegrationCode($collector)) {
+            'yandex_direct' => 'Яндекс.Директ',
+            'yandex_metrika' => 'Яндекс.Метрика',
+            'google_sheets' => 'Google Таблицы',
+            'callibri' => 'Callibri',
+            'bitrix24' => 'Битрикс24',
+            'yandex_search_api' => 'Поиск Яндекса',
+            default => self::labelForSource($collector),
+        };
+    }
+
     public static function productTitle(string $product): string
     {
         return match ($product) {

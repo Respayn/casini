@@ -3,9 +3,11 @@
 namespace App\Listeners\Notifications;
 
 use App\Events\Notifications\IntegrationSyncFailed;
+use App\Models\Notification;
 use App\Models\Project;
-use App\Services\NotificationService;
+use App\Services\IntegrationSync\IntegrationManualRefreshProgress;
 use App\Services\Notifications\ProjectNotificationRecipientResolver;
+use App\Services\NotificationService;
 use App\Support\SafeLogger;
 
 class CreateIntegrationSyncFailedNotification
@@ -23,7 +25,13 @@ class CreateIntegrationSyncFailedNotification
             : 'Клиенто-проект №'.$e->projectId;
 
         $rawError = filled($e->error) ? (string) $e->error : 'Ошибка съёма данных';
-        $text = SafeLogger::forDisplay($rawError);
+        $isAccessError = SafeLogger::isIntegrationAccessError($rawError);
+        $integrationCode = IntegrationManualRefreshProgress::accessIntegrationCode($e->collector);
+        $integrationName = IntegrationManualRefreshProgress::accessIntegrationName($e->collector);
+
+        $text = $isAccessError
+            ? 'Доступ к '.$integrationName.' больше не действует. Подключите его заново.'
+            : SafeLogger::forDisplay($rawError);
 
         $payload = [
             'product' => 'integrations',
@@ -33,7 +41,17 @@ class CreateIntegrationSyncFailedNotification
             'error_detail' => $rawError,
         ];
 
+        if ($isAccessError) {
+            $payload['access_error'] = true;
+            $payload['integration_code'] = $integrationCode;
+            $payload['integration'] = $integrationName;
+        }
+
         foreach ($this->recipients->userIdsForProject($e->projectId) as $userId) {
+            if ($isAccessError && $this->hasUnreadAccessError($userId, $e->projectId, $integrationCode)) {
+                continue;
+            }
+
             $this->svc->create(
                 userId: $userId,
                 text: $text,
@@ -44,5 +62,17 @@ class CreateIntegrationSyncFailedNotification
                 projectId: $e->projectId,
             );
         }
+    }
+
+    private function hasUnreadAccessError(int $userId, int $projectId, string $integrationCode): bool
+    {
+        return Notification::query()
+            ->where('user_id', $userId)
+            ->where('project_id', $projectId)
+            ->where('type', IntegrationSyncFailed::TYPE)
+            ->whereNull('read_at')
+            ->where('payload->access_error', true)
+            ->where('payload->integration_code', $integrationCode)
+            ->exists();
     }
 }
