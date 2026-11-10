@@ -241,7 +241,8 @@
                     icon="icons.check"
                     label="Применить"
                     variant="primary"
-                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.applySettingsSnapshot()"
+                    wire:click="applySettingsSnapshot"
+                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' })"
                 />
                 <x-button
                     x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.dropSettingsSnapshot()"

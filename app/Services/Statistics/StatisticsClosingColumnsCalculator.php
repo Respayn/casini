@@ -42,6 +42,7 @@ class StatisticsClosingColumnsCalculator
         array $visitsByDay = [],
         array $conversionsByDay = [],
         ?Carbon $today = null,
+        bool $treatMissingPlanAsUnmet = false,
     ): array {
         $today ??= Carbon::now()->startOfDay();
         $parameterCodes = $this->projectPlanService->getParameterCodes($project->project_type, $project->kpi);
@@ -60,6 +61,7 @@ class StatisticsClosingColumnsCalculator
             $topPercentsByDay,
             $visitsByDay,
             $conversionsByDay,
+            $treatMissingPlanAsUnmet,
         );
 
         $prediction = $this->buildPrediction(
@@ -109,6 +111,7 @@ class StatisticsClosingColumnsCalculator
         array $topPercentsByDay,
         array $visitsByDay,
         array $conversionsByDay = [],
+        bool $treatMissingPlanAsUnmet = false,
     ): array {
         $lastDayKey = $month->copy()->endOfMonth()->toDateString();
         $monthStart = $month->copy()->startOfMonth()->startOfDay();
@@ -181,6 +184,7 @@ class StatisticsClosingColumnsCalculator
             $slot['plan_percent'] = $this->planPercent(
                 $slot['value'] ?? null,
                 $planCell[$index]['value'] ?? null,
+                $treatMissingPlanAsUnmet,
             );
             $slot['highlight'] = $isPrimary;
             $slots[] = $slot;
@@ -190,20 +194,20 @@ class StatisticsClosingColumnsCalculator
     }
 
     /**
-     * % выполнения плана: итог / план × 100. Без плана или при нулевом плане — null.
+     * % выполнения плана: итог / план × 100.
+     * Без плана или при нулевом плане: null, либо 0 если treatMissingPlanAsUnmet и факт есть.
      */
-    private function planPercent(mixed $fact, mixed $plan): ?int
+    private function planPercent(mixed $fact, mixed $plan, bool $treatMissingPlanAsUnmet = false): ?int
     {
-        if (! is_numeric($fact) || ! is_numeric($plan)) {
+        if (! is_numeric($fact)) {
             return null;
         }
 
-        $plan = (float) $plan;
-        if ($plan == 0.0) {
-            return null;
+        if (is_numeric($plan) && (float) $plan != 0.0) {
+            return (int) round(((float) $fact / (float) $plan) * 100);
         }
 
-        return (int) round(((float) $fact / $plan) * 100);
+        return $treatMissingPlanAsUnmet ? 0 : null;
     }
 
     /**

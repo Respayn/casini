@@ -17,6 +17,7 @@ use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\ReportUserSettingsRepository;
+use App\Repositories\StatisticsReportAgencySettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\ProjectFacts\ProjectKpiFactsService;
 use App\Support\ClientProjectVisibility;
@@ -48,7 +49,11 @@ class StatisticsService
 
     private ReportUserSettingsRepository $reportUserSettingsRepository;
 
+    private StatisticsReportAgencySettingsRepository $agencySettingsRepository;
+
     private ProjectKpiFactsService $projectKpiFacts;
+
+    private bool $treatMissingPlanAsUnmet = true;
 
     public function __construct(
         ProjectRepository $projectRepository,
@@ -60,6 +65,7 @@ class StatisticsService
         StatisticsMonthlyBonusSnapshotService $bonusSnapshotService,
         StatisticsClosingColumnsAggregator $closingColumnsAggregator,
         ReportUserSettingsRepository $reportUserSettingsRepository,
+        StatisticsReportAgencySettingsRepository $agencySettingsRepository,
         ProjectKpiFactsService $projectKpiFacts,
     ) {
         $this->projectRepository = $projectRepository;
@@ -71,27 +77,70 @@ class StatisticsService
         $this->bonusSnapshotService = $bonusSnapshotService;
         $this->closingColumnsAggregator = $closingColumnsAggregator;
         $this->reportUserSettingsRepository = $reportUserSettingsRepository;
+        $this->agencySettingsRepository = $agencySettingsRepository;
         $this->projectKpiFacts = $projectKpiFacts;
     }
 
-    public function getUserSettings(int $userId): StatisticsReportQueryData
+    public function getUserSettings(int $userId, ?int $agencyId = null): StatisticsReportQueryData
     {
         $savedSettings = $this->reportUserSettingsRepository->getStatisticsSettings($userId);
 
-        if ($savedSettings) {
-            return StatisticsReportQueryData::hydrateFromSavedSettings($savedSettings);
+        $query = $savedSettings
+            ? StatisticsReportQueryData::hydrateFromSavedSettings($savedSettings)
+            : StatisticsReportQueryData::create();
+
+        $agencyId ??= $this->currentAgencyId();
+        $agencySettings = $agencyId !== null
+            ? $this->agencySettingsRepository->get($agencyId)
+            : null;
+
+        if ($agencySettings === null) {
+            return $query;
         }
 
-        return StatisticsReportQueryData::create();
+        $query->applyAgencyModalSettings($agencySettings);
+
+        $rebuilt = StatisticsReportQueryData::create(
+            $query->detailLevel,
+            $query->dateFrom,
+            $query->dateTo,
+        );
+        $rebuilt->showInactive = $query->showInactive;
+        $rebuilt->includeVat = $query->includeVat;
+        $rebuilt->applyAgencyModalSettings($agencySettings);
+        $rebuilt->applySavedColumnPreferences($query->columns);
+
+        return $rebuilt;
     }
 
-    public function saveUserSettings(int $userId, StatisticsReportQueryData $settings): void
+    private function currentAgencyId(): ?int
+    {
+        $sessionAgencyId = session('current_agency_id');
+        if (filled($sessionAgencyId) && (int) $sessionAgencyId > 0) {
+            return (int) $sessionAgencyId;
+        }
+
+        $fallback = Auth::user()?->agencies()->value('agencies.id');
+
+        return filled($fallback) && (int) $fallback > 0
+            ? (int) $fallback
+            : null;
+    }
+
+    public function saveUserSettings(int $userId, StatisticsReportQueryData $settings, ?int $agencyId = null): void
     {
         $this->reportUserSettingsRepository->saveStatisticsSettings($userId, $settings->toJson());
+
+        $agencyId ??= $this->currentAgencyId();
+        if ($agencyId !== null) {
+            $this->agencySettingsRepository->save($agencyId, $settings->agencyModalSettings());
+        }
     }
 
     public function getReportData(StatisticsReportQueryData $query, ?int $projectId = null): TableReportData
     {
+        $this->treatMissingPlanAsUnmet = $query->treatMissingPlanAsUnmet === 'Y';
+
         $user = Auth::user();
 
         [$clients, $projects] = ClientProjectVisibility::limit(
@@ -612,7 +661,7 @@ class StatisticsService
                     'count' => $projectsByIntegration->count(),
                 ],
                 'service' => [IntegrationLogo::component($integrationGroup->integration->code) => $projectsByIntegration->count()],
-            ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+            ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
 
             $report->groups->push($group);
         }
@@ -703,7 +752,7 @@ class StatisticsService
                 'count' => $projectsWithoutIntegration->count(),
             ],
             'service' => [],
-        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
 
         $report->groups->push($group);
 
@@ -1290,7 +1339,7 @@ class StatisticsService
             ],
             'service' => $integrations->flatten()
                 ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
-        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
     }
 
     /**
@@ -1309,7 +1358,7 @@ class StatisticsService
             ],
             'service' => $integrations->flatten()
                 ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
-        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
     }
 
     /**
@@ -1408,6 +1457,7 @@ class StatisticsService
             $topPercentsByDay,
             $visitsByDay,
             $conversionsByDay,
+            treatMissingPlanAsUnmet: $this->treatMissingPlanAsUnmet,
         );
 
         $closing['bonuses'] = $this->bonusSnapshotService->resolve(

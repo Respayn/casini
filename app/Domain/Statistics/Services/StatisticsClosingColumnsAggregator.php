@@ -9,7 +9,7 @@ use Illuminate\Support\Collection;
  * Итого по колонкам «Итог», срезам детализации (день/неделя/месяц) и «Бонусы»
  * в рамках группировки / всей таблицы.
  *
- * % в Итого — только по основным (primary) параметрам клиенто-проектов.
+ * % в Итого — среднее процентов основных (primary) параметров клиенто-проектов.
  */
 class StatisticsClosingColumnsAggregator
 {
@@ -17,24 +17,24 @@ class StatisticsClosingColumnsAggregator
      * @param  Collection<int, TableReportRowData>  $rows
      * @return array<string, mixed>
      */
-    public function aggregate(Collection $rows): array
+    public function aggregate(Collection $rows, bool $treatMissingPlanAsUnmet = true): array
     {
         return array_merge(
             [
-                'summary' => $this->aggregateSummary($rows),
+                'summary' => $this->aggregateSummary($rows, $treatMissingPlanAsUnmet),
                 'bonuses' => $this->aggregateBonuses($rows),
             ],
-            $this->aggregatePeriodPercents($rows),
+            $this->aggregatePeriodPercents($rows, $treatMissingPlanAsUnmet),
         );
     }
 
     /**
-     * % = сумма primary-фактов / сумма primary-планов × 100 (колонка «Итог»).
+     * % = среднее процентов primary-параметров (колонка «Итог»).
      *
      * @param  Collection<int, TableReportRowData>  $rows
      * @return list<array{value: mixed, format: mixed, highlight?: bool}>
      */
-    public function aggregateSummary(Collection $rows): array
+    public function aggregateSummary(Collection $rows, bool $treatMissingPlanAsUnmet = true): array
     {
         return $this->buildPrimaryPercentSlots(
             $rows,
@@ -47,6 +47,7 @@ class StatisticsClosingColumnsAggregator
 
                 return [$fact, $planValue];
             },
+            $treatMissingPlanAsUnmet,
         );
     }
 
@@ -56,7 +57,7 @@ class StatisticsClosingColumnsAggregator
      * @param  Collection<int, TableReportRowData>  $rows
      * @return array<string, list<array{value: mixed, format: mixed, highlight?: bool}>>
      */
-    public function aggregatePeriodPercents(Collection $rows): array
+    public function aggregatePeriodPercents(Collection $rows, bool $treatMissingPlanAsUnmet = true): array
     {
         $bucketKeys = [];
         foreach ($rows as $row) {
@@ -83,6 +84,7 @@ class StatisticsClosingColumnsAggregator
 
                     return [$fact, $plan];
                 },
+                $treatMissingPlanAsUnmet,
             );
         }
 
@@ -125,12 +127,12 @@ class StatisticsClosingColumnsAggregator
      * @param  callable(TableReportRowData, int): array{0: mixed, 1: mixed}  $resolveFactAndPlan
      * @return list<array{value: mixed, format: mixed, highlight?: bool}>
      */
-    private function buildPrimaryPercentSlots(Collection $rows, callable $resolveFactAndPlan): array
-    {
-        $factSum = 0.0;
-        $planSum = 0.0;
-        $hasFact = false;
-        $hasPlan = false;
+    private function buildPrimaryPercentSlots(
+        Collection $rows,
+        callable $resolveFactAndPlan,
+        bool $treatMissingPlanAsUnmet,
+    ): array {
+        $percents = [];
 
         foreach ($rows as $row) {
             $primaryIndex = $this->resolvePrimaryIndex($row);
@@ -140,22 +142,24 @@ class StatisticsClosingColumnsAggregator
 
             [$fact, $plan] = $resolveFactAndPlan($row, $primaryIndex);
 
-            if (is_numeric($fact)) {
-                $factSum += (float) $fact;
-                $hasFact = true;
+            if (is_numeric($plan) && (float) $plan != 0.0) {
+                $factValue = is_numeric($fact) ? (float) $fact : 0.0;
+                $percents[] = ($factValue / (float) $plan) * 100;
+
+                continue;
             }
-            if (is_numeric($plan)) {
-                $planSum += (float) $plan;
-                $hasPlan = true;
+
+            if ($treatMissingPlanAsUnmet) {
+                $percents[] = 0.0;
             }
         }
 
-        if (! $hasFact || ! $hasPlan || $planSum == 0.0) {
+        if ($percents === []) {
             return [];
         }
 
         return [[
-            'value' => (int) round(($factSum / $planSum) * 100),
+            'value' => (int) round(array_sum($percents) / count($percents)),
             'format' => 'percent',
             'highlight' => true,
         ]];

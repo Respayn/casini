@@ -187,6 +187,7 @@
                                                         :component="'statistics.rows.regular.' . $column->component"
                                                         :params="$row->data->get($column->field)"
                                                         :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                                        :treat-missing-plan-as-unmet="$queryData->treatMissingPlanAsUnmet === 'Y'"
                                                     />
                                                 @else
                                                     <x-dynamic-component
@@ -212,6 +213,7 @@
                                                         :component="'statistics.rows.regular.' . $column->component"
                                                         :params="$row->data->get($column->field)"
                                                         :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                                        :treat-missing-plan-as-unmet="$queryData->treatMissingPlanAsUnmet === 'Y'"
                                                     />
                                                 @else
                                                     <x-dynamic-component
@@ -271,8 +273,13 @@
             </x-panel.scroll-panel>
 
             <div class="mt-3 flex justify-between">
-                <x-button icon="icons.check" label="Применить" variant="primary"
-                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.applySettingsSnapshot()" />
+                <x-button
+                    icon="icons.check"
+                    label="Применить"
+                    variant="primary"
+                    wire:click="applySettingsSnapshot"
+                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' })"
+                />
                 <x-button
                     x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.dropSettingsSnapshot()"
                     label="Отмена" />
@@ -333,11 +340,31 @@
     ]" wire:model="queryData.grouping"></x-form.select>
                         </div>
                     </x-form.form-field>
+
+                    <x-form.form-field>
+                        <x-form.form-label
+                            tooltip="При значении «Да» клиенто-проект без плана основного показателя считается невыполненным: в факте и итоге показывается (0%), а в общий % входит как 0%."
+                        >Клиенто-проекты, по которым нет плана считать невыполненными</x-form.form-label>
+                        <div>
+                            <x-form.select
+                                wire:model="queryData.treatMissingPlanAsUnmet"
+                                :options="[
+                                    ['label' => 'Да', 'value' => 'Y'],
+                                    ['label' => 'Нет', 'value' => 'N'],
+                                ]"
+                            />
+                        </div>
+                    </x-form.form-field>
                 </x-form.form>
 
                 <div class="mt-7 flex justify-between">
-                    <x-button icon="icons.check" label="Применить" variant="primary"
-                        x-on:click="$dispatch('modal-hide', { name: 'report-settings-modal' }); $wire.applySettingsSnapshot()" />
+                    <x-button
+                        icon="icons.check"
+                        label="Применить изменения для всех"
+                        variant="primary"
+                        wire:click="applySettingsSnapshot"
+                        x-on:click="$dispatch('modal-hide', { name: 'report-settings-modal' })"
+                    />
                     <x-button label="Отмена"
                         x-on:click="$dispatch('modal-hide', { name: 'report-settings-modal' }); $wire.dropSettingsSnapshot()" />
                 </div>

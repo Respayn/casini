@@ -40,7 +40,7 @@
     <div
         wire:loading
         wire:target="{{ $targets }}"
-        class="pointer-events-none absolute inset-x-0 bottom-0 z-10 overflow-hidden"
+        class="pointer-events-none absolute inset-0 z-10 overflow-hidden"
         x-bind:style="'top: ' + headerOffset + 'px; background-color: rgba(255, 255, 255, 0.75)'"
     >
         <x-report.table-skeleton style="min-height: 100%" />

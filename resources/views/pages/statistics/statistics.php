@@ -44,6 +44,7 @@ class extends Component
     {
         $this->queryData = $this->statisticsService->getUserSettings(
             Auth::user()->id,
+            session('current_agency_id') ? (int) session('current_agency_id') : null,
         );
         $this->queryData->clampPeriodToPresent();
         $this->applySharedProductFilters();
@@ -103,21 +104,17 @@ class extends Component
     }
 
     /**
-     * Применяет изменения в настройках столбцов
+     * Применяет изменения в настройках столбцов / отчёта
      */
-    public function applySettingsSnapshot()
+    public function applySettingsSnapshot(): void
     {
         if ($this->originalQueryData !== null
             && $this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
             $this->rebuildQueryDataForPeriod();
         }
 
-        if ($this->originalQueryData !== null
-            && $this->queryData->grouping !== $this->originalQueryData->grouping) {
-            unset($this->reportData);
-        }
-
         $this->originalQueryData = null;
+        unset($this->reportData);
     }
 
     #[Renderless]
@@ -204,6 +201,7 @@ class extends Component
         $rebuilt->includeVat = $previous->includeVat;
         $rebuilt->accumulateData = $previous->accumulateData;
         $rebuilt->highlightUnmetKpi = $previous->highlightUnmetKpi;
+        $rebuilt->treatMissingPlanAsUnmet = $previous->treatMissingPlanAsUnmet;
         $rebuilt->applySavedColumnPreferences($previous->columns);
 
         $this->queryData = $rebuilt;
