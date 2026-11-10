@@ -20,12 +20,14 @@
                 @if ($canCreate)
                     <x-button.button
                         href="{{ route('system-settings.users.create') }}"
-                        label="+ Добавить пользователя"
+                        icon="icons.plus"
+                        label="Добавить пользователя"
                         variant="primary"
                     />
                 @else
                     <x-button.button
-                        label="+ Добавить пользователя"
+                        icon="icons.plus"
+                        label="Добавить пользователя"
                         variant="primary"
                         disabled
                     />

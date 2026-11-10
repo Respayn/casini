@@ -12,7 +12,7 @@
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <h1 class="mb-7">Отчеты</h1>
-        <div>
+        <div class="flex items-center gap-2.5">
             @if (auth()->user()?->can('read report templates') || auth()->user()?->can('edit report templates') || auth()->user()?->can('full report templates'))
                 <x-button.button href="{{ route('reports.templates') }}" label="Шаблоны отчетов" />
             @endif

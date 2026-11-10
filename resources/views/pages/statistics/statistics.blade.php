@@ -16,7 +16,7 @@
                 </button>
             </x-overlay.modal-trigger>
         </div>
-        <div>
+        <div class="flex items-center gap-2.5">
             <x-button.button href="{{ route('system-settings.clients-and-projects', ['createClient' => 1]) }}" icon="icons.plus"
                 label="Добавить клиента" />
             <x-button.button href="{{ route('system-settings.clients-and-projects.projects.manage') }}"

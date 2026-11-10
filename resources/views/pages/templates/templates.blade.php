@@ -7,7 +7,7 @@
     {{-- Шапка компонента --}}
     <div class="flex justify-between">
         <h1 class="mb-7">Шаблоны отчетов</h1>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5">
             @if ($this->canCreateReports)
                 <x-button.button href="{{ route('reports.create') }}" label="Создать отчет" />
             @endif
