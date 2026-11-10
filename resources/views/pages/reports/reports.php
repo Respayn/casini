@@ -17,7 +17,7 @@ use Src\Application\Reports\GetList\GetReportsListQueryHandler;
 use Src\Presentation\Livewire\Traits\WithColumnSettings;
 
 new
-    #[Title('Casini - Отчеты')]
+    #[Title('Отчеты')]
     class extends Component
     {
         use WithColumnSettings;

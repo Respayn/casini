@@ -21,7 +21,7 @@ use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
 
 new
-#[Title('Casini - Создать отчет')]
+#[Title('Создать отчет')]
 class extends Component
 {
     use WithSidebarProjectFilter;

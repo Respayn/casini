@@ -18,12 +18,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 
 new
 #[Layout('layouts::system-settings')]
+#[Title('Карточка пользователя')]
 class extends Component
 {
     use WithFileUploads;

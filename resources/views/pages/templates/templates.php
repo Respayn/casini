@@ -11,7 +11,7 @@ use Src\Application\Templates\GetList\GetTemplatesListQuery;
 use Src\Application\Templates\GetList\GetTemplatesListQueryHandler;
 
 new
-    #[Title('Шаблоны отчетов - Casini')]
+    #[Title('Шаблоны отчетов')]
     class extends Component
     {
         #[Computed]

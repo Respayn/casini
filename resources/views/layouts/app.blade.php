@@ -16,7 +16,7 @@
     >
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ $title ?? 'Page Title' }}</title>
+    <x-layout.document-head-brand :title="$title ?? null" />
 
     <x-layout.favicon />
 

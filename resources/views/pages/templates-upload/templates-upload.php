@@ -14,7 +14,7 @@ use Src\Domain\Templates\Template;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 
 new
-#[Title('Создание шаблона - Casini')]
+#[Title('Создание шаблона')]
 class extends Component
 {
     use WithFileUploads;

@@ -16,7 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new
-#[Title('Статистика - Casini')]
+#[Title('Статистика')]
 class extends Component
 {
     use WithReportDataRefresh;

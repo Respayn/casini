@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>Google Таблицы: авторизация</title>
+    <x-layout.document-head-brand title="Google Таблицы: авторизация" />
+    <x-layout.favicon />
 </head>
 <body>
     <p id="oauth-status">Авторизация завершена. Это окно можно закрыть.</p>

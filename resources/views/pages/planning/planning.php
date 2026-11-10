@@ -11,7 +11,7 @@ use Livewire\Component;
 use Src\Planning\Application\ProjectPlanService;
 
 new
-    #[Title('Casini - Планирование')]
+    #[Title('Планирование')]
     class extends Component
     {
         use WithSidebarProjectFilter;

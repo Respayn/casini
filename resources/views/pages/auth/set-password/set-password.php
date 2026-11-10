@@ -9,10 +9,14 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
-new #[Layout('layouts::auth')] class extends Component
+new
+#[Layout('layouts::auth')]
+#[Title('Задание пароля')]
+class extends Component
 {
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;

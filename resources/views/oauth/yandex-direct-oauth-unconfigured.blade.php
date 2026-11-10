@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>Яндекс.Директ — авторизация</title>
+    <x-layout.document-head-brand title="Яндекс.Директ: авторизация" />
+    <x-layout.favicon />
 </head>
 <body>
     <p>{{ $message }}</p>
