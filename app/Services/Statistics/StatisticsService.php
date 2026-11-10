@@ -55,6 +55,8 @@ class StatisticsService
 
     private bool $treatMissingPlanAsUnmet = true;
 
+    private bool $accumulateData = true;
+
     public function __construct(
         ProjectRepository $projectRepository,
         ClientRepository $clientRepository,
@@ -140,6 +142,7 @@ class StatisticsService
     public function getReportData(StatisticsReportQueryData $query, ?int $projectId = null): TableReportData
     {
         $this->treatMissingPlanAsUnmet = $query->treatMissingPlanAsUnmet === 'Y';
+        $this->accumulateData = $query->accumulateData === 'Y';
 
         $user = Auth::user();
 
@@ -865,7 +868,16 @@ class StatisticsService
         $daysInMonth = $gridMonth->daysInMonth();
         $result = [];
 
-        foreach ($buckets as $key => [$from, $to]) {
+        foreach ($buckets as $key => [$bucketFrom, $bucketTo]) {
+            [$from, $to] = StatisticsFactWindow::resolve(
+                $bucketFrom,
+                $bucketTo,
+                $detailLevel,
+                $gridMonth,
+                $periodFrom,
+                $this->accumulateData,
+            );
+
             $budgetFact = $budgetIndex === null
                 ? null
                 : $this->sumDirectSpendForRange($spendByDay, $from, $to);
@@ -913,7 +925,10 @@ class StatisticsService
 
                 if ($planValue !== null && $isDivisible && $daysInMonth > 0) {
                     if ($detailLevel === StatisticsReportDetailLevel::BY_MONTH) {
-                        $proportionalPlan = (int) round((float) $planValue);
+                        $monthsCount = $this->accumulateData
+                            ? (($to->year - $periodFrom->year) * 12) + ($to->month - $periodFrom->month) + 1
+                            : 1;
+                        $proportionalPlan = (int) round((float) $planValue * max(1, $monthsCount));
                     } else {
                         $proportionalPlan = (int) round((float) $planValue * $bucketDays / $daysInMonth);
                     }
