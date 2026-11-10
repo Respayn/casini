@@ -1,12 +1,12 @@
 <div>
     <x-auth.card>
-        <div class="mb-7 flex items-center justify-between">
-            <h1 class="text-[28px] leading-tight font-semibold text-gray-900">
+        <div class="auth-heading">
+            <h1 class="font-semibold text-gray-900">
                 Войти в аккаунт
             </h1>
             @if (config('app.registration_enabled'))
                 <a href="{{ route('register') }}"
-                   class="font-medium text-[18px] text-caption-text hover:underline">
+                   class="shrink-0 font-medium text-caption-text hover:underline">
                     Регистрация
                 </a>
             @endif

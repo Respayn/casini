@@ -200,6 +200,15 @@ h1 {
     @apply text-primary-text text-xl font-semibold;
 }
 
+.auth-heading {
+    @apply mb-7 flex items-baseline justify-between gap-4;
+}
+
+.auth-heading a {
+    font-size: 18px;
+    line-height: 1;
+}
+
 h2 {
     @apply text-primary-text text-lg font-semibold;
 }
