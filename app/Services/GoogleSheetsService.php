@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Events\Notifications\ChannelsInstrumentStopped;
 use App\Models\Agency;
 use App\Models\GoogleSheetsMonthlySpending;
 use App\Models\Integration;
@@ -186,7 +185,6 @@ class GoogleSheetsService
             $projectUrl,
             $project,
             $existing,
-            $manual,
         );
 
         $copyrighting = $this->resolveCopyrightingSpendings(
@@ -196,10 +194,9 @@ class GoogleSheetsService
             $projectUrl,
             $project,
             $existing,
-            $manual,
         );
 
-        return GoogleSheetsMonthlySpending::query()->updateOrCreate(
+        $spending = GoogleSheetsMonthlySpending::query()->updateOrCreate(
             [
                 'project_id' => $projectIntegration->project_id,
                 'year_month' => $yearMonth,
@@ -213,10 +210,21 @@ class GoogleSheetsService
                 'synced_at' => now(),
             ]
         );
+
+        $sheetErrors = array_values(array_filter([
+            $programming['error'],
+            $copyrighting['error'],
+        ]));
+
+        if ($sheetErrors !== []) {
+            throw new \RuntimeException(implode('; ', $sheetErrors));
+        }
+
+        return $spending;
     }
 
     /**
-     * @return array{hours: float, sum: float}
+     * @return array{hours: float, sum: float, error: ?string}
      */
     private function resolveProgrammingSpendings(
         string $accessToken,
@@ -225,26 +233,29 @@ class GoogleSheetsService
         string $projectUrl,
         Project $project,
         GoogleSheetsMonthlySpending $existing,
-        bool $manual,
     ): array {
         $fallback = [
             'hours' => (float) ($existing->programming_hours ?? 0),
             'sum' => (float) ($existing->programming_sum ?? 0),
+            'error' => null,
         ];
 
         try {
             $rows = $this->fetchSheetValues($accessToken, $documentId, 'Программинг');
+            $parsed = $this->parser->parseProgrammingSheet($rows, $month, $projectUrl);
 
-            return $this->parser->parseProgrammingSheet($rows, $month, $projectUrl);
+            return [
+                'hours' => (float) $parsed['hours'],
+                'sum' => (float) $parsed['sum'],
+                'error' => null,
+            ];
         } catch (Throwable $e) {
-            $this->handleSheetSyncError($project, 'Программинг', $e);
-
-            return $fallback;
+            return $this->sheetSyncFallback($fallback, $project, 'Программинг', $e);
         }
     }
 
     /**
-     * @return array{hours: float, sum: float}
+     * @return array{hours: float, sum: float, error: ?string}
      */
     private function resolveCopyrightingSpendings(
         string $accessToken,
@@ -253,21 +264,24 @@ class GoogleSheetsService
         string $projectUrl,
         Project $project,
         GoogleSheetsMonthlySpending $existing,
-        bool $manual,
     ): array {
         $fallback = [
             'hours' => (float) ($existing->copyrighting_units ?? 0),
             'sum' => (float) ($existing->copyrighting_sum ?? 0),
+            'error' => null,
         ];
 
         try {
             $rows = $this->fetchSheetValues($accessToken, $documentId, 'Копирайтинг');
+            $parsed = $this->parser->parseCopyrightingSheet($rows, $month, $projectUrl);
 
-            return $this->parser->parseCopyrightingSheet($rows, $month, $projectUrl);
+            return [
+                'hours' => (float) $parsed['hours'],
+                'sum' => (float) $parsed['sum'],
+                'error' => null,
+            ];
         } catch (Throwable $e) {
-            $this->handleSheetSyncError($project, 'Копирайтинг', $e);
-
-            return $fallback;
+            return $this->sheetSyncFallback($fallback, $project, 'Копирайтинг', $e);
         }
     }
 
@@ -290,38 +304,29 @@ class GoogleSheetsService
         }
     }
 
-    private function handleSheetSyncError(Project $project, string $sheetTitle, Throwable $e): void
-    {
+    /**
+     * @param  array{hours: float, sum: float, error: ?string}  $fallback
+     * @return array{hours: float, sum: float, error: string}
+     */
+    private function sheetSyncFallback(
+        array $fallback,
+        Project $project,
+        string $sheetTitle,
+        Throwable $e,
+    ): array {
         Log::warning('Google Sheets spendings sync sheet failed', [
             'project_id' => $project->id,
             'sheet' => $sheetTitle,
             'exception' => $e->getMessage(),
         ]);
 
-        $specialistId = (int) ($project->specialist_id ?? 0);
-
-        if ($specialistId <= 0) {
-            return;
-        }
-
         $message = $e instanceof GoogleSheetsParseException
             ? $e->getMessage()
             : 'Не удалось получить данные из Google Таблицы.';
 
-        $lastSyncedAt = GoogleSheetsMonthlySpending::query()
-            ->where('project_id', $project->id)
-            ->orderByDesc('synced_at')
-            ->value('synced_at');
+        $fallback['error'] = 'Google Таблицы ('.$sheetTitle.'): '.$message;
 
-        event(new ChannelsInstrumentStopped(
-            userId: $specialistId,
-            projectId: $project->id,
-            projectName: $project->name,
-            channelId: $project->id,
-            channelName: $project->name,
-            instrument: 'Google Таблицы ('.$sheetTitle.'): '.$message,
-            lastSeenAt: $lastSyncedAt ? Carbon::parse($lastSyncedAt) : null,
-        ));
+        return $fallback;
     }
 
     private function resolveAgencyTimezone(IntegrationProject $projectIntegration): string
