@@ -5,16 +5,16 @@ namespace App\Services\ProjectFacts;
 use App\Clients\Callibri\Filters\UtmFilter;
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Factories\CallibriFilterFactory;
-use App\Models\CallibriDailyLeadCount;
 use App\Models\CallibriLead;
-use App\Models\YandexDirectCampaignStats;
-use App\Models\YandexDirectDailySpending;
-use App\Models\YandexMetrikaGoalDirectSummary;
-use App\Models\YandexMetrikaGoalUtm;
-use App\Models\YandexMetrikaSearchEnginesStats;
-use App\Models\YandexSearchApiDailyTopPercent;
+use App\Repositories\CallibriLeadRepository;
+use App\Repositories\YandexSearchApiDailyTopPercentRepository;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
+use DateTimeImmutable;
 use Illuminate\Support\Carbon;
+use Src\Domain\ValueObjects\DateTimeRange;
+use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
+use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
+use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
 
 /**
  * Общие факты KPI для Каналов / Статистики / отчётов.
@@ -24,6 +24,10 @@ class ProjectKpiFactsService
     public function __construct(
         private readonly IntegrationProjectCredentials $credentials,
         private readonly CallibriFilterFactory $callibriFilterFactory,
+        private readonly YandexDirectRepositoryInterface $yandexDirect,
+        private readonly CallibriLeadRepository $callibriLeads,
+        private readonly YandexMetrikaRepositoryInterface $yandexMetrika,
+        private readonly YandexSearchApiDailyTopPercentRepository $searchApiTopPercents,
     ) {}
 
     /**
@@ -40,17 +44,12 @@ class ProjectKpiFactsService
             return null;
         }
 
-        $column = $includeVat ? 'cost_with_vat' : 'cost_without_vat';
-        $rows = YandexDirectDailySpending::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['date', $column]);
-
-        if ($rows->isEmpty()) {
-            return null;
-        }
-
-        return round((float) $rows->sum($column), 2);
+        return $this->yandexDirect->sumDailySpendings(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+            $includeVat,
+        );
     }
 
     /**
@@ -92,9 +91,7 @@ class ProjectKpiFactsService
                 }
             } else {
                 foreach ($this->filteredMetrikaUtmGoals($projectId, $from, $to) as $goal) {
-                    $day = $goal->achieved_date instanceof Carbon
-                        ? $goal->achieved_date->toDateString()
-                        : Carbon::parse((string) $goal->achieved_date)->toDateString();
+                    $day = $goal->getAchievedDate()->format('Y-m-d');
                     $map[$day] = ($map[$day] ?? 0) + 1;
                 }
             }
@@ -124,11 +121,6 @@ class ProjectKpiFactsService
         return $map;
     }
 
-    public function leadsTotal(int $projectId, Carbon $from, Carbon $to): int
-    {
-        return array_sum($this->leadsByDay($projectId, $from, $to));
-    }
-
     /**
      * Клики Директа по дням (визиты контекста).
      *
@@ -141,22 +133,11 @@ class ProjectKpiFactsService
             return [];
         }
 
-        $rows = YandexDirectCampaignStats::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['date', 'clicks']);
-
-        $map = [];
-        foreach ($rows as $row) {
-            $day = $row->date instanceof Carbon
-                ? $row->date->toDateString()
-                : Carbon::parse((string) $row->date)->toDateString();
-            $map[$day] = ($map[$day] ?? 0) + (int) $row->clicks;
-        }
-
-        ksort($map);
-
-        return $map;
+        return $this->yandexDirect->clicksByDay(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
     }
 
     /**
@@ -169,44 +150,11 @@ class ProjectKpiFactsService
             return null;
         }
 
-        $rows = YandexSearchApiDailyTopPercent::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['top_10_percent']);
-
-        if ($rows->isEmpty()) {
-            return null;
-        }
-
-        return round((float) $rows->avg('top_10_percent'), 2);
-    }
-
-    /**
-     * @return array<string, float> Y-m-d => %
-     */
-    public function top10ByDay(int $projectId, Carbon $from, Carbon $to): array
-    {
-        [$from, $to] = $this->clampPeriod($from, $to);
-        if ($from->greaterThan($to)) {
-            return [];
-        }
-
-        $rows = YandexSearchApiDailyTopPercent::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['date', 'top_10_percent']);
-
-        $map = [];
-        foreach ($rows as $row) {
-            $day = $row->date instanceof Carbon
-                ? $row->date->toDateString()
-                : Carbon::parse((string) $row->date)->toDateString();
-            $map[$day] = (float) $row->top_10_percent;
-        }
-
-        ksort($map);
-
-        return $map;
+        return $this->searchApiTopPercents->averageTop10Percent(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
     }
 
     /**
@@ -214,9 +162,7 @@ class ProjectKpiFactsService
      */
     public function seoSearchVisits(int $projectId, Carbon $from, Carbon $to): ?int
     {
-        $sum = $this->seoSearchEnginesSum($projectId, $from, $to, 'visits');
-
-        return $sum;
+        return $this->seoSearchEnginesSum($projectId, $from, $to, 'visits');
     }
 
     /**
@@ -233,13 +179,11 @@ class ProjectKpiFactsService
     public function filteredCallibriLeads(int $projectId, Carbon $from, Carbon $to): array
     {
         $settings = $this->credentials->settingsFor($projectId, 'callibri') ?? [];
-        $leads = CallibriLead::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [
-                $from->copy()->startOfDay()->toDateTimeString(),
-                $to->copy()->endOfDay()->toDateTimeString(),
-            ])
-            ->get();
+        $leads = $this->callibriLeads->getLeadsBetween(
+            $projectId,
+            $from->copy()->startOfDay()->toDateTimeString(),
+            $to->copy()->endOfDay()->toDateTimeString(),
+        );
 
         if ($leads->isEmpty()) {
             return [];
@@ -293,37 +237,37 @@ class ProjectKpiFactsService
             return [];
         }
 
-        $goals = YandexMetrikaGoalUtm::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('achieved_date', [$from->toDateString(), $to->toDateString()])
-            ->get();
+        $goals = $this->yandexMetrika->getGoalUtmStats($projectId, $this->toRange($from, $to));
 
         $mode = (string) ($settings['utm_filter_mode'] ?? 'none');
         if ($mode === 'none' || $mode === '') {
-            return $goals->all();
+            return $goals;
         }
 
         $pattern = trim((string) ($settings['utm_'.$mode] ?? ''));
-        $field = match ($mode) {
-            'campaign' => 'utm_campaign',
-            'medium' => 'utm_medium',
-            default => 'utm_source',
-        };
 
-        return $goals->filter(function (YandexMetrikaGoalUtm $goal) use ($field, $pattern) {
-            $value = trim((string) ($goal->{$field} ?? ''));
-            if ($pattern === '') {
-                return $value !== '';
-            }
+        return array_values(array_filter(
+            $goals,
+            function (YandexMetrikaGoalUtm $goal) use ($mode, $pattern): bool {
+                $value = trim((string) match ($mode) {
+                    'campaign' => $goal->getUtmCampaign() ?? '',
+                    'medium' => $goal->getUtmMedium() ?? '',
+                    default => $goal->getUtmSource() ?? '',
+                });
 
-            foreach (array_map('trim', explode(',', $pattern)) as $piece) {
-                if ($piece !== '' && str_contains(mb_strtolower($value), mb_strtolower($piece))) {
-                    return true;
+                if ($pattern === '') {
+                    return $value !== '';
                 }
-            }
 
-            return false;
-        })->values()->all();
+                foreach (array_map('trim', explode(',', $pattern)) as $piece) {
+                    if ($piece !== '' && str_contains(mb_strtolower($value), mb_strtolower($piece))) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+        ));
     }
 
     /**
@@ -361,57 +305,22 @@ class ProjectKpiFactsService
             return [];
         }
 
-        $monthStart = $from->copy()->startOfMonth()->toDateString();
-        $monthEnd = $to->copy()->startOfMonth()->toDateString();
+        $rows = $this->yandexMetrika->getGoalDirectSummaryStats(
+            $projectId,
+            $this->toMonthRange($from, $to),
+        );
 
-        $rows = YandexMetrikaGoalDirectSummary::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('month', [$monthStart, $monthEnd])
-            ->get(['month', 'conversions']);
-
-        if ($rows->isEmpty()) {
+        if ($rows === []) {
             return [];
         }
 
         $map = [];
         foreach ($rows as $row) {
-            $month = $row->month instanceof Carbon
-                ? $row->month->copy()->startOfMonth()->toDateString()
-                : Carbon::parse((string) $row->month)->startOfMonth()->toDateString();
-            $map[$month] = ($map[$month] ?? 0) + (int) $row->conversions;
+            $month = $row->getMonth()->format('Y-m-01');
+            $map[$month] = ($map[$month] ?? 0) + $row->getConversions();
         }
 
         return $map;
-    }
-
-    /**
-     * Пересчитать дневные счётчики Callibri из сохранённых лидов (после фильтров UTM).
-     */
-    public function recountCallibriDailyCounts(int $projectId, Carbon $from, Carbon $to): void
-    {
-        [$from, $to] = $this->clampPeriod($from, $to);
-        if ($from->greaterThan($to)) {
-            return;
-        }
-
-        $byDay = [];
-        foreach ($this->filteredCallibriLeads($projectId, $from, $to) as $lead) {
-            $day = Carbon::parse((string) $lead->date)->toDateString();
-            $byDay[$day] = ($byDay[$day] ?? 0) + 1;
-        }
-
-        for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
-            $key = $day->toDateString();
-            CallibriDailyLeadCount::query()->updateOrCreate(
-                [
-                    'project_id' => $projectId,
-                    'date' => $key,
-                ],
-                [
-                    'leads_count' => $byDay[$key] ?? 0,
-                ],
-            );
-        }
     }
 
     /**
@@ -431,18 +340,36 @@ class ProjectKpiFactsService
 
     private function seoSearchEnginesSum(int $projectId, Carbon $from, Carbon $to, string $column): ?int
     {
-        $monthStart = $from->copy()->startOfMonth()->toDateString();
-        $monthEnd = $to->copy()->startOfMonth()->toDateString();
+        $rows = $this->yandexMetrika->getSearchEnginesStats(
+            $projectId,
+            $this->toMonthRange($from, $to),
+        );
 
-        $rows = YandexMetrikaSearchEnginesStats::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('month', [$monthStart, $monthEnd])
-            ->get([$column]);
-
-        if ($rows->isEmpty()) {
+        if ($rows === []) {
             return null;
         }
 
-        return (int) $rows->sum($column);
+        $sum = 0;
+        foreach ($rows as $row) {
+            $sum += $column === 'conversions' ? $row->getConversions() : $row->getVisits();
+        }
+
+        return $sum;
+    }
+
+    private function toRange(Carbon $from, Carbon $to): DateTimeRange
+    {
+        return new DateTimeRange(
+            new DateTimeImmutable($from->toDateString()),
+            new DateTimeImmutable($to->toDateString()),
+        );
+    }
+
+    private function toMonthRange(Carbon $from, Carbon $to): DateTimeRange
+    {
+        return new DateTimeRange(
+            new DateTimeImmutable($from->copy()->startOfMonth()->toDateString()),
+            new DateTimeImmutable($to->copy()->startOfMonth()->toDateString()),
+        );
     }
 }

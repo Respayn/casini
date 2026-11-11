@@ -5,7 +5,7 @@ namespace App\Services\IntegrationSync\Collectors;
 use App\Contracts\IntegrationSyncCollector;
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
-use App\Models\Project;
+use App\Repositories\ProjectRepository;
 use App\Services\Bitrix24\Bitrix24ApiException;
 use App\Services\Bitrix24\Bitrix24ChecklistTree;
 use App\Services\Bitrix24\Bitrix24Client;
@@ -29,6 +29,7 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
         private readonly IntegrationProjectCredentials $credentials,
         private readonly Bitrix24Client $client,
         private readonly CompletedWorkRepositoryInterface $completedWorks,
+        private readonly ProjectRepository $projects,
     ) {}
 
     public function key(): string
@@ -43,7 +44,7 @@ class Bitrix24WorksCollector implements IntegrationSyncCollector
 
     public function supportsProject(int $projectId): bool
     {
-        if (! Project::query()->whereKey($projectId)->where('is_active', true)->exists()) {
+        if (! $this->projects->isActive($projectId)) {
             return false;
         }
 

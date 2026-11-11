@@ -7,7 +7,10 @@ use App\Models\GoogleSheetsMonthlySpending;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
 use App\Models\Project;
+use App\Repositories\AgencyRepository;
+use App\Repositories\GoogleSheetsMonthlySpendingRepository;
 use App\Repositories\IntegrationRepository;
+use App\Repositories\ProjectRepository;
 use App\Services\GoogleSheets\Exceptions\GoogleSheetsParseException;
 use App\Services\GoogleSheets\GoogleSheetsServiceAccountCredentials;
 use App\Services\GoogleSheets\GoogleSheetsSpendingsParser;
@@ -24,6 +27,9 @@ class GoogleSheetsService
         private GoogleSheetsServiceAccountCredentials $credentials,
         private GoogleSheetsSpendingsParser $parser,
         private IntegrationRepository $integrationRepository,
+        private GoogleSheetsMonthlySpendingRepository $spendings,
+        private ProjectRepository $projects,
+        private AgencyRepository $agencies,
     ) {}
 
     public static function extractSpreadsheetId(string $value): string
@@ -46,13 +52,10 @@ class GoogleSheetsService
             return collect();
         }
 
-        $yearMonth = $month->copy()->startOfMonth()->toDateString();
-
-        return GoogleSheetsMonthlySpending::query()
-            ->whereIn('project_id', $projectIds)
-            ->whereDate('year_month', $yearMonth)
-            ->get()
-            ->keyBy('project_id');
+        return $this->spendings->forProjectsAndMonth(
+            $projectIds,
+            $month->copy()->startOfMonth()->toDateString(),
+        );
     }
 
     /**
@@ -171,10 +174,10 @@ class GoogleSheetsService
         }
 
         $yearMonth = $month->copy()->startOfMonth()->toDateString();
-        $existing = GoogleSheetsMonthlySpending::query()->firstOrNew([
-            'project_id' => $projectIntegration->project_id,
-            'year_month' => $yearMonth,
-        ]);
+        $existing = $this->spendings->firstOrNewForProjectMonth(
+            (int) $projectIntegration->project_id,
+            $yearMonth,
+        );
 
         $projectUrl = (string) ($project->domain ?? '');
         $accessToken = $this->credentials->accessToken();
@@ -197,11 +200,9 @@ class GoogleSheetsService
             $existing,
         );
 
-        $spending = GoogleSheetsMonthlySpending::query()->updateOrCreate(
-            [
-                'project_id' => $projectIntegration->project_id,
-                'year_month' => $yearMonth,
-            ],
+        $spending = $this->spendings->updateOrCreateForProjectMonth(
+            (int) $projectIntegration->project_id,
+            $yearMonth,
             [
                 'programming_hours' => $programming['hours'],
                 'programming_sum' => $programming['sum'],
@@ -209,7 +210,7 @@ class GoogleSheetsService
                 'copyrighting_sum' => $copyrighting['sum'],
                 'seo_links_sum' => 0,
                 'synced_at' => now(),
-            ]
+            ],
         );
 
         $sheetErrors = array_values(array_filter([
@@ -226,7 +227,7 @@ class GoogleSheetsService
 
     public function resolveSpreadsheetIdForProject(int $projectId): string
     {
-        $project = Project::query()->with('specialist.agencies')->find($projectId);
+        $project = $this->projects->findWithSpecialistAgencies($projectId);
 
         if ($project === null) {
             return '';
@@ -260,10 +261,7 @@ class GoogleSheetsService
             return $agency;
         }
 
-        return Agency::query()
-            ->orderBy('id')
-            ->get()
-            ->first(fn (Agency $agency) => $agency->isGoogleSheetsSpreadsheetConfigured());
+        return $this->agencies->firstConfiguredGoogleSheetsAgency();
     }
 
     /**
@@ -380,8 +378,7 @@ class GoogleSheetsService
             return (string) $timezone;
         }
 
-        return Agency::query()->value('time_zone')
-            ?? (string) config('app.timezone', 'UTC');
+        return $this->agencies->getPrimaryTimeZone();
     }
 
     /**

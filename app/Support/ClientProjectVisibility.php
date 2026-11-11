@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 
 class ClientProjectVisibility
 {
-    public static function seesAllProjects(?User $user = null): bool
+    private static function seesAllProjects(?User $user = null): bool
     {
         $user ??= Auth::user();
 

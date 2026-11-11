@@ -26,7 +26,7 @@ class IntegrationSyncIssueStatus
     /**
      * @return list<string>
      */
-    public static function preservedKeys(): array
+    private static function preservedKeys(): array
     {
         return [self::KIND_KEY, self::MESSAGE_KEY];
     }

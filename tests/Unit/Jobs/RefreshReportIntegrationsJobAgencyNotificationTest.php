@@ -3,6 +3,7 @@
 namespace Tests\Unit\Jobs;
 
 use App\Models\Notification;
+use App\Repositories\AgencyRepository;
 use App\Services\IntegrationSync\IntegrationManualRefreshNotifier;
 use App\Services\IntegrationSync\IntegrationManualRefreshProgress;
 use App\Services\NotificationService;
@@ -24,7 +25,10 @@ class RefreshReportIntegrationsJobAgencyNotificationTest extends TestCase
                 return Mockery::mock(Notification::class);
             });
 
-        $notifier = new IntegrationManualRefreshNotifier($notifications);
+        $notifier = new IntegrationManualRefreshNotifier(
+            $notifications,
+            app(AgencyRepository::class),
+        );
         $notifier->notifyUsers(
             userIds: [10, 20, 10],
             agencyId: 5,

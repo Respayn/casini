@@ -10,12 +10,16 @@ use App\Models\YandexDirectDailySpending;
 use App\Models\YandexMetrikaGoalUtm;
 use App\Models\YandexMetrikaSearchEnginesStats;
 use App\Models\YandexSearchApiDailyTopPercent;
+use App\Repositories\CallibriLeadRepository;
+use App\Repositories\YandexSearchApiDailyTopPercentRepository;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Services\ProjectFacts\ProjectKpiFactsService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Mockery;
+use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
+use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
 use Tests\TestCase;
 
 class ProjectKpiFactsServiceTest extends TestCase
@@ -56,6 +60,18 @@ class ProjectKpiFactsServiceTest extends TestCase
         ], static fn ($v) => $v !== null));
     }
 
+    private function makeService(IntegrationProjectCredentials $credentials): ProjectKpiFactsService
+    {
+        return new ProjectKpiFactsService(
+            $credentials,
+            app(CallibriFilterFactory::class),
+            app(YandexDirectRepositoryInterface::class),
+            app(CallibriLeadRepository::class),
+            app(YandexMetrikaRepositoryInterface::class),
+            app(YandexSearchApiDailyTopPercentRepository::class),
+        );
+    }
+
     public function test_direct_budget_sums_daily_spendings_with_vat(): void
     {
         $project = $this->makeProject();
@@ -72,10 +88,7 @@ class ProjectKpiFactsServiceTest extends TestCase
             'cost_without_vat' => 160.0,
         ]);
 
-        $service = new ProjectKpiFactsService(
-            Mockery::mock(IntegrationProjectCredentials::class),
-            app(CallibriFilterFactory::class),
-        );
+        $service = $this->makeService(Mockery::mock(IntegrationProjectCredentials::class));
 
         $sum = $service->directBudget(
             $project->id,
@@ -139,15 +152,15 @@ class ProjectKpiFactsServiceTest extends TestCase
             'utm_source' => 'yandex',
         ]);
 
-        $service = new ProjectKpiFactsService($credentials, app(CallibriFilterFactory::class));
-        $total = $service->leadsTotal(
+        $service = $this->makeService($credentials);
+        $byDay = $service->leadsByDay(
             $project->id,
             Carbon::parse('2026-10-01'),
             Carbon::parse('2026-10-31'),
         );
 
         // 1 Callibri (yandex) + 1 Metrika (yandex); google/vk отфильтрованы
-        $this->assertSame(2, $total);
+        $this->assertSame(2, array_sum($byDay));
     }
 
     public function test_top10_and_seo_facts_match_shared_sources(): void
@@ -174,10 +187,7 @@ class ProjectKpiFactsServiceTest extends TestCase
             'conversions' => 60,
         ]);
 
-        $service = new ProjectKpiFactsService(
-            Mockery::mock(IntegrationProjectCredentials::class),
-            app(CallibriFilterFactory::class),
-        );
+        $service = $this->makeService(Mockery::mock(IntegrationProjectCredentials::class));
 
         $this->assertSame(
             45.0,
