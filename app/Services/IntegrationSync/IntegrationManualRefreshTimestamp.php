@@ -13,17 +13,17 @@ class IntegrationManualRefreshTimestamp
         private readonly AgencyRepository $agencyRepository = new AgencyRepository,
     ) {}
 
-    public function record(int $userId, string $product): void
+    public function record(int $agencyId): void
     {
         Cache::forever(
-            $this->cacheKey($userId, $product),
+            $this->cacheKey($agencyId),
             Carbon::now()->toIso8601String(),
         );
     }
 
-    public function formattedLabel(int $userId, string $product): ?string
+    public function formattedLabel(int $agencyId): ?string
     {
-        $at = $this->resolveLatestAt($userId, $product);
+        $at = $this->resolveLatestAt($agencyId);
 
         if ($at === null) {
             return null;
@@ -34,11 +34,11 @@ class IntegrationManualRefreshTimestamp
             ->format('H:i, d.m.y');
     }
 
-    private function resolveLatestAt(int $userId, string $product): ?Carbon
+    private function resolveLatestAt(int $agencyId): ?Carbon
     {
         $candidates = [];
 
-        $manual = $this->manualAt($userId, $product);
+        $manual = $this->manualAt($agencyId);
         if ($manual !== null) {
             $candidates[] = $manual;
         }
@@ -62,9 +62,9 @@ class IntegrationManualRefreshTimestamp
         return $latest;
     }
 
-    private function manualAt(int $userId, string $product): ?Carbon
+    private function manualAt(int $agencyId): ?Carbon
     {
-        $raw = Cache::get($this->cacheKey($userId, $product));
+        $raw = Cache::get($this->cacheKey($agencyId));
 
         if (! filled($raw)) {
             return null;
@@ -91,8 +91,8 @@ class IntegrationManualRefreshTimestamp
         return Carbon::parse($finishedAt);
     }
 
-    private function cacheKey(int $userId, string $product): string
+    private function cacheKey(int $agencyId): string
     {
-        return "integrations.manual_refresh.last_at.user.{$userId}.{$product}";
+        return "integrations.manual_refresh.last_at.agency.{$agencyId}";
     }
 }

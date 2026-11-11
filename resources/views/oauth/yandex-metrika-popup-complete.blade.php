@@ -2,7 +2,8 @@
 <html lang="ru">
 <head>
     <meta charset="utf-8">
-    <title>Яндекс Метрика: авторизация</title>
+    <x-layout.document-head-brand title="Яндекс Метрика: авторизация" />
+    <x-layout.favicon />
 </head>
 <body>
     <p id="oauth-status">Авторизация завершена. Это окно можно закрыть.</p>

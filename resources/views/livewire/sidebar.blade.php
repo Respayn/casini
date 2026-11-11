@@ -1,4 +1,6 @@
+{{-- absolute: меню и так fixed, иначе flex-gap на body забирает 20px справа после каждого перехода --}}
 <div
+    class="pointer-events-none absolute"
     x-data
     x-init="
         document.documentElement.classList.remove('sidebar-animating');
@@ -7,7 +9,7 @@
 >
     {{-- Панель фиксированной ширины: сдвиг через html.sidebar-collapsed (см. app.css) --}}
     <aside
-        class="sidebar-panel fixed top-0 left-0 z-20 flex h-screen max-h-screen w-[355px] min-w-[355px] max-w-[355px] flex-col bg-white pe-[30px] ps-5 pt-[39px] will-change-transform"
+        class="sidebar-panel pointer-events-auto fixed top-0 left-0 z-20 flex h-screen max-h-screen w-[355px] min-w-[355px] max-w-[355px] flex-col bg-white pe-[30px] ps-5 pt-[39px] will-change-transform"
         x-bind:aria-hidden="! $store.sidebar.open"
     >
         <div class="mb-[60px] flex flex-col gap-2">
@@ -32,9 +34,10 @@
 
         <div class="mb-4">
             <x-button.button
+                class="w-full"
                 variant="secondary"
-                label="Удалить фильтры"
-                icon="icons.delete"
+                label="Сбросить фильтр"
+                icon="icons.filter-alt-off"
                 :disabled="! $this->canClearFilters"
                 wire:click="clearFilters"
             />
@@ -173,7 +176,7 @@
 
     <button
         type="button"
-        class="sidebar-toggle bg-primary fixed top-[52px] z-30 flex h-12 w-[18px] cursor-pointer items-center justify-center rounded-full border-0 shadow-sm"
+        class="sidebar-toggle pointer-events-auto bg-primary fixed top-[52px] z-30 flex h-12 w-[18px] cursor-pointer items-center justify-center rounded-full border-0 shadow-sm"
         x-on:click="$store.sidebar.toggle()"
         x-bind:title="$store.sidebar.open ? 'Свернуть меню' : 'Развернуть меню'"
         x-bind:aria-label="$store.sidebar.open ? 'Свернуть меню' : 'Развернуть меню'"

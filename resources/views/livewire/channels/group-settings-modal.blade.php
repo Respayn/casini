@@ -12,24 +12,15 @@
             </div>
 
             <div class="mt-24 flex justify-between">
-                <x-button icon="icons.check" label="Применить" variant="primary" wire:click="$js.apply" />
-                <x-button wire:click="$js.cancel" label="Отмена" />
+                <x-button
+                    icon="icons.check"
+                    label="Применить"
+                    variant="primary"
+                    wire:click="$parent.applyGrouping('{{ $grouping->value }}')"
+                    x-on:click="$wire.initialGrouping = $wire.grouping; $dispatch('modal-hide', { name: 'group-settings-modal' })"
+                />
+                <x-button wire:click="cancel" label="Отмена" />
             </div>
         </div>
         </x-slot>
 </x-overlay.modal>
-
-@script
-<script>
-    $wire.$js.apply = () => {
-        $wire.initialGrouping = $wire.grouping;
-        $dispatch('modal-hide', { name: 'group-settings-modal' })
-        $dispatch('group-settings-applied', { grouping: $wire.grouping });
-    };
-
-    $wire.$js.cancel = () => {
-        $wire.set('grouping', $wire.initialGrouping);
-        $dispatch('modal-hide', { name: 'group-settings-modal' })
-    };
-</script>
-@endscript

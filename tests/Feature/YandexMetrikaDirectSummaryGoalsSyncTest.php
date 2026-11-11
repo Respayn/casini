@@ -45,10 +45,21 @@ class YandexMetrikaDirectSummaryGoalsSyncTest extends TestCase
             ],
         ]);
 
+        // На staging в той же БД могут быть другие проекты с Метрикой:
+        // команда обходит все, поэтому ожидаем «хотя бы один» вызов.
         $this->mock(YandexMetrikaService::class, function ($mock) {
-            $mock->shouldReceive('setupClientFromSettings')->once();
-            $mock->shouldReceive('fetchDirectSummaryGoalsStats')->once()->andReturn([
+            $mock->shouldReceive('setupClientFromSettings')->atLeast()->once();
+            $mock->shouldReceive('fetchDirectSummaryGoalsStats')->atLeast()->once()->andReturn([
                 ['goal_name' => 'Заявка', 'month' => '2026-08-01', 'value' => 15],
+            ]);
+            $mock->shouldReceive('fetchDirectSummaryGoalsByCampaignStats')->atLeast()->once()->andReturn([
+                [
+                    'goal_name' => 'Заявка',
+                    'campaign_id' => 100,
+                    'campaign_name' => 'Кампания А',
+                    'month' => '2026-08-01',
+                    'value' => 15,
+                ],
             ]);
         });
 
@@ -64,6 +75,14 @@ class YandexMetrikaDirectSummaryGoalsSyncTest extends TestCase
 
         $this->assertSame('Заявка', $row->goal_name);
         $this->assertSame(15, $row->conversions);
+
+        $this->assertDatabaseHas('yandex_metrika_goal_direct_campaigns', [
+            'project_id' => $project->id,
+            'goal_name' => 'Заявка',
+            'campaign_id' => 100,
+            'campaign_name' => 'Кампания А',
+            'conversions' => 15,
+        ]);
     }
 
     #[Test]

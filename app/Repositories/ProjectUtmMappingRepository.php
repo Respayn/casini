@@ -33,7 +33,8 @@ class ProjectUtmMappingRepository extends EloquentRepository implements ProjectU
 
     public function findBy(string $column, mixed $value)
     {
-        $utmMappings = $this->model()->where($column, $value)->get();
+        $utmMappings = $this->model->where($column, $value)->get();
+
         return ProjectUtmMappingData::collect($utmMappings);
     }
 

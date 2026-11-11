@@ -11,8 +11,10 @@ use App\Models\IntegrationSyncRun;
 use App\Models\Project;
 use App\Repositories\AgencyRepository;
 use App\Services\IntegrationSync\Collectors\Bitrix24LaborCollector;
+use App\Services\IntegrationSync\Collectors\Bitrix24WorksCollector;
 use App\Services\IntegrationSync\Collectors\CallibriDailyLeadsCollector;
 use App\Services\IntegrationSync\Collectors\GoogleSheetsSpendingsCollector;
+use App\Services\IntegrationSync\Collectors\YandexDirectCampaignStatsCollector;
 use App\Services\IntegrationSync\Collectors\YandexDirectDailySpendCollector;
 use App\Services\IntegrationSync\Collectors\YandexMetrikaReportsCollector;
 use App\Services\IntegrationSync\Collectors\YandexSearchApiDailyPositionsCollector;
@@ -197,13 +199,25 @@ class IntegrationSyncDispatcher
      */
     public static function defaultCollectors(): array
     {
-        return [
-            app(YandexDirectDailySpendCollector::class),
-            app(CallibriDailyLeadsCollector::class),
-            app(YandexSearchApiDailyPositionsCollector::class),
-            app(Bitrix24LaborCollector::class),
-            app(YandexMetrikaReportsCollector::class),
-            app(GoogleSheetsSpendingsCollector::class),
+        $classes = [
+            YandexDirectDailySpendCollector::class,
+            YandexDirectCampaignStatsCollector::class,
+            CallibriDailyLeadsCollector::class,
+            YandexSearchApiDailyPositionsCollector::class,
+            Bitrix24LaborCollector::class,
+            Bitrix24WorksCollector::class,
+            YandexMetrikaReportsCollector::class,
+            GoogleSheetsSpendingsCollector::class,
         ];
+
+        $collectors = [];
+
+        foreach ($classes as $class) {
+            if (class_exists($class)) {
+                $collectors[] = app($class);
+            }
+        }
+
+        return $collectors;
     }
 }

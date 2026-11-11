@@ -50,6 +50,7 @@
                             type="submit"
                             label="Сменить пароль"
                             variant="primary"
+                            loading="resetPassword"
                             :disabled="!$this->isStep1Ready"
                         />
                     </div>

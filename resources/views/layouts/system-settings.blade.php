@@ -52,7 +52,7 @@
     >
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ $title ?? 'Page Title' }}</title>
+    <x-layout.document-head-brand :title="$title ?? null" />
 
     <x-layout.favicon />
 
@@ -63,11 +63,18 @@
 </head>
 
 <body
-    class="bg-body text-primary-text flex gap-5 font-sans"
+    class="bg-body text-primary-text flex font-sans"
     x-data
 >
+    <script>
+        try {
+            if (localStorage.getItem('casini.sidebarOpen') === 'false') {
+                document.documentElement.classList.add('sidebar-collapsed');
+            }
+        } catch (e) {}
+    </script>
     <livewire:sidebar />
-    <div class="app-main flex w-full flex-col gap-[25px]">
+    <div class="app-main flex h-screen min-h-0 w-full min-w-0 flex-col gap-[25px] pe-[20px]">
         <livewire:header />
 
         <x-menu.navbar :items="$navbarItems">
@@ -76,14 +83,16 @@
                 @if ($canSeeAgency)
                     @if ($isAgencyExist)
                         <x-button.button
-                            class="hover:!bg-primary hover:!text-white"
+                            size="none"
+                            class="flex h-full min-h-10 items-center justify-center rounded-lg px-3.5 py-2 text-center leading-5 hover:!bg-primary hover:!text-white"
                             :href="route('system-settings.agency')"
                             label="Настройки агентства"
                             :variant="request()->routeIs('system-settings.agency*') ? 'primary' : 'outlined'"
                         />
                     @else
                         <x-button.button
-                            class="hover:bg-primary hover:text-white"
+                            size="none"
+                            class="flex h-full min-h-10 items-center justify-center rounded-lg px-3.5 py-2 text-center leading-5 hover:bg-primary hover:text-white"
                             variant="outlined"
                             label="Настройки агентства"
                             x-data
@@ -94,7 +103,7 @@
             </x-slot:after>
         </x-menu.navbar>
 
-        <div class="rounded-l-2xl bg-white p-5">
+        <div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto rounded-2xl bg-white p-5 [scrollbar-gutter:stable]">
             {{ $slot }}
         </div>
     </div>

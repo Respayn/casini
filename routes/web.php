@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\PermissionGroup;
-use App\Http\Controllers\GoogleSheetsOAuthController;
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
 use App\Livewire\LandingPage;
@@ -93,12 +92,6 @@ Route::middleware(['auth'])->group(function () {
             ->name('yandex-metrika.callback');
     });
 
-    Route::prefix('google-sheets')->group(function () {
-        Route::get('/connect', [GoogleSheetsOAuthController::class, 'redirect'])
-            ->name('google_sheets.oauth.redirect');
-        Route::get('/callback', [GoogleSheetsOAuthController::class, 'callback'])
-            ->name('google_sheets.oauth.callback');
-    });
 });
 
 Route::livewire('/', LandingPage::class)->name('landing');

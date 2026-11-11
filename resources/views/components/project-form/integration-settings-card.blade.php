@@ -2,9 +2,16 @@
     'title' => null,
     'description' => null,
     'configuredIntegrations' => [],
+    'availableIntegrations' => null,
+    'addDisabledMessage' => 'Нет доступных интеграций для этого типа клиенто-проекта и KPI',
     'modalTriggerName',
     'canEdit' => true,
 ])
+
+@php
+    $canAdd = $canEdit
+        && ($availableIntegrations === null || count($availableIntegrations) > 0);
+@endphp
 
 <x-panel.card class="flex-1">
     <x-slot:title>{{ $title }}</x-slot:title>
@@ -13,8 +20,18 @@
             {{ $description }}
         </div>
         @if (count($configuredIntegrations) > 0)
-            <div class="mt-6 flex flex-col gap-2.5">
+            <div class="mt-auto flex flex-col gap-2.5 pt-6">
                 @foreach ($configuredIntegrations as $integration)
+                    @php
+                        $syncIssueMessage = \App\Services\IntegrationSync\IntegrationSyncIssueStatus::messageFromSettings(
+                            is_array($integration->settings ?? null) ? $integration->settings : []
+                        );
+                        $hasSyncIssue = $syncIssueMessage !== null
+                            && (bool) ($integration->isEnabled ?? false);
+                        $settingsTitle = $hasSyncIssue
+                            ? $syncIssueMessage
+                            : 'Настройки интеграции';
+                    @endphp
                     <div class="flex min-h-10 items-center justify-between gap-3">
                         <div class="flex min-w-0 items-center gap-3">
                             @if ($canEdit)
@@ -22,13 +39,18 @@
                                     type="button"
                                     class="text-caption-text hover:text-primary inline-flex h-[18px] w-[18px] shrink-0 cursor-pointer items-center justify-center"
                                     wire:click="selectIntegration('{{ $integration->integration->code }}')"
-                                    title="Настройки интеграции"
+                                    title="{{ $settingsTitle }}"
                                 >
                                     <x-icons.gear class="h-[18px] w-[18px] shrink-0" />
                                 </button>
                                 <span
-                                    class="text-primary cursor-pointer text-sm hover:underline"
+                                    @class([
+                                        'cursor-pointer text-sm hover:underline',
+                                        'text-[#FF7373]' => $hasSyncIssue,
+                                        'text-primary' => ! $hasSyncIssue,
+                                    ])
                                     wire:click="selectIntegration('{{ $integration->integration->code }}')"
+                                    @if ($hasSyncIssue) title="{{ $syncIssueMessage }}" @endif
                                 >
                                     {{ $integration->integration->name }}
                                 </span>
@@ -37,17 +59,26 @@
                                     <x-icons.gear class="h-[18px] w-[18px] shrink-0" />
                                 </span>
                                 <x-permissions.field-guard :enabled="false" :fill="false">
-                                    <span class="text-primary text-sm">
+                                    <span
+                                        @class([
+                                            'text-sm',
+                                            'text-[#FF7373]' => $hasSyncIssue,
+                                            'text-primary' => ! $hasSyncIssue,
+                                        ])
+                                        @if ($hasSyncIssue) title="{{ $syncIssueMessage }}" @endif
+                                    >
                                         {{ $integration->integration->name }}
                                     </span>
                                 </x-permissions.field-guard>
                             @endif
                         </div>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch
-                                wire:model.live="integrationSettings.{{ $integration->integration->id }}.isEnabled"
-                                :disabled="! $canEdit"
-                            />
+                            <div @class(['yd-direct-error-toggle' => $hasSyncIssue])>
+                                <x-form.toggle-switch
+                                    wire:model.live="integrationSettings.{{ $integration->integration->id }}.isEnabled"
+                                    :disabled="! $canEdit"
+                                />
+                            </div>
                         </x-permissions.field-guard>
                     </div>
                 @endforeach
@@ -55,19 +86,24 @@
         @endif
     </x-slot:content>
     <x-slot:footer>
-        @if ($canEdit)
+        @if ($canAdd)
             <x-overlay.modal-trigger :name="$modalTriggerName">
                 <x-button.button
-                    class="w-full"
+                    class="h-auto min-h-10 w-full whitespace-normal rounded-lg px-3 py-2 text-sm leading-snug"
+                    size="none"
                     variant="primary"
                     label="Добавить интеграцию"
                     icon="icons.plus"
                 />
             </x-overlay.modal-trigger>
         @else
-            <x-permissions.field-guard :enabled="false">
+            <x-permissions.field-guard
+                :enabled="false"
+                :message="$canEdit ? $addDisabledMessage : null"
+            >
                 <x-button.button
-                    class="w-full"
+                    class="h-auto min-h-10 w-full whitespace-normal rounded-lg px-3 py-2 text-sm leading-snug"
+                    size="none"
                     variant="primary"
                     label="Добавить интеграцию"
                     icon="icons.plus"

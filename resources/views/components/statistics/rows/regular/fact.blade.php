@@ -3,6 +3,7 @@
 @props([
     'params',
     'highlightUnmetKpi' => false,
+    'treatMissingPlanAsUnmet' => false,
 ])
 
 @php
@@ -55,6 +56,8 @@
         $factValue = $parameter['fact']['value'] ?? null;
         if (is_numeric($factValue) && is_numeric($planValue) && (float) $planValue != 0.0) {
             $planPercent = (int) round(((float) $factValue / (float) $planValue) * 100);
+        } elseif (is_numeric($factValue) && $treatMissingPlanAsUnmet) {
+            $planPercent = 0;
         }
 
         $factWithPercent = $planPercent !== null

@@ -76,72 +76,72 @@ enum SearchRegion: int
     public function label(): string
     {
         return match ($this) {
-            static::RUSSIA => 'Россия',
-            static::UKRAINE => 'Украина',
-            static::BELARUS => 'Беларусь',
-            static::KAZAKHSTAN => 'Казахстан',
+            self::RUSSIA => 'Россия',
+            self::UKRAINE => 'Украина',
+            self::BELARUS => 'Беларусь',
+            self::KAZAKHSTAN => 'Казахстан',
 
-            static::ARKHANGELSK => 'Архангельск',
-            static::ASTRAKHAN => 'Астрахань',
-            static::BARNAUL => 'Барнаул',
-            static::BELGOROD => 'Белгород',
-            static::BLAGOVESHCHENSK => 'Благовещенск',
-            static::BRYANSK => 'Брянск',
-            static::VELIKY_NOVGOROD => 'Великий Новгород',
-            static::VLADIVOSTOK => 'Владивосток',
-            static::VLADIKAVKAZ => 'Владикавказ',
-            static::VLADIMIR => 'Владимир',
-            static::VOLGOGRAD => 'Волгоград',
-            static::VOLOGDA => 'Вологда',
-            static::VORONEZH => 'Воронеж',
-            static::GROZNY => 'Грозный',
-            static::YEKATERINBURG => 'Екатеринбург',
-            static::IVANOVO => 'Иваново',
-            static::IRKUTSK => 'Иркутск',
-            static::YOSHKAR_OLA => 'Йошкар-Ола',
-            static::KAZAN => 'Казань',
-            static::KALININGRAD => 'Калининград',
-            static::KEMEROVO => 'Кемерово',
-            static::KOSTROMA => 'Кострома',
-            static::KRASNODAR => 'Краснодар',
-            static::KRASNOYARSK => 'Красноярск',
-            static::KURGAN => 'Курган',
-            static::KURSK => 'Курск',
-            static::LIPETSK => 'Липецк',
-            static::MAKHACHKALA => 'Махачкала',
-            static::MOSCOW_AND_MOSCOW_REGION => 'Москва и Московская область',
-            static::MOSCOW => 'Москва',
-            static::MURMANSK => 'Мурманск',
-            static::NAZRAN => 'Назрань',
-            static::NALCHIK => 'Нальчик',
-            static::NIZHNY_NOVGOROD => 'Нижний Новгород',
-            static::NOVOSIBIRSK => 'Новосибирск',
-            static::OMSK => 'Омск',
-            static::ORYOL => 'Орел',
-            static::ORENBURG => 'Оренбург',
-            static::PENZA => 'Пенза',
-            static::PERM => 'Пермь',
-            static::PSKOV => 'Псков',
-            static::ROSTOV_ON_DON => 'Ростов-на-Дону',
-            static::RYAZAN => 'Рязань',
-            static::SAMARA => 'Самара',
-            static::SAINT_PETERSBURG => 'Санкт-Петербург',
-            static::SARANSK => 'Саранск',
-            static::SMOLENSK => 'Смоленск',
-            static::SOCHI => 'Сочи',
-            static::STAVROPOL => 'Ставрополь',
-            static::SURGUT => 'Сургут',
-            static::TAMBOV => 'Тамбов',
-            static::TVER => 'Тверь',
-            static::TOMSK => 'Томск',
-            static::TULA => 'Тула',
-            static::ULYANOVSK => 'Ульяновск',
-            static::UFA => 'Уфа',
-            static::KHABAROVSK => 'Хабаровск',
-            static::CHEBOKSARY => 'Чебоксары',
-            static::CHELYABINSK => 'Челябинск',
-            static::CHERKESSK => 'Черкесск',
-            static::YAROSLAVL => 'Ярославль',
+            self::ARKHANGELSK => 'Архангельск',
+            self::ASTRAKHAN => 'Астрахань',
+            self::BARNAUL => 'Барнаул',
+            self::BELGOROD => 'Белгород',
+            self::BLAGOVESHCHENSK => 'Благовещенск',
+            self::BRYANSK => 'Брянск',
+            self::VELIKY_NOVGOROD => 'Великий Новгород',
+            self::VLADIVOSTOK => 'Владивосток',
+            self::VLADIKAVKAZ => 'Владикавказ',
+            self::VLADIMIR => 'Владимир',
+            self::VOLGOGRAD => 'Волгоград',
+            self::VOLOGDA => 'Вологда',
+            self::VORONEZH => 'Воронеж',
+            self::GROZNY => 'Грозный',
+            self::YEKATERINBURG => 'Екатеринбург',
+            self::IVANOVO => 'Иваново',
+            self::IRKUTSK => 'Иркутск',
+            self::YOSHKAR_OLA => 'Йошкар-Ола',
+            self::KAZAN => 'Казань',
+            self::KALININGRAD => 'Калининград',
+            self::KEMEROVO => 'Кемерово',
+            self::KOSTROMA => 'Кострома',
+            self::KRASNODAR => 'Краснодар',
+            self::KRASNOYARSK => 'Красноярск',
+            self::KURGAN => 'Курган',
+            self::KURSK => 'Курск',
+            self::LIPETSK => 'Липецк',
+            self::MAKHACHKALA => 'Махачкала',
+            self::MOSCOW_AND_MOSCOW_REGION => 'Москва и Московская область',
+            self::MOSCOW => 'Москва',
+            self::MURMANSK => 'Мурманск',
+            self::NAZRAN => 'Назрань',
+            self::NALCHIK => 'Нальчик',
+            self::NIZHNY_NOVGOROD => 'Нижний Новгород',
+            self::NOVOSIBIRSK => 'Новосибирск',
+            self::OMSK => 'Омск',
+            self::ORYOL => 'Орел',
+            self::ORENBURG => 'Оренбург',
+            self::PENZA => 'Пенза',
+            self::PERM => 'Пермь',
+            self::PSKOV => 'Псков',
+            self::ROSTOV_ON_DON => 'Ростов-на-Дону',
+            self::RYAZAN => 'Рязань',
+            self::SAMARA => 'Самара',
+            self::SAINT_PETERSBURG => 'Санкт-Петербург',
+            self::SARANSK => 'Саранск',
+            self::SMOLENSK => 'Смоленск',
+            self::SOCHI => 'Сочи',
+            self::STAVROPOL => 'Ставрополь',
+            self::SURGUT => 'Сургут',
+            self::TAMBOV => 'Тамбов',
+            self::TVER => 'Тверь',
+            self::TOMSK => 'Томск',
+            self::TULA => 'Тула',
+            self::ULYANOVSK => 'Ульяновск',
+            self::UFA => 'Уфа',
+            self::KHABAROVSK => 'Хабаровск',
+            self::CHEBOKSARY => 'Чебоксары',
+            self::CHELYABINSK => 'Челябинск',
+            self::CHERKESSK => 'Черкесск',
+            self::YAROSLAVL => 'Ярославль',
         };
     }
 
@@ -151,5 +151,28 @@ enum SearchRegion: int
             fn (SearchRegion $searchRegion) => ['label' => $searchRegion->label(), 'value' => $searchRegion->value],
             self::cases()
         );
+    }
+
+    /**
+     * @param  list<mixed>  $codes
+     */
+    public static function labelsForCodes(array $codes): string
+    {
+        $labels = [];
+
+        foreach ($codes as $code) {
+            if (! is_numeric($code)) {
+                continue;
+            }
+
+            $label = self::tryFrom((int) $code)?->label();
+            if ($label === null) {
+                continue;
+            }
+
+            $labels[$label] = $label;
+        }
+
+        return implode(', ', array_values($labels));
     }
 }

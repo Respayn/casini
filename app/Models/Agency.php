@@ -19,6 +19,7 @@ use Illuminate\Support\Collection;
  * @property $logo_src
  * @property ?string $bitrix24_portal_url
  * @property ?string $bitrix24_webhook
+ * @property ?string $google_sheets_spreadsheet_url
  * @property $created_at
  * @property $updated_at
  * @property Collection<AgencyUser> $admins
@@ -48,6 +49,7 @@ class Agency extends Model
         'logo_src',
         'bitrix24_portal_url',
         'bitrix24_webhook',
+        'google_sheets_spreadsheet_url',
     ];
 
     protected function casts(): array
@@ -65,5 +67,10 @@ class Agency extends Model
     public function isBitrix24Configured(): bool
     {
         return filled($this->bitrix24_portal_url) && filled($this->bitrix24_webhook);
+    }
+
+    public function isGoogleSheetsSpreadsheetConfigured(): bool
+    {
+        return filled($this->google_sheets_spreadsheet_url);
     }
 }

@@ -2,14 +2,17 @@
 
 namespace App\Services;
 
-use App\Events\Notifications\ChannelsInstrumentStopped;
 use App\Models\Agency;
 use App\Models\GoogleSheetsMonthlySpending;
 use App\Models\Integration;
 use App\Models\IntegrationProject;
 use App\Models\Project;
+use App\Repositories\AgencyRepository;
+use App\Repositories\GoogleSheetsMonthlySpendingRepository;
 use App\Repositories\IntegrationRepository;
+use App\Repositories\ProjectRepository;
 use App\Services\GoogleSheets\Exceptions\GoogleSheetsParseException;
+use App\Services\GoogleSheets\GoogleSheetsServiceAccountCredentials;
 use App\Services\GoogleSheets\GoogleSheetsSpendingsParser;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -21,9 +24,12 @@ use Throwable;
 class GoogleSheetsService
 {
     public function __construct(
-        private GoogleSheetsAuthService $authService,
+        private GoogleSheetsServiceAccountCredentials $credentials,
         private GoogleSheetsSpendingsParser $parser,
         private IntegrationRepository $integrationRepository,
+        private GoogleSheetsMonthlySpendingRepository $spendings,
+        private ProjectRepository $projects,
+        private AgencyRepository $agencies,
     ) {}
 
     public static function extractSpreadsheetId(string $value): string
@@ -46,13 +52,10 @@ class GoogleSheetsService
             return collect();
         }
 
-        $yearMonth = $month->copy()->startOfMonth()->toDateString();
-
-        return GoogleSheetsMonthlySpending::query()
-            ->whereIn('project_id', $projectIds)
-            ->whereDate('year_month', $yearMonth)
-            ->get()
-            ->keyBy('project_id');
+        return $this->spendings->forProjectsAndMonth(
+            $projectIds,
+            $month->copy()->startOfMonth()->toDateString(),
+        );
     }
 
     /**
@@ -160,24 +163,24 @@ class GoogleSheetsService
             throw new \RuntimeException('Closed month cannot be updated by nightly sync.');
         }
 
-        $settings = is_array($projectIntegration->settings)
-            ? $projectIntegration->settings
-            : json_decode((string) $projectIntegration->settings, true) ?? [];
-
-        $documentId = self::extractSpreadsheetId((string) ($settings['document_id'] ?? ''));
+        $documentId = $this->resolveSpreadsheetId($project);
 
         if ($documentId === '') {
             throw new \RuntimeException('Google spreadsheet ID is not configured.');
         }
 
+        if (! $this->credentials->isConfigured()) {
+            throw new \RuntimeException('Google Sheets service account key is missing.');
+        }
+
         $yearMonth = $month->copy()->startOfMonth()->toDateString();
-        $existing = GoogleSheetsMonthlySpending::query()->firstOrNew([
-            'project_id' => $projectIntegration->project_id,
-            'year_month' => $yearMonth,
-        ]);
+        $existing = $this->spendings->firstOrNewForProjectMonth(
+            (int) $projectIntegration->project_id,
+            $yearMonth,
+        );
 
         $projectUrl = (string) ($project->domain ?? '');
-        $accessToken = $this->resolveAccessToken($settings, $projectIntegration);
+        $accessToken = $this->credentials->accessToken();
 
         $programming = $this->resolveProgrammingSpendings(
             $accessToken,
@@ -186,7 +189,6 @@ class GoogleSheetsService
             $projectUrl,
             $project,
             $existing,
-            $manual,
         );
 
         $copyrighting = $this->resolveCopyrightingSpendings(
@@ -196,14 +198,11 @@ class GoogleSheetsService
             $projectUrl,
             $project,
             $existing,
-            $manual,
         );
 
-        return GoogleSheetsMonthlySpending::query()->updateOrCreate(
-            [
-                'project_id' => $projectIntegration->project_id,
-                'year_month' => $yearMonth,
-            ],
+        $spending = $this->spendings->updateOrCreateForProjectMonth(
+            (int) $projectIntegration->project_id,
+            $yearMonth,
             [
                 'programming_hours' => $programming['hours'],
                 'programming_sum' => $programming['sum'],
@@ -211,12 +210,62 @@ class GoogleSheetsService
                 'copyrighting_sum' => $copyrighting['sum'],
                 'seo_links_sum' => 0,
                 'synced_at' => now(),
-            ]
+            ],
         );
+
+        $sheetErrors = array_values(array_filter([
+            $programming['error'],
+            $copyrighting['error'],
+        ]));
+
+        if ($sheetErrors !== []) {
+            throw new \RuntimeException(implode('; ', $sheetErrors));
+        }
+
+        return $spending;
+    }
+
+    public function resolveSpreadsheetIdForProject(int $projectId): string
+    {
+        $project = $this->projects->findWithSpecialistAgencies($projectId);
+
+        if ($project === null) {
+            return '';
+        }
+
+        return $this->resolveSpreadsheetId($project);
+    }
+
+    private function resolveSpreadsheetId(Project $project): string
+    {
+        $agency = $this->resolveAgencyWithSpreadsheet($project);
+
+        if ($agency === null) {
+            return '';
+        }
+
+        return self::extractSpreadsheetId((string) $agency->google_sheets_spreadsheet_url);
+    }
+
+    private function resolveAgencyWithSpreadsheet(Project $project): ?Agency
+    {
+        $project->loadMissing('specialist.agencies');
+
+        $specialistAgencies = $project->specialist?->agencies ?? collect();
+
+        $agency = $specialistAgencies->first(
+            fn (Agency $agency) => $agency->isGoogleSheetsSpreadsheetConfigured()
+        );
+
+        if ($agency !== null) {
+            return $agency;
+        }
+
+        return $this->agencies->firstConfiguredGoogleSheetsAgency();
     }
 
     /**
-     * @return array{hours: float, sum: float}
+     * @return array{hours: float, sum: float, error: ?string}
      */
     private function resolveProgrammingSpendings(
         string $accessToken,
@@ -225,26 +274,29 @@ class GoogleSheetsService
         string $projectUrl,
         Project $project,
         GoogleSheetsMonthlySpending $existing,
-        bool $manual,
     ): array {
         $fallback = [
             'hours' => (float) ($existing->programming_hours ?? 0),
             'sum' => (float) ($existing->programming_sum ?? 0),
+            'error' => null,
         ];
 
         try {
             $rows = $this->fetchSheetValues($accessToken, $documentId, 'Программинг');
+            $parsed = $this->parser->parseProgrammingSheet($rows, $month, $projectUrl);
 
-            return $this->parser->parseProgrammingSheet($rows, $month, $projectUrl);
+            return [
+                'hours' => (float) $parsed['hours'],
+                'sum' => (float) $parsed['sum'],
+                'error' => null,
+            ];
         } catch (Throwable $e) {
-            $this->handleSheetSyncError($project, 'Программинг', $e);
-
-            return $fallback;
+            return $this->sheetSyncFallback($fallback, $project, 'Программинг', $e);
         }
     }
 
     /**
-     * @return array{hours: float, sum: float}
+     * @return array{hours: float, sum: float, error: ?string}
      */
     private function resolveCopyrightingSpendings(
         string $accessToken,
@@ -253,21 +305,24 @@ class GoogleSheetsService
         string $projectUrl,
         Project $project,
         GoogleSheetsMonthlySpending $existing,
-        bool $manual,
     ): array {
         $fallback = [
             'hours' => (float) ($existing->copyrighting_units ?? 0),
             'sum' => (float) ($existing->copyrighting_sum ?? 0),
+            'error' => null,
         ];
 
         try {
             $rows = $this->fetchSheetValues($accessToken, $documentId, 'Копирайтинг');
+            $parsed = $this->parser->parseCopyrightingSheet($rows, $month, $projectUrl);
 
-            return $this->parser->parseCopyrightingSheet($rows, $month, $projectUrl);
+            return [
+                'hours' => (float) $parsed['hours'],
+                'sum' => (float) $parsed['sum'],
+                'error' => null,
+            ];
         } catch (Throwable $e) {
-            $this->handleSheetSyncError($project, 'Копирайтинг', $e);
-
-            return $fallback;
+            return $this->sheetSyncFallback($fallback, $project, 'Копирайтинг', $e);
         }
     }
 
@@ -290,38 +345,29 @@ class GoogleSheetsService
         }
     }
 
-    private function handleSheetSyncError(Project $project, string $sheetTitle, Throwable $e): void
-    {
+    /**
+     * @param  array{hours: float, sum: float, error: ?string}  $fallback
+     * @return array{hours: float, sum: float, error: string}
+     */
+    private function sheetSyncFallback(
+        array $fallback,
+        Project $project,
+        string $sheetTitle,
+        Throwable $e,
+    ): array {
         Log::warning('Google Sheets spendings sync sheet failed', [
             'project_id' => $project->id,
             'sheet' => $sheetTitle,
             'exception' => $e->getMessage(),
         ]);
 
-        $specialistId = (int) ($project->specialist_id ?? 0);
-
-        if ($specialistId <= 0) {
-            return;
-        }
-
         $message = $e instanceof GoogleSheetsParseException
             ? $e->getMessage()
             : 'Не удалось получить данные из Google Таблицы.';
 
-        $lastSyncedAt = GoogleSheetsMonthlySpending::query()
-            ->where('project_id', $project->id)
-            ->orderByDesc('synced_at')
-            ->value('synced_at');
+        $fallback['error'] = 'Google Таблицы ('.$sheetTitle.'): '.$message;
 
-        event(new ChannelsInstrumentStopped(
-            userId: $specialistId,
-            projectId: $project->id,
-            projectName: $project->name,
-            channelId: $project->id,
-            channelName: $project->name,
-            instrument: 'Google Таблицы ('.$sheetTitle.'): '.$message,
-            lastSeenAt: $lastSyncedAt ? Carbon::parse($lastSyncedAt) : null,
-        ));
+        return $fallback;
     }
 
     private function resolveAgencyTimezone(IntegrationProject $projectIntegration): string
@@ -332,41 +378,7 @@ class GoogleSheetsService
             return (string) $timezone;
         }
 
-        return Agency::query()->value('time_zone')
-            ?? (string) config('app.timezone', 'UTC');
-    }
-
-    /**
-     * @param  array<string, mixed>  $settings
-     */
-    private function resolveAccessToken(array $settings, IntegrationProject $projectIntegration): string
-    {
-        $accessToken = (string) ($settings['oauth_token'] ?? '');
-        $refreshToken = (string) ($settings['refresh_token'] ?? '');
-        $expiresAt = (string) ($settings['token_expires_at'] ?? '');
-
-        if ($accessToken !== '' && $expiresAt !== '' && now()->lt(Carbon::parse($expiresAt)->subMinute())) {
-            return $accessToken;
-        }
-
-        if ($refreshToken === '') {
-            throw new \RuntimeException('Google OAuth refresh token is missing.');
-        }
-
-        $tokens = $this->authService->refreshAccessToken($refreshToken);
-
-        $settings['oauth_token'] = $tokens['access_token'] ?? $accessToken;
-        if (isset($tokens['refresh_token'])) {
-            $settings['refresh_token'] = $tokens['refresh_token'];
-        }
-        $settings['token_expires_at'] = now()
-            ->addSeconds((int) ($tokens['expires_in'] ?? 3600))
-            ->toDateTimeString();
-
-        $projectIntegration->settings = $settings;
-        $projectIntegration->save();
-
-        return (string) $settings['oauth_token'];
+        return $this->agencies->getPrimaryTimeZone();
     }
 
     /**
@@ -420,19 +432,5 @@ class GoogleSheetsService
         return Str::of(mb_strtolower(trim($title)))
             ->replace('ё', 'е')
             ->toString();
-    }
-
-    /**
-     * @param  array<string, mixed>  $profile
-     * @return array<string, mixed>
-     */
-    public function mapOAuthProfile(array $profile): array
-    {
-        return [
-            'oauth_google_user_id' => (string) ($profile['id'] ?? ''),
-            'oauth_google_email' => (string) ($profile['email'] ?? ''),
-            'oauth_google_display_name' => (string) ($profile['name'] ?? $profile['email'] ?? ''),
-            'oauth_google_avatar_url' => (string) ($profile['picture'] ?? ''),
-        ];
     }
 }

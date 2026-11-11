@@ -7,17 +7,23 @@ use App\Mail\VerifyRegistrationMail;
 use App\Models\Agency;
 use App\Models\User;
 use App\Services\UserService;
+use App\Support\UserPasswordRules;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Spatie\Permission\Models\Role as RoleModel;
 
-new #[Layout('layouts::auth')] class extends Component {
+new
+#[Layout('layouts::auth')]
+#[Title('Регистрация')]
+class extends Component
+{
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
@@ -54,8 +60,8 @@ new #[Layout('layouts::auth')] class extends Component {
     public string $phone = '';
 
     #[Validate('required', message: 'Поле пароль обязательно для заполнения', onUpdate: false)]
-    #[Validate('min:6', message: 'слишком короткий пароль', onUpdate: false)]
-    #[Validate('regex:/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', onUpdate: false)]
+    #[Validate(UserPasswordRules::RULE_MIN, message: UserPasswordRules::MESSAGE_MIN, onUpdate: false)]
+    #[Validate(UserPasswordRules::RULE_REGEX, message: UserPasswordRules::MESSAGE_REGEX, onUpdate: false)]
     public string $password = '';
 
     #[Validate('required', message: 'Поле повторите пароль обязательно для заполнения', onUpdate: false)]
@@ -83,8 +89,7 @@ new #[Layout('layouts::auth')] class extends Component {
     {
         return filled(trim($this->email))
             && (bool) preg_match('/^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$/', $this->phone)
-            && (bool) preg_match('/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', $this->password)
-            && $this->password === $this->passwordConfirmation;
+            && UserPasswordRules::pairIsReady($this->password, $this->passwordConfirmation);
     }
 
     public function validateField(string $field): void
@@ -173,6 +178,8 @@ new #[Layout('layouts::auth')] class extends Component {
             email: $user->email,
             verifyUrl: $verifyUrl,
         ));
+
+        session()->forget('url.intended');
 
         $this->step = 3;
     }

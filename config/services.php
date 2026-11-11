@@ -91,9 +91,7 @@ return [
     ],
 
     'google_sheets' => [
-        'client_id' => env('GOOGLE_SHEETS_CLIENT_ID'),
-        'client_secret' => env('GOOGLE_SHEETS_CLIENT_SECRET'),
-        'redirect_uri' => env('GOOGLE_SHEETS_REDIRECT_URI', 'http://localhost:8000/google-sheets/callback'),
+        'service_account_json' => env('GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON'),
     ],
 
     'yandex' => [

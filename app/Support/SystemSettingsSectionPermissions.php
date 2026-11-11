@@ -67,6 +67,25 @@ class SystemSettingsSectionPermissions
         return $user->hasAnyPermission(self::editPermissionNames($group));
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function fullPermissionNames(PermissionGroup $group): array
+    {
+        return ['full '.$group->value];
+    }
+
+    public static function userCanFull(PermissionGroup $group, ?User $user = null): bool
+    {
+        $user ??= Auth::user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->hasAnyPermission(self::fullPermissionNames($group));
+    }
+
     public static function agency(): PermissionGroup
     {
         return PermissionGroup::SYSTEM_SETTINGS;

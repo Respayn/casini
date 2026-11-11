@@ -1,4 +1,4 @@
-<div class="w-full rounded-bl-2xl bg-white py-[10px] pe-[20px] ps-[15px]">
+<div class="w-full rounded-bl-2xl rounded-br-2xl bg-white py-[10px] pe-[20px] ps-[15px]">
     <div class="flex items-center justify-between">
         @php
             use App\Support\SystemSettingsSectionPermissions;
@@ -6,6 +6,7 @@
             $settingsRoute = SystemSettingsSectionPermissions::firstAccessibleSettingsRouteName();
             $isOnSystemSettings = request()->is('system-settings', 'system-settings/*');
             $canOpenReports = auth()->user()?->can('read reports')
+                || auth()->user()?->can('edit reports')
                 || auth()->user()?->can('full reports');
             $showBackToReports = $canOpenReports && $isOnSystemSettings;
         @endphp
@@ -29,18 +30,24 @@
         </div>
         <div class="flex items-center">
             @if ($settingsRoute)
-                <x-button.button
+                <a
                     href="{{ route($settingsRoute) }}"
-                    icon="icons.gear"
-                    :variant="$isOnSystemSettings ? 'primary' : 'outlined'"
-                    rounded
+                    wire:navigate
+                    title="Настройки"
+                    aria-label="Настройки"
                     @class([
-                        'hover:bg-primary hover:text-white' => ! $isOnSystemSettings,
-                        'hover:!bg-primary hover:!text-white' => $isOnSystemSettings,
+                        'inline-flex h-10 w-10 items-center justify-center rounded-md transition',
+                        'text-primary' => $isOnSystemSettings,
+                        'text-secondary-text hover:text-primary' => ! $isOnSystemSettings,
                     ])
-                />
+                >
+                    <x-icons.settings-applications />
+                </a>
             @endif
-            <x-notifications.bell-button />
+            {{-- tick заставляет Livewire перерисовать колокольчик после notifications-changed --}}
+            <div wire:key="notifications-bell-{{ $notificationsTick }}">
+                <x-notifications.bell-button />
+            </div>
 
             <div x-data="{ open: false }" class="ml-6 flex items-center relative">
                 <!-- Клик по этой зоне открывает / закрывает меню -->

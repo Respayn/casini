@@ -4,7 +4,7 @@
     <div class="flex items-center justify-between">
         <h1 class="text-primary-text text-xl font-semibold">Клиенты и Клиенто-проекты</h1>
 
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5">
             @php
                 $canEdit = $this->canEditClientsAndProjects;
             @endphp
@@ -12,13 +12,15 @@
             <x-permissions.field-guard :enabled="$canEdit">
                 @if ($canEdit)
                     <x-button.button
-                        label="+ Создать клиента"
+                        icon="icons.plus"
+                        label="Создать клиента"
                         variant="primary"
                         x-on:click="$dispatch('client-create')"
                     />
                 @else
                     <x-button.button
-                        label="+ Создать клиента"
+                        icon="icons.plus"
+                        label="Создать клиента"
                         variant="primary"
                         disabled
                     />
@@ -29,12 +31,14 @@
                 @if ($canEdit)
                     <x-button.button
                         href="{{ route('system-settings.clients-and-projects.projects.manage') }}"
-                        label="+ Создать клиенто-проект"
+                        icon="icons.plus"
+                        label="Создать клиенто-проект"
                         variant="primary"
                     />
                 @else
                     <x-button.button
-                        label="+ Создать клиенто-проект"
+                        icon="icons.plus"
+                        label="Создать клиенто-проект"
                         variant="primary"
                         disabled
                     />
@@ -100,7 +104,7 @@
                                     <x-data.table-cell :rowspan="$projectCount">
                                         @if ($canEdit)
                                             <button
-                                                class="link"
+                                                class="link text-left"
                                                 x-on:click="$dispatch('client-edit', {{ $clientEditPayload }})"
                                             >
                                                 {{ $client->name }}
@@ -140,7 +144,7 @@
                             <x-data.table-cell>
                                 @if ($canEdit)
                                     <button
-                                        class="link"
+                                        class="link text-left"
                                         wire:click="$dispatch('client-edit', {{ $clientEditPayload }})"
                                     >
                                         {{ $client->name }}

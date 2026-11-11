@@ -87,6 +87,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
                 'logo_src' => $data['logoSrc'] ?? null,
                 'bitrix24_portal_url' => StringHelper::trimToNull($data['bitrix24PortalUrl'] ?? null),
                 'bitrix24_webhook' => StringHelper::trimToNull($data['bitrix24Webhook'] ?? null),
+                'google_sheets_spreadsheet_url' => StringHelper::trimToNull($data['googleSheetsSpreadsheetUrl'] ?? null),
             ];
 
             $agency->update($update);
@@ -125,6 +126,7 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
             'logoSrc' => $agency->logo_src,
             'bitrix24PortalUrl' => $agency->bitrix24_portal_url,
             'bitrix24Webhook' => $agency->bitrix24_webhook,
+            'googleSheetsSpreadsheetUrl' => $agency->google_sheets_spreadsheet_url,
         ];
 
         return AgencyData::from($data);
@@ -205,5 +207,29 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
         $time = Agency::query()->orderBy('id')->value('direct_budget_refresh_time');
 
         return filled($time) ? (string) $time : null;
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function getUserIds(int $agencyId): array
+    {
+        return Agency::query()
+            ->whereKey($agencyId)
+            ->first()
+            ?->users()
+            ->pluck('users.id')
+            ->map(static fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all() ?? [];
+    }
+
+    public function firstConfiguredGoogleSheetsAgency(): ?Agency
+    {
+        return Agency::query()
+            ->orderBy('id')
+            ->get()
+            ->first(fn (Agency $agency) => $agency->isGoogleSheetsSpreadsheetConfigured());
     }
 }

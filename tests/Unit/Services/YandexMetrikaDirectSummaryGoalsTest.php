@@ -114,6 +114,65 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
     }
 
     #[Test]
+    public function test_fetch_by_campaign_uses_direct_order_dimension(): void
+    {
+        $captured = [];
+        $client = Mockery::mock(YandexMetrikaClientInterface::class);
+        $client->shouldReceive('getVisitsReport')
+            ->once()
+            ->with(Mockery::on(function (array $params) use (&$captured) {
+                $captured = $params;
+
+                return true;
+            }))
+            ->andReturn([
+                'data' => [
+                    [
+                        'dimensions' => [
+                            ['id' => '111', 'name' => 'Заявка'],
+                            ['id' => '100', 'name' => 'Кампания А'],
+                        ],
+                        'metrics' => [5],
+                    ],
+                    [
+                        'dimensions' => [
+                            ['id' => '111', 'name' => 'Заявка'],
+                            ['id' => '200', 'name' => 'Кампания Б'],
+                        ],
+                        'metrics' => [2],
+                    ],
+                    [
+                        'dimensions' => [
+                            ['id' => '999', 'name' => 'Чужая'],
+                            ['id' => '100', 'name' => 'Кампания А'],
+                        ],
+                        'metrics' => [50],
+                    ],
+                ],
+            ]);
+
+        $service = $this->makeService($client);
+        $rows = $service->fetchDirectSummaryGoalsByCampaignStats(
+            Carbon::parse('2026-10-01'),
+            Carbon::parse('2026-10-15'),
+            [111],
+            YandexMetrikaIntegrationSettingsData::GOALS_METRIC_TARGET_VISITS,
+            null,
+            YandexMetrikaIntegrationSettingsData::DEFAULT_DATA_MODE,
+            'automatic'
+        );
+
+        $this->assertSame('ym:s:goal,ym:s:<attribution>DirectClickOrder', $captured['dimensions']);
+        $this->assertStringContainsString('ym:s:<attribution>DirectClickOrder!n', (string) $captured['filters']);
+        $this->assertCount(2, $rows);
+        $this->assertSame('Заявка', $rows[0]['goal_name']);
+        $this->assertSame(100, $rows[0]['campaign_id']);
+        $this->assertSame(5, $rows[0]['value']);
+        $this->assertSame(200, $rows[1]['campaign_id']);
+        $this->assertSame(2, $rows[1]['value']);
+    }
+
+    #[Test]
     public function test_count_for_date_sums_all_goals(): void
     {
         $client = Mockery::mock(YandexMetrikaClientInterface::class);

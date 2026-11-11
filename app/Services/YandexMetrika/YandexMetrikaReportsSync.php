@@ -3,6 +3,7 @@
 namespace App\Services\YandexMetrika;
 
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
+use App\Enums\YandexMetrikaSearchEngine;
 use App\Repositories\AgencyRepository;
 use App\Repositories\IntegrationRepository;
 use App\Services\IntegrationSync\YandexMetrikaSyncPeriod;
@@ -29,6 +30,8 @@ class YandexMetrikaReportsSync
 
     public const VISITS_SEARCH_QUERIES = 'visits_search_queries';
 
+    public const VISITS_GEO = 'visits_geo';
+
     public const REPORTS = [
         self::GOALS_SEARCH_ENGINES,
         self::GOALS_UTM,
@@ -36,6 +39,7 @@ class YandexMetrikaReportsSync
         self::GOALS_DIRECT_SUMMARY,
         self::VISITS_SEARCH_ENGINES,
         self::VISITS_SEARCH_QUERIES,
+        self::VISITS_GEO,
     ];
 
     private const GOAL_REPORTS = [
@@ -43,12 +47,6 @@ class YandexMetrikaReportsSync
         self::GOALS_UTM,
         self::GOALS_CONVERSIONS,
         self::GOALS_DIRECT_SUMMARY,
-    ];
-
-    private const UTM_DIMENSION_TO_FIELD = [
-        'ym:s:UTMSource' => 'utm_source',
-        'ym:s:UTMMedium' => 'utm_medium',
-        'ym:s:UTMCampaign' => 'utm_campaign',
     ];
 
     public function __construct(
@@ -160,6 +158,9 @@ class YandexMetrikaReportsSync
         match ($report) {
             self::GOALS_SEARCH_ENGINES => $this->saveSearchEnginesGoals(
                 $projectId,
+                $goalIds,
+                $from,
+                $to,
                 $this->metrikaService->fetchSearchEnginesGoalsStats(
                     $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
                 ),
@@ -171,11 +172,17 @@ class YandexMetrikaReportsSync
                     $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
                 )),
             ),
-            self::GOALS_DIRECT_SUMMARY => $this->repository->upsertGoalDirectSummary(
+            self::GOALS_DIRECT_SUMMARY => $this->saveDirectSummaryGoals(
                 $projectId,
-                $this->mapGoalRows($this->metrikaService->fetchDirectSummaryGoalsStats(
-                    $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
-                )),
+                $from,
+                $to,
+                $goalIds,
+                $goalsMetric,
+                $filters,
+                $dataMode,
+                $attributionModel,
+                $timezone,
+                $counterTimezone,
             ),
             self::VISITS_SEARCH_ENGINES => $this->saveSearchEnginesVisits($projectId, $settings, $from, $to, $visitsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone),
             self::VISITS_SEARCH_QUERIES => $this->saveSearchQueriesVisits(
@@ -186,18 +193,111 @@ class YandexMetrikaReportsSync
                     (string) ($settings['search_queries_minus'] ?? '')
                 ),
             ),
+            self::VISITS_GEO => $this->saveGeoVisits(
+                $projectId,
+                $visitsMetric,
+                $this->metrikaService->fetchGeoVisitsStats(
+                    $from, $to, $visitsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
+                ),
+            ),
             default => throw new \InvalidArgumentException('Неизвестный отчёт Метрики: '.$report),
         };
     }
 
     /**
-     * @param  list<array{search_engine: string, month: string, value: int}>  $rows
+     * @param  list<int>  $goalIds
+     * @param  list<array{search_engine: string, month: string, goal_id: int, value: int}>  $rows
      */
-    private function saveSearchEnginesGoals(int $projectId, array $rows): void
+    private function saveSearchEnginesGoals(int $projectId, array $goalIds, Carbon $from, Carbon $to, array $rows): void
     {
+        $engineTotals = [];
+        $byGoal = [];
+
         foreach ($rows as $row) {
-            $this->repository->upsertSearchEnginesConversions($projectId, $row['search_engine'], $row['month'], $row['value']);
+            $engineKey = $row['search_engine'].'|'.$row['month'];
+            $engineTotals[$engineKey] = ($engineTotals[$engineKey] ?? [
+                'search_engine' => $row['search_engine'],
+                'month' => $row['month'],
+                'value' => 0,
+            ]);
+            $engineTotals[$engineKey]['value'] += $row['value'];
+
+            $goalKey = $row['search_engine'].'|'.$row['month'].'|'.$row['goal_id'];
+            $byGoal[$goalKey] = ($byGoal[$goalKey] ?? 0) + $row['value'];
         }
+
+        foreach ($engineTotals as $row) {
+            $this->repository->upsertSearchEnginesConversions(
+                $projectId,
+                $row['search_engine'],
+                $row['month'],
+                $row['value']
+            );
+        }
+
+        $names = $this->goalNames($goalIds);
+        $engines = [YandexMetrikaSearchEngine::YANDEX->value, YandexMetrikaSearchEngine::GOOGLE->value];
+
+        foreach ($this->monthsInRange($from, $to) as $month) {
+            foreach ($engines as $engine) {
+                foreach ($goalIds as $goalId) {
+                    $this->repository->upsertSearchEngineGoal(
+                        $projectId,
+                        $engine,
+                        $goalId,
+                        $names[$goalId] ?? ('Цель '.$goalId),
+                        $month,
+                        $byGoal[$engine.'|'.$month.'|'.$goalId] ?? 0
+                    );
+                }
+            }
+        }
+    }
+
+    /**
+     * @param  list<int>  $goalIds
+     * @return array<int, string>
+     */
+    private function goalNames(array $goalIds): array
+    {
+        $names = [];
+        foreach ($goalIds as $goalId) {
+            $names[$goalId] = 'Цель '.$goalId;
+        }
+
+        try {
+            foreach ($this->metrikaService->listGoalOptions() as $option) {
+                $id = (int) ($option['id'] ?? 0);
+                if (! isset($names[$id])) {
+                    continue;
+                }
+
+                $name = trim((string) ($option['name'] ?? ''));
+                if ($name !== '') {
+                    $names[$id] = $name;
+                }
+            }
+        } catch (Throwable) {
+        }
+
+        return $names;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function monthsInRange(Carbon $from, Carbon $to): array
+    {
+        $months = [];
+        $current = $from->copy()->startOfMonth();
+        $end = $to->copy()->startOfMonth();
+
+        while ($current->lte($end)) {
+            $months[] = $current->toDateString();
+            $current->addMonth();
+        }
+
+        return $months;
     }
 
     /**
@@ -231,16 +331,19 @@ class YandexMetrikaReportsSync
                 continue;
             }
 
+            $source = trim((string) ($row['utm_source'] ?? ''));
+            $campaign = trim((string) ($row['utm_campaign'] ?? ''));
+
+            $goalName = trim((string) ($row['goal_name'] ?? ''));
             $dbRow = [
-                'goal_name' => '',
+                'goal_name' => $goalName !== '' ? $goalName : 'Цель',
                 'achieved_date' => $row['date'],
-                'utm_source' => null,
+                'utm_source' => $source !== '' ? $source : null,
                 'utm_medium' => null,
-                'utm_campaign' => null,
+                'utm_campaign' => $campaign !== '' ? $campaign : null,
                 'utm_content' => null,
                 'utm_term' => null,
             ];
-            $dbRow[self::UTM_DIMENSION_TO_FIELD[$row['utm_dimension']] ?? 'utm_source'] = $row['utm_value'];
 
             for ($i = 0; $i < $row['value']; $i++) {
                 $dbRows[] = $dbRow;
@@ -288,9 +391,59 @@ class YandexMetrikaReportsSync
     }
 
     /**
+     * @param  list<array{city: string, month: string, value: int}>  $rows
+     */
+    private function saveGeoVisits(int $projectId, string $visitsMetric, array $rows): void
+    {
+        foreach ($rows as $row) {
+            $this->repository->upsertVisitsGeo($projectId, $row['city'], $row['month'], $visitsMetric, $row['value']);
+        }
+    }
+
+    /**
      * @param  list<array{goal_name: string, month: string, value: int}>  $rows
      * @return list<array{goal_name: string, month: string, conversions: int}>
      */
+    /**
+     * @param  list<int>  $goalIds
+     * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
+     */
+    private function saveDirectSummaryGoals(
+        int $projectId,
+        Carbon $from,
+        Carbon $to,
+        array $goalIds,
+        string $goalsMetric,
+        ?array $filters,
+        string $dataMode,
+        string $attributionModel,
+        ?string $timezone,
+        ?string $counterTimezone,
+    ): void {
+        $this->repository->upsertGoalDirectSummary(
+            $projectId,
+            $this->mapGoalRows($this->metrikaService->fetchDirectSummaryGoalsStats(
+                $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
+            )),
+        );
+
+        $this->repository->upsertGoalDirectCampaigns(
+            $projectId,
+            array_map(
+                fn (array $row) => [
+                    'goal_name' => $row['goal_name'],
+                    'campaign_id' => $row['campaign_id'],
+                    'campaign_name' => $row['campaign_name'],
+                    'month' => $row['month'],
+                    'conversions' => $row['value'],
+                ],
+                $this->metrikaService->fetchDirectSummaryGoalsByCampaignStats(
+                    $from, $to, $goalIds, $goalsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone
+                ),
+            ),
+        );
+    }
+
     private function mapGoalRows(array $rows): array
     {
         return array_map(fn (array $row) => [

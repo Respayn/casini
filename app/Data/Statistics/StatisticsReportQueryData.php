@@ -47,7 +47,68 @@ class StatisticsReportQueryData extends Data implements Wireable
      */
     public string $highlightUnmetKpi = 'N';
 
+    /**
+     * Клиенто-проекты без плана считать невыполненными (UI настроек отчёта, на агентство).
+     */
+    public string $treatMissingPlanAsUnmet = 'Y';
+
     public function __construct() {}
+
+    /**
+     * Поля модалки «Настроить отчет» - общие для агентства.
+     *
+     * @return array{
+     *     grouping: string,
+     *     detailLevel: string,
+     *     accumulateData: string,
+     *     highlightUnmetKpi: string,
+     *     treatMissingPlanAsUnmet: string
+     * }
+     */
+    public function agencyModalSettings(): array
+    {
+        return [
+            'grouping' => $this->grouping->value,
+            'detailLevel' => $this->detailLevel->value,
+            'accumulateData' => $this->accumulateData === 'Y' ? 'Y' : 'N',
+            'highlightUnmetKpi' => $this->highlightUnmetKpi === 'Y' ? 'Y' : 'N',
+            'treatMissingPlanAsUnmet' => $this->treatMissingPlanAsUnmet === 'Y' ? 'Y' : 'N',
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function applyAgencyModalSettings(array $settings): void
+    {
+        if (isset($settings['grouping']) && is_string($settings['grouping'])) {
+            $grouping = ChannelReportGrouping::tryFrom($settings['grouping']);
+            if ($grouping !== null && $grouping !== ChannelReportGrouping::TOOLS) {
+                $this->grouping = $grouping;
+            }
+        }
+
+        if (isset($settings['detailLevel']) && is_string($settings['detailLevel'])) {
+            $detailLevel = StatisticsReportDetailLevel::tryFrom($settings['detailLevel']);
+            if ($detailLevel !== null) {
+                $this->detailLevel = $detailLevel;
+            }
+        }
+
+        if (isset($settings['accumulateData'])) {
+            $this->accumulateData = $settings['accumulateData'] === 'Y' ? 'Y' : 'N';
+        }
+
+        if (isset($settings['highlightUnmetKpi'])) {
+            $this->highlightUnmetKpi = $settings['highlightUnmetKpi'] === 'Y' ? 'Y' : 'N';
+        }
+
+        if (array_key_exists('treatMissingPlanAsUnmet', $settings)) {
+            $this->treatMissingPlanAsUnmet = $settings['treatMissingPlanAsUnmet'] === 'Y' ? 'Y' : 'N';
+        } else {
+            $this->treatMissingPlanAsUnmet = 'Y';
+        }
+    }
 
     public static function create(
         StatisticsReportDetailLevel $detailLevel = StatisticsReportDetailLevel::BY_WEEK,
@@ -165,6 +226,7 @@ class StatisticsReportQueryData extends Data implements Wireable
         $rebuilt->includeVat = $saved->includeVat;
         $rebuilt->accumulateData = $saved->accumulateData;
         $rebuilt->highlightUnmetKpi = $saved->highlightUnmetKpi ?: 'N';
+        $rebuilt->treatMissingPlanAsUnmet = ($saved->treatMissingPlanAsUnmet ?? 'Y') === 'Y' ? 'Y' : 'N';
         $rebuilt->applySavedColumnPreferences($saved->columns);
 
         return $rebuilt;

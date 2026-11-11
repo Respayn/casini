@@ -46,6 +46,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
             ['2026-07-01' => 5, '2026-07-15' => 10],
             [],
             [],
+            [],
             Carbon::parse('2026-08-10'),
         );
 
@@ -79,6 +80,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
             $this->leadsPlan(100),
             $spend,
             $leads,
+            [],
             [],
             [],
             Carbon::parse('2026-08-01'),
@@ -118,6 +120,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
             ],
             [],
             [],
+            [],
             Carbon::parse('2026-08-01'),
         );
 
@@ -146,6 +149,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
             $leads,
             [],
             [],
+            [],
             Carbon::parse('2026-08-11'),
         );
 
@@ -167,6 +171,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
             $this->leadsPlan(100),
             [],
             ['2026-08-01' => 3, '2026-08-02' => 4],
+            [],
             [],
             [],
             Carbon::parse('2026-08-10'),
@@ -197,6 +202,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
             [],
             [],
             $tops,
+            [],
             [],
             Carbon::parse('2026-08-01'),
         );
@@ -330,6 +336,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
             ['2026-08-01' => 5],
             [],
             [],
+            [],
             Carbon::parse('2026-08-15'),
         );
 
@@ -380,6 +387,7 @@ class StatisticsClosingColumnsCalculatorTest extends TestCase
                 '2026-07-01' => 15,
                 $lastDay => 5,
             ],
+            [],
             [],
             [],
             Carbon::parse('2026-08-01'),

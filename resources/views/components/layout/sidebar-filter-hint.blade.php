@@ -15,7 +15,7 @@
 
         <x-button.button
             variant="secondary"
-            icon="icons.delete"
+            icon="icons.filter-alt-off"
             label="Сбросить фильтр"
             wire:click="clearSidebarProjectFilter"
         />

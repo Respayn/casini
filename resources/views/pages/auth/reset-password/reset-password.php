@@ -3,6 +3,7 @@
 use App\Livewire\Concerns\RedirectsAfterAuth;
 use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
 use App\Models\User;
+use App\Support\UserPasswordRules;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Password;
@@ -11,10 +12,14 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
-new #[Layout('layouts::auth')] class extends Component
+new
+#[Layout('layouts::auth')]
+#[Title('Новый пароль')]
+class extends Component
 {
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
@@ -26,8 +31,8 @@ new #[Layout('layouts::auth')] class extends Component
     public string $email = '';
 
     #[Validate('required', message: 'Поле пароль обязательно для заполнения', onUpdate: false)]
-    #[Validate('min:6', message: 'слишком короткий пароль', onUpdate: false)]
-    #[Validate('regex:/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', onUpdate: false)]
+    #[Validate(UserPasswordRules::RULE_MIN, message: UserPasswordRules::MESSAGE_MIN, onUpdate: false)]
+    #[Validate(UserPasswordRules::RULE_REGEX, message: UserPasswordRules::MESSAGE_REGEX, onUpdate: false)]
     public string $password = '';
 
     #[Validate('required', message: 'Поле повторите пароль обязательно для заполнения', onUpdate: false)]
@@ -43,8 +48,7 @@ new #[Layout('layouts::auth')] class extends Component
     #[Computed]
     public function isStep1Ready(): bool
     {
-        return (bool) preg_match('/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', $this->password)
-            && $this->password === $this->passwordConfirmation;
+        return UserPasswordRules::pairIsReady($this->password, $this->passwordConfirmation);
     }
 
     public function validateField(string $field): void

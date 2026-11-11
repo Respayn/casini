@@ -10,6 +10,7 @@ class Header extends Component
     public int $notificationsTick = 0;
 
     #[On('notifications-read')]
+    #[On('notifications-changed')]
     public function refreshNotificationBadge(): void
     {
         $this->notificationsTick++;

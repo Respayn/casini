@@ -5,6 +5,7 @@ namespace Src\Planning\Infrastructure;
 use App\Models\Project as ProjectModel;
 use App\Models\ProjectPlanApproval;
 use App\Models\ProjectPlanValue;
+use App\Support\ClientProjectVisibility;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +65,10 @@ class EloquentProjectPlanRepository implements ProjectPlanRepositoryInterface
                 $query->where('year', $year);
             },
         ]);
+
+        if ($projectIds === []) {
+            ClientProjectVisibility::restrictProjectQuery($query);
+        }
 
         if (! empty($projectIds)) {
             $query->whereIn('id', $projectIds);

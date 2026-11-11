@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,10 +11,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $id
  * @property int $project_id
  * @property string $title
- * @property \Carbon\Carbon $completed_at
- * @property \Carbon\Carbon $created_at
- * @property \Carbon\Carbon $updated_at
- *
+ * @property int $sort_order
+ * @property int $depth
+ * @property Carbon $completed_at
+ * @property Carbon $created_at
+ * @property Carbon $updated_at
  * @property Project $project
  */
 class CompletedWork extends Model
@@ -24,6 +26,8 @@ class CompletedWork extends Model
         'project_id',
         'title',
         'completed_at',
+        'sort_order',
+        'depth',
     ];
 
     protected $casts = [

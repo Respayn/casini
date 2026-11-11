@@ -44,6 +44,21 @@ class SafeLoggerTest extends TestCase
         ));
     }
 
+    public function test_detects_integration_access_errors_by_message(): void
+    {
+        $this->assertTrue(SafeLogger::isIntegrationAccessError(
+            'Failed to refresh Google token: {"error":"invalid_grant"}'
+        ));
+        $this->assertTrue(SafeLogger::isIntegrationAccessError(
+            'Invalid request parameters: Недействительный OAuth-токен'
+        ));
+        $this->assertTrue(SafeLogger::isIntegrationAccessError('HTTP 401 Unauthorized'));
+        $this->assertFalse(SafeLogger::isIntegrationAccessError(
+            'App\\Jobs\\ProcessIntegrationSyncItem has timed out.'
+        ));
+        $this->assertFalse(SafeLogger::isIntegrationAccessError('Failed to get daily expenses'));
+    }
+
     public function test_public_message_prefers_previous_api_error(): void
     {
         $inner = new YandexDirectApiException('Invalid request parameters: Недействительный OAuth-токен', 53);

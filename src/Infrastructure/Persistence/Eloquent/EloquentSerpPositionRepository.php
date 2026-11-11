@@ -2,9 +2,8 @@
 
 namespace Src\Infrastructure\Persistence\Eloquent;
 
-use App\Models\SerpKeyword;
-use App\Models\SerpTask;
 use App\Models\SerpPosition;
+use App\Models\SerpTask;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
 
@@ -13,81 +12,12 @@ class EloquentSerpPositionRepository implements SerpPositionRepositoryInterface
     /**
      * {@inheritdoc}
      */
-    public function getTopPercentages(
-        int $projectId,
-        DateTimeRange $period,
-        string $searchEngineCode = 'yandex'
-    ): array {
-        // Все ключевые фразы проекта
-        $keywords = SerpKeyword::where('project_id', $projectId)->pluck('id');
-
-        if ($keywords->isEmpty()) {
-            return [
-                'top_3' => 0.0,
-                'top_5' => 0.0,
-                'top_10' => 0.0,
-            ];
-        }
-
-        // Подзапрос для получения последней позиции каждой фразы в периоде
-        $latestPositionsSubquery = SerpPosition::query()
-            ->selectRaw('serp_task_id, MAX(check_date) as latest_date')
-            ->whereBetween('check_date', [
-                $period->getStart()?->format('Y-m-d'),
-                $period->getEnd()?->format('Y-m-d'),
-            ])
-            ->groupBy('serp_task_id');
-
-        // Собираем основной запрос
-        $query = SerpTask::query()
-            ->join('search_engines', 'serp_tasks.search_engine_id', '=', 'search_engines.id')
-            ->leftJoinSub(
-                $latestPositionsSubquery,
-                'latest_positions',
-                fn ($join) => $join->on('serp_tasks.id', '=', 'latest_positions.serp_task_id')
-            )
-            ->leftJoin(
-                'serp_positions',
-                fn ($join) => $join
-                    ->on('serp_positions.serp_task_id', '=', 'serp_tasks.id')
-                    ->on('serp_positions.check_date', '=', 'latest_positions.latest_date')
-            )
-            ->where('serp_tasks.project_id', $projectId)
-            ->where('search_engines.code', $searchEngineCode)
-            ->whereIn('serp_tasks.serp_keyword_id', $keywords);
-
-        // Получаем все строки с позициями (position может быть NULL)
-        $positions = $query->get(['serp_positions.position']);
-
-        $total = $positions->count();
-        if ($total === 0) {
-            return [
-                'top_3' => 0.0,
-                'top_5' => 0.0,
-                'top_10' => 0.0,
-            ];
-        }
-
-        $top3 = $positions->where('position', '<=', 3)->whereNotNull('position')->count();
-        $top5 = $positions->where('position', '<=', 5)->whereNotNull('position')->count();
-        $top10 = $positions->where('position', '<=', 10)->whereNotNull('position')->count();
-
-        return [
-            'top_3' => round($top3 / $total * 100, 1),
-            'top_5' => round($top5 / $total * 100, 1),
-            'top_10' => round($top10 / $total * 100, 1),
-        ];
-    }
-
-    /**
-     * {@inheritdoc}
-     */
     public function getKeywordPositions(
         int $projectId,
         DateTimeRange $period,
-        string $searchEngineCode = 'yandex'
+        string $searchEngineCode,
+        int $regionGeoId,
     ): array {
-        // Подзапрос для получения последней даты проверки каждой задачи в периоде
         $latestPositionsSubquery = SerpPosition::query()
             ->selectRaw('serp_task_id, MAX(check_date) as latest_date')
             ->whereBetween('check_date', [
@@ -96,10 +26,10 @@ class EloquentSerpPositionRepository implements SerpPositionRepositoryInterface
             ])
             ->groupBy('serp_task_id');
 
-        // Основной запрос: связываем задачу, ключевую фразу и последнюю позицию
         $results = SerpTask::query()
             ->select(['serp_keywords.phrase', 'serp_positions.position'])
             ->join('search_engines', 'serp_tasks.search_engine_id', '=', 'search_engines.id')
+            ->join('serp_regions', 'serp_tasks.serp_region_id', '=', 'serp_regions.id')
             ->join('serp_keywords', 'serp_tasks.serp_keyword_id', '=', 'serp_keywords.id')
             ->leftJoinSub(
                 $latestPositionsSubquery,
@@ -114,6 +44,7 @@ class EloquentSerpPositionRepository implements SerpPositionRepositoryInterface
             )
             ->where('serp_tasks.project_id', $projectId)
             ->where('search_engines.code', $searchEngineCode)
+            ->where('serp_regions.geo_id', (string) $regionGeoId)
             ->where('serp_tasks.is_active', true)
             ->orderBy('serp_keywords.phrase')
             ->get();
@@ -122,5 +53,67 @@ class EloquentSerpPositionRepository implements SerpPositionRepositoryInterface
             'phrase' => $row->phrase,
             'position' => $row->position,
         ])->toArray();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getKeywordPositionsByMonth(
+        int $projectId,
+        DateTimeRange $period,
+        string $searchEngineCode,
+        int $regionGeoId,
+    ): array {
+        $results = SerpTask::query()
+            ->select([
+                'serp_keywords.phrase',
+                'serp_positions.position',
+                'serp_positions.check_date',
+            ])
+            ->join('search_engines', 'serp_tasks.search_engine_id', '=', 'search_engines.id')
+            ->join('serp_regions', 'serp_tasks.serp_region_id', '=', 'serp_regions.id')
+            ->join('serp_keywords', 'serp_tasks.serp_keyword_id', '=', 'serp_keywords.id')
+            ->join('serp_positions', 'serp_positions.serp_task_id', '=', 'serp_tasks.id')
+            ->where('serp_tasks.project_id', $projectId)
+            ->where('search_engines.code', $searchEngineCode)
+            ->where('serp_regions.geo_id', (string) $regionGeoId)
+            ->where('serp_tasks.is_active', true)
+            ->whereBetween('serp_positions.check_date', [
+                $period->getStart()?->format('Y-m-d'),
+                $period->getEnd()?->format('Y-m-d'),
+            ])
+            ->orderBy('serp_keywords.phrase')
+            ->orderBy('serp_positions.check_date')
+            ->get();
+
+        $latest = [];
+        foreach ($results as $row) {
+            $month = substr((string) $row->check_date, 0, 7);
+            if ($month === '') {
+                continue;
+            }
+
+            $key = $row->phrase.'|'.$month;
+            $checkDate = (string) $row->check_date;
+            if (! isset($latest[$key]) || $checkDate >= $latest[$key]['date']) {
+                $latest[$key] = [
+                    'phrase' => (string) $row->phrase,
+                    'position' => $row->position,
+                    'month' => $month,
+                    'date' => $checkDate,
+                ];
+            }
+        }
+
+        $rows = [];
+        foreach ($latest as $item) {
+            $rows[] = [
+                'phrase' => $item['phrase'],
+                'position' => $item['position'],
+                'month' => $item['month'],
+            ];
+        }
+
+        return $rows;
     }
 }

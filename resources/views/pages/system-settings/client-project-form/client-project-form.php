@@ -12,7 +12,6 @@ use App\Enums\IntegrationCategory;
 use App\Exceptions\CallibriApiException;
 use App\Factories\IntegrationSettingsFactory;
 use App\Helpers\PhraseDuplicateHelper;
-use App\Livewire\Concerns\WithGoogleSheetsOAuth;
 use App\Livewire\Concerns\WithYandexMetrikaOAuth;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
@@ -21,11 +20,11 @@ use App\Models\Agency;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
-use App\Services\ClientProject\MonthPeriodNormalizer;
 use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
-use App\Services\GoogleSheetsService;
+use App\Services\GoogleSheets\GoogleSheetsServiceAccountCredentials;
 use App\Services\IntegrationService;
+use App\Services\IntegrationSync\IntegrationSyncIssueStatus;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
@@ -57,12 +56,14 @@ use Src\Domain\ValueObjects\ProjectType;
 
 new
 #[Layout('layouts::system-settings')]
-#[Title('Создание проекта')]
+#[Title('Клиенто-проект')]
 class extends Component
 {
     use WithFileUploads;
-    use WithGoogleSheetsOAuth;
     use WithYandexMetrikaOAuth;
+
+    /** Помечена как public, чтобы Livewire сохранял флаг между запросами формы. */
+    public bool $autoEnabledGoogleSheetsForSeo = false;
 
     public CreateClientProjectForm $clientProjectForm;
 
@@ -97,10 +98,6 @@ class extends Component
     public int $integrationModalBodyRevision = 0;
 
     public $phraseDocxFile;
-
-    public ?Carbon $statisticsRebuildFrom = null;
-
-    public ?Carbon $statisticsRebuildTo = null;
 
     /** После возврата из OAuth форма уже содержит несохранённые данные */
     public bool $startWithPendingChanges = false;
@@ -146,6 +143,16 @@ class extends Component
             return false;
         }
 
+        if (
+            blank($this->clientProjectForm->name)
+            || blank($this->clientProjectForm->client)
+            || blank($this->clientProjectForm->domain)
+            || blank($this->clientProjectForm->kpi)
+            || blank($this->clientProjectForm->projectType)
+        ) {
+            return false;
+        }
+
         if ($this->bonusGuaranteeForm->bonusesEnabled) {
             foreach (array_keys($this->getErrorBag()->messages()) as $key) {
                 if (str_starts_with($key, 'bonusGuaranteeForm.')) {
@@ -167,56 +174,6 @@ class extends Component
         return true;
     }
 
-    #[Computed]
-    public function canRebuildStatistics(): bool
-    {
-        return $this->canEditClientsAndProjects
-            && $this->statisticsRebuildFrom !== null
-            && $this->statisticsRebuildTo !== null
-            && $this->statisticsRebuildFrom->lte($this->statisticsRebuildTo);
-    }
-
-    public function statisticsRebuildFromMax(): string
-    {
-        return $this->monthPeriod()->fromMax($this->statisticsRebuildTo);
-    }
-
-    public function statisticsRebuildToMin(): ?string
-    {
-        return $this->monthPeriod()->toMin($this->statisticsRebuildFrom);
-    }
-
-    public function updatedStatisticsRebuildFrom(mixed $value): void
-    {
-        $this->statisticsRebuildFrom = $this->monthPeriod()->clampMonth(
-            $this->statisticsRebuildFrom,
-            false
-        );
-        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = $this->monthPeriod()->alignRange(
-            $this->statisticsRebuildFrom,
-            $this->statisticsRebuildTo,
-            'from'
-        );
-    }
-
-    public function updatedStatisticsRebuildTo(mixed $value): void
-    {
-        $this->statisticsRebuildTo = $this->monthPeriod()->clampMonth(
-            $this->statisticsRebuildTo,
-            true
-        );
-        [$this->statisticsRebuildFrom, $this->statisticsRebuildTo] = $this->monthPeriod()->alignRange(
-            $this->statisticsRebuildFrom,
-            $this->statisticsRebuildTo,
-            'to'
-        );
-    }
-
-    private function monthPeriod(): MonthPeriodNormalizer
-    {
-        return app(MonthPeriodNormalizer::class);
-    }
-
     public function updatedClientProjectFormIsActive(mixed $value): void
     {
         if (filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
@@ -225,6 +182,33 @@ class extends Component
 
         if ($this->clientProjectForm->archivedAt === '') {
             $this->clientProjectForm->archivedAt = now()->format('d.m.Y');
+        }
+    }
+
+    public function updatedClientProjectFormClient(mixed $value): void
+    {
+        if (blank($value)) {
+            $this->clientProjectForm->manager = null;
+
+            return;
+        }
+
+        $client = $this->clientRepository->findById((int) $value);
+        $this->clientProjectForm->manager = $client->getManagerId();
+    }
+
+    public function updatedClientProjectFormIsInternal(mixed $value): void
+    {
+        if (! filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
+            return;
+        }
+
+        $this->bonusGuaranteeForm->resetToDefaults();
+
+        foreach (array_keys($this->getErrorBag()->messages()) as $key) {
+            if (str_starts_with($key, 'bonusGuaranteeForm.')) {
+                $this->resetErrorBag($key);
+            }
         }
     }
 
@@ -246,11 +230,17 @@ class extends Component
     {
         $projectId = $this->clientProjectForm->id;
 
+        if ($projectId) {
+            return $this->redirect(
+                route('system-settings.clients-and-projects.projects.manage', [
+                    'projectId' => $projectId,
+                ]),
+                navigate: true
+            );
+        }
+
         return $this->redirect(
-            route(
-                'system-settings.clients-and-projects.projects.manage',
-                $projectId ? ['projectId' => $projectId] : []
-            ),
+            route('system-settings.clients-and-projects'),
             navigate: true
         );
     }
@@ -304,17 +294,6 @@ class extends Component
                 $this->restoreFromOAuthCache($cachedData);
             }
 
-            if (
-                ! empty($state['cache_data_id'])
-                && ($state['open_integration'] ?? '') === 'google_sheets'
-            ) {
-                $oauthSettings = Cache::pull('google_sheets_oauth_result_'.$state['cache_data_id']);
-
-                if (is_array($oauthSettings) && $oauthSettings !== []) {
-                    $this->applyGoogleSheetsOAuthTokens($oauthSettings);
-                }
-            }
-
             foreach ($state['integrations'] ?? [] as $setting) {
                 $integrationData = new ProjectIntegrationData;
                 $integrationData->integration = IntegrationData::from($setting['integration']);
@@ -346,16 +325,34 @@ class extends Component
             $this->startWithSuccessMessage = true;
         }
 
+        $this->ensureDefaultGoogleSheetsForSeo();
         $this->rebuildParameterCalculationRows();
     }
 
     public function updatedClientProjectFormProjectType(mixed $value): void
     {
+        unset(
+            $this->analyticsIntegrations,
+            $this->configuredAnalyticsIntegrations,
+            $this->configuredMoneyIntegrations,
+            $this->toolsIntegrations,
+            $this->configuredToolsIntegrations,
+            $this->moneyIntegrations,
+            $this->moneyIntegrationDisabledReasons,
+            $this->isSelectedIntegrationPlatformConfigured,
+        );
+        $this->ensureDefaultGoogleSheetsForSeo();
         $this->rebuildParameterCalculationRows();
     }
 
     public function updatedClientProjectFormKpi(mixed $value): void
     {
+        unset(
+            $this->analyticsIntegrations,
+            $this->configuredAnalyticsIntegrations,
+            $this->toolsIntegrations,
+            $this->configuredToolsIntegrations,
+        );
         $this->rebuildParameterCalculationRows();
     }
 
@@ -390,22 +387,31 @@ class extends Component
     #[Computed]
     public function moneyIntegrations(): Collection
     {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+
         return $this->integrations()
-            ->filter(fn ($integration) => $integration->category === IntegrationCategory::MONEY);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::MONEY)
+            ->reject(fn ($integration) => in_array((string) $integration->code, $hiddenCodes, true));
     }
 
     #[Computed]
     public function analyticsIntegrations(): Collection
     {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+
         return $this->integrations()
-            ->filter(fn ($integration) => $integration->category === IntegrationCategory::ANALYTICS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::ANALYTICS)
+            ->reject(fn ($integration) => in_array((string) $integration->code, $hiddenCodes, true));
     }
 
     #[Computed]
     public function toolsIntegrations(): Collection
     {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+
         return $this->integrations()
-            ->filter(fn ($integration) => $integration->category === IntegrationCategory::TOOLS);
+            ->filter(fn ($integration) => $integration->category === IntegrationCategory::TOOLS)
+            ->reject(fn ($integration) => in_array((string) $integration->code, $hiddenCodes, true));
     }
 
     #[Computed]
@@ -413,7 +419,9 @@ class extends Component
     {
         $moneyIntegrationIds = $this->moneyIntegrations()->pluck('id');
 
-        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $moneyIntegrationIds->contains($integrationId));
+        return $this->integrationSettings
+            ->filter(fn ($setting, $integrationId) => $moneyIntegrationIds->contains($integrationId))
+            ->reject(fn ($setting) => $this->isIntegrationManuallyRemoved($setting));
     }
 
     #[Computed]
@@ -421,7 +429,9 @@ class extends Component
     {
         $analyticsIntegrationIds = $this->analyticsIntegrations()->pluck('id');
 
-        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $analyticsIntegrationIds->contains($integrationId));
+        return $this->integrationSettings
+            ->filter(fn ($setting, $integrationId) => $analyticsIntegrationIds->contains($integrationId))
+            ->reject(fn ($setting) => $this->isIntegrationManuallyRemoved($setting));
     }
 
     #[Computed]
@@ -429,7 +439,16 @@ class extends Component
     {
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
 
-        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
+        return $this->integrationSettings
+            ->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId))
+            ->reject(fn ($setting) => $this->isIntegrationManuallyRemoved($setting));
+    }
+
+    private function isIntegrationManuallyRemoved(mixed $setting): bool
+    {
+        $settings = is_array($setting->settings ?? null) ? $setting->settings : [];
+
+        return (bool) ($settings['manually_removed'] ?? false);
     }
 
     /**
@@ -469,6 +488,102 @@ class extends Component
             $kpi,
             $this->enabledIntegrationCodes()
         );
+    }
+
+    /**
+     * Интеграции, которые не показываем для текущего типа/KPI.
+     *
+     * @return list<string>
+     */
+    private function hiddenIntegrationCodes(): array
+    {
+        // Пока не подключены в продукте - не предлагать в модалке «Деньги»
+        $codes = ['1c_check', '1c_ad_budget_flow'];
+
+        $projectType = (string) $this->clientProjectForm->projectType;
+
+        if ($projectType === ProjectType::SEO_PROMOTION->value) {
+            $codes[] = 'yandex_direct';
+
+            return $codes;
+        }
+
+        if ($projectType !== ProjectType::CONTEXT_AD->value) {
+            return $codes;
+        }
+
+        $codes[] = 'yandex_search_api';
+
+        if ((string) $this->clientProjectForm->kpi === Kpi::TRAFFIC->value) {
+            $codes[] = 'yandex_metrika';
+            $codes[] = 'callibri';
+        }
+
+        return $codes;
+    }
+
+    private function disableHiddenIntegrations(): void
+    {
+        $hiddenCodes = $this->hiddenIntegrationCodes();
+        if ($hiddenCodes === []) {
+            return;
+        }
+
+        foreach ($this->integrationSettings as $setting) {
+            $code = (string) ($setting->integration->code ?? '');
+            if (! in_array($code, $hiddenCodes, true)) {
+                continue;
+            }
+
+            if ((bool) ($setting->isEnabled ?? false)) {
+                $setting->isEnabled = false;
+            }
+        }
+    }
+
+    /**
+     * Для SEO-проектов включаем Google Таблицы, если записи ещё нет.
+     * Уже выключенные руками не трогаем. Автоподстановку снимаем при смене типа на контекст.
+     */
+    private function ensureDefaultGoogleSheetsForSeo(): void
+    {
+        $integration = $this->integrations()->firstWhere('code', 'google_sheets');
+
+        if ($integration === null) {
+            return;
+        }
+
+        $isSeo = (string) $this->clientProjectForm->projectType === ProjectType::SEO_PROMOTION->value;
+
+        if (! $isSeo) {
+            if ($this->autoEnabledGoogleSheetsForSeo && $this->integrationSettings->has($integration->id)) {
+                $this->integrationSettings = $this->integrationSettings
+                    ->reject(fn ($setting, $id) => (int) $id === (int) $integration->id)
+                    ->mapWithKeys(fn ($setting, $id) => [(int) $id => $setting]);
+                $this->autoEnabledGoogleSheetsForSeo = false;
+                unset($this->configuredMoneyIntegrations);
+            }
+
+            return;
+        }
+
+        if ($this->integrationSettings->has($integration->id)) {
+            return;
+        }
+
+        $projectIntegration = new ProjectIntegrationData;
+        $projectIntegration->integration = IntegrationData::from($integration);
+        $projectIntegration->isEnabled = true;
+        $projectIntegration->settings = [
+            'sync_enabled_at' => now()->format('Y-m-d'),
+        ];
+
+        $this->integrationSettings[$integration->id] = $projectIntegration;
+        $this->integrationSettings = $this->integrationSettings->mapWithKeys(
+            fn ($setting, $id) => [(int) $id => $setting]
+        );
+        $this->autoEnabledGoogleSheetsForSeo = true;
+        unset($this->configuredMoneyIntegrations);
     }
 
     protected function refreshParameterCalculationRows(): void
@@ -548,6 +663,23 @@ class extends Component
     #[Computed]
     public function isBitrix24AgencyConfigured(): bool
     {
+        $agency = $this->currentAgency();
+
+        return $agency !== null && $agency->isBitrix24Configured();
+    }
+
+    #[Computed]
+    public function isGoogleSheetsAgencyConfigured(): bool
+    {
+        $agency = $this->currentAgency();
+
+        return $agency !== null
+            && $agency->isGoogleSheetsSpreadsheetConfigured()
+            && app(GoogleSheetsServiceAccountCredentials::class)->isConfigured();
+    }
+
+    private function currentAgency(): ?Agency
+    {
         $agencyId = (int) (session('current_agency_id') ?? 0);
 
         if ($agencyId <= 0) {
@@ -555,24 +687,36 @@ class extends Component
         }
 
         if ($agencyId <= 0) {
-            return false;
+            return null;
         }
 
-        $agency = Agency::query()->find($agencyId);
-
-        return $agency !== null && $agency->isBitrix24Configured();
+        return Agency::query()->find($agencyId);
     }
 
     #[Computed]
     public function moneyIntegrationDisabledReasons(): array
     {
-        if ($this->isBitrix24AgencyConfigured) {
-            return [];
+        $reasons = [];
+
+        if (! $this->isBitrix24AgencyConfigured) {
+            $reasons['bitrix24'] = 'Сначала укажите URL портала и вебхук в настройках агентства';
         }
 
-        return [
-            'bitrix24' => 'Сначала укажите URL портала и вебхук в настройках агентства',
-        ];
+        if (! $this->isGoogleSheetsAgencyConfigured) {
+            $agency = $this->currentAgency();
+            $hasUrl = $agency !== null && $agency->isGoogleSheetsSpreadsheetConfigured();
+            $hasKey = app(GoogleSheetsServiceAccountCredentials::class)->isConfigured();
+
+            if (! $hasUrl && ! $hasKey) {
+                $reasons['google_sheets'] = 'Сначала укажите ссылку на таблицу в настройках агентства и положите ключ служебной учётки на сервер';
+            } elseif (! $hasUrl) {
+                $reasons['google_sheets'] = 'Сначала укажите ссылку на таблицу в настройках агентства';
+            } else {
+                $reasons['google_sheets'] = 'Сначала положите ключ служебной учётки на сервер';
+            }
+        }
+
+        return $reasons;
     }
 
     #[Computed]
@@ -584,7 +728,7 @@ class extends Component
             'yandex_search_api' => $this->isYandexSearchApiConfigured,
             'yandex_direct' => $this->isYandexDirectOAuthConfigured,
             'yandex_metrika' => $this->isYandexMetrikaOAuthConfigured,
-            'google_sheets' => $this->isGoogleSheetsOAuthConfigured,
+            'google_sheets' => $this->isGoogleSheetsAgencyConfigured,
             'bitrix24' => $this->isBitrix24AgencyConfigured,
             default => true,
         };
@@ -598,14 +742,29 @@ class extends Component
             return;
         }
 
+        if (in_array($code, $this->hiddenIntegrationCodes(), true)) {
+            return;
+        }
+
         $integration = $this->integrations()->firstWhere('code', $code);
 
         if ($integration === null) {
             return;
         }
 
-        if ($this->integrationSettings->has($integration->id)) {
-            $this->selectedIntegration = $this->integrationSettings->get($integration->id);
+        $existingSetting = $this->integrationSettings->get($integration->id);
+        $existingIsManuallyRemoved = $existingSetting !== null && $this->isIntegrationManuallyRemoved($existingSetting);
+
+        // Из списка «Добавить» без ссылки/ключа не открываем; уже добавленную карточку открыть можно.
+        if ($code === 'google_sheets'
+            && ! $this->isGoogleSheetsAgencyConfigured
+            && ($existingSetting === null || $existingIsManuallyRemoved)
+        ) {
+            return;
+        }
+
+        if ($existingSetting !== null && ! $existingIsManuallyRemoved) {
+            $this->selectedIntegration = $existingSetting;
         } else {
             $integrationSettingsFactory = new IntegrationSettingsFactory;
             $selectedIntegration = new ProjectIntegrationData;
@@ -632,21 +791,49 @@ class extends Component
 
         $integration = $this->integrations()->firstWhere('id', $integrationId);
 
+        if ($integration !== null
+            && in_array((string) $integration->code, $this->hiddenIntegrationCodes(), true)
+        ) {
+            return;
+        }
+
         $projectIntegrationData = new ProjectIntegrationData;
         $projectIntegrationData->integration = IntegrationData::from($integration);
         $settingsCollection = collect($settings);
         $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
-        $projectIntegrationData->settings = $settingsCollection->toArray();
+        $previousSettings = is_array($this->integrationSettings->get($integrationId)?->settings ?? null)
+            ? $this->integrationSettings->get($integrationId)->settings
+            : [];
+        $projectIntegrationData->settings = IntegrationSyncIssueStatus::mergePreserved(
+            $previousSettings,
+            $settingsCollection->toArray()
+        );
 
         if ($integration?->code === 'google_sheets') {
-            $documentId = (string) ($projectIntegrationData->settings['document_id'] ?? '');
-            $projectIntegrationData->settings['document_id'] = GoogleSheetsService::extractSpreadsheetId($documentId);
+            unset(
+                $projectIntegrationData->settings['document_id'],
+                $projectIntegrationData->settings['documentId'],
+                $projectIntegrationData->settings['oauth_token'],
+                $projectIntegrationData->settings['refresh_token'],
+                $projectIntegrationData->settings['token_expires_at'],
+                $projectIntegrationData->settings['oauth_google_user_id'],
+                $projectIntegrationData->settings['oauth_google_email'],
+                $projectIntegrationData->settings['oauth_google_display_name'],
+                $projectIntegrationData->settings['oauth_google_avatar_url'],
+                $projectIntegrationData->settings['manually_removed'],
+            );
 
-            if (($projectIntegrationData->isEnabled ?? false) && $documentId === '') {
-                throw ValidationException::withMessages([
-                    'document_id' => 'Укажите ID Google таблицы.',
-                ]);
+            if (($projectIntegrationData->isEnabled ?? false)
+                && blank($projectIntegrationData->settings['sync_enabled_at'] ?? null)
+            ) {
+                $projectIntegrationData->settings['sync_enabled_at'] = now()->format('Y-m-d');
             }
+
+            if (! ($projectIntegrationData->isEnabled ?? false)) {
+                unset($projectIntegrationData->settings['sync_enabled_at']);
+            }
+
+            $this->autoEnabledGoogleSheetsForSeo = false;
         }
 
         if ($integration?->code === 'yandex_search_api' && ($projectIntegrationData->isEnabled ?? false)) {
@@ -660,11 +847,21 @@ class extends Component
         }
 
         if ($integration?->code === 'yandex_metrika') {
-            $reports = is_array($projectIntegrationData->settings['reports'] ?? null)
-                ? $projectIntegrationData->settings['reports']
-                : [];
+            $projectType = (string) $this->clientProjectForm->projectType;
+            $reports = YandexMetrikaIntegrationSettingsData::reportsPackageFor($projectType);
+            $projectIntegrationData->settings['reports'] = $reports;
+            $projectIntegrationData->settings['goals_count_source'] = YandexMetrikaIntegrationSettingsData::normalizeGoalsCountSource(
+                $projectIntegrationData->settings['goals_count_source'] ?? null
+            );
 
-            $needsGoals = ($reports['goals_search_engines'] ?? false) || ($reports['goals_utm'] ?? false) || ($reports['goals_conversions'] ?? false) || ($reports['goals_direct_summary'] ?? false);
+            if ($projectType === ProjectType::SEO_PROMOTION->value) {
+                $projectIntegrationData->settings['goals_count_source'] = YandexMetrikaIntegrationSettingsData::DEFAULT_GOALS_COUNT_SOURCE;
+            }
+
+            $needsGoals = ($reports['goals_search_engines'] ?? false)
+                || ($reports['goals_utm'] ?? false)
+                || ($reports['goals_conversions'] ?? false)
+                || ($reports['goals_direct_summary'] ?? false);
 
             if ($needsGoals) {
                 $goals = YandexMetrikaIntegrationSettingsData::normalizeGoalIds(
@@ -692,10 +889,16 @@ class extends Component
                 $projectIntegrationData->settings['utm_campaign'] = trim((string) ($projectIntegrationData->settings['utm_campaign'] ?? ''));
             }
 
-            if ($reports['visits_search_engines'] ?? false) {
+            if (($reports['visits_search_engines'] ?? false)
+                || ($reports['visits_search_queries'] ?? false)
+                || ($reports['visits_geo'] ?? false)
+            ) {
                 $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
                     $projectIntegrationData->settings['visits_metric'] ?? null
                 );
+            }
+
+            if ($reports['visits_search_engines'] ?? false) {
                 $searchEnginesAll = (bool) ($projectIntegrationData->settings['search_engines_all'] ?? true);
                 $projectIntegrationData->settings['search_engines_all'] = $searchEnginesAll;
                 $projectIntegrationData->settings['search_engines'] = $searchEnginesAll
@@ -707,17 +910,10 @@ class extends Component
             }
 
             if ($reports['visits_search_queries'] ?? false) {
-                $projectIntegrationData->settings['visits_metric'] = YandexMetrikaIntegrationSettingsData::normalizeVisitsMetric(
-                    $projectIntegrationData->settings['visits_metric'] ?? null
-                );
                 $projectIntegrationData->settings['search_queries_minus'] = (string) (
                     $projectIntegrationData->settings['search_queries_minus'] ?? ''
                 );
             }
-
-            // Отчёт «География» снят с UI: API Метрики не даёт стабильной сверки по городам без роботов.
-            $reports['visits_geo'] = false;
-            $projectIntegrationData->settings['reports'] = $reports;
         }
 
         if ($integration?->code === 'bitrix24') {
@@ -940,6 +1136,48 @@ class extends Component
             }
 
             $count = app(YandexMetrikaService::class)->countSearchQueriesVisitsForDate($settings, $parsedDate);
+
+            return ['count' => $count];
+        } catch (Throwable $e) {
+            report($e);
+
+            return ['error' => 'Не удалось проверить интеграцию Яндекс Метрики.'];
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     * @return array{count?: int, error?: string}
+     */
+    public function testYandexMetrikaVisitsGeoIntegration(array $settings, string $date): array
+    {
+        $this->ensureCanEdit();
+
+        if (trim((string) ($settings['oauth_token'] ?? '')) === '') {
+            return ['error' => 'Сначала авторизуйтесь через Яндекс Метрику'];
+        }
+
+        if ((int) ($settings['counter_id'] ?? 0) <= 0) {
+            return ['error' => 'Выберите счётчик Яндекс Метрики'];
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        if (! ($reports['visits_geo'] ?? false)) {
+            return ['error' => 'Включите отчёт «Переходы из отчета География»'];
+        }
+
+        try {
+            $parsedDate = Carbon::createFromFormat('Y-m-d', $date);
+
+            if ($parsedDate === false) {
+                $parsedDate = Carbon::createFromFormat('d.m.Y', $date);
+            }
+
+            if ($parsedDate === false) {
+                return ['error' => 'Укажите корректную дату'];
+            }
+
+            $count = app(YandexMetrikaService::class)->countGeoVisitsForDate($settings, $parsedDate);
 
             return ['count' => $count];
         } catch (Throwable $e) {
@@ -1477,7 +1715,23 @@ class extends Component
     {
         $this->ensureCanEdit();
 
-        $this->integrationSettings->forget($integrationId);
+        $setting = $this->integrationSettings->get($integrationId);
+        $code = (string) ($setting?->integration?->code ?? '');
+
+        // Для SEO автоподстановка смотрит на отсутствие записи. После ручного удаления
+        // оставляем выключенный маркер, чтобы интеграция не вернулась после сохранения.
+        if ($code === 'google_sheets' && $setting !== null) {
+            $this->autoEnabledGoogleSheetsForSeo = false;
+            $setting->isEnabled = false;
+            $settings = is_array($setting->settings) ? $setting->settings : [];
+            unset($settings['sync_enabled_at']);
+            $settings['manually_removed'] = true;
+            $setting->settings = $settings;
+            $this->integrationSettings[$integrationId] = $setting;
+        } else {
+            $this->integrationSettings->forget($integrationId);
+        }
+
         $this->integrationSettings = $this->integrationSettings->mapWithKeys(
             fn ($setting, $id) => [(int) $id => $setting]
         );
@@ -1607,7 +1861,12 @@ class extends Component
 
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
-        $this->bonusGuaranteeForm->validate();
+
+        if ($this->clientProjectForm->isInternal) {
+            $this->bonusGuaranteeForm->resetToDefaults();
+        } else {
+            $this->bonusGuaranteeForm->validate();
+        }
 
         if ($this->clientProjectForm->projectType === ProjectType::CONTEXT_AD->value) {
             $this->utmMappingForm->validate();
@@ -1687,6 +1946,8 @@ class extends Component
 
             // Сохраняем UTM-мэппинги через сервис
             $this->projectService->saveProjectUtmMapping($utmMappingsData, $project->id);
+
+            $this->disableHiddenIntegrations();
 
             $this->integrationService->updateIntegrationsSettings($project->id, $this->integrationSettings);
 

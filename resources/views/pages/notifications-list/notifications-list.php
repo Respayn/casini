@@ -2,13 +2,17 @@
 
 namespace App\Livewire\Notifications;
 
-use Livewire\Component;
-use Illuminate\Support\Facades\Auth;
 use App\Services\NotificationService;
+use Illuminate\Support\Facades\Auth;
+use Livewire\Attributes\Title;
+use Livewire\Component;
 
-new class extends Component
+new
+#[Title('Уведомления')]
+class extends Component
 {
     public array $notifications = [];
+
     public int $unreadBefore = 0;
 
     private NotificationService $svc;
@@ -28,7 +32,7 @@ new class extends Component
 
         // грузим список после отметки
         $this->notifications = $this->svc->getUserNotifications($uid)->all();
-        
+
         // по требованиям: при открытии страницы — все прочитаны
         $this->svc->markAllAsRead($uid);
         $this->dispatch('notifications-read');
