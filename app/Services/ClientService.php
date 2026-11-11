@@ -19,4 +19,24 @@ class ClientService
     {
         return collect($this->repository->all($with));
     }
+
+    public function hasProjects(int $clientId): bool
+    {
+        return $this->repository->hasProjects($clientId);
+    }
+
+    public function hasPayments(int $clientId): bool
+    {
+        return $this->repository->hasPayments($clientId);
+    }
+
+    public function hasReports(int $clientId): bool
+    {
+        return $this->repository->hasReports($clientId);
+    }
+
+    public function delete(int $clientId): void
+    {
+        $this->repository->deleteById($clientId);
+    }
 }

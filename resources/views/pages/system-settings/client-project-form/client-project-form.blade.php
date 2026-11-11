@@ -4,6 +4,7 @@
 
 <div
     data-casini-client-project-form
+    class="flex min-h-0 flex-1 flex-col"
     x-data="{
         hasPendingChanges: @js($startWithPendingChanges),
         successMessage: @js($startWithSuccessMessage) ? 'Изменения сохранены' : null,
@@ -24,19 +25,21 @@
     <div
         x-show="successMessage"
         x-cloak
-        class="border-primary mt-4 mb-4 max-w-[950px] break-words rounded-lg border bg-blue-50 p-4 text-sm text-primary-text"
+        class="border-primary mt-4 mb-4 max-w-[950px] shrink-0 break-words rounded-lg border bg-blue-50 p-4 text-sm text-primary-text"
         x-text="successMessage"
     ></div>
 
+    {{-- flex-1 + min-h-0: скролл только внутри панели, страница не растёт и браузерный скролл не появляется --}}
     <x-panel.scroll-panel
-        class="mb-3 mt-4 max-h-[calc(100vh-300px)]"
+        class="mb-3 mt-4 min-h-0 flex-1"
+        style="height: auto; max-height: none;"
     >
         <x-form.form
             :is-normalized="true"
             wire:submit.prevent="save"
         >
             <div class="flex max-w-[950px] flex-col gap-4">
-                <h1>Добавить клиенто-проект</h1>
+                <h1>{{ filled($clientProjectForm->id) ? 'Редактирование клиенто-проекта' : 'Добавление клиенто-проекта' }}</h1>
             <div class="flex flex-col gap-4">
                 <h2>Основная информация</h2>
                 <x-form.form-field>
@@ -45,12 +48,22 @@
                         required
                     >Статус клиенто-проекта</x-form.form-label>
                     <div>
-                        <div class="flex items-center justify-end gap-3">
-                            <label>
+                        <div
+                            class="flex items-center justify-end gap-3"
+                            x-data="{ on: @entangle('clientProjectForm.isActive').live }"
+                        >
+                            <label
+                                class="inline-block w-[10ch] shrink-0 text-right whitespace-nowrap"
+                                x-text="on ? 'Активен' : 'Неактивный'"
+                            >
                                 {{ $clientProjectForm->isActive ? 'Активен' : 'Неактивный' }}
                             </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                <x-form.toggle-switch wire:model.live="clientProjectForm.isActive" :disabled="! $canEdit">
+                                <x-form.toggle-switch
+                                    x-model="on"
+                                    :checked="$clientProjectForm->isActive"
+                                    :disabled="! $canEdit"
+                                >
                                 </x-form.toggle-switch>
                             </x-permissions.field-guard>
                         </div>
@@ -68,16 +81,18 @@
                     </div>
                 </x-form.form-field>
 
-                <x-form.form-field>
-                    <x-form.form-label>Дата архивации клиенто-проекта</x-form.form-label>
-                    <div wire:key="archived-at-{{ $clientProjectForm->isActive ? 'active' : 'archived-'.$clientProjectForm->archivedAt }}">
-                        <x-form.input-text
-                            :value="$clientProjectForm->isActive ? '' : $clientProjectForm->archivedAt"
-                            placeholder="дд.мм.гггг"
-                            disabled
-                        />
-                    </div>
-                </x-form.form-field>
+                @if (! $clientProjectForm->isActive && filled($clientProjectForm->archivedAt))
+                    <x-form.form-field>
+                        <x-form.form-label>Дата архивации клиенто-проекта</x-form.form-label>
+                        <div wire:key="archived-at-{{ $clientProjectForm->archivedAt }}">
+                            <x-form.input-text
+                                :value="$clientProjectForm->archivedAt"
+                                placeholder="дд.мм.гггг"
+                                disabled
+                            />
+                        </div>
+                    </x-form.form-field>
+                @endif
 
                 <x-form.form-field>
                     <x-form.form-label
@@ -87,7 +102,7 @@
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-form.input-text
-                                wire:model="clientProjectForm.name"
+                                wire:model.blur="clientProjectForm.name"
                                 placeholder="-"
                                 :disabled="! $canEdit"
                             ></x-form.input-text>
@@ -104,11 +119,13 @@
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-form.select
-                                wire:model="clientProjectForm.client"
+                                wire:model.live="clientProjectForm.client"
                                 placeholder="-"
                                 :options="$clients->map(function ($item) {
                                     return ['label' => $item->name, 'value' => $item->id];
                                 })"
+                                searchable
+                                search-placeholder="Начните вводить название"
                                 :disabled="! $canEdit"
                             ></x-form.select>
                         </x-permissions.field-guard>
@@ -124,7 +141,7 @@
                     <div>
                         <x-permissions.field-guard :enabled="$canEdit">
                             <x-form.input-url
-                                wire:model="clientProjectForm.domain"
+                                wire:model.blur="clientProjectForm.domain"
                                 placeholder="example.com"
                                 :disabled="! $canEdit"
                             />
@@ -137,7 +154,7 @@
                         class="self-baseline"
                         tooltip="Менеджер указывается на уровне настроек клиента в Клиенты и клиенто-проекты"
                     >Менеджер</x-form.form-label>
-                    <div>
+                    <div wire:key="client-manager-{{ $clientProjectForm->client }}-{{ $clientProjectForm->manager }}">
                         <x-form.select
                             :options="$this->managers->map(function ($item) {
                                 return ['label' => $item->first_name . ' ' . $item->last_name, 'value' => $item->id];
@@ -246,10 +263,22 @@
 
                 <x-form.form-field>
                     <x-form.form-label class="self-baseline">Свой проект</x-form.form-label>
-                    <div class="flex items-center justify-end gap-3">
-                        <label>{{ $clientProjectForm->isInternal ? 'Свой проект' : 'Проект клиента' }}</label>
+                    <div
+                        class="flex items-center justify-end gap-3"
+                        x-data="{ on: @entangle('clientProjectForm.isInternal').live }"
+                    >
+                        <label
+                            class="inline-block w-[14ch] shrink-0 text-right whitespace-nowrap"
+                            x-text="on ? 'Свой проект' : 'Проект клиента'"
+                        >
+                            {{ $clientProjectForm->isInternal ? 'Свой проект' : 'Проект клиента' }}
+                        </label>
                         <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch wire:model.live="clientProjectForm.isInternal" :disabled="! $canEdit"></x-form.toggle-switch>
+                            <x-form.toggle-switch
+                                x-model="on"
+                                :checked="$clientProjectForm->isInternal"
+                                :disabled="! $canEdit"
+                            ></x-form.toggle-switch>
                         </x-permissions.field-guard>
                     </div>
                 </x-form.form-field>
@@ -347,7 +376,12 @@
                 </x-form.form-field>
             </div>
             @endif
-            <div class="mt-4 flex flex-col gap-4">
+            <div
+                class="mt-4 flex flex-col gap-4"
+                x-data="{ isInternal: @entangle('clientProjectForm.isInternal').live }"
+                x-show="!isInternal"
+                x-cloak
+            >
                 <!-- Бонусы и гарантии -->
                 <h2>Бонусы и гарантии</h2>
 
@@ -366,166 +400,197 @@
                     </x-permissions.field-guard>
                 </x-form.form-field>
 
-                <x-form.form-field>
-                    <x-form.form-label
-                        tooltip="Если за выполнение плана в договоре с клиентом предусмотрен бонус и/или прописаны гарантии - задайте логику расчета бонуса и/или гарантии"
-                    >
-                        В договоре предусмотрены бонусы и/или гарантии
-                    </x-form.form-label>
-                    <div class="flex items-center justify-end gap-3">
-                        <label>{{ $bonusGuaranteeForm->bonusesEnabled ? 'Есть бонусы' : 'Нет бонусов' }}</label>
-                        <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                            <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.bonusesEnabled" :disabled="! $canEdit" />
-                        </x-permissions.field-guard>
-                    </div>
-                </x-form.form-field>
-
-                @if ($bonusGuaranteeForm->bonusesEnabled)
-                    <!-- Расчет в % от суммы чека клиента -->
+                <div
+                    class="flex flex-col gap-4"
+                    x-data="{ bonusesOn: @entangle('bonusGuaranteeForm.bonusesEnabled').live }"
+                >
                     <x-form.form-field>
-                        <x-form.form-label>
-                            Бонус и/или гарантия рассчитывается в % от суммы чека клиента
+                        <x-form.form-label
+                            tooltip="Если за выполнение плана в договоре с клиентом предусмотрен бонус и/или прописаны гарантии - задайте логику расчета бонуса и/или гарантии"
+                        >
+                            В договоре предусмотрены бонусы и/или гарантии
                         </x-form.form-label>
                         <div class="flex items-center justify-end gap-3">
-                            <label>{{ $bonusGuaranteeForm->calculateInPercentage ? 'Да' : 'Нет' }}</label>
+                            <label
+                                class="inline-block w-[12ch] shrink-0 text-right whitespace-nowrap"
+                                x-text="bonusesOn ? 'Есть бонусы' : 'Нет бонусов'"
+                            >
+                                {{ $bonusGuaranteeForm->bonusesEnabled ? 'Есть бонусы' : 'Нет бонусов' }}
+                            </label>
                             <x-permissions.field-guard :enabled="$canEdit" :fill="false">
-                                <x-form.toggle-switch wire:model.live="bonusGuaranteeForm.calculateInPercentage" :disabled="! $canEdit" />
-                            </x-permissions.field-guard>
-                        </div>
-                    </x-form.form-field>
-
-                    <!-- С какого месяца начинать считать бонусы и/или гарантию -->
-                    <x-form.form-field>
-                        <x-form.form-label required>
-                            С какого месяца начинать считать бонусы и/или гарантию?
-                        </x-form.form-label>
-                        <div>
-                            <x-permissions.field-guard :enabled="$canEdit">
-                                <x-form.select
-                                    wire:model="bonusGuaranteeForm.startMonth"
-                                    :options="[
-                                        ['label' => 'Начиная с 1-го месяца работы', 'value' => 1],
-                                        ['label' => 'Начиная со 2-го месяца работы', 'value' => 2],
-                                        ['label' => 'Начиная с 3-го месяца работы', 'value' => 3],
-                                    ]"
-                                    placeholder="Выберите вариант"
+                                <x-form.toggle-switch
+                                    x-model="bonusesOn"
+                                    :checked="$bonusGuaranteeForm->bonusesEnabled"
                                     :disabled="! $canEdit"
                                 />
                             </x-permissions.field-guard>
                         </div>
                     </x-form.form-field>
 
-                    <div class="mt-4 flex flex-col gap-4">
-                        <h1>Задайте логику расчета бонуса и/или гарантии</h1>
-                        <div class="text-caption-text">
-                            Укажите диапазоны выполнения плана и размер бонуса или гарантии
-                        </div>
-
-                        <style>
-                            .bonus-intervals-wrap {
-                                width: fit-content;
-                                max-width: 100%;
-                                margin-left: auto;
-                                margin-right: auto;
-                            }
-
-                            .bonus-intervals-grid {
-                                grid-template-columns: 40px 120px 40px 120px 32px 140px 56px;
-                                column-gap: 16px;
-                            }
-
-                            .bonus-intervals-grid .bonus-interval-remove {
-                                margin-left: 8px;
-                            }
-
-                            .bonus-intervals-grid .bonus-interval-label,
-                            .bonus-intervals-grid .bonus-interval-sep {
-                                display: flex;
-                                min-height: 42px;
-                                align-items: center;
-                                justify-content: center;
-                            }
-                        </style>
-                        <div class="bonus-intervals-wrap">
-                            <div class="bonus-intervals-grid grid items-start gap-y-2 text-[14px]">
-                            <div class="text-secondary-text col-span-4">Выполнение плана в % (включительно)</div>
-                            <div></div>
-                            <div class="text-secondary-text">Бонус и/или гарантия в % от чека клиента</div>
-                            <div></div>
-
-                            @foreach ($bonusGuaranteeForm->intervals as $index => $interval)
-                                <div class="bonus-interval-label text-secondary-text">От</div>
-                                <x-permissions.field-guard :enabled="$canEdit">
-                                    <x-form.input-number
-                                        wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.fromPercentage"
-                                        wire:blur="validateBonusIntervalField({{ $index }}, 'fromPercentage')"
-                                        placeholder="От"
-                                        suffix="%"
+                    <div
+                        class="flex flex-col gap-4"
+                        x-show="bonusesOn"
+                        x-cloak
+                        x-data="{ pct: @entangle('bonusGuaranteeForm.calculateInPercentage').live }"
+                    >
+                        <!-- Расчет в % от суммы чека клиента -->
+                        <x-form.form-field>
+                            <x-form.form-label>
+                                Бонус и/или гарантия рассчитывается в % от суммы чека клиента
+                            </x-form.form-label>
+                            <div class="flex items-center justify-end gap-3">
+                                <label
+                                    class="inline-block w-[3ch] shrink-0 text-right whitespace-nowrap"
+                                    x-text="pct ? 'Да' : 'Нет'"
+                                >
+                                    {{ $bonusGuaranteeForm->calculateInPercentage ? 'Да' : 'Нет' }}
+                                </label>
+                                <x-permissions.field-guard :enabled="$canEdit" :fill="false">
+                                    <x-form.toggle-switch
+                                        x-model="pct"
+                                        :checked="$bonusGuaranteeForm->calculateInPercentage"
                                         :disabled="! $canEdit"
                                     />
                                 </x-permissions.field-guard>
-                                <div class="bonus-interval-label text-secondary-text">До</div>
+                            </div>
+                        </x-form.form-field>
+
+                        <!-- С какого месяца начинать считать бонусы и/или гарантию -->
+                        <x-form.form-field>
+                            <x-form.form-label required>
+                                С какого месяца начинать считать бонусы и/или гарантию?
+                            </x-form.form-label>
+                            <div>
                                 <x-permissions.field-guard :enabled="$canEdit">
-                                    <x-form.input-number
-                                        wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.toPercentage"
-                                        wire:blur="validateBonusIntervalField({{ $index }}, 'toPercentage')"
-                                        placeholder="До"
-                                        suffix="%"
+                                    <x-form.select
+                                        wire:model="bonusGuaranteeForm.startMonth"
+                                        :options="[
+                                            ['label' => 'Начиная с 1-го месяца работы', 'value' => 1],
+                                            ['label' => 'Начиная со 2-го месяца работы', 'value' => 2],
+                                            ['label' => 'Начиная с 3-го месяца работы', 'value' => 3],
+                                        ]"
+                                        placeholder="Выберите вариант"
                                         :disabled="! $canEdit"
                                     />
                                 </x-permissions.field-guard>
-                                <div class="bonus-interval-sep text-secondary-text">-</div>
-                                @if ($bonusGuaranteeForm->calculateInPercentage)
+                            </div>
+                        </x-form.form-field>
+
+                        <div class="mt-4 flex flex-col gap-4">
+                            <h1>Задайте логику расчета бонуса и/или гарантии</h1>
+                            <div class="text-caption-text">
+                                Укажите диапазоны выполнения плана и размер бонуса или гарантии
+                            </div>
+
+                            <style>
+                                .bonus-intervals-wrap {
+                                    width: fit-content;
+                                    max-width: 100%;
+                                    margin-left: auto;
+                                    margin-right: auto;
+                                }
+
+                                .bonus-intervals-grid {
+                                    grid-template-columns: 40px 120px 40px 120px 32px 140px 56px;
+                                    column-gap: 16px;
+                                }
+
+                                .bonus-intervals-grid .bonus-interval-remove {
+                                    margin-left: 8px;
+                                }
+
+                                .bonus-intervals-grid .bonus-interval-label,
+                                .bonus-intervals-grid .bonus-interval-sep {
+                                    display: flex;
+                                    min-height: 42px;
+                                    align-items: center;
+                                    justify-content: center;
+                                }
+                            </style>
+                            <div class="bonus-intervals-wrap">
+                                <div class="bonus-intervals-grid grid items-start gap-y-2 text-[14px]">
+                                <div class="text-secondary-text col-span-4">Выполнение плана в % (включительно)</div>
+                                <div></div>
+                                <div class="text-secondary-text">Бонус и/или гарантия в % от чека клиента</div>
+                                <div></div>
+
+                                @foreach ($bonusGuaranteeForm->intervals as $index => $interval)
+                                    <div class="bonus-interval-label text-secondary-text">От</div>
                                     <x-permissions.field-guard :enabled="$canEdit">
                                         <x-form.input-number
-                                            wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusPercentage"
-                                            wire:blur="validateBonusIntervalField({{ $index }}, 'bonusPercentage')"
-                                            placeholder="%"
+                                            wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.fromPercentage"
+                                            wire:blur="validateBonusIntervalField({{ $index }}, 'fromPercentage')"
+                                            placeholder="От"
                                             suffix="%"
-                                            :allow-negative="true"
                                             :disabled="! $canEdit"
                                         />
                                     </x-permissions.field-guard>
-                                @else
+                                    <div class="bonus-interval-label text-secondary-text">До</div>
                                     <x-permissions.field-guard :enabled="$canEdit">
                                         <x-form.input-number
-                                            wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
-                                            wire:blur="validateBonusIntervalField({{ $index }}, 'bonusAmount')"
-                                            placeholder="₽"
-                                            suffix="₽"
-                                            :allow-negative="true"
+                                            wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.toPercentage"
+                                            wire:blur="validateBonusIntervalField({{ $index }}, 'toPercentage')"
+                                            placeholder="До"
+                                            suffix="%"
                                             :disabled="! $canEdit"
                                         />
                                     </x-permissions.field-guard>
-                                @endif
+                                    <div class="bonus-interval-sep text-secondary-text">-</div>
+                                    <div>
+                                        <div x-show="pct">
+                                            <x-permissions.field-guard :enabled="$canEdit">
+                                                <x-form.input-number
+                                                    wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusPercentage"
+                                                    wire:blur="validateBonusIntervalField({{ $index }}, 'bonusPercentage')"
+                                                    placeholder="%"
+                                                    suffix="%"
+                                                    :allow-negative="true"
+                                                    :disabled="! $canEdit"
+                                                />
+                                            </x-permissions.field-guard>
+                                        </div>
+                                        <div x-show="!pct">
+                                            <x-permissions.field-guard :enabled="$canEdit">
+                                                <x-form.input-number
+                                                    wire:model.blur="bonusGuaranteeForm.intervals.{{ $index }}.bonusAmount"
+                                                    wire:blur="validateBonusIntervalField({{ $index }}, 'bonusAmount')"
+                                                    placeholder="₽"
+                                                    suffix="₽"
+                                                    :allow-negative="true"
+                                                    :disabled="! $canEdit"
+                                                />
+                                            </x-permissions.field-guard>
+                                        </div>
+                                    </div>
+                                    @if ($canEdit)
+                                        <div class="bonus-interval-remove pt-1">
+                                            <x-button.button
+                                                type="button"
+                                                wire:click.prevent="removeInterval({{ $index }})"
+                                                icon="icons.delete"
+                                                title="Удалить"
+                                            />
+                                        </div>
+                                    @else
+                                        <div class="bonus-interval-remove"></div>
+                                    @endif
+                                @endforeach
+                                </div>
                                 @if ($canEdit)
-                                    <div class="bonus-interval-remove pt-1">
+                                    <div class="mt-3 flex items-center justify-center">
                                         <x-button.button
                                             type="button"
-                                            wire:click.prevent="removeInterval({{ $index }})"
-                                            icon="icons.delete"
-                                            title="Удалить"
-                                        />
+                                            wire:click.prevent="addInterval"
+                                            variant="action"
+                                        >
+                                            <x-slot:label>Добавить диапазон</x-slot:label>
+                                        </x-button.button>
                                     </div>
-                                @else
-                                    <div class="bonus-interval-remove"></div>
                                 @endif
-                            @endforeach
                             </div>
-                            @if ($canEdit)
-                                <div class="mt-3 flex items-center justify-center">
-                                    <x-button.button
-                                        type="button"
-                                        wire:click.prevent="addInterval"
-                                        variant="action"
-                                    >
-                                        <x-slot:label>Добавить диапазон</x-slot:label>
-                                    </x-button.button>
-                                </div>
-                            @endif
                         </div>
                     </div>
-                @endif
+                </div>
             </div>
 
             <div class="mt-4 flex flex-col gap-4">
@@ -538,6 +603,7 @@
                         title="Инструменты"
                         description="Подключите рекламные инструменты, например Яндекс Директ"
                         :configured-integrations="$this->configuredToolsIntegrations"
+                        :available-integrations="$this->toolsIntegrations"
                         modal-trigger-name="tools-integrations-modal"
                         :can-edit="$canEdit"
                     />
@@ -552,6 +618,7 @@
                         title="Аналитика"
                         description="Интеграции, с помощью которых будете получать количество визитов, конверсий или позиции"
                         :configured-integrations="$this->configuredAnalyticsIntegrations"
+                        :available-integrations="$this->analyticsIntegrations"
                         modal-trigger-name="analytics-integrations-modal"
                         :can-edit="$canEdit"
                     />
@@ -565,7 +632,7 @@
                 <div class="flex items-center gap-3">
                     <h1>Настройка параметров</h1>
                     <x-overlay.tooltip>
-                        Блок носит информационный характер - для понимания логики расчета параметров в отчетах. Изменить логику расчета параметров вы можете включив или выключив интеграции. После внесения изменений - пересоберите статистику в клиенто-проекте
+                        Блок носит информационный характер - для понимания логики расчета параметров в отчетах. Изменить логику расчета параметров вы можете включив или выключив интеграции. После внесения изменений обновите данные вручную в Каналах или Статистике
                     </x-overlay.tooltip>
                 </div>
 
@@ -575,11 +642,11 @@
                 </x-form.form-field>
 
                 @if (empty($clientProjectForm->projectType) || empty($clientProjectForm->kpi))
-                    <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
-                        Выберите KPI и Тип клиенто-проекта
+                    <span class="text-caption-text flex items-center justify-center">
+                        Выберите KPI и тип клиенто-проекта
                     </span>
                 @elseif ($parameterCalculationRows === [])
-                    <span class="text-default-button-disabled flex items-center justify-center text-[18px] italic">
+                    <span class="text-caption-text flex items-center justify-center">
                         Для выбранных KPI и типа нет схемы параметров
                     </span>
                 @else
@@ -600,76 +667,6 @@
                         </x-form.form-field>
                     @endforeach
                 @endif
-            </div>
-
-            <div class="mt-4 flex flex-col gap-4">
-                <h1>Пересбор статистики клиенто-проекта</h1>
-                <x-form.form-field>
-                    <x-form.form-label
-                        tooltip="Укажите период за который нужно обновить отчеты с учетом обновленных: целей, счетчиков Метрики, выбранных UTM-меток, условий, интеграций"
-                    >Выберите период</x-form.form-label>
-                    <div class="flex flex-col gap-2">
-                        <div class="flex w-full min-w-0 flex-row items-center gap-2">
-                            <div class="min-w-0 flex-1">
-                                <x-form.month-picker
-                                    wire:model.live="statisticsRebuildFrom"
-                                    :max="$this->statisticsRebuildFromMax()"
-                                />
-                            </div>
-                            <span class="shrink-0">-</span>
-                            <div class="min-w-0 flex-1">
-                                <x-form.month-picker
-                                    wire:model.live="statisticsRebuildTo"
-                                    :min="$this->statisticsRebuildToMin()"
-                                    :max="now()->toDateString()"
-                                />
-                            </div>
-                        </div>
-                        <x-permissions.field-guard :enabled="$canEdit">
-                            <div
-                                @class(['relative block w-full'])
-                                @if (! $this->canRebuildStatistics)
-                                    x-data="{ open: false }"
-                                @endif
-                            >
-                                <span
-                                    class="block w-full"
-                                    @if (! $this->canRebuildStatistics)
-                                        x-ref="rebuildStatisticsTrigger"
-                                        @mouseenter="open = true"
-                                        @mouseleave="open = false"
-                                    @endif
-                                >
-                                    <x-button.button
-                                        class="w-full"
-                                        label="Пересобрать статистику"
-                                        :disabled="! $this->canRebuildStatistics"
-                                    />
-                                </span>
-                                @if ($canEdit && ! $this->canRebuildStatistics)
-                                    <template x-teleport="body">
-                                        <div
-                                            class="z-1000 w-64 rounded-md bg-gray-700 p-2 text-sm italic text-white"
-                                            x-show="open"
-                                            x-cloak
-                                            x-anchor.top="$refs.rebuildStatisticsTrigger"
-                                        >
-                                            Сначала выберите период
-                                        </div>
-                                    </template>
-                                @endif
-                            </div>
-                        </x-permissions.field-guard>
-                    </div>
-                </x-form.form-field>
-                <x-form.form-field>
-                    <x-form.form-label>Статус обновления</x-form.form-label>
-                    <div>
-                        <div class="ml-auto rounded-full bg-red-100 px-3 py-1 text-center">
-                            Не начато
-                        </div>
-                    </div>
-                </x-form.form-field>
             </div>
 
             @if ($clientProjectForm->projectType === \Src\Domain\ValueObjects\ProjectType::CONTEXT_AD->value)
@@ -761,18 +758,17 @@
     </x-panel.scroll-panel>
 
     <template x-if="hasPendingChanges && canEditPage">
-        <div class="flex max-w-[950px] justify-between">
+        <div class="flex max-w-[950px] shrink-0 justify-between">
             <x-permissions.field-guard :enabled="$canEdit">
                 <x-button.button
                     type="button"
                     variant="primary"
                     wire:click="save"
-                    wire:loading.attr="disabled"
-                    wire:target="save"
+                    loading="save"
                     :disabled="! $canEdit || ! $this->canSubmitClientProject"
                 >
                     <x-slot:label>
-                        Сохранить клиенто-проект
+                        {{ filled($clientProjectForm->id) ? 'Сохранить клиенто-проект' : 'Создать клиенто-проект' }}
                     </x-slot:label>
                 </x-button.button>
             </x-permissions.field-guard>
@@ -815,5 +811,6 @@
         :platform-configured="$this->isSelectedIntegrationPlatformConfigured"
         :body-revision="$integrationModalBodyRevision"
         :can-edit="$canEdit"
+        :project-type="$clientProjectForm->projectType"
     />
 </div>

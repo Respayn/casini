@@ -55,6 +55,10 @@
         }
     }
 
+    $syncIssueMessage = \App\Services\IntegrationSync\IntegrationSyncIssueStatus::messageFromSettings(
+        is_array($savedSettings) ? $savedSettings : []
+    );
+
     $directSettings = [
         'is_enabled' => $projectIntegration->isEnabled ?? false,
         'sync_enabled_at' => $syncEnabledAt,
@@ -76,8 +80,10 @@
         canEdit: @js($canEdit),
         platformConfigured: {{ Js::from($platformConfigured) }},
         settings: {{ Js::from($directSettings) }},
+        syncIssueMessage: {{ Js::from($syncIssueMessage) }},
         loginOptions: [],
         loginSelectOpen: false,
+        loginSearchQuery: '',
         loginsLoading: false,
         loginsError: null,
         oauthError: null,
@@ -288,7 +294,7 @@
         },
 
         get integrationError() {
-            return this.oauthError || this.loginsError || null;
+            return this.oauthError || this.loginsError || this.syncIssueMessage || null;
         },
 
         get hasIntegrationError() {
@@ -374,17 +380,38 @@
             return !this.settings.oauth_token || this.loginsLoading || this.loginOptions.length === 0;
         },
 
+        get filteredLoginOptions() {
+            const query = this.loginSearchQuery.trim().toLowerCase();
+            if (! query) {
+                return this.loginOptions;
+            }
+
+            return this.loginOptions.filter((option) =>
+                String(option.label ?? '').toLowerCase().includes(query)
+            );
+        },
+
         toggleLoginSelect() {
             if (this.loginSelectDisabled) {
                 return;
             }
 
             this.loginSelectOpen = !this.loginSelectOpen;
+            if (! this.loginSelectOpen) {
+                this.loginSearchQuery = '';
+            } else {
+                this.$nextTick(() => this.$refs.loginSearchInput?.focus());
+            }
+        },
+
+        closeLoginSelect() {
+            this.loginSelectOpen = false;
+            this.loginSearchQuery = '';
         },
 
         selectLogin(value) {
             this.settings.client_login = String(value);
-            this.loginSelectOpen = false;
+            this.closeLoginSelect();
         },
 
         stopOAuthWatchdog() {
@@ -847,15 +874,27 @@
                             x-ref="loginSelectTrigger"
                             x-on:click="toggleLoginSelect()"
                             x-bind:class="{
-                                'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white': loginSelectOpen,
+                                'rounded-t-[5px] border-b-0': loginSelectOpen,
                                 'rounded-[5px]': !loginSelectOpen,
                                 'yd-direct-error-login': hasIntegrationError,
                                 'bg-secondary': loginSelectDisabled && !hasIntegrationError,
                                 'opacity-70': !loginsLoading && !settings.oauth_token
                             }"
                         >
+                            <input
+                                type="text"
+                                class="text-input-text w-full border-0 bg-transparent p-0 outline-none placeholder:text-gray-400"
+                                x-ref="loginSearchInput"
+                                x-show="loginSelectOpen"
+                                x-cloak
+                                x-model="loginSearchQuery"
+                                placeholder="Начните вводить название"
+                                x-on:click.stop
+                                x-on:keydown.escape.stop="closeLoginSelect()"
+                            />
                             <span
                                 class="overflow-hidden"
+                                x-show="!loginSelectOpen"
                                 x-text="loginSelectLabel"
                                 x-bind:class="{
                                     'opacity-50': settings.oauth_token && !settings.client_login && loginOptions.length > 0,
@@ -869,7 +908,7 @@
                                 <x-icons.arrow
                                     class="transition-transform duration-300"
                                     x-bind:class="{
-                                        'rotate-180 group-hover:text-white': loginSelectOpen,
+                                        'rotate-180': loginSelectOpen,
                                     }"
                                 />
                             </span>
@@ -877,14 +916,18 @@
                     </div>
 
                     <div
-                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0"
+                        class="z-1000 border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0 bg-white"
                         x-cloak
                         x-show="loginSelectOpen && loginOptions.length > 0"
                         x-anchor.no-style="$refs.loginSelectButton"
                         x-bind:style="{ position: 'absolute', top: $anchor.y + 'px' }"
-                        x-on:click.outside="loginSelectOpen = false"
+                        x-on:click.outside="closeLoginSelect()"
                     >
-                        <template x-for="option in loginOptions" :key="option.value">
+                        <div
+                            class="flex min-h-[42px] items-center bg-white px-4 text-sm italic text-gray-400"
+                            x-show="filteredLoginOptions.length === 0"
+                        >Ничего не найдено</div>
+                        <template x-for="option in filteredLoginOptions" :key="option.value">
                             <div
                                 class="hover:bg-primary flex min-h-[42px] cursor-pointer items-center bg-white pe-10 ps-4 last:rounded-b-[5px] hover:text-white"
                                 x-on:click="selectLogin(option.value)"

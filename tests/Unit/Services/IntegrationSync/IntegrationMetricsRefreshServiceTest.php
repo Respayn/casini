@@ -8,8 +8,10 @@ use App\Data\IntegrationSync\IntegrationSyncResult;
 use App\Events\Notifications\IntegrationSyncFailed;
 use App\Services\Channels\ChannelDirectMetricsService;
 use App\Services\IntegrationSync\IntegrationApiThrottle;
+use App\Services\IntegrationSync\IntegrationManualRefreshProgress;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
+use App\Services\IntegrationSync\IntegrationSyncIssueStatus;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
@@ -45,11 +47,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $unsupported = $this->makeCollector('other', false, $calls);
 
         $dispatcher = new IntegrationSyncDispatcher([$direct, $callibri, $unsupported]);
-        $service = new IntegrationMetricsRefreshService(
-            $dispatcher,
-            new IntegrationApiThrottle,
-            Mockery::mock(ChannelDirectMetricsService::class),
-        );
+        $service = $this->makeService($dispatcher, Mockery::mock(ChannelDirectMetricsService::class));
 
         $stats = $service->refreshReportData(
             [10],
@@ -68,11 +66,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $calls = [];
         $collector = $this->makeCollector('stub', false, $calls);
         $dispatcher = new IntegrationSyncDispatcher([$collector]);
-        $service = new IntegrationMetricsRefreshService(
-            $dispatcher,
-            new IntegrationApiThrottle,
-            Mockery::mock(ChannelDirectMetricsService::class),
-        );
+        $service = $this->makeService($dispatcher, Mockery::mock(ChannelDirectMetricsService::class));
 
         $stats = $service->refreshReportData(
             [5],
@@ -97,11 +91,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
             ->andReturn(['updated' => 2, 'failed' => 0, 'skipped' => 0]);
 
         $dispatcher = new IntegrationSyncDispatcher([$collector]);
-        $service = new IntegrationMetricsRefreshService(
-            $dispatcher,
-            new IntegrationApiThrottle,
-            $direct,
-        );
+        $service = $this->makeService($dispatcher, $direct);
 
         $stats = $service->refreshReportData(
             [10, 20],
@@ -135,11 +125,7 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
         $brokenSupports = $this->makeCollector('broken', true, $calls, throwOnSupports: true);
 
         $dispatcher = new IntegrationSyncDispatcher([$failing, $brokenSupports, $ok]);
-        $service = new IntegrationMetricsRefreshService(
-            $dispatcher,
-            new IntegrationApiThrottle,
-            Mockery::mock(ChannelDirectMetricsService::class),
-        );
+        $service = $this->makeService($dispatcher, Mockery::mock(ChannelDirectMetricsService::class));
 
         $stats = $service->refreshReportData(
             [10],
@@ -211,5 +197,22 @@ class IntegrationMetricsRefreshServiceTest extends TestCase
                 return IntegrationSyncResult::success();
             }
         };
+    }
+
+    private function makeService(
+        IntegrationSyncDispatcher $dispatcher,
+        ChannelDirectMetricsService $direct,
+    ): IntegrationMetricsRefreshService {
+        $issueStatus = Mockery::mock(IntegrationSyncIssueStatus::class);
+        $issueStatus->shouldReceive('recordSuccess')->byDefault();
+        $issueStatus->shouldReceive('recordFailure')->byDefault();
+
+        return new IntegrationMetricsRefreshService(
+            $dispatcher,
+            new IntegrationApiThrottle,
+            $direct,
+            new IntegrationManualRefreshProgress,
+            $issueStatus,
+        );
     }
 }

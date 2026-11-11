@@ -3,6 +3,7 @@
 use App\Http\Middleware\DisableSessionAuthForApi;
 use App\Http\Middleware\EnsureCanAccessUserEdit;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\PreventProductIndexing;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -47,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
             ShareErrorsFromSession::class,
             SubstituteBindings::class,
             EnsureUserIsActive::class,
+            PreventProductIndexing::class,
         ]);
 
         $middleware->api([

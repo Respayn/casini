@@ -19,7 +19,18 @@ class TableReportData extends Data implements Wireable
 
     public function __construct()
     {
-        $this->groups = new Collection();
-        $this->summary = new Collection();
+        $this->groups = new Collection;
+        $this->summary = new Collection;
+    }
+
+    public function hasProjectRows(): bool
+    {
+        foreach ($this->groups as $group) {
+            if ($group->rows->isNotEmpty()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

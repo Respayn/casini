@@ -4,11 +4,13 @@ namespace App\Livewire\SystemSettings\Users;
 
 use App\Livewire\Forms\SystemSettings\Users\UserForm;
 use App\Models\User;
+use App\Services\NotificationService;
 use App\Services\RateService;
 use App\Services\RoleService;
 use App\Services\UserService;
 use App\Support\SystemSettingsSectionPermissions;
 use App\Support\UserProfileAccess;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -16,12 +18,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use Spatie\Permission\Exceptions\UnauthorizedException;
 
 new
 #[Layout('layouts::system-settings')]
+#[Title('Карточка пользователя')]
 class extends Component
 {
     use WithFileUploads;
@@ -33,6 +37,8 @@ class extends Component
     public array $roles = [];
 
     public User $user;
+
+    public ?string $deleteError = null;
 
     public function mount(
         RateService $ratesService,
@@ -67,6 +73,15 @@ class extends Component
     }
 
     #[Computed]
+    public function canDeleteUser(): bool
+    {
+        return ! $this->isOwnProfile
+            && SystemSettingsSectionPermissions::userCanFull(
+                SystemSettingsSectionPermissions::users()
+            );
+    }
+
+    #[Computed]
     public function isSaveReady(): bool
     {
         if (! $this->form->isEmailValid() || $this->getErrorBag()->has('form.email')) {
@@ -87,6 +102,11 @@ class extends Component
         $this->form->validateOnly($field);
     }
 
+    public function updatedFormPhoto(): void
+    {
+        $this->form->guardPhoto();
+    }
+
     public function validatePasswordField(string $field): void
     {
         if (! $this->form->hasPasswordChange()) {
@@ -102,7 +122,7 @@ class extends Component
         );
     }
 
-    public function save(UserService $userService)
+    public function save(UserService $userService, NotificationService $notificationService)
     {
         if (! UserProfileAccess::canSaveUser($this->user)) {
             throw UnauthorizedException::forPermissions(
@@ -152,6 +172,7 @@ class extends Component
             dd($exception);
         }
 
+        $this->form->mirrorNotificationFlag();
         $data = $this->form->toArray();
         unset(
             $data['current_password'],
@@ -174,6 +195,10 @@ class extends Component
         }
 
         $userService->update($this->form->id, $data);
+
+        if (! $this->form->enable_notifications) {
+            $notificationService->markAllAsRead((int) $this->form->id);
+        }
 
         $this->form->clearPasswordFields();
         $this->user = $this->user->fresh();
@@ -211,5 +236,42 @@ class extends Component
         }
         $this->form->image_path = null;
         $this->form->photo = null;
+    }
+
+    public function deleteUser(UserService $userService): mixed
+    {
+        $this->deleteError = null;
+
+        if (! $this->canDeleteUser) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::fullPermissionNames(
+                    SystemSettingsSectionPermissions::users()
+                )
+            );
+        }
+
+        if ($userService->isLinkedToClientsOrProjects($this->user->id)) {
+            $this->deleteError = 'Нельзя удалить пользователя: на нем есть клиенты или клиенто-проекты.';
+
+            return null;
+        }
+
+        $imagePath = $this->user->image_path;
+
+        try {
+            $userService->delete($this->user->id);
+        } catch (QueryException) {
+            $this->deleteError = 'Нельзя удалить пользователя: на него ссылаются отчеты.';
+
+            return null;
+        }
+
+        if ($imagePath) {
+            Storage::disk('public')->delete($imagePath);
+        }
+
+        session()->flash('success', 'Пользователь удален');
+
+        return $this->redirect(route('system-settings.users'), navigate: true);
     }
 };

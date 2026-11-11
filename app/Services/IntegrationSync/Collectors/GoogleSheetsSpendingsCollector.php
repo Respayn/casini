@@ -39,10 +39,11 @@ class GoogleSheetsSpendingsCollector implements IntegrationSyncCollector
             return false;
         }
 
-        $settings = $this->credentials->settingsFor($projectId, self::INTEGRATION_CODE);
+        if (! $this->credentials->hasEnabled($projectId, self::INTEGRATION_CODE)) {
+            return false;
+        }
 
-        return $settings !== null
-            && GoogleSheetsService::extractSpreadsheetId((string) ($settings['document_id'] ?? '')) !== '';
+        return $this->googleSheetsService->resolveSpreadsheetIdForProject($projectId) !== '';
     }
 
     /**

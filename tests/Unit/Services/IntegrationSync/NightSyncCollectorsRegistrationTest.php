@@ -3,6 +3,8 @@
 namespace Tests\Unit\Services\IntegrationSync;
 
 use App\Contracts\IntegrationSyncCollector;
+use App\Services\IntegrationSync\Collectors\GoogleSheetsSpendingsCollector;
+use App\Services\IntegrationSync\Collectors\YandexMetrikaReportsCollector;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
@@ -18,8 +20,16 @@ class NightSyncCollectorsRegistrationTest extends TestCase
             IntegrationSyncDispatcher::defaultCollectors(),
         );
 
-        foreach (['yandex_direct_daily_spend', 'callibri_daily_leads', 'yandex_metrika', 'google_sheets'] as $key) {
+        foreach (['yandex_direct_daily_spend', 'callibri_daily_leads', 'bitrix24_labor', 'bitrix24_works'] as $key) {
             $this->assertContains($key, $keys);
+        }
+
+        if (class_exists(YandexMetrikaReportsCollector::class)) {
+            $this->assertContains('yandex_metrika', $keys);
+        }
+
+        if (class_exists(GoogleSheetsSpendingsCollector::class)) {
+            $this->assertContains('google_sheets', $keys);
         }
     }
 

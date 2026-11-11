@@ -7,10 +7,15 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
-new #[Layout('layouts::auth')] class extends Component {
+new
+#[Layout('layouts::auth')]
+#[Title('Восстановление пароля')]
+class extends Component
+{
     use VerifiesYandexSmartCaptcha;
 
     public int $step = 1;

@@ -4,6 +4,7 @@
     'platformConfigured' => true,
     'bodyRevision' => 0,
     'canEdit' => true,
+    'projectType' => null,
 ])
 
 @php
@@ -20,8 +21,9 @@
         'yandex_metrika' => filled($projectIntegration->settings['oauth_token'] ?? $projectIntegration->settings['encryptedOauthToken'] ?? null)
             || filled($projectIntegration->settings['counter_id'] ?? $projectIntegration->settings['counterId'] ?? null)
             || ($projectIntegration->isEnabled ?? false),
-        'google_sheets' => filled($projectIntegration->settings['oauth_token'] ?? null)
-            || filled($projectIntegration->settings['document_id'] ?? $projectIntegration->settings['documentId'] ?? null)
+        'google_sheets' => ($projectIntegration->isEnabled ?? false)
+            || filled($projectIntegration->settings['sync_enabled_at'] ?? null),
+        '1c_acts' => filled($projectIntegration->settings['main_contract_number'] ?? null)
             || ($projectIntegration->isEnabled ?? false),
         default => false,
     };
@@ -34,7 +36,7 @@
         : 'empty';
 
     $modalSidebarKey = $projectIntegration
-        ? $integrationCode.'-'.$bodyRevision
+        ? $integrationCode.'-'.$bodyRevision.'-'.(string) $projectType
         : 'empty';
 @endphp
 
@@ -66,7 +68,14 @@
 
         <x-slot:sidebar>
             <div wire:key="integration-modal-sidebar-{{ $modalSidebarKey }}">
-                <x-dynamic-component component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar" />
+                @if ($integrationCode === 'yandex_metrika')
+                    <x-dynamic-component
+                        component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar"
+                        :project-type="$projectType"
+                    />
+                @else
+                    <x-dynamic-component component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar" />
+                @endif
             </div>
         </x-slot:sidebar>
     @endif

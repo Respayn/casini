@@ -11,14 +11,17 @@ use App\Domain\Statistics\Services\StatisticsClosingColumnsAggregator;
 use App\Domain\Statistics\Services\StatisticsMonthlyBonusSnapshotService;
 use App\Enums\ChannelReportGrouping;
 use App\Helpers\DateTimeHelper;
-use App\Models\CallibriDailyLeadCount;
 use App\Models\YandexDirectDailySpending;
 use App\Models\YandexSearchApiDailyTopPercent;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
 use App\Repositories\ProjectRepository;
 use App\Repositories\ReportUserSettingsRepository;
+use App\Repositories\StatisticsReportAgencySettingsRepository;
 use App\Repositories\UserRepository;
+use App\Services\ProjectFacts\ProjectKpiFactsService;
+use App\Support\ClientProjectVisibility;
+use App\Support\IntegrationLogo;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -46,6 +49,14 @@ class StatisticsService
 
     private ReportUserSettingsRepository $reportUserSettingsRepository;
 
+    private StatisticsReportAgencySettingsRepository $agencySettingsRepository;
+
+    private ProjectKpiFactsService $projectKpiFacts;
+
+    private bool $treatMissingPlanAsUnmet = true;
+
+    private bool $accumulateData = true;
+
     public function __construct(
         ProjectRepository $projectRepository,
         ClientRepository $clientRepository,
@@ -56,6 +67,8 @@ class StatisticsService
         StatisticsMonthlyBonusSnapshotService $bonusSnapshotService,
         StatisticsClosingColumnsAggregator $closingColumnsAggregator,
         ReportUserSettingsRepository $reportUserSettingsRepository,
+        StatisticsReportAgencySettingsRepository $agencySettingsRepository,
+        ProjectKpiFactsService $projectKpiFacts,
     ) {
         $this->projectRepository = $projectRepository;
         $this->clientRepository = $clientRepository;
@@ -66,38 +79,78 @@ class StatisticsService
         $this->bonusSnapshotService = $bonusSnapshotService;
         $this->closingColumnsAggregator = $closingColumnsAggregator;
         $this->reportUserSettingsRepository = $reportUserSettingsRepository;
+        $this->agencySettingsRepository = $agencySettingsRepository;
+        $this->projectKpiFacts = $projectKpiFacts;
     }
 
-    public function getUserSettings(int $userId): StatisticsReportQueryData
+    public function getUserSettings(int $userId, ?int $agencyId = null): StatisticsReportQueryData
     {
         $savedSettings = $this->reportUserSettingsRepository->getStatisticsSettings($userId);
 
-        if ($savedSettings) {
-            return StatisticsReportQueryData::hydrateFromSavedSettings($savedSettings);
+        $query = $savedSettings
+            ? StatisticsReportQueryData::hydrateFromSavedSettings($savedSettings)
+            : StatisticsReportQueryData::create();
+
+        $agencyId ??= $this->currentAgencyId();
+        $agencySettings = $agencyId !== null
+            ? $this->agencySettingsRepository->get($agencyId)
+            : null;
+
+        if ($agencySettings === null) {
+            return $query;
         }
 
-        return StatisticsReportQueryData::create();
+        $query->applyAgencyModalSettings($agencySettings);
+
+        $rebuilt = StatisticsReportQueryData::create(
+            $query->detailLevel,
+            $query->dateFrom,
+            $query->dateTo,
+        );
+        $rebuilt->showInactive = $query->showInactive;
+        $rebuilt->includeVat = $query->includeVat;
+        $rebuilt->applyAgencyModalSettings($agencySettings);
+        $rebuilt->applySavedColumnPreferences($query->columns);
+
+        return $rebuilt;
     }
 
-    public function saveUserSettings(int $userId, StatisticsReportQueryData $settings): void
+    private function currentAgencyId(): ?int
+    {
+        $sessionAgencyId = session('current_agency_id');
+        if (filled($sessionAgencyId) && (int) $sessionAgencyId > 0) {
+            return (int) $sessionAgencyId;
+        }
+
+        $fallback = Auth::user()?->agencies()->value('agencies.id');
+
+        return filled($fallback) && (int) $fallback > 0
+            ? (int) $fallback
+            : null;
+    }
+
+    public function saveUserSettings(int $userId, StatisticsReportQueryData $settings, ?int $agencyId = null): void
     {
         $this->reportUserSettingsRepository->saveStatisticsSettings($userId, $settings->toJson());
+
+        $agencyId ??= $this->currentAgencyId();
+        if ($agencyId !== null) {
+            $this->agencySettingsRepository->save($agencyId, $settings->agencyModalSettings());
+        }
     }
 
     public function getReportData(StatisticsReportQueryData $query, ?int $projectId = null): TableReportData
     {
+        $this->treatMissingPlanAsUnmet = $query->treatMissingPlanAsUnmet === 'Y';
+        $this->accumulateData = $query->accumulateData === 'Y';
+
         $user = Auth::user();
 
-        $clients = $this->clientRepository->all();
-        if ($user->isManager() && ! $user->hasAnyPermission(['read statistics', 'all statistics'])) {
-            $clients = $clients->filter(fn ($client) => $client->manager_id === $user->id);
-        }
-
-        $projects = $this->projectRepository->all();
-        $projects = $projects->filter(fn ($project) => $clients->pluck('id')->contains($project->client_id));
-        if ($user->isSpecialist() && ! $user->hasAnyPermission(['read statistics', 'full statistics'])) {
-            $projects = $projects->filter(fn ($project) => $project->specialist_id === $user->id);
-        }
+        [$clients, $projects] = ClientProjectVisibility::limit(
+            $user,
+            $this->clientRepository->all(),
+            $this->projectRepository->all(),
+        );
 
         $users = $this->userRepository->all();
         $integrations = $this->integrationRepository->getActiveIntegrationsMappedByProjects($projects->pluck('id'));
@@ -122,23 +175,25 @@ class StatisticsService
             ? $query->dateTo->copy()->endOfMonth()->startOfDay()
             : $gridMonth->copy()->endOfMonth()->startOfDay();
         $spendingsByProject = $this->loadDirectDailySpendings($projects, $spendFrom, $spendTo, $query->includeVat);
-        $leadsByProject = $this->loadCallibriLeadCounts($projects, $spendFrom, $spendTo);
+        $leadsByProject = $this->loadLeadsByProject($projects, $spendFrom, $spendTo);
         $topPercentsByProject = $this->loadSearchApiDailyTopPercents($projects, $spendFrom, $spendTo);
+        $visitsByProject = $this->loadVisitsByProject($projects, $spendFrom, $spendTo);
+        $conversionsByProject = $this->loadConversionsByProject($projects, $spendFrom, $spendTo);
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
-            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
+            return $this->createReportGroupedByProjectType($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject, $visitsByProject, $conversionsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::CLIENTS) {
-            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
+            return $this->createReportGroupedByClients($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject, $visitsByProject, $conversionsByProject);
         }
 
         if ($query->grouping === ChannelReportGrouping::TOOLS) {
-            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
+            return $this->createReportGroupedByTools($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject, $visitsByProject, $conversionsByProject);
         }
 
-        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject);
+        return $this->createFlatReport($clients, $projects, $users, $integrations, $query->detailLevel, $gridMonth, $query->dateFrom, $query->dateTo, $plans, $spendingsByProject, $leadsByProject, $topPercentsByProject, $visitsByProject, $conversionsByProject);
     }
 
     private function createFlatReport(
@@ -153,7 +208,9 @@ class StatisticsService
         array $plans,
         array $spendingsByProject,
         array $leadsByProject,
-        array $topPercentsByProject = []
+        array $topPercentsByProject = [],
+        array $visitsByProject = [],
+        array $conversionsByProject = [],
     ): TableReportData {
         $report = new TableReportData;
 
@@ -182,6 +239,8 @@ class StatisticsService
                 $spendingsByProject[$project->id] ?? [],
                 $leadsByProject[$project->id] ?? [],
                 $topPercentsByProject[$project->id] ?? [],
+                $visitsByProject[$project->id] ?? [],
+                $conversionsByProject[$project->id] ?? [],
             );
 
             $row->data = new Collection(array_merge(
@@ -220,6 +279,8 @@ class StatisticsService
                     $leadsByProject[$project->id] ?? [],
                     $plan,
                     $topPercentsByProject[$project->id] ?? [],
+                    $visitsByProject[$project->id] ?? [],
+                    $conversionsByProject[$project->id] ?? [],
                 )
             ));
             $rows->push($row);
@@ -249,7 +310,9 @@ class StatisticsService
         array $plans,
         array $spendingsByProject,
         array $leadsByProject,
-        array $topPercentsByProject = []
+        array $topPercentsByProject = [],
+        array $visitsByProject = [],
+        array $conversionsByProject = [],
     ): TableReportData {
         $report = new TableReportData;
         $seoGroup = new TableReportGroupData;
@@ -281,6 +344,8 @@ class StatisticsService
                 $spendingsByProject[$project->id] ?? [],
                 $leadsByProject[$project->id] ?? [],
                 $topPercentsByProject[$project->id] ?? [],
+                $visitsByProject[$project->id] ?? [],
+                $conversionsByProject[$project->id] ?? [],
             );
 
             $row->data = new Collection(array_merge(
@@ -319,6 +384,8 @@ class StatisticsService
                     $leadsByProject[$project->id] ?? [],
                     $plan,
                     $topPercentsByProject[$project->id] ?? [],
+                    $visitsByProject[$project->id] ?? [],
+                    $conversionsByProject[$project->id] ?? [],
                 )
             ));
 
@@ -377,7 +444,9 @@ class StatisticsService
         array $plans,
         array $spendingsByProject,
         array $leadsByProject,
-        array $topPercentsByProject = []
+        array $topPercentsByProject = [],
+        array $visitsByProject = [],
+        array $conversionsByProject = [],
     ): TableReportData {
         $report = new TableReportData;
 
@@ -408,6 +477,8 @@ class StatisticsService
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
                     $topPercentsByProject[$project->id] ?? [],
+                    $visitsByProject[$project->id] ?? [],
+                    $conversionsByProject[$project->id] ?? [],
                 );
 
                 $row->data = new Collection(array_merge(
@@ -446,6 +517,8 @@ class StatisticsService
                         $leadsByProject[$project->id] ?? [],
                         $plan,
                         $topPercentsByProject[$project->id] ?? [],
+                        $visitsByProject[$project->id] ?? [],
+                        $conversionsByProject[$project->id] ?? [],
                     )
                 ));
 
@@ -489,7 +562,9 @@ class StatisticsService
         array $plans,
         array $spendingsByProject,
         array $leadsByProject,
-        array $topPercentsByProject = []
+        array $topPercentsByProject = [],
+        array $visitsByProject = [],
+        array $conversionsByProject = [],
     ): TableReportData {
         $report = new TableReportData;
 
@@ -531,6 +606,8 @@ class StatisticsService
                     $spendingsByProject[$project->id] ?? [],
                     $leadsByProject[$project->id] ?? [],
                     $topPercentsByProject[$project->id] ?? [],
+                    $visitsByProject[$project->id] ?? [],
+                    $conversionsByProject[$project->id] ?? [],
                 );
 
                 $row->data = new Collection(array_merge(
@@ -569,6 +646,8 @@ class StatisticsService
                         $leadsByProject[$project->id] ?? [],
                         $plan,
                         $topPercentsByProject[$project->id] ?? [],
+                        $visitsByProject[$project->id] ?? [],
+                        $conversionsByProject[$project->id] ?? [],
                     )
                 ));
 
@@ -584,8 +663,8 @@ class StatisticsService
                 'client-project' => [
                     'count' => $projectsByIntegration->count(),
                 ],
-                'service' => [$this->getIntegrationLogoComponent($integrationGroup->integration->code) => $projectsByIntegration->count()],
-            ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+                'service' => [IntegrationLogo::component($integrationGroup->integration->code) => $projectsByIntegration->count()],
+            ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
 
             $report->groups->push($group);
         }
@@ -618,6 +697,8 @@ class StatisticsService
                 $spendingsByProject[$project->id] ?? [],
                 $leadsByProject[$project->id] ?? [],
                 $topPercentsByProject[$project->id] ?? [],
+                $visitsByProject[$project->id] ?? [],
+                $conversionsByProject[$project->id] ?? [],
             );
 
             $row->data = new Collection(array_merge(
@@ -656,6 +737,8 @@ class StatisticsService
                     $leadsByProject[$project->id] ?? [],
                     $plan,
                     $topPercentsByProject[$project->id] ?? [],
+                    $visitsByProject[$project->id] ?? [],
+                    $conversionsByProject[$project->id] ?? [],
                 )
             ));
 
@@ -672,7 +755,7 @@ class StatisticsService
                 'count' => $projectsWithoutIntegration->count(),
             ],
             'service' => [],
-        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
 
         $report->groups->push($group);
 
@@ -734,7 +817,7 @@ class StatisticsService
             // Сделана проверка на совпадение с кодом интеграции потому что в отчете некоторые интеграции могут быть сгруппированы
             // под одним значком. Например может быть настроено 3 разные интеграции с 1С, но на фронте они будут объединены в 1.
             // Вложенные ключи используются для рендеринга соответствующей иконки.
-            $logoComponent = $this->getIntegrationLogoComponent($integrationCode);
+            $logoComponent = IntegrationLogo::component($integrationCode);
             if (isset($carry['service'][$logoComponent])) {
                 $carry['service'][$logoComponent] += 1;
             } else {
@@ -751,19 +834,6 @@ class StatisticsService
         }, $initialColumnsData);
 
         return $columnsData;
-    }
-
-    // TODO: вынести в отдельный класс, например IntegrationLogoMapper
-    private function getIntegrationLogoComponent(string $code): string
-    {
-        // ? Возможно стоит использовать enum?
-        return match ($code) {
-            'yandex_direct' => 'yandex-direct',
-            'yandex_metrika' => 'yandex-metrika',
-            'callibri' => 'callibri',
-            'yandex_search_api' => 'yandex-search-api',
-            default => 'default'
-        };
     }
 
     /**
@@ -784,6 +854,8 @@ class StatisticsService
         array $leadsByDay = [],
         array $planCell = [],
         array $topPercentsByDay = [],
+        array $visitsByDay = [],
+        array $conversionsByDay = [],
     ): array {
         $parameters = $this->projectPlanService->getKpiParametersSchemaForStatistics($projectType, $kpi);
         $budgetIndex = $this->resolveAdvertisingBudgetParameterIndex($projectType, $kpi);
@@ -796,15 +868,24 @@ class StatisticsService
         $daysInMonth = $gridMonth->daysInMonth();
         $result = [];
 
-        foreach ($buckets as $key => [$from, $to]) {
+        foreach ($buckets as $key => [$bucketFrom, $bucketTo]) {
+            [$from, $to] = StatisticsFactWindow::resolve(
+                $bucketFrom,
+                $bucketTo,
+                $detailLevel,
+                $gridMonth,
+                $periodFrom,
+                $this->accumulateData,
+            );
+
             $budgetFact = $budgetIndex === null
                 ? null
                 : $this->sumDirectSpendForRange($spendByDay, $from, $to);
             $leadsFact = $leadsIndex === null
                 ? null
                 : $this->sumLeadCountsForRange($leadsByDay, $from, $to);
-            // Факт визитов (Метрика) пока не подключён — CPC будет «-», пока нет источника.
-            $visitsFact = null;
+            $visitsFact = $this->sumLeadCountsForRange($visitsByDay, $from, $to);
+            $conversionsFact = $this->sumLeadCountsForRange($conversionsByDay, $from, $to);
             $topPercentFact = $this->averageTopPercentForRange($topPercentsByDay, $from, $to);
 
             $bucketDays = $from->diffInDays($to) + 1;
@@ -820,6 +901,12 @@ class StatisticsService
                     $format = 'currency';
                 } elseif ($code === 'leads' && $leadsIndex !== null) {
                     $factValue = $leadsFact;
+                    $format = null;
+                } elseif ($code === 'visits') {
+                    $factValue = $visitsFact;
+                    $format = null;
+                } elseif ($code === 'conversions') {
+                    $factValue = $conversionsFact;
                     $format = null;
                 } elseif ($code === 'cpl') {
                     $factValue = $this->divideFact($budgetFact, $leadsFact);
@@ -838,7 +925,10 @@ class StatisticsService
 
                 if ($planValue !== null && $isDivisible && $daysInMonth > 0) {
                     if ($detailLevel === StatisticsReportDetailLevel::BY_MONTH) {
-                        $proportionalPlan = (int) round((float) $planValue);
+                        $monthsCount = $this->accumulateData
+                            ? (($to->year - $periodFrom->year) * 12) + ($to->month - $periodFrom->month) + 1
+                            : 1;
+                        $proportionalPlan = (int) round((float) $planValue * max(1, $monthsCount));
                     } else {
                         $proportionalPlan = (int) round((float) $planValue * $bucketDays / $daysInMonth);
                     }
@@ -1065,38 +1155,116 @@ class StatisticsService
      * @param  Collection<int, mixed>  $projects
      * @return array<int, array<string, int>>
      */
-    private function loadCallibriLeadCounts(
+    private function loadLeadsByProject(
         Collection $projects,
         Carbon $from,
         Carbon $to,
     ): array {
-        $projectIds = $projects->pluck('id')->filter()->values()->all();
-        if ($projectIds === []) {
-            return [];
-        }
-
-        $from = $from->copy()->startOfDay();
-        $to = $to->copy()->startOfDay();
-        $today = Carbon::today();
-        if ($to->greaterThan($today)) {
-            $to = $today->copy();
-        }
-
-        if ($from->greaterThan($to)) {
-            return [];
-        }
-
-        $rows = CallibriDailyLeadCount::query()
-            ->whereIn('project_id', $projectIds)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['project_id', 'date', 'leads_count']);
-
         $map = [];
-        foreach ($rows as $row) {
-            $dateKey = $row->date instanceof Carbon
-                ? $row->date->toDateString()
-                : Carbon::parse((string) $row->date)->toDateString();
-            $map[(int) $row->project_id][$dateKey] = (int) $row->leads_count;
+        foreach ($projects as $project) {
+            $projectId = (int) $project->id;
+            $byDay = $this->projectKpiFacts->leadsByDay($projectId, $from, $to);
+            if ($byDay !== []) {
+                $map[$projectId] = $byDay;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Визиты: клики Директа (контекст) или визиты Метрики «Поисковые системы» (SEO).
+     *
+     * @param  Collection<int, mixed>  $projects
+     * @return array<int, array<string, int>>
+     */
+    private function loadVisitsByProject(
+        Collection $projects,
+        Carbon $from,
+        Carbon $to,
+    ): array {
+        $map = [];
+        foreach ($projects as $project) {
+            $projectId = (int) $project->id;
+            if ($project->project_type === ProjectType::CONTEXT_AD) {
+                $byDay = $this->projectKpiFacts->directClicksByDay($projectId, $from, $to);
+                if ($byDay !== []) {
+                    $map[$projectId] = $byDay;
+                }
+
+                continue;
+            }
+
+            if ($project->project_type === ProjectType::SEO_PROMOTION) {
+                $byDay = $this->seoMonthlyMetricByLastDay(
+                    $projectId,
+                    $from,
+                    $to,
+                    fn (int $id, Carbon $monthStart, Carbon $monthEnd): ?int => $this->projectKpiFacts->seoSearchVisits($id, $monthStart, $monthEnd),
+                );
+                if ($byDay !== []) {
+                    $map[$projectId] = $byDay;
+                }
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Конверсии SEO из Метрики «Поисковые системы».
+     *
+     * @param  Collection<int, mixed>  $projects
+     * @return array<int, array<string, int>>
+     */
+    private function loadConversionsByProject(
+        Collection $projects,
+        Carbon $from,
+        Carbon $to,
+    ): array {
+        $map = [];
+        foreach ($projects as $project) {
+            if ($project->project_type !== ProjectType::SEO_PROMOTION) {
+                continue;
+            }
+            $projectId = (int) $project->id;
+            $byDay = $this->seoMonthlyMetricByLastDay(
+                $projectId,
+                $from,
+                $to,
+                fn (int $id, Carbon $monthStart, Carbon $monthEnd): ?int => $this->projectKpiFacts->seoSearchConversions($id, $monthStart, $monthEnd),
+            );
+            if ($byDay !== []) {
+                $map[$projectId] = $byDay;
+            }
+        }
+
+        return $map;
+    }
+
+    /**
+     * Месячные метрики Метрики кладём на последний день каждого месяца.
+     *
+     * @param  callable(int, Carbon, Carbon): ?int  $loader
+     * @return array<string, int>
+     */
+    private function seoMonthlyMetricByLastDay(
+        int $projectId,
+        Carbon $from,
+        Carbon $to,
+        callable $loader,
+    ): array {
+        $map = [];
+        $cursor = $from->copy()->startOfMonth();
+        $end = $to->copy()->startOfMonth();
+        while ($cursor->lte($end)) {
+            $monthStart = $cursor->copy()->startOfMonth();
+            $monthEnd = $cursor->copy()->endOfMonth()->startOfDay();
+            $value = $loader($projectId, $monthStart, $monthEnd);
+            if ($value !== null) {
+                $map[$monthEnd->toDateString()] = $value;
+            }
+            $cursor->addMonth();
         }
 
         return $map;
@@ -1185,8 +1353,8 @@ class StatisticsService
                 'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
     }
 
     /**
@@ -1204,8 +1372,8 @@ class StatisticsService
                 'count' => $projects->count(),
             ],
             'service' => $integrations->flatten()
-                ->countBy(fn ($integration) => $this->getIntegrationLogoComponent($integration->integration->code)),
-        ]))->merge($this->closingColumnsAggregator->aggregate($rows));
+                ->countBy(fn ($integration) => IntegrationLogo::component($integration->integration->code)),
+        ]))->merge($this->closingColumnsAggregator->aggregate($rows, $this->treatMissingPlanAsUnmet));
     }
 
     /**
@@ -1238,8 +1406,10 @@ class StatisticsService
         $spendFrom = $month->copy()->startOfMonth()->startOfDay();
         $spendTo = $month->copy()->endOfMonth()->startOfDay();
         $spendingsByProject = $this->loadDirectDailySpendings($projects, $spendFrom, $spendTo, $includeVat);
-        $leadsByProject = $this->loadCallibriLeadCounts($projects, $spendFrom, $spendTo);
+        $leadsByProject = $this->loadLeadsByProject($projects, $spendFrom, $spendTo);
         $topPercentsByProject = $this->loadSearchApiDailyTopPercents($projects, $spendFrom, $spendTo);
+        $visitsByProject = $this->loadVisitsByProject($projects, $spendFrom, $spendTo);
+        $conversionsByProject = $this->loadConversionsByProject($projects, $spendFrom, $spendTo);
 
         foreach ($projects as $project) {
             $plan = $this->resolvePlanCell($plans, (int) $project->id, $project->project_type, $project->kpi);
@@ -1250,6 +1420,8 @@ class StatisticsService
                 $spendingsByProject[$project->id] ?? [],
                 $leadsByProject[$project->id] ?? [],
                 $topPercentsByProject[$project->id] ?? [],
+                $visitsByProject[$project->id] ?? [],
+                $conversionsByProject[$project->id] ?? [],
             );
             $this->bonusSnapshotService->resolve(
                 (int) $project->id,
@@ -1276,6 +1448,8 @@ class StatisticsService
         array $spendByDay,
         array $leadsByDay,
         array $topPercentsByDay,
+        array $visitsByDay = [],
+        array $conversionsByDay = [],
     ): array {
         $isSingleMonth = $periodFrom->year === $periodTo->year
             && $periodFrom->month === $periodTo->month;
@@ -1296,6 +1470,9 @@ class StatisticsService
             $spendByDay,
             $leadsByDay,
             $topPercentsByDay,
+            $visitsByDay,
+            $conversionsByDay,
+            treatMissingPlanAsUnmet: $this->treatMissingPlanAsUnmet,
         );
 
         $closing['bonuses'] = $this->bonusSnapshotService->resolve(

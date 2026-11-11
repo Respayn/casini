@@ -13,11 +13,23 @@ class UserAccountStatusTest extends TestCase
     {
         $this->assertSame(
             [
-                ['label' => 'Активен', 'value' => 'active'],
-                ['label' => 'Неактивен', 'value' => 'inactive'],
-                ['label' => 'Подтвердить email', 'value' => 'pending_email'],
+                ['label' => 'Активен', 'value' => 'active', 'selectable' => true],
+                ['label' => 'Неактивен', 'value' => 'inactive', 'selectable' => true],
             ],
             UserAccountStatus::selectOptions(),
+        );
+    }
+
+    #[Test]
+    public function pending_email_is_shown_but_not_selectable_when_already_set(): void
+    {
+        $this->assertSame(
+            [
+                ['label' => 'Активен', 'value' => 'active', 'selectable' => true],
+                ['label' => 'Неактивен', 'value' => 'inactive', 'selectable' => true],
+                ['label' => 'Подтвердить email', 'value' => 'pending_email', 'selectable' => false],
+            ],
+            UserAccountStatus::selectOptions('pending_email'),
         );
     }
 

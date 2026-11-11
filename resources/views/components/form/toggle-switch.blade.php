@@ -1,10 +1,14 @@
 @props([
     'disabled' => false,
+    'checked' => false,
 ])
 
 @php
     $isDisabled = filter_var($disabled, FILTER_VALIDATE_BOOLEAN)
         || $attributes->has('disabled');
+    // SSR: иначе до Alpine/x-model ползунок всегда выглядит выключенным
+    $isChecked = filter_var($checked, FILTER_VALIDATE_BOOLEAN)
+        || $attributes->has('checked');
 @endphp
 
 <label
@@ -18,7 +22,8 @@
         class="peer sr-only"
         type="checkbox"
         @disabled($isDisabled)
-        {{ $attributes->except('disabled') }}
+        @checked($isChecked)
+        {{ $attributes->except(['disabled', 'checked']) }}
     >
     <div
         @class([

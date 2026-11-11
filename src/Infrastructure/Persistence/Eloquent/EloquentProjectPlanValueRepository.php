@@ -65,4 +65,24 @@ class EloquentProjectPlanValueRepository implements ProjectPlanValueRepositoryIn
 
         return $result;
     }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function sumByCode(int $projectId, string $parameterCode, DateTimeRange $period): int
+    {
+        $query = EloquentProjectPlanValue::query()
+            ->where('project_id', '=', $projectId)
+            ->where('parameter_code', '=', $parameterCode);
+
+        if ($period->start !== null) {
+            $query->where('year_month_date', '>=', $period->start->format('Y-m-01'));
+        }
+
+        if ($period->end !== null) {
+            $query->where('year_month_date', '<=', $period->end->format('Y-m-01'));
+        }
+
+        return (int) round((float) $query->sum('value'));
+    }
 }

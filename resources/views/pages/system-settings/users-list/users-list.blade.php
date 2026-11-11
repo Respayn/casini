@@ -6,7 +6,7 @@
             <div class="flex items-center gap-3">
                 <label class="inline-flex items-center">
                     <span class="mr-2 text-[14px]">Показывать только активные</span>
-                    <x-form.checkbox wire:model="onlyActive"/>
+                    <x-form.checkbox wire:model.live="onlyActive"/>
                 </label>
             </div>
         </div>
@@ -20,12 +20,14 @@
                 @if ($canCreate)
                     <x-button.button
                         href="{{ route('system-settings.users.create') }}"
-                        label="+ Добавить пользователя"
+                        icon="icons.plus"
+                        label="Добавить пользователя"
                         variant="primary"
                     />
                 @else
                     <x-button.button
-                        label="+ Добавить пользователя"
+                        icon="icons.plus"
+                        label="Добавить пользователя"
                         variant="primary"
                         disabled
                     />
@@ -62,7 +64,7 @@
                         {{ $user['last_name'] }} {{ $user['first_name'] }}
                     </x-data.table-cell>
                     <x-data.table-cell>
-                        {{ \App\Enums\Role::tryFrom($user['roles'][0] ?? '')?->label() ?? '-' }}
+                        {{ $user['role_label'] ?? '-' }}
                     </x-data.table-cell>
                     <x-data.table-cell>
                         <div class="flex justify-center">
@@ -74,13 +76,15 @@
                                     'inline-flex items-center gap-1 rounded-full px-2 py-1 font-medium',
                                     'bg-green-50 text-green-700' => $status === 'active',
                                     'bg-red-100 text-red-700' => $status === 'inactive',
-                                    'bg-amber-50 text-amber-800' => $status === 'pending_email',
+                                    'bg-secondary text-primary' => $status === 'pending_email',
                                 ])
                             >
                                 @if ($status === 'active')
                                     <x-icons.play class="mr-1 h-4 w-4 text-green-500" />
                                 @elseif ($status === 'inactive')
                                     <x-icons.pause class="mr-1 h-4 w-4 text-red-500" />
+                                @elseif ($status === 'pending_email')
+                                    <x-icons.hourglass class="mr-1 h-4 w-4 shrink-0" />
                                 @endif
                                 {{ $user['account_status_label'] ?? ($user['is_active'] ? 'Активный' : 'Неактивный') }}
                             </span>

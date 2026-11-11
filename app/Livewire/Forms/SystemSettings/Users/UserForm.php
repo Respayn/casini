@@ -5,6 +5,7 @@ namespace App\Livewire\Forms\SystemSettings\Users;
 use App\Enums\UserAccountStatus;
 use App\Models\User;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Validate;
 use Livewire\Form;
 
@@ -14,7 +15,7 @@ class UserForm extends Form
 
     public string $login = '';
 
-    #[Validate('nullable|string|max:255')]
+    #[Validate('required|string|max:255')]
     public ?string $first_name = null;
 
     #[Validate('nullable|string|max:255')]
@@ -103,25 +104,25 @@ class UserForm extends Form
 
     public function rules()
     {
+        $this->first_name = trim((string) $this->first_name);
+        if ($this->first_name === '') {
+            $this->first_name = null;
+        }
+
         $id = $this->id ?: 'NULL';
 
-        $passwordRules = $this->id
-            ? 'nullable|string'
-            : ['required', 'string', 'min:6', 'regex:/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/'];
-
-        $passwordConfirmationRules = $this->id
-            ? 'nullable|string'
-            : 'required|string|min:6|same:password';
+        $passwordRules = 'nullable|string';
+        $passwordConfirmationRules = 'nullable|string';
 
         return [
             'login' => "required|string|max:100|unique:users,login,{$id},id",
-            'first_name' => 'nullable|string|max:255',
+            'first_name' => 'required|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'email' => "required|email|max:255|unique:users,email,{$id},id",
             'phone' => 'nullable|string|max:30',
             'image_path' => 'nullable|string|max:255',
             'bitrix24_id' => "nullable|integer|min:1|unique:users,bitrix24_id,{$id},id",
-            'account_status' => ['required', 'string', Rule::enum(UserAccountStatus::class)],
+            'account_status' => ['required', 'string', Rule::in($this->allowedAccountStatuses())],
             'photo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:2048',
             'rate_id' => 'nullable|integer|exists:rates,id',
             'role_id' => 'nullable|integer|exists:roles,id',
@@ -141,11 +142,65 @@ class UserForm extends Form
             'email.max' => 'Поле email не должно превышать 255 символов',
             'email.unique' => 'Пользователь с таким email уже существует',
             'login.required' => 'Поле логин обязательно для заполнения',
+            'first_name.required' => 'Поле имя обязательно для заполнения',
             'login.unique' => 'Пользователь с таким логином уже существует',
+            'password.required' => 'Поле пароль обязательно для заполнения',
+            'password.min' => 'слишком короткий пароль',
+            'password.regex' => 'пароль должен состоять не менее чем из 6 символов и содержит латинские буквы и цифры',
+            'password_confirmation.required' => 'Поле повторите пароль обязательно для заполнения',
+            'password_confirmation.min' => 'слишком короткий пароль',
+            'password_confirmation.same' => 'пароли не совпадают',
+            'photo.max' => 'Можно загружать фото не больше 2 Мб',
+            'photo.image' => 'Можно загружать только jpg, jpeg, png или gif',
+            'photo.mimes' => 'Можно загружать только jpg, jpeg, png или gif',
             'bitrix24_id.integer' => 'ID в Битрикс24 должен быть числом',
             'bitrix24_id.min' => 'ID в Битрикс24 должен быть числом',
             'bitrix24_id.unique' => 'Этот ID Битрикс24 уже указан у другого пользователя',
+            'account_status.in' => 'Этот статус нельзя выбрать',
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function allowedAccountStatuses(): array
+    {
+        $allowed = [
+            UserAccountStatus::Active->value,
+            UserAccountStatus::Inactive->value,
+        ];
+
+        if ($this->id === null) {
+            return [UserAccountStatus::PendingEmail->value];
+        }
+
+        $existing = User::query()->find($this->id);
+        if ($existing?->accountStatus() === UserAccountStatus::PendingEmail) {
+            $allowed[] = UserAccountStatus::PendingEmail->value;
+        }
+
+        return $allowed;
+    }
+
+    public function mirrorNotificationFlag(): void
+    {
+        $this->enable_important_notifications = $this->enable_notifications;
+    }
+
+    public function guardPhoto(): void
+    {
+        if ($this->photo === null) {
+            return;
+        }
+
+        try {
+            $this->validateOnly('photo');
+        } catch (ValidationException $exception) {
+            $this->photo->delete();
+            $this->photo = null;
+
+            throw $exception;
+        }
     }
 
     public function isEmailValid(): bool
@@ -171,8 +226,9 @@ class UserForm extends Form
         $this->account_status = $user->accountStatus()->value;
         $this->rate_id = $user->latestRate?->rateValue->rate_id ?? null;
         $this->role_id = isset($user->roles) && count($user->roles) ? ($user->roles[0]['id'] ?? null) : null;
-        $this->enable_important_notifications = $user->enable_important_notifications ?? true;
-        $this->enable_notifications = $user->enable_notifications ?? true;
+        $this->enable_notifications = ($user->enable_notifications ?? true)
+            && ($user->enable_important_notifications ?? true);
+        $this->mirrorNotificationFlag();
         $this->clearPasswordFields();
     }
 

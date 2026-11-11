@@ -2,19 +2,21 @@
     <x-layout.sidebar-filter-hint />
 
     {{-- Шапка компонента --}}
-    <div class="flex justify-between">
-        <div class="mb-7 flex items-center gap-2">
+    <div class="mb-7 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
             <h1>Каналы</h1>
             <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
-                <x-button.button
-                    icon="icons.gear"
-                    variant="outlined"
-                    rounded
+                <button
+                    type="button"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-secondary-text transition hover:text-primary disabled:cursor-not-allowed"
                     title="Настроить отчет"
-                />
+                    aria-label="Настроить отчет"
+                >
+                    <x-icons.settings />
+                </button>
             </x-overlay.modal-trigger>
         </div>
-        <div>
+        <div class="flex items-center gap-2.5">
             <x-button.button
                 href="{{ route('system-settings.clients-and-projects', ['createClient' => 1]) }}"
                 icon="icons.plus"
@@ -31,31 +33,58 @@
 
     {{-- Фильтры --}}
     @php
-        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, refreshAllData, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+        $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+        $lockRefreshSlice = $isReportDataRefreshing && ! $isAutomaticDataRefresh;
+        $lockRefreshSliceTitle = 'Пока идёт обновление данных, НДС и период менять нельзя';
     @endphp
 
     <div
         class="flex flex-wrap items-center gap-y-3"
         wire:loading.class="pointer-events-none opacity-60"
         wire:target="{{ $reportLoadingTargets }}"
+        @if ($isReportDataRefreshing)
+            wire:poll.3s="pollRefreshProgress"
+        @else
+            wire:poll.30s="pollRefreshProgress"
+        @endif
     >
         <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="queryData.showInactive" />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
+        <div
+            class="mr-[26px] flex items-center gap-2"
+            @if ($lockRefreshSlice) title="{{ $lockRefreshSliceTitle }}" @endif
+        >
             <label>НДС</label>
-            <x-form.checkbox wire:model.live="queryData.includeVat" />
+            <x-form.checkbox
+                wire:model.live="queryData.includeVat"
+                :disabled="$lockRefreshSlice"
+            />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
-            <x-form.month-picker wire:model.live="queryData.dateFrom" disable-future />
+        <div
+            class="mr-[26px] flex items-center gap-2"
+            @if ($lockRefreshSlice) title="{{ $lockRefreshSliceTitle }}" @endif
+        >
+            <x-form.month-picker
+                wire:model.live="queryData.dateFrom"
+                disable-future
+                :disabled="$lockRefreshSlice"
+            />
             <span class="text-secondary-text">—</span>
-            <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
+            <x-form.month-picker
+                wire:model.live="queryData.dateTo"
+                disable-future
+                :disabled="$lockRefreshSlice"
+            />
         </div>
 
-        <x-report.table-toolbar :last-refresh-label="$lastDataRefreshLabel" />
+        <x-report.table-toolbar
+            :last-refresh-label="$lastDataRefreshLabel"
+            :confirm-unfiltered-refresh="$sidebarProjectId === null"
+        />
     </div>
 
     @if ($actionMessage)
@@ -68,7 +97,7 @@
     @endif
 
     <x-report.table-loading :targets="$reportLoadingTargets">
-        @if ($this->reportData->groups->isEmpty())
+        @if (! $this->reportData->hasProjectRows())
             <div class="mt-20 flex flex-col items-center gap-4">
                 <span class="text-caption-text">Нет клиенто-проектов для отображения каналов</span>
                 <div>
@@ -121,13 +150,17 @@
                                     </x-data.table-cell>
                                 </x-data.table-row>
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary" data-channels-group-summary>
-                                    @foreach ($this->visibleColumns as $column)
-                                        <x-dynamic-component
-                                            :component="'channels.rows.summary.' . $column->component"
-                                            :params="$group->summary->get($column->field)"
-                                            :bold="true"
-                                        />
-                                    @endforeach
+                                    @if ($this->isRefreshGroupPending($group))
+                                        <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                    @else
+                                        @foreach ($this->visibleColumns as $column)
+                                            <x-dynamic-component
+                                                :component="'channels.rows.summary.' . $column->component"
+                                                :params="$group->summary->get($column->field)"
+                                                :bold="true"
+                                            />
+                                        @endforeach
+                                    @endif
                                 </x-data.table-row>
                             @endunless
                             {{-- Строки группы --}}
@@ -135,18 +168,23 @@
                                 @php
                                     $rowBgColor = $clientProjectStripe % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
                                     $clientProjectStripe++;
+                                    $rowPending = $this->isRefreshRowPending((int) $row->id);
                                 @endphp
                                 @if ($queryData->grouping->value === 'none')
                                     <x-data.table-row
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
                                     >
-                                        @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component
-                                                :component="'channels.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)"
-                                            />
-                                        @endforeach
+                                        @if ($rowPending)
+                                            <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                        @else
+                                            @foreach ($this->visibleColumns as $column)
+                                                <x-dynamic-component
+                                                    :component="'channels.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endforeach
+                                        @endif
                                     </x-data.table-row>
                                 @else
                                     <x-data.table-row
@@ -154,25 +192,33 @@
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
                                     >
-                                        @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component
-                                                :component="'channels.rows.regular.' . $column->component"
-                                                :params="$row->data->get($column->field)"
-                                            />
-                                        @endforeach
+                                        @if ($rowPending)
+                                            <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                        @else
+                                            @foreach ($this->visibleColumns as $column)
+                                                <x-dynamic-component
+                                                    :component="'channels.rows.regular.' . $column->component"
+                                                    :params="$row->data->get($column->field)"
+                                                />
+                                            @endforeach
+                                        @endif
                                     </x-data.table-row>
                                 @endif
                             @endforeach
                         @endforeach
                         {{-- Итого по таблице --}}
                         <x-data.table-row>
-                            @foreach ($this->visibleColumns as $column)
-                                <x-dynamic-component
-                                    :component="'channels.rows.summary.' . $column->component"
-                                    :params="$this->reportData->summary->get($column->field)"
-                                    :bold="true"
-                                />
-                            @endforeach
+                            @if ($this->isRefreshTableSummaryPending())
+                                <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                            @else
+                                @foreach ($this->visibleColumns as $column)
+                                    <x-dynamic-component
+                                        :component="'channels.rows.summary.' . $column->component"
+                                        :params="$this->reportData->summary->get($column->field)"
+                                        :bold="true"
+                                    />
+                                @endforeach
+                            @endif
                         </x-data.table-row>
                     </x-data.table-rows>
                 </x-data.table>
@@ -214,7 +260,8 @@
                     icon="icons.check"
                     label="Применить"
                     variant="primary"
-                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.applySettingsSnapshot()"
+                    wire:click="applySettingsSnapshot"
+                    x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' })"
                 />
                 <x-button
                     x-on:click="$dispatch('modal-hide', { name: 'column-settings-modal' }); $wire.dropSettingsSnapshot()"
@@ -223,6 +270,8 @@
             </div>
         </x-slot>
     </x-overlay.modal>
+
+    <x-report.refresh-all-confirm-modal />
 
     <livewire:channels.group-settings-modal :initial-grouping="$queryData->grouping" />
 </x-report.refresh-navigation-guard>

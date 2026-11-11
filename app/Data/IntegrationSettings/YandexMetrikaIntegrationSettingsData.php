@@ -4,6 +4,7 @@ namespace App\Data\IntegrationSettings;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Crypt;
+use Src\Domain\ValueObjects\ProjectType;
 use Src\Domain\YandexMetrika\SearchEnginesDisplayList;
 
 class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
@@ -38,6 +39,17 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         self::UTM_FILTER_MODE_CAMPAIGN,
     ];
 
+    public const GOALS_COUNT_SOURCE_UTM = 'utm';
+
+    public const GOALS_COUNT_SOURCE_DIRECT_SUMMARY = 'direct_summary';
+
+    public const DEFAULT_GOALS_COUNT_SOURCE = self::GOALS_COUNT_SOURCE_UTM;
+
+    public const ALLOWED_GOALS_COUNT_SOURCES = [
+        self::GOALS_COUNT_SOURCE_UTM,
+        self::GOALS_COUNT_SOURCE_DIRECT_SUMMARY,
+    ];
+
     /**
      * @var array<string, bool>
      */
@@ -49,6 +61,25 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         'visits_search_engines' => false,
         'visits_search_queries' => false,
         'visits_geo' => false,
+    ];
+
+    /**
+     * @var list<string>
+     */
+    public const CONTEXT_AD_REPORTS = [
+        'goals_utm',
+        'goals_conversions',
+        'goals_direct_summary',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    public const SEO_PROMOTION_REPORTS = [
+        'goals_search_engines',
+        'visits_search_engines',
+        'visits_search_queries',
+        'visits_geo',
     ];
 
     public ?int $counterId = null;
@@ -90,6 +121,8 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 
     public string $utmFilterMode = self::DEFAULT_UTM_FILTER_MODE;
 
+    public string $goalsCountSource = self::DEFAULT_GOALS_COUNT_SOURCE;
+
     public string $utmSource = '';
 
     public string $utmMedium = '';
@@ -122,7 +155,7 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
 
     public static function fromSettings(Collection $settings): self
     {
-        $data = new self();
+        $data = new self;
         $data->counterId = $settings->get('counter_id') !== null
             ? (int) $settings->get('counter_id')
             : null;
@@ -154,6 +187,7 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
             array_map(fn ($value) => (bool) $value, $savedReports)
         );
         $data->utmFilterMode = self::normalizeUtmFilterMode($settings->get('utm_filter_mode'));
+        $data->goalsCountSource = self::resolveGoalsCountSource($settings->all());
         $data->utmSource = trim((string) $settings->get('utm_source', ''));
         $data->utmMedium = trim((string) $settings->get('utm_medium', ''));
         $data->utmCampaign = trim((string) $settings->get('utm_campaign', ''));
@@ -163,6 +197,66 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         $data->visitsMetric = self::normalizeVisitsMetric($settings->get('visits_metric'));
 
         return $data;
+    }
+
+    /**
+     * Пакет отчётов по типу клиенто-проекта. Галочки на экране не показываем - флаги пишет сохранение.
+     *
+     * @return array<string, bool>
+     */
+    public static function reportsPackageFor(?string $projectType): array
+    {
+        $reports = self::DEFAULT_REPORTS;
+
+        if ($projectType === ProjectType::CONTEXT_AD->value) {
+            foreach (self::CONTEXT_AD_REPORTS as $key) {
+                $reports[$key] = true;
+            }
+
+            return $reports;
+        }
+
+        if ($projectType === ProjectType::SEO_PROMOTION->value) {
+            foreach (self::SEO_PROMOTION_REPORTS as $key) {
+                $reports[$key] = true;
+            }
+
+            return $reports;
+        }
+
+        return $reports;
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public static function resolveGoalsCountSource(array $settings): string
+    {
+        if (array_key_exists('goals_count_source', $settings)) {
+            $value = trim((string) $settings['goals_count_source']);
+            if (in_array($value, self::ALLOWED_GOALS_COUNT_SOURCES, true)) {
+                return $value;
+            }
+        }
+
+        $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
+        $directOn = (bool) ($reports['goals_direct_summary'] ?? false);
+        $utmOn = (bool) ($reports['goals_utm'] ?? false);
+
+        if ($directOn && ! $utmOn) {
+            return self::GOALS_COUNT_SOURCE_DIRECT_SUMMARY;
+        }
+
+        return self::DEFAULT_GOALS_COUNT_SOURCE;
+    }
+
+    public static function normalizeGoalsCountSource(mixed $source): string
+    {
+        $value = trim((string) $source);
+
+        return in_array($value, self::ALLOWED_GOALS_COUNT_SOURCES, true)
+            ? $value
+            : self::DEFAULT_GOALS_COUNT_SOURCE;
     }
 
     /**
@@ -264,6 +358,16 @@ class YandexMetrikaIntegrationSettingsData extends IntegrationSettingsData
         return in_array($value, [self::VISITS_METRIC_VISITS, self::VISITS_METRIC_USERS], true)
             ? $value
             : self::DEFAULT_VISITS_METRIC;
+    }
+
+    public function usesUtmForGoalsCount(): bool
+    {
+        return $this->goalsCountSource === self::GOALS_COUNT_SOURCE_UTM;
+    }
+
+    public function usesDirectSummaryForGoalsCount(): bool
+    {
+        return $this->goalsCountSource === self::GOALS_COUNT_SOURCE_DIRECT_SUMMARY;
     }
 
     public function getDecryptedOauthToken(): string

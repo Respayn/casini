@@ -1,5 +1,22 @@
 <x-overlay.modal name="client-modal" title="{{ $this->modalTitle }}">
+    @if ($this->canDeleteClient)
+        <x-slot:titleActions>
+            <x-button.button
+                type="button"
+                label="Удалить клиента"
+                wire:click="deleteClient"
+                loading="deleteClient"
+            />
+        </x-slot:titleActions>
+    @endif
+
     <x-slot:body>
+        @if ($deleteError)
+            <x-feedback.notice class="mb-4 mt-0" variant="error">
+                {{ $deleteError }}
+            </x-feedback.notice>
+        @endif
+
         <x-form.form :is-normalized="true" wire:submit.prevent="saveClient" class="min-w-[723px]">
             <x-form.form-field>
                 <x-form.form-label class="self-baseline" required
@@ -33,8 +50,13 @@
                 </div>
             </x-form.form-field>
             <div class="flex justify-between">
-                <x-button.button icon="icons.check" variant="primary" type="submit"
-                    label="{{ $this->confirmButtonLabel }}" />
+                <x-button.button
+                    icon="icons.check"
+                    variant="primary"
+                    type="submit"
+                    loading="saveClient"
+                    label="{{ $this->confirmButtonLabel }}"
+                />
                 <x-button.button x-on:click="$dispatch('modal-hide', { name: 'client-modal' })" label="Отменить" />
             </div>
         </x-form.form>

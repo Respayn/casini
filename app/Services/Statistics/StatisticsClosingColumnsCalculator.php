@@ -24,7 +24,8 @@ class StatisticsClosingColumnsCalculator
      * @param  array<string, float>  $spendByDay
      * @param  array<string, int>  $leadsByDay
      * @param  array<string, float>  $topPercentsByDay
-     * @param  array<string, float|int>  $visitsByDay  пока пусто (Метрика)
+     * @param  array<string, float|int>  $visitsByDay
+     * @param  array<string, int>  $conversionsByDay
      * @return array{
      *     summary: list<array{value: mixed, format: mixed, plan_percent?: int|null}>,
      *     prediction: list<array{value: mixed, format: mixed, kind?: string}>,
@@ -39,7 +40,9 @@ class StatisticsClosingColumnsCalculator
         array $leadsByDay = [],
         array $topPercentsByDay = [],
         array $visitsByDay = [],
+        array $conversionsByDay = [],
         ?Carbon $today = null,
+        bool $treatMissingPlanAsUnmet = false,
     ): array {
         $today ??= Carbon::now()->startOfDay();
         $parameterCodes = $this->projectPlanService->getParameterCodes($project->project_type, $project->kpi);
@@ -57,6 +60,8 @@ class StatisticsClosingColumnsCalculator
             $leadsByDay,
             $topPercentsByDay,
             $visitsByDay,
+            $conversionsByDay,
+            $treatMissingPlanAsUnmet,
         );
 
         $prediction = $this->buildPrediction(
@@ -93,6 +98,7 @@ class StatisticsClosingColumnsCalculator
      * @param  array<string, int>  $leadsByDay
      * @param  array<string, float>  $topPercentsByDay
      * @param  array<string, float|int>  $visitsByDay
+     * @param  array<string, int>  $conversionsByDay
      * @return list<array{value: mixed, format: mixed, plan_percent?: int|null, highlight?: bool}>
      */
     private function buildSummary(
@@ -104,6 +110,8 @@ class StatisticsClosingColumnsCalculator
         array $leadsByDay,
         array $topPercentsByDay,
         array $visitsByDay,
+        array $conversionsByDay = [],
+        bool $treatMissingPlanAsUnmet = false,
     ): array {
         $lastDayKey = $month->copy()->endOfMonth()->toDateString();
         $monthStart = $month->copy()->startOfMonth()->startOfDay();
@@ -112,6 +120,7 @@ class StatisticsClosingColumnsCalculator
         $budgetSum = $this->sumDays($spendByDay, $monthStart, $monthEnd);
         $leadsSum = $this->sumDaysInt($leadsByDay, $monthStart, $monthEnd);
         $visitsSum = $this->sumDays($visitsByDay, $monthStart, $monthEnd);
+        $conversionsSum = $this->sumDaysInt($conversionsByDay, $monthStart, $monthEnd);
 
         $slots = [];
         foreach ($parameterCodes as $index => $code) {
@@ -123,6 +132,7 @@ class StatisticsClosingColumnsCalculator
                 $leadsByDay,
                 $topPercentsByDay,
                 $visitsByDay,
+                $conversionsByDay,
             );
 
             if (! $hasLastDay) {
@@ -146,11 +156,11 @@ class StatisticsClosingColumnsCalculator
                     'format' => null,
                 ],
                 'visits' => [
-                    'value' => $visitsSum,
+                    'value' => $visitsSum !== null ? (int) round($visitsSum) : null,
                     'format' => null,
                 ],
                 'conversions' => [
-                    'value' => null,
+                    'value' => $conversionsSum,
                     'format' => null,
                 ],
                 'cpl' => [
@@ -174,6 +184,7 @@ class StatisticsClosingColumnsCalculator
             $slot['plan_percent'] = $this->planPercent(
                 $slot['value'] ?? null,
                 $planCell[$index]['value'] ?? null,
+                $treatMissingPlanAsUnmet,
             );
             $slot['highlight'] = $isPrimary;
             $slots[] = $slot;
@@ -183,20 +194,20 @@ class StatisticsClosingColumnsCalculator
     }
 
     /**
-     * % выполнения плана: итог / план × 100. Без плана или при нулевом плане — null.
+     * % выполнения плана: итог / план × 100.
+     * Без плана или при нулевом плане: null, либо 0 если treatMissingPlanAsUnmet и факт есть.
      */
-    private function planPercent(mixed $fact, mixed $plan): ?int
+    private function planPercent(mixed $fact, mixed $plan, bool $treatMissingPlanAsUnmet = false): ?int
     {
-        if (! is_numeric($fact) || ! is_numeric($plan)) {
+        if (! is_numeric($fact)) {
             return null;
         }
 
-        $plan = (float) $plan;
-        if ($plan == 0.0) {
-            return null;
+        if (is_numeric($plan) && (float) $plan != 0.0) {
+            return (int) round(((float) $fact / (float) $plan) * 100);
         }
 
-        return (int) round(((float) $fact / $plan) * 100);
+        return $treatMissingPlanAsUnmet ? 0 : null;
     }
 
     /**
@@ -341,12 +352,13 @@ class StatisticsClosingColumnsCalculator
         array $leadsByDay,
         array $topPercentsByDay,
         array $visitsByDay,
+        array $conversionsByDay = [],
     ): bool {
         return match ($code) {
             'budget' => array_key_exists($lastDayKey, $spendByDay),
             'leads' => array_key_exists($lastDayKey, $leadsByDay),
             'visits' => array_key_exists($lastDayKey, $visitsByDay),
-            'conversions' => false,
+            'conversions' => array_key_exists($lastDayKey, $conversionsByDay),
             'top_percent' => array_key_exists($lastDayKey, $topPercentsByDay),
             'cpl' => array_key_exists($lastDayKey, $spendByDay)
                 && array_key_exists($lastDayKey, $leadsByDay),

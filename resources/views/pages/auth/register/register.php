@@ -13,11 +13,16 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Spatie\Permission\Models\Role as RoleModel;
 
-new #[Layout('layouts::auth')] class extends Component {
+new
+#[Layout('layouts::auth')]
+#[Title('Регистрация')]
+class extends Component
+{
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
@@ -173,6 +178,8 @@ new #[Layout('layouts::auth')] class extends Component {
             email: $user->email,
             verifyUrl: $verifyUrl,
         ));
+
+        session()->forget('url.intended');
 
         $this->step = 3;
     }

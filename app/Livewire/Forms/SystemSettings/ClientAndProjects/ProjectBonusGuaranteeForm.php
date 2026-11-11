@@ -15,8 +15,12 @@ class ProjectBonusGuaranteeForm extends Form
     #[Rule('boolean')]
     public bool $calculateInPercentage = false;
 
+    /**
+     * Числовой ввод с input-number может прислать "" до нормализации.
+     * Union нужен, иначе Livewire падает TypeError на любом update (в т.ч. «Отменить»).
+     */
     #[Rule('nullable|numeric|min:0')]
-    public ?float $clientPayment = null;
+    public float|string|null $clientPayment = null;
 
     #[Rule('required_if:bonusesEnabled,true|integer|in:1,2,3')]
     public int $startMonth = 1;
@@ -126,5 +130,24 @@ class ProjectBonusGuaranteeForm extends Form
         $this->clientPayment = $bonusCondition->client_payment;
         $this->startMonth = $bonusCondition->start_month;
         $this->intervals = $bonusCondition->intervals->toArray();
+    }
+
+    /**
+     * Сброс блока «Бонусы и гарантии» (например, для своего проекта).
+     */
+    public function resetToDefaults(): void
+    {
+        $this->bonusesEnabled = false;
+        $this->calculateInPercentage = false;
+        $this->clientPayment = null;
+        $this->startMonth = 1;
+        $this->intervals = [
+            [
+                'fromPercentage' => '',
+                'toPercentage' => '',
+                'bonusAmount' => '',
+                'bonusPercentage' => '',
+            ],
+        ];
     }
 }

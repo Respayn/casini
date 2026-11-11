@@ -2,10 +2,10 @@
     @if($step === 1)
         <div wire:key="register-step-1">
             <x-auth.card>
-                <div class="mb-7 flex items-center justify-between">
-                    <h1 class="text-[28px] font-semibold">Регистрация</h1>
+                <div class="auth-heading">
+                    <h1 class="font-semibold">Регистрация</h1>
                     <a href="{{ route('login') }}"
-                       class="font-medium text-[18px] text-caption-text hover:underline">
+                       class="shrink-0 font-medium text-caption-text hover:underline">
                         Войти в аккаунт
                     </a>
                 </div>
@@ -41,7 +41,7 @@
                             </x-form.form-label>
                             <x-form.input-text
                                 wire:model="agencyName"
-                                icon="icons.edit-form"
+                                icon="icons.badge"
                                 disabled
                             />
                         </div>
@@ -65,6 +65,7 @@
                             type="submit"
                             label="Далее"
                             variant="primary"
+                            loading="nextStep"
                             :disabled="!$this->isStep1Ready"
                         />
                     </div>
@@ -76,10 +77,10 @@
         <div wire:key="register-step-2">
             <x-auth.back-link wire:click="prevStep" />
             <x-auth.card>
-                <div class="mb-7 flex items-center justify-between">
-                    <h1 class="text-[28px] font-semibold">Регистрация</h1>
+                <div class="auth-heading">
+                    <h1 class="font-semibold">Регистрация</h1>
                     <a href="{{ route('login') }}"
-                       class="font-medium text-[18px] text-caption-text hover:underline">
+                       class="shrink-0 font-medium text-caption-text hover:underline">
                         Войти в аккаунт
                     </a>
                 </div>
@@ -143,6 +144,7 @@
                             type="submit"
                             label="Завершить регистрацию"
                             variant="primary"
+                            loading="register"
                             :disabled="!$this->isStep2Ready"
                         />
                     </div>
@@ -171,10 +173,10 @@
             "
         >
             <x-auth.card>
-                <div class="mb-7 flex items-center justify-between">
-                    <h1 class="text-[28px] font-semibold">Регистрация</h1>
+                <div class="auth-heading">
+                    <h1 class="font-semibold">Регистрация</h1>
                     <a href="{{ route('login') }}"
-                       class="font-medium text-[18px] text-caption-text hover:underline">
+                       class="shrink-0 font-medium text-caption-text hover:underline">
                         Войти в аккаунт
                     </a>
                 </div>

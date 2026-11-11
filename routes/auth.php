@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -14,6 +15,7 @@ Route::middleware('guest')->group(function () {
 
     Route::livewire('forgot-password', 'pages::auth.forgot-password')->name('password.request');
     Route::livewire('reset-password/{token}', 'pages::auth.reset-password')->name('password.reset');
+    Route::livewire('invitation/{user}', 'pages::auth.set-password')->name('invitation.accept');
 });
 
 Route::get('register/verify/{user}', function (User $user) {
@@ -24,6 +26,8 @@ Route::get('register/verify/{user}', function (User $user) {
         ])->save();
     }
 
+    session()->forget('url.intended');
+
     return redirect()
         ->route('login')
         ->with('status', 'Email подтверждён. Теперь вы можете войти.');
@@ -31,7 +35,7 @@ Route::get('register/verify/{user}', function (User $user) {
 
 Route::middleware('auth')->group(function () {
     Route::post('logout', function () {
-        \Illuminate\Support\Facades\Auth::logout();
+        Auth::logout();
         request()->session()->invalidate();
         request()->session()->regenerateToken();
 
