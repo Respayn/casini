@@ -62,10 +62,6 @@
                 return false;
             }
 
-            if (!this.settings.is_enabled) {
-                return true;
-            }
-
             return String(this.settings.main_contract_number || '').trim() !== '';
         },
 
@@ -158,16 +154,6 @@
             </div>
         </x-form.form-field>
     </x-form.form>
-    <div class="mt-auto flex justify-between">
-        <x-button.button
-            variant="primary"
-            label="Сохранить изменения"
-            x-on:click="save"
-            x-bind:disabled="!canSave"
-        />
-        <x-button.button
-            label="Отменить"
-            x-on:click="handleCancelClick"
-        />
-    </div>
+
+    <x-project-form.integration-modal-footer class="mt-auto" />
 </div>

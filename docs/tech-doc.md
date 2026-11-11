@@ -879,7 +879,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Колонки детализации «месяц» | по каждому месяцу `dateFrom`…`dateTo` (`detailMonths()` → `month_0`, `month_1`, …) |
 | План | только если `isSingleMonthPeriod()`; иначе в ячейке `-` |
 | Тип клиенто-проекта | `projects.project_type` → `ProjectType::label()` |
-| Значки интеграций | тот же набор, что в Каналах: `App\Support\IntegrationLogo` (Директ, Метрика, Callibri, Search API, Google Таблицы, Битрикс24). Неизвестный код — заглушка |
+| Значки интеграций | тот же набор, что в Каналах: `App\Support\IntegrationLogo` (Директ, Метрика, Callibri, Search API, Google Таблицы, Битрикс24, 1С). Коды `1c_acts` / `1c_check` / `1c_ad_budget_flow` складываются в один значок `1c`. Неизвестный код - заглушка |
 | Шапка таблицы | в Каналах, Статистике, Планировании и Отчётах строка заголовка липкая внутри `.scrollpanel-content` (при вертикальной прокрутке остаётся наверху). Вертикальная полоса прокрутки начинается под шапкой и её не перекрывает |
 | Факт «Рекламный бюджет» (CONTEXT_AD) | общий расчёт `ProjectKpiFactsService::directBudget`: сумма `yandex_direct_daily_spendings` за бакет; колонка с/без НДС по `includeVat`; нет строк → `-`. Тот же источник в Каналах и в итоге Word (`budgetTotalOverride`) |
 | Факт «Лиды» (CONTEXT_AD + KPI LEADS) | `ProjectKpiFactsService::leadsByDay`: Callibri после фильтров интеграции + цели UTM Метрики (если отчёт включён), с текущими фильтрами настроек; пустой фильтр = все сохранённые; нулевые дни пишутся как `0` |
