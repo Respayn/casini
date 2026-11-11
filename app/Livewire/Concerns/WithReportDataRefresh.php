@@ -9,6 +9,7 @@ use App\Services\IntegrationSync\IntegrationAutomaticSyncStatus;
 use App\Services\IntegrationSync\IntegrationManualRefreshProgress;
 use App\Services\IntegrationSync\IntegrationManualRefreshTimestamp;
 use App\Services\IntegrationSync\IntegrationMetricsRefreshService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 trait WithReportDataRefresh
@@ -297,6 +298,40 @@ trait WithReportDataRefresh
         return $this->queryData->dateFrom->copy()->startOfMonth()->toDateString() === $this->refreshPeriodFrom
             && $this->queryData->dateTo->copy()->startOfMonth()->toDateString() === $this->refreshPeriodTo
             && (bool) $this->queryData->includeVat === $this->refreshIncludeVat;
+    }
+
+    protected function isManualReportDataRefreshing(): bool
+    {
+        return $this->isReportDataRefreshing && ! $this->isAutomaticDataRefresh;
+    }
+
+    /**
+     * НДС и период нельзя менять во время ручного съёма: иначе серые полоски пропадут.
+     * Возвращает true, если запрос нужно игнорировать (съём идёт).
+     */
+    protected function restoreLockedRefreshSliceFilters(): bool
+    {
+        if (! $this->isManualReportDataRefreshing()) {
+            return false;
+        }
+
+        if ($this->refreshPeriodFrom !== null
+            && $this->queryData->dateFrom->copy()->startOfMonth()->toDateString() !== $this->refreshPeriodFrom
+        ) {
+            $this->queryData->dateFrom = Carbon::parse($this->refreshPeriodFrom)->startOfMonth();
+        }
+
+        if ($this->refreshPeriodTo !== null
+            && $this->queryData->dateTo->copy()->startOfMonth()->toDateString() !== $this->refreshPeriodTo
+        ) {
+            $this->queryData->dateTo = Carbon::parse($this->refreshPeriodTo)->startOfMonth();
+        }
+
+        if ((bool) $this->queryData->includeVat !== $this->refreshIncludeVat) {
+            $this->queryData->includeVat = $this->refreshIncludeVat;
+        }
+
+        return true;
     }
 
     protected function currentRefreshAgencyId(): ?int

@@ -34,6 +34,8 @@
     {{-- Фильтры --}}
     @php
         $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+        $lockRefreshSlice = $isReportDataRefreshing && ! $isAutomaticDataRefresh;
+        $lockRefreshSliceTitle = 'Пока идёт обновление данных, НДС и период менять нельзя';
     @endphp
 
     <div
@@ -51,15 +53,32 @@
             <x-form.checkbox wire:model.live="queryData.showInactive" />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
+        <div
+            class="mr-[26px] flex items-center gap-2"
+            @if ($lockRefreshSlice) title="{{ $lockRefreshSliceTitle }}" @endif
+        >
             <label>НДС</label>
-            <x-form.checkbox wire:model.live="queryData.includeVat" />
+            <x-form.checkbox
+                wire:model.live="queryData.includeVat"
+                :disabled="$lockRefreshSlice"
+            />
         </div>
 
-        <div class="mr-[26px] flex items-center gap-2">
-            <x-form.month-picker wire:model.live="queryData.dateFrom" disable-future />
+        <div
+            class="mr-[26px] flex items-center gap-2"
+            @if ($lockRefreshSlice) title="{{ $lockRefreshSliceTitle }}" @endif
+        >
+            <x-form.month-picker
+                wire:model.live="queryData.dateFrom"
+                disable-future
+                :disabled="$lockRefreshSlice"
+            />
             <span class="text-secondary-text">—</span>
-            <x-form.month-picker wire:model.live="queryData.dateTo" disable-future />
+            <x-form.month-picker
+                wire:model.live="queryData.dateTo"
+                disable-future
+                :disabled="$lockRefreshSlice"
+            />
         </div>
 
         <x-report.table-toolbar

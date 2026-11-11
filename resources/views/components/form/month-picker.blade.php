@@ -6,12 +6,15 @@
     'disableFuture' => false,
     'availableMonths' => null,
     'unavailableTooltip' => null,
+    'disabled' => false,
 ])
 
 @php
     if ($disableFuture) {
         $max ??= now()->toDateString();
     }
+
+    $isDisabled = filter_var($disabled, FILTER_VALIDATE_BOOLEAN);
 @endphp
 
 {{-- TODO: объединить этот компонент с компонентом date-picker. Сделать по аналогии с компонентом из библиотеки PrimeVue
@@ -24,18 +27,24 @@
         data-max="{{ $max }}"
     ></span>
 <div
-    class="monthpicker"
+    @class(['monthpicker', 'monthpicker--disabled' => $isDisabled])
     data-min="{{ $min }}"
     data-max="{{ $max }}"
     data-restrict-available="{{ $availableMonths !== null ? '1' : '0' }}"
     data-available-months="{{ $availableMonths !== null ? implode(',', $availableMonths) : '' }}"
     data-unavailable-tooltip="{{ $unavailableTooltip ?? '' }}"
-    x-data="monthpicker({ placeholder: @js($placeholder), min: @js($min), max: @js($max) })"
+    x-data="monthpicker({ placeholder: @js($placeholder), min: @js($min), max: @js($max), disabled: @js($isDisabled) })"
     x-modelable="value"
-    {{ $attributes }}
+    {{ $attributes->except('disabled') }}
 >
     {{-- Trigger --}}
-    <button type="button" class="monthpicker-trigger" x-ref="trigger" x-on:click="toggle">
+    <button
+        type="button"
+        class="monthpicker-trigger"
+        x-ref="trigger"
+        @disabled($isDisabled)
+        x-on:click="toggle"
+    >
         <span class="monthpicker-trigger__icon">
             <x-icons.calendar />
         </span>
@@ -108,6 +117,7 @@
             placeholder: config.placeholder || 'Выберите месяц',
             min: config.min || null,
             max: config.max || null,
+            disabled: !! config.disabled,
             value: null,
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
@@ -294,6 +304,10 @@
             },
 
             toggle() {
+                if (this.disabled) {
+                    return;
+                }
+
                 if (!this.isOpen) {
                     this.clampYearToBounds();
                 }
@@ -436,6 +450,13 @@
             max-width: 100%;
             min-height: 42px;
             box-sizing: border-box;
+        }
+
+        .monthpicker--disabled .monthpicker-trigger,
+        .monthpicker-trigger:disabled {
+            opacity: .6;
+            cursor: not-allowed;
+            background-color: #F3F4F6;
         }
 
         .monthpicker-trigger__icon {

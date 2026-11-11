@@ -59,6 +59,10 @@ class extends Component
 
     public function updatedQueryDataIncludeVat(): void
     {
+        if ($this->restoreLockedRefreshSliceFilters()) {
+            return;
+        }
+
         SharedProductFilters::rememberIncludeVat($this->queryData->includeVat);
         unset($this->reportData);
     }
@@ -76,12 +80,20 @@ class extends Component
 
     public function updatedQueryDataDateFrom(): void
     {
+        if ($this->restoreLockedRefreshSliceFilters()) {
+            return;
+        }
+
         $this->queryData->clampPeriodToPresent();
         unset($this->reportData);
     }
 
     public function updatedQueryDataDateTo(): void
     {
+        if ($this->restoreLockedRefreshSliceFilters()) {
+            return;
+        }
+
         $this->queryData->clampPeriodToPresent();
         unset($this->reportData);
     }
