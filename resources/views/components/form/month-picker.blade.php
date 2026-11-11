@@ -33,7 +33,8 @@
     data-restrict-available="{{ $availableMonths !== null ? '1' : '0' }}"
     data-available-months="{{ $availableMonths !== null ? implode(',', $availableMonths) : '' }}"
     data-unavailable-tooltip="{{ $unavailableTooltip ?? '' }}"
-    x-data="monthpicker({ placeholder: @js($placeholder), min: @js($min), max: @js($max), disabled: @js($isDisabled) })"
+    {{-- disabled не кладём в x-data: смена true/false пересоздаёт Alpine и сбрасывает value в «Выберите месяц». --}}
+    x-data="monthpicker({ placeholder: @js($placeholder), min: @js($min), max: @js($max) })"
     x-modelable="value"
     {{ $attributes->except('disabled') }}
 >
@@ -117,7 +118,6 @@
             placeholder: config.placeholder || 'Выберите месяц',
             min: config.min || null,
             max: config.max || null,
-            disabled: !! config.disabled,
             value: null,
             year: new Date().getFullYear(),
             month: new Date().getMonth(),
@@ -303,8 +303,15 @@
                 }
             },
 
+            isPickerDisabled() {
+                return Boolean(
+                    this.$refs.trigger?.disabled
+                    || this.$root?.classList?.contains('monthpicker--disabled')
+                );
+            },
+
             toggle() {
-                if (this.disabled) {
+                if (this.isPickerDisabled()) {
                     return;
                 }
 
@@ -345,6 +352,12 @@
 
             normalizeEmptyValue() {
                 if (this.value !== null && this.isEmptyDate(this.value)) {
+                    // Пока поле заблокировано съёмом, не затираем value в null -
+                    // иначе wire:model утащит пустоту на сервер и месяц пропадёт.
+                    if (this.isPickerDisabled()) {
+                        return;
+                    }
+
                     this.value = null;
                 }
             },

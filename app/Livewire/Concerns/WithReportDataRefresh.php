@@ -315,16 +315,24 @@ trait WithReportDataRefresh
             return false;
         }
 
-        if ($this->refreshPeriodFrom !== null
-            && $this->queryData->dateFrom->copy()->startOfMonth()->toDateString() !== $this->refreshPeriodFrom
-        ) {
-            $this->queryData->dateFrom = Carbon::parse($this->refreshPeriodFrom)->startOfMonth();
+        if ($this->refreshPeriodFrom !== null) {
+            $currentFrom = $this->queryData->dateFrom instanceof Carbon
+                ? $this->queryData->dateFrom->copy()->startOfMonth()->toDateString()
+                : null;
+
+            if ($currentFrom !== $this->refreshPeriodFrom) {
+                $this->queryData->dateFrom = Carbon::parse($this->refreshPeriodFrom)->startOfMonth();
+            }
         }
 
-        if ($this->refreshPeriodTo !== null
-            && $this->queryData->dateTo->copy()->startOfMonth()->toDateString() !== $this->refreshPeriodTo
-        ) {
-            $this->queryData->dateTo = Carbon::parse($this->refreshPeriodTo)->startOfMonth();
+        if ($this->refreshPeriodTo !== null) {
+            $currentTo = $this->queryData->dateTo instanceof Carbon
+                ? $this->queryData->dateTo->copy()->startOfMonth()->toDateString()
+                : null;
+
+            if ($currentTo !== $this->refreshPeriodTo) {
+                $this->queryData->dateTo = Carbon::parse($this->refreshPeriodTo)->startOfMonth();
+            }
         }
 
         if ((bool) $this->queryData->includeVat !== $this->refreshIncludeVat) {
@@ -619,6 +627,8 @@ trait WithReportDataRefresh
         $this->lastDataRefreshLabel = $timestamps->formattedLabel($agencyId);
         $this->clearRefreshUiState();
         $progress->markNoticed($agencyId, $userId, $product);
+        // Job уже записал уведомления в БД; шапка сама не поллит - просим обновить колокольчик.
+        $this->dispatch('notifications-changed');
         unset($this->reportData);
     }
 

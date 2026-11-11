@@ -44,7 +44,10 @@
                     <x-icons.settings-applications />
                 </a>
             @endif
-            <x-notifications.bell-button />
+            {{-- tick заставляет Livewire перерисовать колокольчик после notifications-changed --}}
+            <div wire:key="notifications-bell-{{ $notificationsTick }}">
+                <x-notifications.bell-button />
+            </div>
 
             <div x-data="{ open: false }" class="ml-6 flex items-center relative">
                 <!-- Клик по этой зоне открывает / закрывает меню -->

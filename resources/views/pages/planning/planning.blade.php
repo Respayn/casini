@@ -81,9 +81,9 @@
     <x-layout.sidebar-filter-hint />
 
     {{-- Шапка компонента --}}
-    <div class="flex justify-between">
-        <h1 class="mb-7">Планирование</h1>
-        <div>
+    <div class="mb-7 flex items-center justify-between gap-3">
+        <h1>Планирование</h1>
+        <div class="flex items-center">
             <x-button.button icon="icons.save" label="Сохранить изменения" variant="primary"
                 loading="save" :disabled="!$hasChanges" wire:click="save" />
         </div>

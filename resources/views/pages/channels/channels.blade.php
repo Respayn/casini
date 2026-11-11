@@ -2,8 +2,8 @@
     <x-layout.sidebar-filter-hint />
 
     {{-- Шапка компонента --}}
-    <div class="flex justify-between">
-        <div class="mb-7 flex items-center gap-2">
+    <div class="mb-7 flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
             <h1>Каналы</h1>
             <x-overlay.modal-trigger name="group-settings-modal" wire:click="saveSettingsSnapshot">
                 <button

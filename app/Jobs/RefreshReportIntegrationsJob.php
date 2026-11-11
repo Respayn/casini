@@ -106,6 +106,49 @@ class RefreshReportIntegrationsJob implements ShouldQueue
         );
     }
 
+    public function failed(?Throwable $e): void
+    {
+        Log::warning('Manual refresh job permanently failed', [
+            'project_id' => $this->projectId,
+            'agency_id' => $this->agencyId,
+            'product' => $this->product,
+            'run_id' => $this->runId,
+            'message' => $e?->getMessage(),
+        ]);
+
+        $progress = app(IntegrationManualRefreshProgress::class);
+        $state = $progress->get($this->agencyId);
+
+        if ($state === null
+            || ($state['run_id'] ?? null) !== $this->runId
+            || ($state['status'] ?? null) !== IntegrationManualRefreshProgress::STATUS_RUNNING
+        ) {
+            return;
+        }
+
+        $after = $progress->markProjectFinished(
+            $this->agencyId,
+            $this->projectId,
+            'failed',
+        );
+
+        if ($after === null) {
+            return;
+        }
+
+        if (($after['pending'] ?? []) !== []) {
+            return;
+        }
+
+        $this->finalizeRun(
+            $progress,
+            app(IntegrationManualRefreshTimestamp::class),
+            app(IntegrationManualRefreshNotifier::class),
+            app(StatisticsService::class),
+            $after,
+        );
+    }
+
     /**
      * @param  array<string, mixed>  $state
      */
