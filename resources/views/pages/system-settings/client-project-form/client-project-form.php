@@ -419,7 +419,9 @@ class extends Component
     {
         $moneyIntegrationIds = $this->moneyIntegrations()->pluck('id');
 
-        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $moneyIntegrationIds->contains($integrationId));
+        return $this->integrationSettings
+            ->filter(fn ($setting, $integrationId) => $moneyIntegrationIds->contains($integrationId))
+            ->reject(fn ($setting) => $this->isIntegrationManuallyRemoved($setting));
     }
 
     #[Computed]
@@ -427,7 +429,9 @@ class extends Component
     {
         $analyticsIntegrationIds = $this->analyticsIntegrations()->pluck('id');
 
-        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $analyticsIntegrationIds->contains($integrationId));
+        return $this->integrationSettings
+            ->filter(fn ($setting, $integrationId) => $analyticsIntegrationIds->contains($integrationId))
+            ->reject(fn ($setting) => $this->isIntegrationManuallyRemoved($setting));
     }
 
     #[Computed]
@@ -435,7 +439,16 @@ class extends Component
     {
         $toolsIntegrationIds = $this->toolsIntegrations()->pluck('id');
 
-        return $this->integrationSettings->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId));
+        return $this->integrationSettings
+            ->filter(fn ($setting, $integrationId) => $toolsIntegrationIds->contains($integrationId))
+            ->reject(fn ($setting) => $this->isIntegrationManuallyRemoved($setting));
+    }
+
+    private function isIntegrationManuallyRemoved(mixed $setting): bool
+    {
+        $settings = is_array($setting->settings ?? null) ? $setting->settings : [];
+
+        return (bool) ($settings['manually_removed'] ?? false);
     }
 
     /**
@@ -739,16 +752,19 @@ class extends Component
             return;
         }
 
+        $existingSetting = $this->integrationSettings->get($integration->id);
+        $existingIsManuallyRemoved = $existingSetting !== null && $this->isIntegrationManuallyRemoved($existingSetting);
+
         // Из списка «Добавить» без ссылки/ключа не открываем; уже добавленную карточку открыть можно.
         if ($code === 'google_sheets'
             && ! $this->isGoogleSheetsAgencyConfigured
-            && ! $this->integrationSettings->has($integration->id)
+            && ($existingSetting === null || $existingIsManuallyRemoved)
         ) {
             return;
         }
 
-        if ($this->integrationSettings->has($integration->id)) {
-            $this->selectedIntegration = $this->integrationSettings->get($integration->id);
+        if ($existingSetting !== null && ! $existingIsManuallyRemoved) {
+            $this->selectedIntegration = $existingSetting;
         } else {
             $integrationSettingsFactory = new IntegrationSettingsFactory;
             $selectedIntegration = new ProjectIntegrationData;
@@ -804,6 +820,7 @@ class extends Component
                 $projectIntegrationData->settings['oauth_google_email'],
                 $projectIntegrationData->settings['oauth_google_display_name'],
                 $projectIntegrationData->settings['oauth_google_avatar_url'],
+                $projectIntegrationData->settings['manually_removed'],
             );
 
             if (($projectIntegrationData->isEnabled ?? false)
@@ -1698,7 +1715,23 @@ class extends Component
     {
         $this->ensureCanEdit();
 
-        $this->integrationSettings->forget($integrationId);
+        $setting = $this->integrationSettings->get($integrationId);
+        $code = (string) ($setting?->integration?->code ?? '');
+
+        // Для SEO автоподстановка смотрит на отсутствие записи. После ручного удаления
+        // оставляем выключенный маркер, чтобы интеграция не вернулась после сохранения.
+        if ($code === 'google_sheets' && $setting !== null) {
+            $this->autoEnabledGoogleSheetsForSeo = false;
+            $setting->isEnabled = false;
+            $settings = is_array($setting->settings) ? $setting->settings : [];
+            unset($settings['sync_enabled_at']);
+            $settings['manually_removed'] = true;
+            $setting->settings = $settings;
+            $this->integrationSettings[$integrationId] = $setting;
+        } else {
+            $this->integrationSettings->forget($integrationId);
+        }
+
         $this->integrationSettings = $this->integrationSettings->mapWithKeys(
             fn ($setting, $id) => [(int) $id => $setting]
         );

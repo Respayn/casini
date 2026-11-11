@@ -200,4 +200,38 @@ class GoogleSheetsClientProjectIntegrationTest extends TestCase
         $this->assertTrue($component->get('integrationSettings')->has($integration->id));
         $this->assertFalse((bool) $component->get("integrationSettings.{$integration->id}.isEnabled"));
     }
+
+    #[Test]
+    public function test_removed_google_sheets_is_not_restored_for_seo_after_type_refresh(): void
+    {
+        $this->putServiceAccountKey();
+        [$user, $agency] = $this->createUserWithAgency([
+            'google_sheets_spreadsheet_url' => 'https://docs.google.com/spreadsheets/d/abc123/edit',
+        ]);
+        $integration = Integration::query()->where('code', 'google_sheets')->firstOrFail();
+
+        $component = $this->openClientProjectForm($user, $agency)
+            ->set('clientProjectForm.projectType', ProjectType::SEO_PROMOTION->value)
+            ->assertSet("integrationSettings.{$integration->id}.isEnabled", true)
+            ->call('removeIntegration', $integration->id);
+
+        $this->assertFalse(
+            $component->instance()->configuredMoneyIntegrations->has($integration->id),
+            'После удаления карточка не должна показываться в списке'
+        );
+        $this->assertTrue($component->get('integrationSettings')->has($integration->id));
+        $this->assertFalse((bool) $component->get("integrationSettings.{$integration->id}.isEnabled"));
+        $this->assertTrue((bool) $component->get("integrationSettings.{$integration->id}.settings.manually_removed"));
+
+        $component
+            ->set('clientProjectForm.projectType', ProjectType::CONTEXT_AD->value)
+            ->set('clientProjectForm.projectType', ProjectType::SEO_PROMOTION->value);
+
+        $this->assertFalse(
+            $component->instance()->configuredMoneyIntegrations->has($integration->id),
+            'SEO не должен возвращать удалённые Google Таблицы'
+        );
+        $this->assertFalse((bool) $component->get("integrationSettings.{$integration->id}.isEnabled"));
+        $this->assertTrue((bool) $component->get("integrationSettings.{$integration->id}.settings.manually_removed"));
+    }
 }
