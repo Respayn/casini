@@ -24,6 +24,8 @@
         'google_sheets' => filled($projectIntegration->settings['oauth_token'] ?? null)
             || filled($projectIntegration->settings['document_id'] ?? $projectIntegration->settings['documentId'] ?? null)
             || ($projectIntegration->isEnabled ?? false),
+        '1c_acts' => filled($projectIntegration->settings['main_contract_number'] ?? null)
+            || ($projectIntegration->isEnabled ?? false),
         default => false,
     };
 

@@ -12,14 +12,17 @@ use App\Enums\LaborRole;
 use App\Models\GoogleSheetsMonthlySpending;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
+use App\Repositories\Interfaces\WorkActRepositoryInterface;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
 use App\Repositories\ReportUserSettingsRepository;
 use App\Repositories\UserRepository;
 use App\Services\BonusService;
 use App\Services\GoogleSheetsService;
+use App\Services\WorkActs\WorkActRelationService;
 use App\Support\ClientProjectVisibility;
 use App\Support\IntegrationLogo;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Src\Domain\ValueObjects\ProjectType;
@@ -47,11 +50,18 @@ class ChannelReportService implements ChannelReportServiceInterface
 
     private ReportUserSettingsRepository $reportUserSettingsRepository;
 
+    private WorkActRepositoryInterface $workActRepository;
+
+    private WorkActRelationService $workActRelationService;
+
     /** @var Collection<int, GoogleSheetsMonthlySpending>|null */
     private ?Collection $googleSpendingsForReport = null;
 
     /** @var array<int, array<string, array{hours: float, sum: float}>> */
     private array $laborSpendingsForReport = [];
+
+    /** @var array<int, float|null> */
+    private array $actsForReport = [];
 
     public function __construct(
         ClientRepository $clientRepository,
@@ -64,6 +74,8 @@ class ChannelReportService implements ChannelReportServiceInterface
         BonusService $bonusService,
         GoogleSheetsService $googleSheetsService,
         ReportUserSettingsRepository $reportUserSettingsRepository,
+        WorkActRepositoryInterface $workActRepository,
+        WorkActRelationService $workActRelationService,
     ) {
         $this->clientRepository = $clientRepository;
         $this->projectRepository = $projectRepository;
@@ -75,6 +87,8 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->bonusService = $bonusService;
         $this->googleSheetsService = $googleSheetsService;
         $this->reportUserSettingsRepository = $reportUserSettingsRepository;
+        $this->workActRepository = $workActRepository;
+        $this->workActRelationService = $workActRelationService;
     }
 
     public function getUserSettings(int $userId): ChannelReportQueryData
@@ -129,6 +143,11 @@ class ChannelReportService implements ChannelReportServiceInterface
             $query->dateFrom->copy()->startOfMonth(),
             $query->dateTo->copy()->endOfMonth(),
         );
+        $this->actsForReport = $this->resolveActsForProjects(
+            $projects,
+            $integrations,
+            $query->dateFrom->copy()->startOfMonth(),
+        );
 
         // TODO: разнести логику по соответствующим классам
         if ($query->grouping === ChannelReportGrouping::PROJECT_TYPE) {
@@ -148,6 +167,7 @@ class ChannelReportService implements ChannelReportServiceInterface
         $this->enrichWithSpendingsTotals($report);
 
         $this->googleSpendingsForReport = null;
+        $this->actsForReport = [];
         $this->laborSpendingsForReport = [];
 
         return $report;
@@ -160,10 +180,12 @@ class ChannelReportService implements ChannelReportServiceInterface
     {
         $reportClientReceipt = null;
         $reportMaxBonuses = null;
+        $reportActs = null;
 
         foreach ($report->groups as $group) {
             $groupClientReceipt = null;
             $groupMaxBonuses = null;
+            $groupActs = null;
 
             foreach ($group->rows as $row) {
                 $clientReceipt = $row->data->get('client-receipt');
@@ -177,6 +199,12 @@ class ChannelReportService implements ChannelReportServiceInterface
                     $groupMaxBonuses = ($groupMaxBonuses ?? 0.0) + (float) $maxBonuses;
                     $reportMaxBonuses = ($reportMaxBonuses ?? 0.0) + (float) $maxBonuses;
                 }
+
+                $acts = $row->data->get('acts');
+                if (is_numeric($acts)) {
+                    $groupActs = ($groupActs ?? 0.0) + (float) $acts;
+                    $reportActs = ($reportActs ?? 0.0) + (float) $acts;
+                }
             }
 
             if ($group->summary instanceof Collection) {
@@ -187,6 +215,10 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $group->summary->put(
                     'max-bonuses',
                     $groupMaxBonuses === null ? null : round($groupMaxBonuses, 2),
+                );
+                $group->summary->put(
+                    'acts',
+                    $groupActs === null ? null : round($groupActs, 2),
                 );
             }
         }
@@ -199,6 +231,10 @@ class ChannelReportService implements ChannelReportServiceInterface
             $report->summary->put(
                 'max-bonuses',
                 $reportMaxBonuses === null ? null : round($reportMaxBonuses, 2),
+            );
+            $report->summary->put(
+                'acts',
+                $reportActs === null ? null : round($reportActs, 2),
             );
         }
     }
@@ -434,7 +470,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row->data = new Collection(array_merge(
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), $this->actsSumForProject((int) $project->id)),
                 $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -532,7 +568,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row->data = new Collection(array_merge(
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), $this->actsSumForProject((int) $project->id)),
                 $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -642,7 +678,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row->data = new Collection(array_merge(
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), $this->actsSumForProject((int) $project->id)),
                     $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -737,7 +773,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row->data = new Collection(array_merge(
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), $this->actsSumForProject((int) $project->id)),
                     $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -798,7 +834,7 @@ class ChannelReportService implements ChannelReportServiceInterface
             $row->data = new Collection(array_merge(
                 $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                 $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), $this->actsSumForProject((int) $project->id)),
                 $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                 $this->createIntegrationData($projectIntegrations)
             ));
@@ -888,7 +924,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 $row->data = new Collection(array_merge(
                     $this->createClientData($projectTypeLabel, $client?->name ?? '—', $project->name, $project->id, $status),
                     $this->createTeamData($team['managerName'], $manager?->id, $team['specialistName'], $specialist?->id),
-                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), 0),
+                    $this->createFinancialData($kpi, $plan, $project->bonusCondition?->client_payment, $this->bonusService->resolveMaxBonusAmount($project->bonusCondition), $this->actsSumForProject((int) $project->id)),
                     $this->buildProjectSpendingsData($project->id, $projectIntegrations),
                     $this->createIntegrationData($projectIntegrations)
                 ));
@@ -969,8 +1005,13 @@ class ChannelReportService implements ChannelReportServiceInterface
         ];
     }
 
-    public function createFinancialData(string $kpi, array|int|string|null $plan, int|float|null $clientReceipt, int|float|null $maxBonuses, ?int $acts): array
-    {
+    public function createFinancialData(
+        string $kpi,
+        array|int|string|null $plan,
+        int|float|null $clientReceipt,
+        int|float|null $maxBonuses,
+        int|float|null $acts,
+    ): array {
         return [
             'kpi' => $kpi,
             'plan' => $plan,
@@ -978,6 +1019,71 @@ class ChannelReportService implements ChannelReportServiceInterface
             'max-bonuses' => $maxBonuses,
             'acts' => $acts,
         ];
+    }
+
+    private function actsSumForProject(int $projectId): int|float|null
+    {
+        return $this->actsForReport[$projectId] ?? null;
+    }
+
+    /**
+     * @param  Collection<int, mixed>  $projects
+     * @param  Collection<int, mixed>  $integrations
+     * @return array<int, float|null>
+     */
+    private function resolveActsForProjects(
+        Collection $projects,
+        Collection $integrations,
+        Carbon $month,
+    ): array {
+        $contexts = collect();
+
+        foreach ($projects as $project) {
+            $projectIntegrations = $integrations->get($project->id, []);
+            $oneCIntegration = collect($projectIntegrations)->first(
+                fn ($integration) => ($integration->integration->code ?? null) === '1c_acts'
+                    && ($integration->isEnabled ?? false)
+            );
+
+            if ($oneCIntegration === null) {
+                continue;
+            }
+
+            $settings = is_array($oneCIntegration->settings ?? null) ? $oneCIntegration->settings : [];
+            $mainContractNumber = trim((string) ($settings['main_contract_number'] ?? ''));
+            if ($mainContractNumber === '') {
+                continue;
+            }
+
+            $contexts->push((object) [
+                'projectId' => (int) $project->id,
+                'mainContractNumber' => $mainContractNumber,
+                'additionalAgreementNumbers' => $this->workActRelationService->parseAdditionalAgreementNumbers(
+                    isset($settings['additional_agreement_number'])
+                        ? (string) $settings['additional_agreement_number']
+                        : null
+                ),
+                'inn' => $project->inn !== null ? (string) $project->inn : null,
+            ]);
+        }
+
+        $sums = [];
+        foreach ($projects as $project) {
+            $sums[(int) $project->id] = null;
+        }
+
+        if ($contexts->isEmpty()) {
+            return $sums;
+        }
+
+        $workActs = $this->workActRepository->getByCreationMonth($month);
+        $matched = $this->workActRelationService->sumActsByProject($contexts, $workActs);
+
+        foreach ($matched as $projectId => $sum) {
+            $sums[(int) $projectId] = $sum;
+        }
+
+        return $sums;
     }
 
     /**

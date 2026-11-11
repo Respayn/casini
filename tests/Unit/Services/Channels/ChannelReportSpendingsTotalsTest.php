@@ -7,6 +7,7 @@ use App\Data\TableReportGroupData;
 use App\Data\TableReportRowData;
 use App\Repositories\ClientRepository;
 use App\Repositories\IntegrationRepository;
+use App\Repositories\Interfaces\WorkActRepositoryInterface;
 use App\Repositories\ProjectRepository;
 use App\Repositories\RateRepository;
 use App\Repositories\ReportUserSettingsRepository;
@@ -15,6 +16,7 @@ use App\Services\BonusService;
 use App\Services\Channels\ChannelDirectMetricsService;
 use App\Services\Channels\ChannelReportService;
 use App\Services\GoogleSheetsService;
+use App\Services\WorkActs\WorkActRelationService;
 use Illuminate\Support\Collection;
 use ReflectionMethod;
 use Src\Planning\Application\ProjectPlanService;
@@ -35,6 +37,8 @@ class ChannelReportSpendingsTotalsTest extends TestCase
             $this->createMock(BonusService::class),
             $this->createMock(GoogleSheetsService::class),
             $this->createMock(ReportUserSettingsRepository::class),
+            $this->createMock(WorkActRepositoryInterface::class),
+            $this->createMock(WorkActRelationService::class),
         );
     }
 
