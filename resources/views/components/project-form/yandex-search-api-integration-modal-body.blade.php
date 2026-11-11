@@ -41,6 +41,10 @@
         $savedRegions = [];
     }
 
+    $syncIssueMessage = \App\Services\IntegrationSync\IntegrationSyncIssueStatus::messageFromSettings(
+        is_array($savedSettings) ? $savedSettings : []
+    );
+
     $searchApiSettings = [
         'is_enabled' => $projectIntegration->isEnabled ?? false,
         'sync_enabled_at' => $syncEnabledAt,
@@ -54,6 +58,7 @@
         canEdit: @js($canEdit),
         platformConfigured: {{ Js::from($platformConfigured) }},
         settings: {{ Js::from($searchApiSettings) }},
+        syncIssueMessage: {{ Js::from($syncIssueMessage) }},
         docxUploading: false,
         docxError: null,
 
@@ -242,6 +247,14 @@
         handleCancelClick() {
             $dispatch('modal-hide', { name: 'integration-settings-modal' });
         },
+
+        get integrationError() {
+            return this.syncIssueMessage || null;
+        },
+
+        get hasIntegrationError() {
+            return this.integrationError !== null && this.integrationError !== '';
+        },
     }"
 >
     <x-panel.scroll-panel style="max-height: 500px">
@@ -251,11 +264,20 @@
             </p>
         @endunless
 
+        <div
+            class="mb-4 break-words rounded-lg border border-[#FF7373] bg-[#FFF5F5] p-4 text-sm text-[#FF7373]"
+            x-show="hasIntegrationError"
+            x-text="integrationError"
+            x-cloak
+        ></div>
+
         <x-form.form>
             <x-form.form-field>
                 <x-form.form-label>Синхронизация</x-form.form-label>
                 <div class="flex w-[305px] items-center gap-4">
-                    <x-form.toggle-switch x-model="settings.is_enabled"></x-form.toggle-switch>
+                    <div :class="{ 'yd-direct-error-toggle': hasIntegrationError && settings.is_enabled }">
+                        <x-form.toggle-switch x-model="settings.is_enabled"></x-form.toggle-switch>
+                    </div>
                     <span
                         class="text-secondary-text text-sm"
                         x-show="settings.is_enabled"

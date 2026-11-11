@@ -25,6 +25,7 @@ use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
 use App\Services\GoogleSheetsService;
 use App\Services\IntegrationService;
+use App\Services\IntegrationSync\IntegrationSyncIssueStatus;
 use App\Services\ProjectService;
 use App\Services\PromotionRegionService;
 use App\Services\PromotionTopicService;
@@ -706,7 +707,13 @@ class extends Component
         $projectIntegrationData->integration = IntegrationData::from($integration);
         $settingsCollection = collect($settings);
         $projectIntegrationData->isEnabled = $settingsCollection->pull('is_enabled', false);
-        $projectIntegrationData->settings = $settingsCollection->toArray();
+        $previousSettings = is_array($this->integrationSettings->get($integrationId)?->settings ?? null)
+            ? $this->integrationSettings->get($integrationId)->settings
+            : [];
+        $projectIntegrationData->settings = IntegrationSyncIssueStatus::mergePreserved(
+            $previousSettings,
+            $settingsCollection->toArray()
+        );
 
         if ($integration?->code === 'google_sheets') {
             $documentId = (string) ($projectIntegrationData->settings['document_id'] ?? '');

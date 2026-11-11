@@ -157,6 +157,10 @@
             YandexMetrikaIntegrationSettingsData::DEFAULT_VISITS_METRIC
         )),
     ];
+
+    $syncIssueMessage = \App\Services\IntegrationSync\IntegrationSyncIssueStatus::messageFromSettings(
+        is_array($savedSettings) ? $savedSettings : []
+    );
 @endphp
 
 <div
@@ -166,6 +170,7 @@
         canEdit: @js($canEdit),
         platformConfigured: {{ Js::from($platformConfigured) }},
         settings: {{ Js::from($metrikaSettings) }},
+        syncIssueMessage: {{ Js::from($syncIssueMessage) }},
         attributionOptions: {{ Js::from($attributionOptions) }},
         dataModeOptions: {{ Js::from($dataModeOptions) }},
         goalsMetricOptions: {{ Js::from($goalsMetricOptions) }},
@@ -514,7 +519,7 @@
         },
 
         get integrationError() {
-            return this.oauthError || this.countersError || null;
+            return this.oauthError || this.countersError || this.syncIssueMessage || null;
         },
 
         get hasIntegrationError() {

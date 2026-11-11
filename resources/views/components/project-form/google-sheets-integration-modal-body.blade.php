@@ -37,6 +37,10 @@
         }
     }
 
+    $syncIssueMessage = \App\Services\IntegrationSync\IntegrationSyncIssueStatus::messageFromSettings(
+        is_array($savedSettings) ? $savedSettings : []
+    );
+
     $googleSettings = [
         'is_enabled' => $projectIntegration->isEnabled ?? false,
         'sync_enabled_at' => $syncEnabledAt,
@@ -58,6 +62,7 @@
         canEdit: @js($canEdit),
         platformConfigured: {{ Js::from($platformConfigured) }},
         settings: {{ Js::from($googleSettings) }},
+        syncIssueMessage: {{ Js::from($syncIssueMessage) }},
         oauthError: null,
         oauthPopup: null,
         oauthCacheDataId: null,
@@ -156,7 +161,7 @@
         },
 
         get integrationError() {
-            return this.oauthError || null;
+            return this.oauthError || this.syncIssueMessage || null;
         },
 
         get hasIntegrationError() {

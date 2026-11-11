@@ -10,6 +10,7 @@ use App\Events\Notifications\IntegrationSyncFailed;
 use App\Models\IntegrationSyncItem;
 use App\Models\IntegrationSyncRun;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
+use App\Services\IntegrationSync\IntegrationSyncIssueStatus;
 use App\Support\SafeLogger;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -37,8 +38,10 @@ class ProcessIntegrationSyncItem implements ShouldQueue
         public int $itemId,
     ) {}
 
-    public function handle(IntegrationSyncDispatcher $dispatcher): void
-    {
+    public function handle(
+        IntegrationSyncDispatcher $dispatcher,
+        IntegrationSyncIssueStatus $syncIssueStatus,
+    ): void {
         $item = IntegrationSyncItem::query()->find($this->itemId);
 
         if ($item === null) {
@@ -56,7 +59,7 @@ class ProcessIntegrationSyncItem implements ShouldQueue
         $collector = $dispatcher->collector($item->collector);
 
         if ($collector === null) {
-            $this->markFailedAndNotify($item, 'Unknown collector: '.$item->collector);
+            $this->markFailedAndNotify($item, 'Unknown collector: '.$item->collector, $syncIssueStatus);
             $this->maybeFinishRun($item->run_id);
 
             return;
@@ -93,6 +96,7 @@ class ProcessIntegrationSyncItem implements ShouldQueue
                 'status' => IntegrationSyncItemStatus::Done,
                 'last_error' => null,
             ]);
+            $syncIssueStatus->recordSuccess((int) $item->project_id, (string) $item->collector);
             $this->maybeFinishRun($item->run_id);
 
             return;
@@ -108,7 +112,7 @@ class ProcessIntegrationSyncItem implements ShouldQueue
             return;
         }
 
-        $this->markFailedAndNotify($item, $result->error);
+        $this->markFailedAndNotify($item, $result->error, $syncIssueStatus);
         $this->maybeFinishRun($item->run_id);
     }
 
@@ -131,18 +135,28 @@ class ProcessIntegrationSyncItem implements ShouldQueue
         $this->markFailedAndNotify(
             $item,
             filled($e?->getMessage()) ? SafeLogger::publicMessage($e) : 'Ошибка съёма данных',
+            app(IntegrationSyncIssueStatus::class),
         );
         $this->maybeFinishRun($item->run_id);
     }
 
-    private function markFailedAndNotify(IntegrationSyncItem $item, ?string $error): void
-    {
+    private function markFailedAndNotify(
+        IntegrationSyncItem $item,
+        ?string $error,
+        IntegrationSyncIssueStatus $syncIssueStatus,
+    ): void {
         $message = filled($error) ? $error : 'Ошибка съёма данных';
 
         $item->update([
             'status' => IntegrationSyncItemStatus::Failed,
             'last_error' => $message,
         ]);
+
+        $syncIssueStatus->recordFailure(
+            (int) $item->project_id,
+            (string) $item->collector,
+            $message,
+        );
 
         event(new IntegrationSyncFailed(
             projectId: (int) $item->project_id,

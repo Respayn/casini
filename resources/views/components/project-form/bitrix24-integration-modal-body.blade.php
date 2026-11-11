@@ -8,12 +8,16 @@
     $savedSettings = $projectIntegration->settings ?? [];
     $agencyHint = 'Сначала укажите URL портала и вебхук в настройках агентства';
     $rootTaskUrlError = \App\Support\Bitrix24ProjectSettingsValidator::ROOT_TASK_URL_ERROR;
+    $syncIssueMessage = \App\Services\IntegrationSync\IntegrationSyncIssueStatus::messageFromSettings(
+        is_array($savedSettings) ? $savedSettings : []
+    );
 @endphp
 
 <div
     class="flex h-full flex-col"
     x-data="{
         platformConfigured: {{ Js::from($platformConfigured) }},
+        syncIssueMessage: {{ Js::from($syncIssueMessage) }},
         settings: {
             is_enabled: {{ Js::from($projectIntegration->isEnabled ?? false) }},
             sync_enabled_at: {{ Js::from($savedSettings['sync_enabled_at'] ?? '') }},
@@ -113,15 +117,32 @@
 
         handleCancelClick() {
             $dispatch('modal-hide', { name: 'integration-settings-modal' });
-        }
+        },
+
+        get integrationError() {
+            return this.syncIssueMessage || null;
+        },
+
+        get hasIntegrationError() {
+            return this.integrationError !== null && this.integrationError !== '';
+        },
     }"
 >
     <x-form.form>
+        <div
+            class="mb-4 break-words rounded-lg border border-[#FF7373] bg-[#FFF5F5] p-4 text-sm text-[#FF7373]"
+            x-show="hasIntegrationError"
+            x-text="integrationError"
+            x-cloak
+        ></div>
+
         <x-form.form-field class="w-[603px]">
             <x-form.form-label>Синхронизация</x-form.form-label>
             <div class="flex w-[305px] items-center gap-4">
                 @if ($platformConfigured)
-                    <x-form.toggle-switch x-model="settings.is_enabled"></x-form.toggle-switch>
+                    <div :class="{ 'yd-direct-error-toggle': hasIntegrationError && settings.is_enabled }">
+                        <x-form.toggle-switch x-model="settings.is_enabled"></x-form.toggle-switch>
+                    </div>
                 @else
                     <x-overlay.tooltip panel-max-width="20rem">
                         <x-slot:trigger>

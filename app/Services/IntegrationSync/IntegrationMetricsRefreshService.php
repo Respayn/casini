@@ -18,6 +18,7 @@ class IntegrationMetricsRefreshService
         private readonly IntegrationApiThrottle $apiThrottle,
         private readonly ChannelDirectMetricsService $directMetricsService,
         private readonly IntegrationManualRefreshProgress $progress,
+        private readonly IntegrationSyncIssueStatus $syncIssueStatus,
     ) {}
 
     /**
@@ -189,14 +190,18 @@ class IntegrationMetricsRefreshService
             }
 
             if ($result->ok) {
+                $this->syncIssueStatus->recordSuccess($projectId, $collector->key());
+
                 continue;
             }
 
             $allOk = false;
             $hadFailure = true;
+            $error = filled($result->error) ? $result->error : 'Ошибка съёма данных';
+            $this->syncIssueStatus->recordFailure($projectId, $collector->key(), $error);
             event(new IntegrationSyncFailed(
                 projectId: $projectId,
-                error: filled($result->error) ? $result->error : 'Ошибка съёма данных',
+                error: $error,
                 collector: $collector->key(),
             ));
         }
@@ -280,14 +285,18 @@ class IntegrationMetricsRefreshService
                 }
 
                 if ($result->ok) {
+                    $this->syncIssueStatus->recordSuccess($projectId, $collector->key());
+
                     continue;
                 }
 
                 $allOk = false;
                 $hadFailure = true;
+                $error = filled($result->error) ? $result->error : 'Ошибка съёма данных';
+                $this->syncIssueStatus->recordFailure($projectId, $collector->key(), $error);
                 event(new IntegrationSyncFailed(
                     projectId: $projectId,
-                    error: filled($result->error) ? $result->error : 'Ошибка съёма данных',
+                    error: $error,
                     collector: $collector->key(),
                 ));
             }
