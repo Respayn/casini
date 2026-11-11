@@ -5,47 +5,54 @@
     ">
     <x-layout.sidebar-filter-hint />
 
+    @foreach ($generationWarnings as $warning)
+        <x-feedback.notice variant="error">{{ $warning }}</x-feedback.notice>
+    @endforeach
+
     {{-- Шапка компонента --}}
-    <div class="flex justify-between">
-        <h1 class="mb-7">Отчеты</h1>
-        <div>
-            <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
-                variant="primary" />
-            <x-button.button href="{{ route('templates') }}" label="Шаблоны отчетов" variant="primary" />
+    <div class="mb-7 flex items-center justify-between gap-3">
+        <h1>Отчеты</h1>
+        <div class="flex items-center gap-2.5">
+            @if (auth()->user()?->can('read report templates') || auth()->user()?->can('edit report templates') || auth()->user()?->can('full report templates'))
+                <x-button.button href="{{ route('reports.templates') }}" label="Шаблоны отчетов" />
+            @endif
+            @if ($this->canCreateReports)
+                <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
+                    variant="primary" />
+            @endif
         </div>
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex items-center">
-        <div class="mr-3.5">
+    <div class="flex flex-wrap items-center gap-y-3">
+        <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="showInactiveProjects" />
         </div>
 
-        <div class="flex gap-2">
-            <x-form.month-picker wire:model.live="periodFrom" />
-            <x-form.month-picker wire:model.live="periodTo" />
+        <div class="mr-[26px] flex items-center gap-2">
+            <x-form.month-picker wire:model.live="periodFrom" disable-future />
+            <span class="text-secondary-text">-</span>
+            <x-form.month-picker wire:model.live="periodTo" disable-future />
         </div>
 
-        <div class="flex-end ml-auto">
-            <x-overlay.modal-trigger name="column-settings-modal">
-                <x-button.button icon="icons.edit" label="Настроить столбцы" variant="link" />
-            </x-overlay.modal-trigger>
-        </div>
+        <x-report.table-toolbar :refreshable="false" :column-trigger-action="false" />
     </div>
 
     @if (empty($this->reports))
         <div class="mt-20 flex flex-col items-center gap-4">
             <span class="text-caption-text">Нет отчетов для отображения</span>
-            <div>
-                <x-button.button href="{{ route('system-settings.clients-and-projects') }}" target="_blank"
-                    icon="icons.plus" label="Добавить клиенто-проект" variant="primary" />
-            </div>
+            @if ($this->canCreateReports)
+                <div>
+                    <x-button.button href="{{ route('reports.create') }}" icon="icons.plus" label="Создать отчет"
+                        variant="primary" />
+                </div>
+            @endif
         </div>
     @else
         <div class="mt-3">
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
-                <x-data.table>
+                <x-data.table class="w-full">
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
                             <x-data.table-column>{{ $column['label'] }}</x-data.table-column>
@@ -108,37 +115,40 @@
                                         @break
 
                                         @case('download')
-                                            <x-data.table-cell class="bg-primary text-white cursor-pointer"
-                                                wire:click="download({{ $report->reportId }})">
-                                                <div class="flex justify-center">
-                                                    <x-icons.download />
-                                                </div>
-                                            </x-data.table-cell>
-                                        @break
-
-                                        @case('is_ready')
-                                            <x-data.table-cell>
-                                                <div class="flex justify-center">
-                                                    <x-form.checkbox checked="{{ $report->isReady }}" disabled
-                                                        wire:change.renderless="updateIsReady({{ $report->reportId }}, $event.target.checked)" />
-                                                </div>
-                                            </x-data.table-cell>
-                                        @break
-
-                                        @case('is_accepted')
-                                            <x-data.table-cell>
-                                                <div class="flex justify-center">
-                                                    <x-form.checkbox checked="{{ $report->isAccepted }}"
-                                                        wire:change.renderless="updateIsAccepted({{ $report->reportId }}, $event.target.checked)" />
-                                                </div>
-                                            </x-data.table-cell>
-                                        @break
-
-                                        @case('is_sent')
-                                            <x-data.table-cell>
-                                                <div class="flex justify-center">
-                                                    <x-form.checkbox checked="{{ $report->isSent }}"
-                                                        wire:change.renderless="updateIsSent({{ $report->reportId }}, $event.target.checked)" />
+                                            <x-data.table-cell class="whitespace-nowrap">
+                                                <div class="flex gap-2">
+                                                    <button
+                                                        type="button"
+                                                        class="inline-flex h-10 w-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-default-button text-default-button transition hover:not-disabled:bg-default-button hover:not-disabled:text-white disabled:cursor-not-allowed disabled:border-0 disabled:bg-secondary disabled:text-default-button-disabled"
+                                                        wire:click="download({{ $report->reportId }})"
+                                                        wire:loading.class="pointer-events-none"
+                                                        wire:target="download({{ $report->reportId }})"
+                                                        title="Скачать"
+                                                    >
+                                                        <span class="relative inline-flex size-6 shrink-0 items-center justify-center">
+                                                            <x-icons.download
+                                                                class="size-6"
+                                                                wire:loading.remove
+                                                                wire:target="download({{ $report->reportId }})"
+                                                            />
+                                                            <x-icons.progress-activity
+                                                                class="absolute inset-0 size-6 animate-spin"
+                                                                wire:loading
+                                                                wire:target="download({{ $report->reportId }})"
+                                                            />
+                                                        </span>
+                                                    </button>
+                                                    @if ($this->canCreateReports)
+                                                        <x-button.button
+                                                            href="{{ route('reports.create', $report->reportId) }}"
+                                                            icon="icons.edit"
+                                                            title="Редактировать"
+                                                        />
+                                                    @endif
+                                                    @if ($this->canDeleteReports)
+                                                        <x-button.button icon="icons.delete" title="Удалить"
+                                                            x-on:click="$dispatch('report-delete-ask', { id: {{ $report->reportId }} })" />
+                                                    @endif
                                                 </div>
                                             </x-data.table-cell>
                                         @break
@@ -153,4 +163,21 @@
     @endif
 
     <x-column-settings-modal :columns="$columnSettings" />
+
+    @if ($this->canDeleteReports)
+        <x-overlay.modal name="report-delete-confirm" title="Вы уверены?">
+            <x-slot:body>
+                <div x-data="{ id: null }"
+                    x-on:report-delete-ask.window="id = $event.detail.id; $dispatch('modal-show', { name: 'report-delete-confirm' })">
+                    <p class="text-primary-text">Отчет будет удален.</p>
+                    <div class="mt-6 flex justify-between gap-4">
+                        <x-button.button icon="icons.delete" label="Удалить" variant="primary"
+                            x-on:click="$wire.delete(id); $dispatch('modal-hide', { name: 'report-delete-confirm' })" />
+                        <x-button.button label="Отменить"
+                            x-on:click="$dispatch('modal-hide', { name: 'report-delete-confirm' })" />
+                    </div>
+                </div>
+            </x-slot>
+        </x-overlay.modal>
+    @endif
 </div>

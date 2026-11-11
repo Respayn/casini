@@ -17,6 +17,7 @@ use Src\Application\ColumnSettings\ColumnSettingsRepositoryInterface;
 use Src\Application\Reports\Generate\ReportDataProviderInterface;
 use Src\Application\Reports\Generate\ReportGeneratorInterface;
 use Src\Application\Reports\GetList\ReportsListDataProviderInterface;
+use Src\Application\Templates\TemplateTagReaderInterface;
 use Src\Domain\Agencies\AgencyRepositoryInterface;
 use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Domain\CompletedWorks\CompletedWorkRepositoryInterface;
@@ -46,6 +47,7 @@ use Src\Infrastructure\Persistence\UserRepository;
 use Src\Infrastructure\Queries\ReportsListDataProvider;
 use Src\Infrastructure\Reports\ReportDataProvider;
 use Src\Infrastructure\Reports\ReportGenerator;
+use Src\Infrastructure\Templates\PhpWordTemplateTagReader;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -83,6 +85,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ReportGeneratorInterface::class, ReportGenerator::class);
         $this->app->bind(ReportsListDataProviderInterface::class, ReportsListDataProvider::class);
         $this->app->bind(ReportDataProviderInterface::class, ReportDataProvider::class);
+        $this->app->bind(TemplateTagReaderInterface::class, PhpWordTemplateTagReader::class);
     }
 
     /**

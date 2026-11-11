@@ -9,7 +9,9 @@ use Src\Domain\Reports\ReportRepositoryInterface;
 class DownloadReportFileQueryHandler
 {
     private readonly ReportRepositoryInterface $reportRepository;
+
     private readonly ProjectRepositoryInterface $projectRepository;
+
     private readonly ReportNamingService $reportNamingService;
 
     public function __construct(
@@ -30,8 +32,9 @@ class DownloadReportFileQueryHandler
         $project = $this->projectRepository->findById($report->getProjectId());
 
         $path = $report->getPath();
-        $name = $this->reportNamingService->generateName($report, $project);
-        
+        $name = $this->reportNamingService->generateName($report, $project)
+            .$report->getFormat()->extension();
+
         return new DownloadReportFileDto(
             $path,
             $name

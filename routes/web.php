@@ -66,12 +66,29 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('/statistics', 'pages::statistics')->name('statistics');
     });
 
-    Route::middleware(['permission:read reports|full reports'])->group(function () {
-        Route::livewire('/reports', 'pages::reports')->name('reports');
-        Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
+    Route::middleware(['permission:read advertising funds movement|edit advertising funds movement|full advertising funds movement'])->group(function () {
+        Route::livewire('/drs', 'pages::drs')->name('drs');
     });
 
-    Route::livewire('/templates', 'pages::templates')->name('templates');
+    Route::middleware(['permission:read reports|edit reports|full reports'])->group(function () {
+        Route::livewire('/reports', 'pages::reports')->name('reports');
+    });
+
+    Route::middleware(['permission:edit reports|full reports'])->group(function () {
+        Route::livewire('/reports/create/{reportId?}', 'pages::reports-create')
+            ->whereNumber('reportId')
+            ->name('reports.create');
+    });
+
+    Route::middleware(['permission:read report templates|edit report templates|full report templates'])->group(function () {
+        Route::livewire('/templates', 'pages::templates')->name('reports.templates');
+    });
+
+    Route::middleware(['permission:edit report templates|full report templates'])->group(function () {
+        Route::livewire('/templates/upload/{templateId?}', 'pages::templates-upload')
+            ->whereNumber('templateId')
+            ->name('reports.templates.upload');
+    });
 
     Route::middleware(['permission:read planning|full planning'])->group(function () {
         Route::livewire('/planning', 'pages::planning')->name('planning');

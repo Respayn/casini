@@ -6,5 +6,10 @@ use Src\Domain\Reports\ReportFormat;
 
 interface ReportGeneratorInterface
 {
-    public function generate(string $templatePath, ReportData $data, string $name, ReportFormat $format = ReportFormat::DOCX): string;
+    public function generate(
+        string $templatePath,
+        ReportData $data,
+        string $name,
+        ReportFormat $format = ReportFormat::DOCX,
+    ): GeneratedReportFile;
 }

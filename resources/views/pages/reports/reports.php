@@ -1,22 +1,23 @@
 <?php
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Support\SharedProductFilters;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Src\Application\Reports\Delete\DeleteReportCommand;
+use Src\Application\Reports\Delete\DeleteReportCommandHandler;
 use Src\Application\Reports\Download\DownloadReportFileQuery;
 use Src\Application\Reports\Download\DownloadReportFileQueryHandler;
 use Src\Application\Reports\GetList\GetReportsListQuery;
 use Src\Application\Reports\GetList\GetReportsListQueryHandler;
-use Src\Application\Reports\Update\UpdateReportCommand;
-use Src\Application\Reports\Update\UpdateReportCommandHandler;
 use Src\Presentation\Livewire\Traits\WithColumnSettings;
 
 new
-    #[Title('Casini - Отчеты')]
+    #[Title('Отчеты')]
     class extends Component
     {
         use WithColumnSettings;
@@ -44,16 +45,19 @@ new
                 ['key' => 'period', 'label' => 'Период'],
                 ['key' => 'specialist', 'label' => 'Специалист'],
                 ['key' => 'format', 'label' => 'Формат'],
-                ['key' => 'download', 'label' => 'Скачать'],
-                ['key' => 'is_ready', 'label' => 'Отчет готов?'],
-                ['key' => 'is_accepted', 'label' => 'Отчет принят менеджером?'],
-                ['key' => 'is_sent', 'label' => 'Отчет отправлен клиенту?'],
+                ['key' => 'download', 'label' => 'Действия'],
             ];
         }
 
         public ?int $pendingDownloadId = null;
+
+        /** @var list<string> */
+        public array $generationWarnings = [];
+
         public bool $showInactiveProjects = false;
+
         public Carbon $periodFrom;
+
         public Carbon $periodTo;
 
         public array $columnSettings = [];
@@ -61,24 +65,78 @@ new
         /** Снимок настроек до открытия модалки */
         public array $columnSettingsSnapshot = [];
 
+        #[Computed]
+        public function canCreateReports(): bool
+        {
+            $user = Auth::user();
+
+            return $user !== null
+                && ($user->can('edit reports') || $user->can('full reports'));
+        }
+
+        #[Computed]
+        public function canDeleteReports(): bool
+        {
+            $user = Auth::user();
+
+            return $user !== null && $user->can('full reports');
+        }
+
         public function mount()
         {
             if (Session::has('download')) {
                 $this->pendingDownloadId = Session::get('download');
             }
 
-            $this->periodFrom = Carbon::now()->subMonth()->startOfMonth();
-            $this->periodTo = Carbon::now()->endOfMonth()->startOfDay();
+            if (Session::has('report_generation_warnings')) {
+                $warnings = Session::get('report_generation_warnings');
+                $this->generationWarnings = is_array($warnings)
+                    ? array_values(array_filter($warnings, static fn ($item): bool => is_string($item) && $item !== ''))
+                    : [];
+            }
+
+            $this->periodFrom = Carbon::now()->startOfMonth()->startOfDay();
+            $this->periodTo = $this->periodFrom->copy();
+            $this->showInactiveProjects = SharedProductFilters::resolveShowInactive($this->showInactiveProjects);
         }
 
-        public function updatedPeriodFrom()
+        public function updatedShowInactiveProjects(): void
         {
-            $this->periodFrom = $this->periodFrom->startOfMonth();
+            SharedProductFilters::rememberShowInactive($this->showInactiveProjects);
+            unset($this->reports);
         }
 
-        public function updatedPeriodTo()
+        public function updatedPeriodFrom(): void
         {
-            $this->periodTo = $this->periodTo->endOfMonth()->startOfDay();
+            $this->clampPeriodToPresent();
+        }
+
+        public function updatedPeriodTo(): void
+        {
+            $this->clampPeriodToPresent();
+        }
+
+        /**
+         * Нормализация: начало месяца, не позже текущего месяца, periodFrom <= periodTo.
+         */
+        private function clampPeriodToPresent(): void
+        {
+            $currentMonth = Carbon::now()->startOfMonth()->startOfDay();
+
+            $this->periodFrom = $this->periodFrom->copy()->startOfMonth()->startOfDay();
+            $this->periodTo = $this->periodTo->copy()->startOfMonth()->startOfDay();
+
+            if ($this->periodFrom->greaterThan($currentMonth)) {
+                $this->periodFrom = $currentMonth->copy();
+            }
+
+            if ($this->periodTo->greaterThan($currentMonth)) {
+                $this->periodTo = $currentMonth->copy();
+            }
+
+            if ($this->periodFrom->greaterThan($this->periodTo)) {
+                $this->periodTo = $this->periodFrom->copy();
+            }
         }
 
         #[Computed]
@@ -86,8 +144,8 @@ new
         {
             return app(GetReportsListQueryHandler::class)->handle(new GetReportsListQuery(
                 $this->showInactiveProjects,
-                $this->periodFrom,
-                $this->periodTo,
+                $this->periodFrom->copy(),
+                $this->periodTo->copy()->endOfMonth(),
                 Auth::id(),
                 $this->sidebarProjectId,
             ));
@@ -106,27 +164,17 @@ new
             return response()->download($file->path, $file->name);
         }
 
-        public function updateIsReady(UpdateReportCommandHandler $command, int $reportId, bool $value)
+        public function delete(DeleteReportCommandHandler $command, int $reportId): void
         {
-            $command->handle(new UpdateReportCommand(
-                reportId: $reportId,
-                isReady: $value
-            ));
+            $this->ensureCanDeleteReports();
+            $this->resetErrorBag();
+
+            $command->handle(new DeleteReportCommand($reportId));
+            unset($this->reports);
         }
 
-        public function updateIsAccepted(UpdateReportCommandHandler $command, int $reportId, bool $value)
+        private function ensureCanDeleteReports(): void
         {
-            $command->handle(new UpdateReportCommand(
-                reportId: $reportId,
-                isAccepted: $value
-            ));
-        }
-
-        public function updateIsSent(UpdateReportCommandHandler $command, int $reportId, bool $value)
-        {
-            $command->handle(new UpdateReportCommand(
-                reportId: $reportId,
-                isSent: $value
-            ));
+            abort_unless($this->canDeleteReports, 403, __('permissions.denied'));
         }
     };

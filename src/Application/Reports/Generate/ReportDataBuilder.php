@@ -5,53 +5,160 @@ namespace Src\Application\Reports\Generate;
 class ReportDataBuilder
 {
     private array $values = [];
+
     private array $tables = [];
+
     private array $lists = [];
+
     private array $images = [];
+
     private array $conditions = [];
+
+    /** @var list<array{phraseKey: string, positionKey: string, rows: list<array{phrase: string, position: string, series?: list<string>}>}> */
+    private array $keywordPositionPairs = [];
+
+    /** @var list<array{
+     *     campaign: string,
+     *     impressions: string,
+     *     clicks: string,
+     *     cost: string,
+     *     ctr: string,
+     *     cpc: string,
+     *     conversions: string,
+     *     cpl: string
+     * }>
+     */
+    private array $directCampaignStatRows = [];
+
+    /** @var array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }|null
+     */
+    private ?array $directAppealsStats = null;
+
+    /** @var array<string, list<string>> */
+    private array $periodSeries = [];
+
+    /** @var list<string> */
+    private array $periodColumnLabels = [];
+
+    /** @var list<string> */
+    private array $warnings = [];
 
     public function value(string $key, string $value): self
     {
         $this->values[$key] = $value;
+
+        return $this;
+    }
+
+    public function warning(string $message): self
+    {
+        $message = trim($message);
+
+        if ($message !== '' && ! in_array($message, $this->warnings, true)) {
+            $this->warnings[] = $message;
+        }
+
         return $this;
     }
 
     public function values(array $values): self
     {
         $this->values = array_merge($this->values, $values);
+
         return $this;
     }
 
-    /**
-     * @param string $key
-     * @param array $headers
-     * @param array $rows
-     * @return ReportDataBuilder
-     */
     public function table(string $key, array $headers, array $rows): self
     {
         $this->tables[$key] = [
             'headers' => $headers,
-            'rows' => $rows
+            'rows' => $rows,
         ];
+
         return $this;
     }
 
     public function list(string $key, array $items): self
     {
         $this->lists[$key] = $items;
+
         return $this;
     }
 
     public function image(string $key, string $path): self
     {
         $this->images[$key] = $path;
+
         return $this;
     }
 
     public function condition(string $key, bool $render): self
     {
         $this->conditions[$key] = $render;
+
+        return $this;
+    }
+
+    /**
+     * @param  list<string>  $labels
+     * @param  array<string, list<string>>  $series
+     */
+    public function periodColumns(array $labels, array $series): self
+    {
+        $this->periodColumnLabels = $labels;
+        $this->periodSeries = $series;
+
+        return $this;
+    }
+
+    /**
+     * @param  list<array{phrase: string, position: string, series?: list<string>}>  $rows
+     */
+    public function keywordPositionPair(string $phraseKey, string $positionKey, array $rows): self
+    {
+        $this->keywordPositionPairs[] = [
+            'phraseKey' => $phraseKey,
+            'positionKey' => $positionKey,
+            'rows' => $rows,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * @param  list<array{
+     *     campaign: string,
+     *     impressions: string,
+     *     clicks: string,
+     *     cost: string,
+     *     ctr: string,
+     *     cpc: string,
+     *     conversions: string,
+     *     cpl: string
+     * }>  $rows
+     */
+    public function directCampaignStatRows(array $rows): self
+    {
+        $this->directCampaignStatRows = $rows;
+
+        return $this;
+    }
+
+    /**
+     * @param  array{
+     *     campaign_names: list<string>,
+     *     rows: list<array{goal: string, values: list<string>}>,
+     *     totals: list<string>
+     * }  $stats
+     */
+    public function directAppealsStats(array $stats): self
+    {
+        $this->directAppealsStats = $stats;
+
         return $this;
     }
 
@@ -62,7 +169,13 @@ class ReportDataBuilder
             tables: $this->tables,
             lists: $this->lists,
             images: $this->images,
-            conditions: $this->conditions
+            conditions: $this->conditions,
+            keywordPositionPairs: $this->keywordPositionPairs,
+            directCampaignStatRows: $this->directCampaignStatRows,
+            directAppealsStats: $this->directAppealsStats,
+            warnings: $this->warnings,
+            periodSeries: $this->periodSeries,
+            periodColumnLabels: $this->periodColumnLabels,
         );
     }
 }
