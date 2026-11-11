@@ -12,7 +12,6 @@ use App\Enums\IntegrationCategory;
 use App\Exceptions\CallibriApiException;
 use App\Factories\IntegrationSettingsFactory;
 use App\Helpers\PhraseDuplicateHelper;
-use App\Livewire\Concerns\WithGoogleSheetsOAuth;
 use App\Livewire\Concerns\WithYandexMetrikaOAuth;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
@@ -23,7 +22,7 @@ use App\Models\ProjectFieldHistory;
 use App\Services\CallibriService;
 use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
-use App\Services\GoogleSheetsService;
+use App\Services\GoogleSheets\GoogleSheetsServiceAccountCredentials;
 use App\Services\IntegrationService;
 use App\Services\IntegrationSync\IntegrationSyncIssueStatus;
 use App\Services\ProjectService;
@@ -61,8 +60,10 @@ new
 class extends Component
 {
     use WithFileUploads;
-    use WithGoogleSheetsOAuth;
     use WithYandexMetrikaOAuth;
+
+    /** Помечена как public, чтобы Livewire сохранял флаг между запросами формы. */
+    public bool $autoEnabledGoogleSheetsForSeo = false;
 
     public CreateClientProjectForm $clientProjectForm;
 
@@ -293,17 +294,6 @@ class extends Component
                 $this->restoreFromOAuthCache($cachedData);
             }
 
-            if (
-                ! empty($state['cache_data_id'])
-                && ($state['open_integration'] ?? '') === 'google_sheets'
-            ) {
-                $oauthSettings = Cache::pull('google_sheets_oauth_result_'.$state['cache_data_id']);
-
-                if (is_array($oauthSettings) && $oauthSettings !== []) {
-                    $this->applyGoogleSheetsOAuthTokens($oauthSettings);
-                }
-            }
-
             foreach ($state['integrations'] ?? [] as $setting) {
                 $integrationData = new ProjectIntegrationData;
                 $integrationData->integration = IntegrationData::from($setting['integration']);
@@ -335,6 +325,7 @@ class extends Component
             $this->startWithSuccessMessage = true;
         }
 
+        $this->ensureDefaultGoogleSheetsForSeo();
         $this->rebuildParameterCalculationRows();
     }
 
@@ -343,9 +334,14 @@ class extends Component
         unset(
             $this->analyticsIntegrations,
             $this->configuredAnalyticsIntegrations,
+            $this->configuredMoneyIntegrations,
             $this->toolsIntegrations,
             $this->configuredToolsIntegrations,
+            $this->moneyIntegrations,
+            $this->moneyIntegrationDisabledReasons,
+            $this->isSelectedIntegrationPlatformConfigured,
         );
+        $this->ensureDefaultGoogleSheetsForSeo();
         $this->rebuildParameterCalculationRows();
     }
 
@@ -532,6 +528,51 @@ class extends Component
         }
     }
 
+    /**
+     * Для SEO-проектов включаем Google Таблицы, если записи ещё нет.
+     * Уже выключенные руками не трогаем. Автоподстановку снимаем при смене типа на контекст.
+     */
+    private function ensureDefaultGoogleSheetsForSeo(): void
+    {
+        $integration = $this->integrations()->firstWhere('code', 'google_sheets');
+
+        if ($integration === null) {
+            return;
+        }
+
+        $isSeo = (string) $this->clientProjectForm->projectType === ProjectType::SEO_PROMOTION->value;
+
+        if (! $isSeo) {
+            if ($this->autoEnabledGoogleSheetsForSeo && $this->integrationSettings->has($integration->id)) {
+                $this->integrationSettings = $this->integrationSettings
+                    ->reject(fn ($setting, $id) => (int) $id === (int) $integration->id)
+                    ->mapWithKeys(fn ($setting, $id) => [(int) $id => $setting]);
+                $this->autoEnabledGoogleSheetsForSeo = false;
+                unset($this->configuredMoneyIntegrations);
+            }
+
+            return;
+        }
+
+        if ($this->integrationSettings->has($integration->id)) {
+            return;
+        }
+
+        $projectIntegration = new ProjectIntegrationData;
+        $projectIntegration->integration = IntegrationData::from($integration);
+        $projectIntegration->isEnabled = true;
+        $projectIntegration->settings = [
+            'sync_enabled_at' => now()->format('Y-m-d'),
+        ];
+
+        $this->integrationSettings[$integration->id] = $projectIntegration;
+        $this->integrationSettings = $this->integrationSettings->mapWithKeys(
+            fn ($setting, $id) => [(int) $id => $setting]
+        );
+        $this->autoEnabledGoogleSheetsForSeo = true;
+        unset($this->configuredMoneyIntegrations);
+    }
+
     protected function refreshParameterCalculationRows(): void
     {
         $this->rebuildParameterCalculationRows();
@@ -609,6 +650,23 @@ class extends Component
     #[Computed]
     public function isBitrix24AgencyConfigured(): bool
     {
+        $agency = $this->currentAgency();
+
+        return $agency !== null && $agency->isBitrix24Configured();
+    }
+
+    #[Computed]
+    public function isGoogleSheetsAgencyConfigured(): bool
+    {
+        $agency = $this->currentAgency();
+
+        return $agency !== null
+            && $agency->isGoogleSheetsSpreadsheetConfigured()
+            && app(GoogleSheetsServiceAccountCredentials::class)->isConfigured();
+    }
+
+    private function currentAgency(): ?Agency
+    {
         $agencyId = (int) (session('current_agency_id') ?? 0);
 
         if ($agencyId <= 0) {
@@ -616,24 +674,36 @@ class extends Component
         }
 
         if ($agencyId <= 0) {
-            return false;
+            return null;
         }
 
-        $agency = Agency::query()->find($agencyId);
-
-        return $agency !== null && $agency->isBitrix24Configured();
+        return Agency::query()->find($agencyId);
     }
 
     #[Computed]
     public function moneyIntegrationDisabledReasons(): array
     {
-        if ($this->isBitrix24AgencyConfigured) {
-            return [];
+        $reasons = [];
+
+        if (! $this->isBitrix24AgencyConfigured) {
+            $reasons['bitrix24'] = 'Сначала укажите URL портала и вебхук в настройках агентства';
         }
 
-        return [
-            'bitrix24' => 'Сначала укажите URL портала и вебхук в настройках агентства',
-        ];
+        if (! $this->isGoogleSheetsAgencyConfigured) {
+            $agency = $this->currentAgency();
+            $hasUrl = $agency !== null && $agency->isGoogleSheetsSpreadsheetConfigured();
+            $hasKey = app(GoogleSheetsServiceAccountCredentials::class)->isConfigured();
+
+            if (! $hasUrl && ! $hasKey) {
+                $reasons['google_sheets'] = 'Сначала укажите ссылку на таблицу в настройках агентства и положите ключ служебной учётки на сервер';
+            } elseif (! $hasUrl) {
+                $reasons['google_sheets'] = 'Сначала укажите ссылку на таблицу в настройках агентства';
+            } else {
+                $reasons['google_sheets'] = 'Сначала положите ключ служебной учётки на сервер';
+            }
+        }
+
+        return $reasons;
     }
 
     #[Computed]
@@ -645,7 +715,7 @@ class extends Component
             'yandex_search_api' => $this->isYandexSearchApiConfigured,
             'yandex_direct' => $this->isYandexDirectOAuthConfigured,
             'yandex_metrika' => $this->isYandexMetrikaOAuthConfigured,
-            'google_sheets' => $this->isGoogleSheetsOAuthConfigured,
+            'google_sheets' => $this->isGoogleSheetsAgencyConfigured,
             'bitrix24' => $this->isBitrix24AgencyConfigured,
             default => true,
         };
@@ -666,6 +736,14 @@ class extends Component
         $integration = $this->integrations()->firstWhere('code', $code);
 
         if ($integration === null) {
+            return;
+        }
+
+        // Из списка «Добавить» без ссылки/ключа не открываем; уже добавленную карточку открыть можно.
+        if ($code === 'google_sheets'
+            && ! $this->isGoogleSheetsAgencyConfigured
+            && ! $this->integrationSettings->has($integration->id)
+        ) {
             return;
         }
 
@@ -716,14 +794,29 @@ class extends Component
         );
 
         if ($integration?->code === 'google_sheets') {
-            $documentId = (string) ($projectIntegrationData->settings['document_id'] ?? '');
-            $projectIntegrationData->settings['document_id'] = GoogleSheetsService::extractSpreadsheetId($documentId);
+            unset(
+                $projectIntegrationData->settings['document_id'],
+                $projectIntegrationData->settings['documentId'],
+                $projectIntegrationData->settings['oauth_token'],
+                $projectIntegrationData->settings['refresh_token'],
+                $projectIntegrationData->settings['token_expires_at'],
+                $projectIntegrationData->settings['oauth_google_user_id'],
+                $projectIntegrationData->settings['oauth_google_email'],
+                $projectIntegrationData->settings['oauth_google_display_name'],
+                $projectIntegrationData->settings['oauth_google_avatar_url'],
+            );
 
-            if (($projectIntegrationData->isEnabled ?? false) && $documentId === '') {
-                throw ValidationException::withMessages([
-                    'document_id' => 'Укажите ID Google таблицы.',
-                ]);
+            if (($projectIntegrationData->isEnabled ?? false)
+                && blank($projectIntegrationData->settings['sync_enabled_at'] ?? null)
+            ) {
+                $projectIntegrationData->settings['sync_enabled_at'] = now()->format('Y-m-d');
             }
+
+            if (! ($projectIntegrationData->isEnabled ?? false)) {
+                unset($projectIntegrationData->settings['sync_enabled_at']);
+            }
+
+            $this->autoEnabledGoogleSheetsForSeo = false;
         }
 
         if ($integration?->code === 'yandex_search_api' && ($projectIntegrationData->isEnabled ?? false)) {

@@ -30,7 +30,9 @@ class CreateIntegrationSyncFailedNotification
         $integrationName = IntegrationManualRefreshProgress::accessIntegrationName($e->collector);
 
         $text = $isAccessError
-            ? 'Доступ к '.$integrationName.' больше не действует. Подключите его заново.'
+            ? ($integrationCode === 'google_sheets'
+                ? 'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.'
+                : 'Доступ к '.$integrationName.' больше не действует. Подключите его заново.')
             : SafeLogger::forDisplay($rawError);
 
         $payload = [

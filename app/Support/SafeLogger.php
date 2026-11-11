@@ -116,6 +116,10 @@ class SafeLogger
             || str_contains($haystack, 'Authentication failed')
             || str_contains($haystack, 'Failed to refresh')
             || str_contains($haystack, 'OAuth refresh token is missing')
+            || str_contains($haystack, 'service account key is missing')
+            || str_contains($haystack, 'PERMISSION_DENIED')
+            || str_contains($haystack, 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+            || str_contains($haystack, 'The caller does not have permission')
             || str_contains($haystack, 'Unauthorized')
             || preg_match('/\b401\b/', $haystack) === 1;
     }

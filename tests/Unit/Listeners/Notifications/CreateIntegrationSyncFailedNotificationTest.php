@@ -76,7 +76,7 @@ class CreateIntegrationSyncFailedNotificationTest extends TestCase
 
         $this->assertNotNull($notification);
         $this->assertSame(
-            'Доступ к Google Таблицы больше не действует. Подключите его заново.',
+            'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.',
             $notification->text
         );
         $this->assertSame($rawError, data_get($notification->payload, 'error_detail'));

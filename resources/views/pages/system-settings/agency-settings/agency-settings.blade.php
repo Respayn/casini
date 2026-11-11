@@ -163,6 +163,21 @@
                 </div>
             </x-form.form-field>
 
+            <h2 class="mb-1 mt-6 font-semibold">Интеграция с Google Таблицами</h2>
+
+            <x-form.form-field>
+                <x-form.form-label
+                    tooltip="{{ $this->googleSheetsSpreadsheetUrlTooltip }}"
+                    tooltip-panel-max-width="22rem"
+                >
+                    Ссылка на Google Таблицу
+                </x-form.form-label>
+                <x-form.input-text
+                    wire:model="form.googleSheetsSpreadsheetUrl"
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                />
+            </x-form.form-field>
+
             <h2 class="mb-1 mt-6 font-semibold">Реквизиты в отчетах</h2>
 
             <x-form.form-field>

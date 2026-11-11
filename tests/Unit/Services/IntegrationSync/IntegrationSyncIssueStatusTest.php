@@ -30,7 +30,7 @@ class IntegrationSyncIssueStatusTest extends TestCase
             $row->settings[IntegrationSyncIssueStatus::KIND_KEY] ?? null,
         );
         $this->assertSame(
-            'Доступ к Google Таблицы больше не действует. Подключите его заново.',
+            'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.',
             $row->settings[IntegrationSyncIssueStatus::MESSAGE_KEY] ?? null,
         );
     }
@@ -39,7 +39,7 @@ class IntegrationSyncIssueStatusTest extends TestCase
     {
         [$project, $row] = $this->makeGoogleSheetsIntegration([
             IntegrationSyncIssueStatus::KIND_KEY => IntegrationSyncIssueStatus::KIND_ACCESS,
-            IntegrationSyncIssueStatus::MESSAGE_KEY => 'Доступ к Google Таблицы больше не действует. Подключите его заново.',
+            IntegrationSyncIssueStatus::MESSAGE_KEY => 'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.',
         ]);
 
         app(IntegrationSyncIssueStatus::class)->recordFailure(
@@ -55,7 +55,7 @@ class IntegrationSyncIssueStatusTest extends TestCase
             $row->settings[IntegrationSyncIssueStatus::KIND_KEY] ?? null,
         );
         $this->assertSame(
-            'Доступ к Google Таблицы больше не действует. Подключите его заново.',
+            'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.',
             $row->settings[IntegrationSyncIssueStatus::MESSAGE_KEY] ?? null,
         );
     }
@@ -81,7 +81,7 @@ class IntegrationSyncIssueStatusTest extends TestCase
             [
                 'document_id' => 'old',
                 IntegrationSyncIssueStatus::KIND_KEY => IntegrationSyncIssueStatus::KIND_ACCESS,
-                IntegrationSyncIssueStatus::MESSAGE_KEY => 'Доступ к Google Таблицы больше не действует. Подключите его заново.',
+                IntegrationSyncIssueStatus::MESSAGE_KEY => 'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.',
             ],
             [
                 'document_id' => 'new',
@@ -91,7 +91,7 @@ class IntegrationSyncIssueStatusTest extends TestCase
         $this->assertSame('new', $merged['document_id']);
         $this->assertSame(IntegrationSyncIssueStatus::KIND_ACCESS, $merged[IntegrationSyncIssueStatus::KIND_KEY]);
         $this->assertSame(
-            'Доступ к Google Таблицы больше не действует. Подключите его заново.',
+            'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.',
             $merged[IntegrationSyncIssueStatus::MESSAGE_KEY],
         );
     }
@@ -115,8 +115,7 @@ class IntegrationSyncIssueStatusTest extends TestCase
             'integration_id' => $integration->id,
             'is_enabled' => true,
             'settings' => array_merge([
-                'document_id' => 'sheet-id',
-                'oauth_token' => 'token',
+                'sync_enabled_at' => now()->toDateString(),
             ], $extraSettings),
         ]);
 

@@ -207,7 +207,7 @@ class ChannelReportSpendingsTotalsTest extends TestCase
         $googleIntegration = (object) [
             'integration' => (object) ['code' => 'google_sheets'],
             'isEnabled' => true,
-            'settings' => ['document_id' => 'doc'],
+            'settings' => [],
         ];
 
         $method = new ReflectionMethod(ChannelReportService::class, 'buildProjectSpendingsData');

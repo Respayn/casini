@@ -32,9 +32,8 @@ class ReviewMarkupGuardTest extends TestCase
         return [
             'окно Метрики' => ['oauth/yandex-metrika-popup-complete.blade.php'],
             'окно Метрики без настроек' => ['oauth/yandex-metrika-oauth-unconfigured.blade.php'],
-            'окно Google Таблиц' => ['oauth/google-sheets-popup-complete.blade.php'],
-            'окно Google Таблиц без настроек' => ['oauth/google-sheets-oauth-unconfigured.blade.php'],
             'сайдбар Метрики' => ['components/project-form/yandex-metrika-integration-modal-sidebar.blade.php'],
+            'сайдбар Google Таблиц' => ['components/project-form/google-sheets-integration-modal-sidebar.blade.php'],
         ];
     }
 

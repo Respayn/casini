@@ -80,10 +80,12 @@ class IntegrationSyncIssueStatus
         $isAccess = SafeLogger::isIntegrationAccessError($rawError);
         $kind = $isAccess ? self::KIND_ACCESS : self::KIND_OTHER;
         $name = IntegrationManualRefreshProgress::accessIntegrationName($collector);
-        $message = $isAccess
-            ? 'Доступ к '.$name.' больше не действует. Подключите его заново.'
-            : 'Не удалось обновить данные. Следующая попытка будет ночью.';
         $code = IntegrationManualRefreshProgress::accessIntegrationCode($collector);
+        $message = $isAccess
+            ? ($code === 'google_sheets'
+                ? 'Доступ к Google Таблицы больше не действует. Откройте таблицу на почту служебной учётки.'
+                : 'Доступ к '.$name.' больше не действует. Подключите его заново.')
+            : 'Не удалось обновить данные. Следующая попытка будет ночью.';
 
         $this->integrations->mutateProjectIntegrationSettings(
             $projectId,

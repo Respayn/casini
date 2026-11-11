@@ -9,6 +9,7 @@ use App\Models\IntegrationProject;
 use App\Models\Project;
 use App\Repositories\IntegrationRepository;
 use App\Services\GoogleSheets\Exceptions\GoogleSheetsParseException;
+use App\Services\GoogleSheets\GoogleSheetsServiceAccountCredentials;
 use App\Services\GoogleSheets\GoogleSheetsSpendingsParser;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -20,7 +21,7 @@ use Throwable;
 class GoogleSheetsService
 {
     public function __construct(
-        private GoogleSheetsAuthService $authService,
+        private GoogleSheetsServiceAccountCredentials $credentials,
         private GoogleSheetsSpendingsParser $parser,
         private IntegrationRepository $integrationRepository,
     ) {}
@@ -159,14 +160,14 @@ class GoogleSheetsService
             throw new \RuntimeException('Closed month cannot be updated by nightly sync.');
         }
 
-        $settings = is_array($projectIntegration->settings)
-            ? $projectIntegration->settings
-            : json_decode((string) $projectIntegration->settings, true) ?? [];
-
-        $documentId = self::extractSpreadsheetId((string) ($settings['document_id'] ?? ''));
+        $documentId = $this->resolveSpreadsheetId($project);
 
         if ($documentId === '') {
             throw new \RuntimeException('Google spreadsheet ID is not configured.');
+        }
+
+        if (! $this->credentials->isConfigured()) {
+            throw new \RuntimeException('Google Sheets service account key is missing.');
         }
 
         $yearMonth = $month->copy()->startOfMonth()->toDateString();
@@ -176,7 +177,7 @@ class GoogleSheetsService
         ]);
 
         $projectUrl = (string) ($project->domain ?? '');
-        $accessToken = $this->resolveAccessToken($settings, $projectIntegration);
+        $accessToken = $this->credentials->accessToken();
 
         $programming = $this->resolveProgrammingSpendings(
             $accessToken,
@@ -221,6 +222,48 @@ class GoogleSheetsService
         }
 
         return $spending;
+    }
+
+    public function resolveSpreadsheetIdForProject(int $projectId): string
+    {
+        $project = Project::query()->with('specialist.agencies')->find($projectId);
+
+        if ($project === null) {
+            return '';
+        }
+
+        return $this->resolveSpreadsheetId($project);
+    }
+
+    private function resolveSpreadsheetId(Project $project): string
+    {
+        $agency = $this->resolveAgencyWithSpreadsheet($project);
+
+        if ($agency === null) {
+            return '';
+        }
+
+        return self::extractSpreadsheetId((string) $agency->google_sheets_spreadsheet_url);
+    }
+
+    private function resolveAgencyWithSpreadsheet(Project $project): ?Agency
+    {
+        $project->loadMissing('specialist.agencies');
+
+        $specialistAgencies = $project->specialist?->agencies ?? collect();
+
+        $agency = $specialistAgencies->first(
+            fn (Agency $agency) => $agency->isGoogleSheetsSpreadsheetConfigured()
+        );
+
+        if ($agency !== null) {
+            return $agency;
+        }
+
+        return Agency::query()
+            ->orderBy('id')
+            ->get()
+            ->first(fn (Agency $agency) => $agency->isGoogleSheetsSpreadsheetConfigured());
     }
 
     /**
@@ -342,39 +385,6 @@ class GoogleSheetsService
     }
 
     /**
-     * @param  array<string, mixed>  $settings
-     */
-    private function resolveAccessToken(array $settings, IntegrationProject $projectIntegration): string
-    {
-        $accessToken = (string) ($settings['oauth_token'] ?? '');
-        $refreshToken = (string) ($settings['refresh_token'] ?? '');
-        $expiresAt = (string) ($settings['token_expires_at'] ?? '');
-
-        if ($accessToken !== '' && $expiresAt !== '' && now()->lt(Carbon::parse($expiresAt)->subMinute())) {
-            return $accessToken;
-        }
-
-        if ($refreshToken === '') {
-            throw new \RuntimeException('Google OAuth refresh token is missing.');
-        }
-
-        $tokens = $this->authService->refreshAccessToken($refreshToken);
-
-        $settings['oauth_token'] = $tokens['access_token'] ?? $accessToken;
-        if (isset($tokens['refresh_token'])) {
-            $settings['refresh_token'] = $tokens['refresh_token'];
-        }
-        $settings['token_expires_at'] = now()
-            ->addSeconds((int) ($tokens['expires_in'] ?? 3600))
-            ->toDateTimeString();
-
-        $projectIntegration->settings = $settings;
-        $projectIntegration->save();
-
-        return (string) $settings['oauth_token'];
-    }
-
-    /**
      * @return array<int, array<int, mixed>>
      */
     public function fetchSheetValues(string $accessToken, string $spreadsheetId, string $sheetTitle): array
@@ -425,19 +435,5 @@ class GoogleSheetsService
         return Str::of(mb_strtolower(trim($title)))
             ->replace('ё', 'е')
             ->toString();
-    }
-
-    /**
-     * @param  array<string, mixed>  $profile
-     * @return array<string, mixed>
-     */
-    public function mapOAuthProfile(array $profile): array
-    {
-        return [
-            'oauth_google_user_id' => (string) ($profile['id'] ?? ''),
-            'oauth_google_email' => (string) ($profile['email'] ?? ''),
-            'oauth_google_display_name' => (string) ($profile['name'] ?? $profile['email'] ?? ''),
-            'oauth_google_avatar_url' => (string) ($profile['picture'] ?? ''),
-        ];
     }
 }

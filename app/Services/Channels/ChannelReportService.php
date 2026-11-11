@@ -1204,8 +1204,7 @@ class ChannelReportService implements ChannelReportServiceInterface
                 : json_decode((string) $integration->settings, true) ?? [];
 
             return $integration->integration->code === 'google_sheets'
-                && $integration->isEnabled
-                && filled($settings['document_id'] ?? '');
+                && $integration->isEnabled;
         });
     }
 

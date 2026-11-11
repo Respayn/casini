@@ -23,6 +23,10 @@ class AgencySettingsFormTest extends TestCase
             $this->markTestSkipped('Нужна БД приложения с колонками bitrix24_* (MariaDB), не stub sqlite');
         }
 
+        if (! Schema::hasColumn('agencies', 'google_sheets_spreadsheet_url')) {
+            $this->markTestSkipped('Нужна колонка agencies.google_sheets_spreadsheet_url');
+        }
+
         if (! Schema::hasColumn('users', 'first_name')) {
             $this->markTestSkipped('Нужна актуальная схема users (first_name)');
         }
@@ -50,8 +54,9 @@ class AgencySettingsFormTest extends TestCase
     {
         [$user, $agency] = $this->createUserWithAgency();
 
+        session(['current_agency_id' => $agency->id]);
+
         Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->assertStatus(200)
             ->assertSee('Интеграция с Битрикс24', false)
@@ -71,8 +76,9 @@ class AgencySettingsFormTest extends TestCase
         $webhook = $this->sampleWebhook();
         $portalUrl = 'https://company.bitrix24.ru';
 
+        session(['current_agency_id' => $agency->id]);
+
         Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->set('form.bitrix24PortalUrl', $portalUrl)
             ->set('form.bitrix24Webhook', $webhook)
@@ -88,8 +94,9 @@ class AgencySettingsFormTest extends TestCase
         $this->assertNotSame($webhook, $rawWebhook);
         $this->assertNotEmpty($rawWebhook);
 
+        session(['current_agency_id' => $agency->id]);
+
         Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->assertSet('form.bitrix24PortalUrl', $portalUrl)
             ->assertSet('form.bitrix24Webhook', $webhook);
@@ -105,8 +112,9 @@ class AgencySettingsFormTest extends TestCase
             'bitrix24_webhook' => $webhook,
         ]);
 
-        $html = Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
+        $html = session(['current_agency_id' => $agency->id]);
+
+        Livewire::actingAs($user)
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->html();
 
@@ -129,8 +137,9 @@ class AgencySettingsFormTest extends TestCase
             'bitrix24_webhook' => $this->sampleWebhook(),
         ]);
 
+        session(['current_agency_id' => $agency->id]);
+
         Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->set('form.bitrix24PortalUrl', '')
             ->set('form.bitrix24Webhook', '')
@@ -148,8 +157,9 @@ class AgencySettingsFormTest extends TestCase
     {
         [$user, $agency] = $this->createUserWithAgency();
 
+        session(['current_agency_id' => $agency->id]);
+
         Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->set('form.bitrix24PortalUrl', 'https://company.bitrix24.ru')
             ->set('form.bitrix24Webhook', '')
@@ -168,8 +178,9 @@ class AgencySettingsFormTest extends TestCase
         [$user, $agency] = $this->createUserWithAgency();
         $webhook = $this->sampleWebhook();
 
-        $component = Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
+        $component = session(['current_agency_id' => $agency->id]);
+
+        Livewire::actingAs($user)
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->set('form.bitrix24PortalUrl', '')
             ->set('form.bitrix24Webhook', $webhook)
@@ -191,8 +202,9 @@ class AgencySettingsFormTest extends TestCase
         [$user, $agency] = $this->createUserWithAgency();
         $badWebhook = 'https://company.bitrix24.ru/hooks/secret-token';
 
-        $component = Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
+        $component = session(['current_agency_id' => $agency->id]);
+
+        Livewire::actingAs($user)
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->set('form.bitrix24PortalUrl', 'https://company.bitrix24.ru')
             ->set('form.bitrix24Webhook', $badWebhook)
@@ -209,12 +221,46 @@ class AgencySettingsFormTest extends TestCase
     {
         [$user, $agency] = $this->createUserWithAgency();
 
+        session(['current_agency_id' => $agency->id]);
+
         Livewire::actingAs($user)
-            ->withSession(['current_agency_id' => $agency->id])
             ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
             ->set('form.bitrix24PortalUrl', 'not-a-url')
             ->set('form.bitrix24Webhook', $this->sampleWebhook())
             ->call('save')
             ->assertHasErrors(['form.bitrix24PortalUrl']);
+    }
+
+    #[Test]
+    public function test_renders_google_sheets_section(): void
+    {
+        [$user, $agency] = $this->createUserWithAgency();
+
+        session(['current_agency_id' => $agency->id]);
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
+            ->assertStatus(200)
+            ->assertSee('Интеграция с Google Таблими', false)
+            ->assertSee('Ссылка на Google Таблицу', false);
+    }
+
+    #[Test]
+    public function test_saves_google_sheets_spreadsheet_url(): void
+    {
+        [$user, $agency] = $this->createUserWithAgency();
+        $url = 'https://docs.google.com/spreadsheets/d/abcTESTSheetId123/edit';
+
+        session(['current_agency_id' => $agency->id]);
+
+        Livewire::actingAs($user)
+            ->test('pages::system-settings.agency-settings', ['agency' => $agency->id])
+            ->set('form.googleSheetsSpreadsheetUrl', $url)
+            ->call('save')
+            ->assertHasNoErrors()
+            ->assertRedirect(route('system-settings.agency', ['agency' => $agency->id]));
+
+        $agency->refresh();
+        $this->assertSame($url, $agency->google_sheets_spreadsheet_url);
     }
 }
