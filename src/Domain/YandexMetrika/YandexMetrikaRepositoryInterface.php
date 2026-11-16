@@ -14,11 +14,27 @@ interface YandexMetrikaRepositoryInterface
     public function getSearchEnginesStats(int $projectId, DateTimeRange $period): array;
 
     /**
+     * Статистика поисковых систем для списка проектов.
+     *
+     * @param  list<int>  $projectIds
+     * @return YandexMetrikaSearchEnginesStats[]
+     */
+    public function getSearchEnginesStatsForProjects(array $projectIds, DateTimeRange $period): array;
+
+    /**
      * Получает данные о достижении целей с UTM-метками.
      *
      * @return YandexMetrikaGoalUtm[]
      */
     public function getGoalUtmStats(int $projectId, DateTimeRange $period): array;
+
+    /**
+     * Цели UTM для списка проектов.
+     *
+     * @param  list<int>  $projectIds
+     * @return YandexMetrikaGoalUtm[]
+     */
+    public function getGoalUtmStatsForProjects(array $projectIds, DateTimeRange $period): array;
 
     /**
      * Получает статистику достижений целей по месяцам из отчёта "Конверсии".
@@ -116,6 +132,14 @@ interface YandexMetrikaRepositoryInterface
      * @return YandexMetrikaGoalDirectSummary[]
      */
     public function getGoalDirectSummaryStats(int $projectId, DateTimeRange $period): array;
+
+    /**
+     * «Директ, сводка» для списка проектов.
+     *
+     * @param  list<int>  $projectIds
+     * @return YandexMetrikaGoalDirectSummary[]
+     */
+    public function getGoalDirectSummaryStatsForProjects(array $projectIds, DateTimeRange $period): array;
 
     /**
      * Upsert строк «Директ, сводка» по unique (project_id, goal_name, month).

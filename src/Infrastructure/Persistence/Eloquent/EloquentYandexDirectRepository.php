@@ -51,20 +51,34 @@ class EloquentYandexDirectRepository implements YandexDirectRepositoryInterface
 
     public function clicksByDay(int $projectId, string $dateFrom, string $dateTo): array
     {
+        return $this->clicksByDayForProjects([$projectId], $dateFrom, $dateTo)[$projectId] ?? [];
+    }
+
+    public function clicksByDayForProjects(array $projectIds, string $dateFrom, string $dateTo): array
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
         $rows = EloquentYandexDirectCampaignStats::query()
-            ->where('project_id', $projectId)
+            ->whereIn('project_id', $projectIds)
             ->whereBetween('date', [$dateFrom, $dateTo])
-            ->get(['date', 'clicks']);
+            ->get(['project_id', 'date', 'clicks']);
 
         $map = [];
         foreach ($rows as $row) {
+            $projectId = (int) $row->project_id;
             $day = $row->date instanceof Carbon
                 ? $row->date->toDateString()
                 : Carbon::parse((string) $row->date)->toDateString();
-            $map[$day] = ($map[$day] ?? 0) + (int) $row->clicks;
+            $map[$projectId][$day] = ($map[$projectId][$day] ?? 0) + (int) $row->clicks;
         }
 
-        ksort($map);
+        foreach ($map as &$byDay) {
+            ksort($byDay);
+        }
+        unset($byDay);
 
         return $map;
     }

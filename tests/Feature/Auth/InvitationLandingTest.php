@@ -22,6 +22,7 @@ class InvitationLandingTest extends TestCase
 
         session([
             'url.intended' => route('system-settings.clients-and-projects.projects.manage', absolute: false),
+            'invitation.post_accept_login_user_id' => $user->id,
         ]);
 
         $component->call('enterAccount')
@@ -29,6 +30,20 @@ class InvitationLandingTest extends TestCase
 
         $this->assertAuthenticatedAs($user);
         $this->assertNull(session('url.intended'));
+        $this->assertNull(session('invitation.post_accept_login_user_id'));
+    }
+
+    public function test_enter_account_ignores_public_user_id_without_session_marker(): void
+    {
+        $user = User::factory()->create([
+            'is_active' => true,
+        ]);
+
+        Livewire::test('pages::auth.set-password', ['user' => $user])
+            ->call('enterAccount')
+            ->assertRedirect(route('login', absolute: false));
+
+        $this->assertGuest();
     }
 
     public function test_email_confirmation_forgets_remembered_page(): void

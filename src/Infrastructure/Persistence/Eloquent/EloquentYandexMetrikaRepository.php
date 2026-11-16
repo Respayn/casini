@@ -29,8 +29,21 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
      */
     public function getSearchEnginesStats(int $projectId, DateTimeRange $period): array
     {
+        return $this->getSearchEnginesStatsForProjects([$projectId], $period);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getSearchEnginesStatsForProjects(array $projectIds, DateTimeRange $period): array
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
         $query = EloquentYandexMetrikaSearchEnginesStats::query()
-            ->where('project_id', '=', $projectId);
+            ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
             $query->where('month', '>=', $period->start->format('Y-m-01'));
@@ -50,8 +63,21 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
      */
     public function getGoalUtmStats(int $projectId, DateTimeRange $period): array
     {
+        return $this->getGoalUtmStatsForProjects([$projectId], $period);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getGoalUtmStatsForProjects(array $projectIds, DateTimeRange $period): array
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
         $query = EloquentYandexMetrikaGoalUtm::query()
-            ->where('project_id', '=', $projectId);
+            ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
             $query->where('achieved_date', '>=', $period->start->format('Y-m-d'));
@@ -370,8 +396,21 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
      */
     public function getGoalDirectSummaryStats(int $projectId, DateTimeRange $period): array
     {
+        return $this->getGoalDirectSummaryStatsForProjects([$projectId], $period);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getGoalDirectSummaryStatsForProjects(array $projectIds, DateTimeRange $period): array
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
         $query = EloquentYandexMetrikaGoalDirectSummary::query()
-            ->where('project_id', '=', $projectId);
+            ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
             $query->where('month', '>=', $period->start->format('Y-m-01'));

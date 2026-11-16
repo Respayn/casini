@@ -253,15 +253,9 @@ class GoogleSheetsService
 
         $specialistAgencies = $project->specialist?->agencies ?? collect();
 
-        $agency = $specialistAgencies->first(
+        return $specialistAgencies->first(
             fn (Agency $agency) => $agency->isGoogleSheetsSpreadsheetConfigured()
         );
-
-        if ($agency !== null) {
-            return $agency;
-        }
-
-        return $this->agencies->firstConfiguredGoogleSheetsAgency();
     }
 
     /**

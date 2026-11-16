@@ -21,6 +21,10 @@ trait WithSidebarProjectFilter
     #[On('sidebar-project-selected')]
     public function onSidebarProjectSelected(int $projectId): void
     {
+        if (! SidebarProjectAccess::userCanAccessProject($projectId)) {
+            return;
+        }
+
         $this->sidebarProjectId = $projectId;
         $this->afterSidebarProjectFilterChanged();
     }

@@ -33,7 +33,18 @@ class ClientProjectVisibility
      */
     public static function limit(User $user, Collection $clients, Collection $projects): array
     {
-        if ($user->isManager() && ! self::seesAllProjects($user)) {
+        if (self::seesAllProjects($user)) {
+            return [$clients, $projects];
+        }
+
+        $isManager = $user->isManager();
+        $isSpecialist = $user->isSpecialist();
+
+        if (! $isManager && ! $isSpecialist) {
+            return [collect(), collect()];
+        }
+
+        if ($isManager) {
             $clients = $clients->filter(
                 fn ($client) => $client->manager_id === $user->id
             )->values();
@@ -44,7 +55,7 @@ class ClientProjectVisibility
             fn ($project) => $clientIds->contains($project->client_id)
         )->values();
 
-        if ($user->isSpecialist() && ! self::seesAllProjects($user)) {
+        if ($isSpecialist) {
             $projects = $projects->filter(
                 fn ($project) => $project->specialist_id === $user->id
             )->values();
@@ -64,14 +75,23 @@ class ClientProjectVisibility
             return;
         }
 
-        if ($user->isManager()) {
+        $isManager = $user->isManager();
+        $isSpecialist = $user->isSpecialist();
+
+        if (! $isManager && ! $isSpecialist) {
+            $query->whereRaw('0 = 1');
+
+            return;
+        }
+
+        if ($isManager) {
             $query->whereHas(
                 'client',
                 fn (Builder $client) => $client->where('manager_id', $user->id)
             );
         }
 
-        if ($user->isSpecialist()) {
+        if ($isSpecialist) {
             $query->where('specialist_id', $user->id);
         }
     }

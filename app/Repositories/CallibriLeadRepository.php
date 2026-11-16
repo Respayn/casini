@@ -46,8 +46,18 @@ class CallibriLeadRepository implements CallibriLeadRepositoryInterface
 
     public function getLeadsBetween(int $projectId, string $dateTimeFrom, string $dateTimeTo): Collection
     {
+        return $this->getLeadsBetweenForProjects([$projectId], $dateTimeFrom, $dateTimeTo);
+    }
+
+    public function getLeadsBetweenForProjects(array $projectIds, string $dateTimeFrom, string $dateTimeTo): Collection
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return collect();
+        }
+
         return CallibriLead::query()
-            ->where('project_id', $projectId)
+            ->whereIn('project_id', $projectIds)
             ->whereBetween('date', [$dateTimeFrom, $dateTimeTo])
             ->get();
     }

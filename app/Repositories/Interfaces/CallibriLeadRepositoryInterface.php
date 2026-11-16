@@ -15,4 +15,10 @@ interface CallibriLeadRepositoryInterface
      * @return Collection<int, CallibriLead>
      */
     public function getLeadsBetween(int $projectId, string $dateTimeFrom, string $dateTimeTo): Collection;
+
+    /**
+     * @param  list<int>  $projectIds
+     * @return Collection<int, CallibriLead>
+     */
+    public function getLeadsBetweenForProjects(array $projectIds, string $dateTimeFrom, string $dateTimeTo): Collection;
 }

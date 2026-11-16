@@ -60,6 +60,26 @@ class ClientProjectVisibilityTest extends TestCase
         $this->assertSame([10], $projects->pluck('id')->all());
     }
 
+    public function test_default_role_without_all_access_sees_nothing(): void
+    {
+        $viewer = $this->viewer(id: 5, manager: false, specialist: false, seesAll: false);
+
+        [$clients, $projects] = ClientProjectVisibility::limit(
+            $viewer,
+            new Collection([
+                (object) ['id' => 1, 'manager_id' => 7],
+                (object) ['id' => 2, 'manager_id' => 8],
+            ]),
+            new Collection([
+                (object) ['id' => 10, 'client_id' => 1, 'specialist_id' => 9],
+                (object) ['id' => 11, 'client_id' => 2, 'specialist_id' => 4],
+            ]),
+        );
+
+        $this->assertSame([], $clients->pluck('id')->all());
+        $this->assertSame([], $projects->pluck('id')->all());
+    }
+
     private function viewer(int $id, bool $manager, bool $seesAll, bool $specialist = false): User
     {
         $user = new class extends User

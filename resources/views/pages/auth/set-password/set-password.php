@@ -22,6 +22,8 @@ class extends Component
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
+    private const POST_ACCEPT_LOGIN_USER_ID = 'invitation.post_accept_login_user_id';
+
     public int $step = 1;
 
     public int $userId = 0;
@@ -73,12 +75,21 @@ class extends Component
         $this->validateOnly('passwordConfirmation');
 
         $invitations->accept($user, $this->password);
+        Session::put(self::POST_ACCEPT_LOGIN_USER_ID, $user->id);
         $this->step = 2;
     }
 
     public function enterAccount(): void
     {
-        $user = User::query()->find($this->userId);
+        $acceptedUserId = (int) Session::pull(self::POST_ACCEPT_LOGIN_USER_ID, 0);
+
+        if ($acceptedUserId <= 0) {
+            $this->redirect(route('login'), navigate: true);
+
+            return;
+        }
+
+        $user = User::query()->find($acceptedUserId);
 
         if (! $user) {
             $this->redirect(route('login'), navigate: true);

@@ -24,6 +24,14 @@ interface YandexDirectRepositoryInterface
     public function clicksByDay(int $projectId, string $dateFrom, string $dateTo): array;
 
     /**
+     * Клики кампаний по дням для списка проектов.
+     *
+     * @param  list<int>  $projectIds
+     * @return array<int, array<string, int>> project_id => (Y-m-d => clicks)
+     */
+    public function clicksByDayForProjects(array $projectIds, string $dateFrom, string $dateTo): array;
+
+    /**
      * Заменяет строки статистики кампаний за период.
      *
      * @param  list<array<string, mixed>>  $rows

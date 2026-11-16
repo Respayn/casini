@@ -15,7 +15,7 @@ final class UserPasswordRules
 
     public const MESSAGE_MIN = 'слишком короткий пароль';
 
-    public const MESSAGE_REGEX = 'пароль должен состоять не менее чем из 6 символов и содержит латинские буквы и цифры';
+    public const MESSAGE_REGEX = 'пароль должен состоять не менее чем из 6 символов и содержать латинские буквы и цифры';
 
     /**
      * @return list<string>
