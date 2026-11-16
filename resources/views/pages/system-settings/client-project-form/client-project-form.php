@@ -1859,6 +1859,20 @@ class extends Component
     {
         $this->ensureCanEdit();
 
+        $routeProjectId = request()->route('projectId');
+        $routeProjectId = filled($routeProjectId) ? (int) $routeProjectId : null;
+
+        if ($routeProjectId !== null) {
+            $existingProject = $this->projectService->getProjectDataById($routeProjectId);
+            $existingClient = $this->clientRepository->findById($existingProject->client_id);
+            app(ClientProjectAccessPolicy::class)
+                ->ensureUserCanViewProject(
+                    Auth::user(),
+                    $existingProject,
+                    $existingClient->getManagerId()
+                );
+        }
+
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
 
@@ -1877,7 +1891,7 @@ class extends Component
         try {
             // Подготовка данных для проекта
             $projectData = new ProjectData(
-                id: $this->clientProjectForm->id ?? null,
+                id: $routeProjectId,
                 name: $this->clientProjectForm->name,
                 domain: $this->clientProjectForm->domain ?? null,
                 client_id: $this->clientProjectForm->client,

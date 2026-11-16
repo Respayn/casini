@@ -24,6 +24,8 @@ class extends Component
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
+    private const POST_RESET_LOGIN_USER_ID = 'password.reset.post_login_user_id';
+
     public int $step = 1;
 
     public string $token = '';
@@ -82,6 +84,7 @@ class extends Component
                 ])->save();
 
                 event(new PasswordReset($user));
+                Session::put(self::POST_RESET_LOGIN_USER_ID, $user->id);
             }
         );
 
@@ -96,7 +99,15 @@ class extends Component
 
     public function enterAccount(): void
     {
-        $user = User::where('email', $this->email)->first();
+        $acceptedUserId = (int) Session::pull(self::POST_RESET_LOGIN_USER_ID, 0);
+
+        if ($acceptedUserId <= 0) {
+            $this->redirect(route('login'), navigate: true);
+
+            return;
+        }
+
+        $user = User::query()->find($acceptedUserId);
 
         if (! $user) {
             $this->redirect(route('login'), navigate: true);
