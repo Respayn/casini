@@ -104,7 +104,7 @@ class Bitrix24LaborCollector implements IntegrationSyncCollector
     }
 
     /**
-     * @param  array{webhook: string, root_task_id: int, search_query: string, timezone: string}  $settings
+     * @param  array{webhook: string, root_task_id: int, search_query: string, timezone: string, parse_comment_works?: bool}  $settings
      * @return array<string, array<string, array<int, int>>> день => месяц отчёта => [ID сотрудника в Битрикс24 => секунды]
      */
     private function fetchSeconds(array $settings, string $fromDate, string $toDate): array

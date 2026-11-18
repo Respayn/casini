@@ -81,4 +81,19 @@ class ProjectRepository
             ->map(fn ($id) => (int) $id)
             ->all();
     }
+
+    public function isActive(int $projectId): bool
+    {
+        return Project::query()
+            ->whereKey($projectId)
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    public function findWithSpecialistAgencies(int $projectId): ?Project
+    {
+        return Project::query()
+            ->with('specialist.agencies')
+            ->find($projectId);
+    }
 }

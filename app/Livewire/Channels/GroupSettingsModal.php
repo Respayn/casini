@@ -21,6 +21,12 @@ class GroupSettingsModal extends Component
         $this->grouping = ChannelReportGrouping::from($grouping);
     }
 
+    public function cancel(): void
+    {
+        $this->grouping = $this->initialGrouping;
+        $this->dispatch('modal-hide', name: 'group-settings-modal');
+    }
+
     public function render()
     {
         return view('livewire.channels.group-settings-modal');

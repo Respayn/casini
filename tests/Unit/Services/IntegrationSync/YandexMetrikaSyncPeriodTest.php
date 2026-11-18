@@ -37,7 +37,7 @@ class YandexMetrikaSyncPeriodTest extends TestCase
         $this->assertNull($this->syncPeriod->nightly(Carbon::parse('2026-08-17'), '2026-08-18'));
     }
 
-    public function test_manual_range_keeps_several_months(): void
+    public function test_backfill_range_keeps_several_months(): void
     {
         $period = $this->syncPeriod->range(
             Carbon::parse('2026-06-15'),
@@ -48,7 +48,7 @@ class YandexMetrikaSyncPeriodTest extends TestCase
         $this->assertSame(['2026-06-01', '2026-08-17'], $this->dates($period));
     }
 
-    public function test_manual_range_starts_from_sync_enabled_month(): void
+    public function test_backfill_range_starts_from_sync_enabled_month(): void
     {
         $period = $this->syncPeriod->range(
             Carbon::parse('2026-06-01'),
@@ -57,6 +57,26 @@ class YandexMetrikaSyncPeriodTest extends TestCase
         );
 
         $this->assertSame(['2026-07-01', '2026-08-17'], $this->dates($period));
+    }
+
+    public function test_requested_range_ignores_sync_enabled_at(): void
+    {
+        $period = $this->syncPeriod->requestedRange(
+            Carbon::parse('2026-10-01'),
+            Carbon::parse('2026-10-31'),
+        );
+
+        $this->assertSame(['2026-10-01', '2026-10-31'], $this->dates($period));
+    }
+
+    public function test_requested_range_starts_from_first_day_of_from_month(): void
+    {
+        $period = $this->syncPeriod->requestedRange(
+            Carbon::parse('2026-10-15'),
+            Carbon::parse('2026-11-05'),
+        );
+
+        $this->assertSame(['2026-10-01', '2026-11-05'], $this->dates($period));
     }
 
     /**

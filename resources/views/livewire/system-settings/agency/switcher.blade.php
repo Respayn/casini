@@ -2,7 +2,11 @@
     <div
         x-data="{
         open: false,
+        disabled: true,
         select(value) {
+            if (this.disabled) {
+                return;
+            }
             if (value === 'create') {
                 Livewire.dispatch('modal-show', { name: 'agency-modal' });
             } else if (value) {
@@ -14,9 +18,13 @@
     >
         <div class="group relative">
             <div
-                class="flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4 border-input-border cursor-pointer"
-                x-on:click="open = !open"
-                :class="open ? 'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white' : 'rounded-[5px]'"
+                class="flex min-h-[42px] w-full items-center rounded-[5px] border pe-10 ps-4 border-input-border"
+                aria-disabled="true"
+                x-on:click="if (!disabled) open = !open"
+                :class="[
+                    disabled ? 'bg-secondary cursor-not-allowed' : '',
+                    open ? 'rounded-t-[5px] border-b-0 hover:bg-primary hover:text-white' : 'rounded-[5px]'
+                ]"
             >
                 <span>
                     @php
@@ -38,7 +46,7 @@
         <div
             class="border-input-border max-h-52 w-full overflow-y-auto rounded-b-[5px] border border-t-0 bg-white absolute z-100"
             x-cloak
-            x-show="open"
+            x-show="open && !disabled"
             x-on:click.outside="open = false"
         >
             @foreach($agencies as $agency)

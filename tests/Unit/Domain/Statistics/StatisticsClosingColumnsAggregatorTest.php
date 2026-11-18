@@ -69,11 +69,79 @@ class StatisticsClosingColumnsAggregatorTest extends TestCase
 
         $summary = $this->aggregator->aggregateSummary($rows);
 
-        // только primary лиды: (10+30)/(40+40)=50%, бюджет в Итого не участвует
+        // только primary лиды: среднее (10/40 и 30/40) = 50%, бюджет в Итого не участвует
         $this->assertCount(1, $summary);
         $this->assertSame(50, $summary[0]['value']);
         $this->assertSame('percent', $summary[0]['format']);
         $this->assertTrue($summary[0]['highlight']);
+    }
+
+    public function test_summary_uses_average_not_weighted_sum(): void
+    {
+        $rows = new Collection([
+            $this->row(
+                ['kind' => 'dash'],
+                [['value' => 9000, 'format' => null]],
+                [['value' => 10000, 'format' => null]],
+                [['name' => 'Лиды', 'highlight' => true]],
+            ),
+            $this->row(
+                ['kind' => 'dash'],
+                [['value' => 10, 'format' => null]],
+                [['value' => 50, 'format' => null]],
+                [['name' => '% позиций в ТОП 10', 'highlight' => true]],
+            ),
+        ]);
+
+        $summary = $this->aggregator->aggregateSummary($rows);
+
+        // среднее (90% и 20%) = 55%, а не (9010/10050)≈90%
+        $this->assertSame(55, $summary[0]['value']);
+    }
+
+    public function test_missing_plan_counts_as_zero_when_enabled(): void
+    {
+        $rows = new Collection([
+            $this->row(
+                ['kind' => 'dash'],
+                [['value' => 100, 'format' => null]],
+                [['value' => 100, 'format' => null]],
+                [['name' => 'Лиды', 'highlight' => true]],
+            ),
+            $this->row(
+                ['kind' => 'dash'],
+                [['value' => 7110, 'format' => null]],
+                [['value' => null, 'format' => null]],
+                [['name' => 'Объем визитов', 'highlight' => true]],
+            ),
+        ]);
+
+        $summary = $this->aggregator->aggregateSummary($rows, treatMissingPlanAsUnmet: true);
+
+        // среднее (100% и 0%) = 50%
+        $this->assertSame(50, $summary[0]['value']);
+    }
+
+    public function test_missing_plan_excluded_when_disabled(): void
+    {
+        $rows = new Collection([
+            $this->row(
+                ['kind' => 'dash'],
+                [['value' => 100, 'format' => null]],
+                [['value' => 100, 'format' => null]],
+                [['name' => 'Лиды', 'highlight' => true]],
+            ),
+            $this->row(
+                ['kind' => 'dash'],
+                [['value' => 7110, 'format' => null]],
+                [['value' => null, 'format' => null]],
+                [['name' => 'Объем визитов', 'highlight' => true]],
+            ),
+        ]);
+
+        $summary = $this->aggregator->aggregateSummary($rows, treatMissingPlanAsUnmet: false);
+
+        $this->assertSame(100, $summary[0]['value']);
     }
 
     public function test_primary_percent_across_different_schemas(): void
@@ -110,7 +178,7 @@ class StatisticsClosingColumnsAggregatorTest extends TestCase
 
         $summary = $this->aggregator->aggregateSummary($rows);
 
-        // primary: (20+40)/(40+80)=50%
+        // primary: среднее (20/40 и 40/80) = 50%
         $this->assertCount(1, $summary);
         $this->assertSame(50, $summary[0]['value']);
         $this->assertSame('percent', $summary[0]['format']);

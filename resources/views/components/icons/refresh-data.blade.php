@@ -1,23 +1,10 @@
 <svg
     width="18"
     height="18"
-    viewBox="0 0 18 18"
-    fill="none"
+    viewBox="0 -960 960 960"
+    fill="currentColor"
     xmlns="http://www.w3.org/2000/svg"
     {{ $attributes }}
 >
-    <path
-        d="M14.5 6.5A6 6 0 0 0 4.2 5.2M3.5 3.5v3h3"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-    />
-    <path
-        d="M3.5 11.5A6 6 0 0 0 13.8 12.8M14.5 14.5v-3h-3"
-        stroke="currentColor"
-        stroke-width="1.5"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-    />
+    <path d="M160-160v-80h110l-16-14q-52-46-73-105t-21-119q0-111 66.5-197.5T400-790v84q-72 26-116 88.5T240-478q0 45 17 87.5t53 78.5l10 10v-98h80v240H160Zm400-10v-84q72-26 116-88.5T720-482q0-45-17-87.5T650-648l-10-10v98h-80v-240h240v80H690l16 14q49 49 71.5 106.5T800-482q0 111-66.5 197.5T560-170Z" />
 </svg>

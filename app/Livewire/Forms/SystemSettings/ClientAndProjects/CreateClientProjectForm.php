@@ -17,7 +17,7 @@ class CreateClientProjectForm extends Form
     public string $name = '';
 
     #[Validate('required|exists:clients,id', message: 'Выберите клиента')]
-    public int $client;
+    public ?int $client = null;
 
     #[Validate('required|url|max:255', message: 'Введите корректный URL-адрес')]
     public string $domain = '';
@@ -71,6 +71,42 @@ class CreateClientProjectForm extends Form
                 'promotionTopics' => 'nullable|array',
             ],
         );
+    }
+
+    public function messages(): array
+    {
+        return [
+            'isActive.required' => 'Статус клиенто-проекта обязателен',
+            'name.required' => 'Название клиенто-проекта обязательно',
+            'name.max' => 'Название клиенто-проекта не может быть длиннее 255 символов',
+            'client.required' => 'Выберите клиента',
+            'client.exists' => 'Выберите клиента',
+            'domain.required' => 'Укажите URL-адрес сайта',
+            'domain.url' => 'Введите корректный URL-адрес',
+            'domain.max' => 'URL-адрес не может быть длиннее 255 символов',
+            'manager.exists' => 'Укажите менеджера',
+            'specialist.exists' => 'Укажите специалиста',
+            'kpi.required' => 'KPI обязателен',
+            'projectType.required' => 'Тип клиенто-проекта обязателен',
+        ];
+    }
+
+    public function validationAttributes(): array
+    {
+        return [
+            'isActive' => 'статус клиенто-проекта',
+            'name' => 'название клиенто-проекта',
+            'client' => 'клиент',
+            'domain' => 'URL-адрес сайта',
+            'manager' => 'менеджер',
+            'specialist' => 'специалист',
+            'assistants' => 'помощники',
+            'kpi' => 'KPI',
+            'projectType' => 'тип клиенто-проекта',
+            'isInternal' => 'свой проект',
+            'promotionRegions' => 'регион продвижения',
+            'promotionTopics' => 'тематика продвижения',
+        ];
     }
 
     /**

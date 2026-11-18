@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Repositories\IntegrationRepository;
+use App\Services\IntegrationSync\IntegrationSyncIssueStatus;
 use Illuminate\Support\Collection;
 
 class IntegrationService
@@ -26,6 +27,7 @@ class IntegrationService
     public function getIntegrationSettingsForProject(int $projectId): Collection
     {
         $integrationSettings = $this->repository->getAllIntegrationsSettingsForProject($projectId);
+
         return collect($integrationSettings)->keyBy('integration.id');
     }
 
@@ -37,28 +39,31 @@ class IntegrationService
     }
 
     /**
-     * @param int $projectId
-     * @param Collection<ProjectIntegrationData> $integrationsSettings
+     * @param  Collection<ProjectIntegrationData>  $integrationsSettings
      */
     public function updateIntegrationsSettings(int $projectId, Collection $integrationsSettings)
     {
+        $previousByIntegrationId = $this->repository->projectIntegrationSettingsByIntegrationId($projectId);
+
         $this->repository->removeIntegrationSettingsForProject($projectId);
 
-        $integrationsSettings->each(function ($settings, $integrationId) use ($projectId) {
+        $integrationsSettings->each(function ($settings, $integrationId) use ($projectId, $previousByIntegrationId) {
             $settingsCollection = collect($settings);
+            $incoming = collect($settingsCollection->pull('settings'))->toArray();
+            $previous = $previousByIntegrationId[(int) $integrationId] ?? [];
+
             $attributes = [
                 'project_id' => $projectId,
                 'integration_id' => $integrationId,
                 'is_enabled' => $settingsCollection->pull('isEnabled'),
-                'settings' => collect($settingsCollection->pull('settings'))
+                'settings' => IntegrationSyncIssueStatus::mergePreserved($previous, $incoming),
             ];
             $this->repository->saveIntegrationSettings($attributes);
         });
     }
 
     /**
-     * @param int $projectId
-     * @param ProjectIntegrationData $settings
+     * @param  ProjectIntegrationData  $settings
      * @return void
      */
     public function saveIntegrationSettings(int $projectId, ProjectIntegrationData $data)
@@ -68,7 +73,7 @@ class IntegrationService
             'project_id' => $projectId,
             'integration_id' => $data->integration->id,
             'is_enabled' => $settingsCollection->pull('isEnabled'),
-            'settings' => $settingsCollection->pull('settings')
+            'settings' => $settingsCollection->pull('settings'),
         ];
         $this->repository->saveIntegrationSettings($attributes);
     }

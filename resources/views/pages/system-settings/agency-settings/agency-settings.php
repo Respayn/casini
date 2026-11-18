@@ -4,6 +4,7 @@ namespace App\Livewire\SystemSettings\Agency;
 
 use App\Livewire\Forms\SystemSettings\Agency\AgencySettingsForm;
 use App\Services\AgencySettingsService;
+use App\Services\GoogleSheets\GoogleSheetsServiceAccountCredentials;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -88,6 +89,26 @@ class extends Component
         return filled($this->form->name)
             && filled($this->form->timeZone)
             && filled($this->form->directBudgetRefreshTime);
+    }
+
+    #[Computed]
+    public function googleSheetsServiceAccountEmail(): ?string
+    {
+        return app(GoogleSheetsServiceAccountCredentials::class)->clientEmail();
+    }
+
+    #[Computed]
+    public function googleSheetsSpreadsheetUrlTooltip(): string
+    {
+        $tooltip = 'Одна таблица на агентство. Откройте её на почту служебной учётки с правом просмотра. '
+            .'После этого в клиенто-проектах можно включать Google Таблицы.';
+
+        $email = $this->googleSheetsServiceAccountEmail;
+        if ($email !== null) {
+            return $tooltip.' Почта служебной учётки: '.$email.'.';
+        }
+
+        return $tooltip;
     }
 
     #[Computed]

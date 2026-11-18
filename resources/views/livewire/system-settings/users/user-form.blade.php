@@ -1,19 +1,31 @@
 @php
     $canEditUserAdminFields = $canEditUserAdminFields ?? true;
     $isOwnProfile = $isOwnProfile ?? false;
+    $canDeleteUser = $canDeleteUser ?? false;
 @endphp
 
 <x-form.form :is-normalized="true" wire:submit.prevent="save" class="mt-4">
     <div class="flex flex-col gap-4">
-        <h1 class="text-xl font-semibold">
-            @if (! isset($form->id))
-                Добавить пользователя
-            @elseif ($isOwnProfile)
-                Настройки профиля
-            @else
-                Редактировать пользователя
+        <div class="flex items-center justify-between gap-4">
+            <h1 class="text-xl font-semibold">
+                @if (! isset($form->id))
+                    Добавить пользователя
+                @elseif ($isOwnProfile)
+                    Настройки профиля
+                @else
+                    Редактировать пользователя
+                @endif
+            </h1>
+
+            @if ($canDeleteUser)
+                <x-button.button
+                    type="button"
+                    label="Удалить пользователя"
+                    wire:click="deleteUser"
+                    loading="deleteUser"
+                />
             @endif
-        </h1>
+        </div>
 
         @if ($showInlineActions ?? true)
             @if (session('password_updated'))
@@ -46,25 +58,14 @@
                 </x-permissions.field-guard>
             </x-form.form-field>
 
-            @if(!isset($form->id))
-                <x-form.form-field>
-                    <x-form.form-label required tooltip="Минимум 8 символов">Пароль</x-form.form-label>
-                    <x-form.input-text type="password" wire:model="form.password" placeholder="Пароль" />
-                </x-form.form-field>
-                <x-form.form-field>
-                    <x-form.form-label required>Повторить пароль</x-form.form-label>
-                    <x-form.input-text type="password" wire:model="form.password_confirmation" placeholder="Повторите пароль" />
-                </x-form.form-field>
-            @endif
-
             <x-form.form-field>
                 <x-form.form-label required tooltip="Пользователь сможет войти только если активен">Статус</x-form.form-label>
                 <x-permissions.field-guard :enabled="$canEditUserAdminFields">
                     <x-form.select
                         wire:model="form.account_status"
-                        :options="\App\Enums\UserAccountStatus::selectOptions()"
+                        :options="\App\Enums\UserAccountStatus::selectOptions($form->account_status)"
                         placeholder="Выберите значение"
-                        :disabled="! $canEditUserAdminFields"
+                        :disabled="! isset($form->id) || ! $canEditUserAdminFields"
                     />
                 </x-permissions.field-guard>
             </x-form.form-field>
@@ -114,6 +115,7 @@
                     <x-form.form-label>Текущий пароль</x-form.form-label>
                     <x-form.input-text
                         type="password"
+                        icon="icons.lock"
                         wire:model.blur="form.current_password"
                         wire:blur="validatePasswordField('current_password')"
                         autocomplete="current-password"
@@ -128,6 +130,7 @@
                     </x-form.form-label>
                     <x-form.input-text
                         type="password"
+                        icon="icons.lock"
                         wire:model.blur="form.password"
                         wire:blur="validatePasswordField('password')"
                         autocomplete="new-password"
@@ -138,6 +141,7 @@
                     <x-form.form-label>Повторите новый пароль</x-form.form-label>
                     <x-form.input-text
                         type="password"
+                        icon="icons.lock"
                         wire:model.blur="form.password_confirmation"
                         wire:blur="validatePasswordField('password_confirmation')"
                         autocomplete="new-password"
@@ -151,8 +155,12 @@
         <div class="flex flex-col gap-4">
 
             <x-form.form-field>
-                <x-form.form-label>Имя</x-form.form-label>
-                <x-form.input-text wire:model="form.first_name" placeholder="Имя" />
+                <x-form.form-label required>Имя</x-form.form-label>
+                <x-form.input-text
+                    wire:model.blur="form.first_name"
+                    wire:blur="validateFormField('first_name')"
+                    placeholder="Имя"
+                />
             </x-form.form-field>
 
             <x-form.form-field>
@@ -166,7 +174,7 @@
                     wire:model.live="form.email"
                     wire:blur="validateFormField('email')"
                     type="email"
-                    placeholder="email@siteactiv.ru"
+                    placeholder="email@example.ru"
                 />
             </x-form.form-field>
 
@@ -177,7 +185,12 @@
 
             <x-form.form-field>
                 <x-form.form-label tooltip="Можно загружать только jpg, jpeg, png. До 2 Мб">Фото пользователя</x-form.form-label>
-                <div class="flex w-[305px] max-w-[305px] flex-col items-stretch gap-1">
+                <div
+                    class="flex w-[305px] max-w-[305px] flex-col items-stretch gap-1"
+                    x-data="{ photoError: '' }"
+                    x-on:photo-too-big="photoError = 'Можно загружать фото не больше 2 Мб'"
+                    x-on:photo-ok="photoError = ''"
+                >
                     @if($form->photo)
                         {{-- Превью до сохранения: клик по фото — выбрать другое --}}
                         <div
@@ -194,6 +207,16 @@
                                 accept=".jpg,.jpeg,.png"
                                 class="sr-only"
                                 wire:model="form.photo"
+                                x-on:change.capture="
+                                    const file = $event.target.files && $event.target.files[0];
+                                    if (file && file.size > 2 * 1024 * 1024) {
+                                        $dispatch('photo-too-big');
+                                        $event.target.value = '';
+                                        $event.stopImmediatePropagation();
+                                    } else {
+                                        $dispatch('photo-ok');
+                                    }
+                                "
                                 @click.stop
                             />
                         </div>
@@ -221,6 +244,16 @@
                                 accept=".jpg,.jpeg,.png"
                                 class="sr-only"
                                 wire:model="form.photo"
+                                x-on:change.capture="
+                                    const file = $event.target.files && $event.target.files[0];
+                                    if (file && file.size > 2 * 1024 * 1024) {
+                                        $dispatch('photo-too-big');
+                                        $event.target.value = '';
+                                        $event.stopImmediatePropagation();
+                                    } else {
+                                        $dispatch('photo-ok');
+                                    }
+                                "
                                 @click.stop
                             />
                         </div>
@@ -246,14 +279,30 @@
                                 accept=".jpg,.jpeg,.png"
                                 class="sr-only"
                                 wire:model="form.photo"
+                                x-on:change.capture="
+                                    const file = $event.target.files && $event.target.files[0];
+                                    if (file && file.size > 2 * 1024 * 1024) {
+                                        $dispatch('photo-too-big');
+                                        $event.target.value = '';
+                                        $event.stopImmediatePropagation();
+                                    } else {
+                                        $dispatch('photo-ok');
+                                    }
+                                "
                                 @click.stop
                             />
                             <span class="mt-2 block w-full text-center text-sm text-secondary-text">Загрузить фото</span>
                         </div>
                     @endif
 
+                    <span
+                        x-show="photoError"
+                        x-cloak
+                        x-text="photoError"
+                        class="text-warning-red text-[12px]"
+                    ></span>
                     @error('form.photo')
-                    <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                    <span x-show="!photoError" class="text-warning-red text-[12px]">{{ $message }}</span>
                     @enderror
                 </div>
             </x-form.form-field>
@@ -263,16 +312,22 @@
         <h2 class="font-semibold mt-6 mb-1">Прочее</h2>
 
         <x-form.form-field>
-            <x-form.form-label>Важные уведомления</x-form.form-label>
-            <x-form.toggle-switch wire:model="form.enable_important_notifications" />
-        </x-form.form-field>
-
-        <x-form.form-field>
-            <x-form.form-label>Обновление сервиса</x-form.form-label>
-            <x-form.toggle-switch
-                wire:model="form.enable_notifications"
-                :disabled="true"
-            />
+            <x-form.form-label class="self-baseline">Уведомления</x-form.form-label>
+            <div
+                class="flex items-center justify-end gap-3"
+                x-data="{ on: @entangle('form.enable_notifications').live }"
+            >
+                <label
+                    class="inline-block w-[10ch] shrink-0 whitespace-nowrap text-right"
+                    x-text="on ? 'Включены' : 'Выключены'"
+                >
+                    {{ $form->enable_notifications ? 'Включены' : 'Выключены' }}
+                </label>
+                <x-form.toggle-switch
+                    x-model="on"
+                    :checked="$form->enable_notifications"
+                />
+            </div>
         </x-form.form-field>
 
         @if ($showInlineActions ?? true)

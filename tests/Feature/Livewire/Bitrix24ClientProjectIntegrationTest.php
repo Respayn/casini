@@ -103,6 +103,8 @@ class Bitrix24ClientProjectIntegrationTest extends TestCase
         $this->assertStringContainsString('SEO:', $html);
         $this->assertStringContainsString('КР:', $html);
         $this->assertStringContainsString('💪', $html);
+        $this->assertStringContainsString('список работ', $html);
+        $this->assertStringNotContainsString('пока не переносятся', $html);
     }
 
     #[Test]

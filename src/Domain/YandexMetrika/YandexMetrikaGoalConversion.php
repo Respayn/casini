@@ -23,7 +23,7 @@ class YandexMetrikaGoalConversion
             $data['id'] ?? null,
             $data['project_id'],
             $data['goal_name'],
-            new DateTimeImmutable($data['month']),
+            MetrikaMonth::fromMixed($data['month']),
             (int) $data['conversions']
         );
     }

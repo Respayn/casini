@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\Project;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 
 class SidebarProjectAccess
 {
@@ -18,27 +19,16 @@ class SidebarProjectAccess
             return false;
         }
 
-        if (
-            ! ClientsAndProjectsPermissions::userCanSeeAll($user)
-            && ! ClientsAndProjectsPermissions::userCanSeeSelf($user)
-        ) {
-            return false;
-        }
-
         $project = Project::query()->with('client')->find($projectId);
 
         if ($project === null) {
             return false;
         }
 
-        if (ClientsAndProjectsPermissions::userCanSeeAll($user)) {
-            return true;
-        }
-
-        if ($project->specialist_id === $user->id) {
-            return true;
-        }
-
-        return $project->client?->manager_id === $user->id;
+        return app(ClientProjectAccessPolicy::class)->userCanViewProjectAssignment(
+            $user,
+            $project->specialist_id !== null ? (int) $project->specialist_id : null,
+            $project->client?->manager_id !== null ? (int) $project->client->manager_id : null,
+        );
     }
 }

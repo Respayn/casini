@@ -1016,8 +1016,7 @@
                 variant="primary"
                 label="Сохранить изменения"
                 wire:click="save"
-                wire:loading.attr="disabled"
-                wire:target="save"
+                loading="save"
             />
             <x-button.button
                 label="Отмена"

@@ -29,6 +29,7 @@
                             type="submit"
                             label="Восстановить"
                             variant="primary"
+                            loading="nextStep"
                             :disabled="!$this->isStep1Ready"
                         />
                     </div>

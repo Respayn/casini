@@ -65,15 +65,20 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
         $this->assertStringContainsString("ym:s:<attribution>TrafficSource=='organic'", (string) $captured['filters']);
         $this->assertStringContainsString("ym:s:isRobot=='No'", (string) $captured['filters']);
 
-        $byEngine = [];
+        $byEngineGoal = [];
+        $engineTotals = [];
         foreach ($rows as $row) {
-            $byEngine[$row['search_engine']] = $row;
+            $byEngineGoal[$row['search_engine']][$row['goal_id']] = ($byEngineGoal[$row['search_engine']][$row['goal_id']] ?? 0) + $row['value'];
+            $engineTotals[$row['search_engine']] = ($engineTotals[$row['search_engine']] ?? 0) + $row['value'];
+            $this->assertSame('2026-08-01', $row['month']);
         }
 
-        $this->assertSame(17, $byEngine['yandex']['value']);
-        $this->assertSame('2026-08-01', $byEngine['yandex']['month']);
-        $this->assertSame(3, $byEngine['google']['value']);
-        $this->assertSame(1, $byEngine['other']['value']);
+        $this->assertSame(12, $byEngineGoal['yandex'][111]);
+        $this->assertSame(5, $byEngineGoal['yandex'][222]);
+        $this->assertSame(17, $engineTotals['yandex']);
+        $this->assertSame(3, $engineTotals['google']);
+        $this->assertSame(1, $engineTotals['other']);
+        $this->assertArrayNotHasKey(222, $byEngineGoal['google'] ?? []);
     }
 
     #[Test]
@@ -115,8 +120,10 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
 
         $this->assertCount(2, $rows);
         $this->assertSame('2026-07-01', $rows[0]['month']);
+        $this->assertSame(333, $rows[0]['goal_id']);
         $this->assertSame(4, $rows[0]['value']);
         $this->assertSame('2026-08-01', $rows[1]['month']);
+        $this->assertSame(333, $rows[1]['goal_id']);
         $this->assertSame(9, $rows[1]['value']);
     }
 

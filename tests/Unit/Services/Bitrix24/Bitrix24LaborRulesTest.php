@@ -34,6 +34,13 @@ class Bitrix24LaborRulesTest extends TestCase
         $this->assertFalse(Bitrix24TaskSelection::titleMatches('Разработка: форма', 'SEO:, КР:'));
     }
 
+    public function test_month_in_title_is_detected_without_false_positives(): void
+    {
+        $this->assertTrue(Bitrix24TaskSelection::hasMonthInTitle('SEO: октябрь 2026'));
+        $this->assertTrue(Bitrix24TaskSelection::hasMonthInTitle('Правки в мае'));
+        $this->assertFalse(Bitrix24TaskSelection::hasMonthInTitle('SEO: маяк и мартышка'));
+    }
+
     public function test_report_month_is_taken_from_task_title(): void
     {
         $workDate = Carbon::parse('2026-09-28');
@@ -42,12 +49,28 @@ class Bitrix24LaborRulesTest extends TestCase
         $this->assertSame('2026-08-01', Bitrix24TaskSelection::reportMonth('КР: отчёт за Август', $workDate)->toDateString());
         $this->assertSame('2026-05-01', Bitrix24TaskSelection::reportMonth('Правки в мае 2026', $workDate)->toDateString());
         $this->assertSame('2026-09-01', Bitrix24TaskSelection::reportMonth('SEO: маяк и мартышка', $workDate)->toDateString());
+        $this->assertSame('2022-09-01', Bitrix24TaskSelection::reportMonth('SEO корп - ежемесячно: сентябрь (1) 2022', $workDate)->toDateString());
     }
 
     public function test_report_month_without_year_takes_nearest_year(): void
     {
         $this->assertSame('2026-12-01', Bitrix24TaskSelection::reportMonth('SEO декабрь', Carbon::parse('2027-01-10'))->toDateString());
         $this->assertSame('2027-01-01', Bitrix24TaskSelection::reportMonth('SEO январь', Carbon::parse('2026-12-28'))->toDateString());
+    }
+
+    public function test_month_range_ignores_agency_timezone_offset(): void
+    {
+        $taskMonth = Carbon::parse('2026-09-01 00:00:00', 'UTC');
+        $from = Carbon::parse('2026-09-01 00:00:00', 'Europe/Moscow')->startOfMonth();
+        $to = Carbon::parse('2026-09-30 00:00:00', 'Europe/Moscow')->startOfMonth();
+
+        $this->assertTrue(Bitrix24TaskSelection::monthInRange($taskMonth, $from, $to));
+
+        $oldMatch = ! $taskMonth->copy()->startOfDay()->lt($from)
+            && ! $taskMonth->copy()->startOfDay()->gt($to);
+        if ($from->utcOffset() !== $taskMonth->utcOffset()) {
+            $this->assertFalse($oldMatch);
+        }
     }
 
     public function test_analyst_rate_wins_over_project_role(): void

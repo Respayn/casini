@@ -21,7 +21,7 @@ class YandexMetrikaSearchEnginesStats
             $data['id'] ?? null,
             $data['project_id'],
             $data['search_engine'],
-            new DateTimeImmutable($data['month']),
+            MetrikaMonth::fromMixed($data['month']),
             (int) $data['visits'],
             (int) $data['conversions']
         );

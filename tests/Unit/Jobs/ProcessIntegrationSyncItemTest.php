@@ -13,6 +13,7 @@ use App\Models\IntegrationSyncItem;
 use App\Models\IntegrationSyncRun;
 use App\Models\Project;
 use App\Services\IntegrationSync\IntegrationSyncDispatcher;
+use App\Services\IntegrationSync\IntegrationSyncIssueStatus;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
@@ -69,7 +70,7 @@ class ProcessIntegrationSyncItemTest extends TestCase
             'position' => 1,
         ]);
 
-        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class));
+        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class), app(IntegrationSyncIssueStatus::class));
 
         $item->refresh();
         $this->assertSame(IntegrationSyncItemStatus::Pending, $item->status);
@@ -109,7 +110,7 @@ class ProcessIntegrationSyncItemTest extends TestCase
             'position' => 0,
         ]);
 
-        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class));
+        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class), app(IntegrationSyncIssueStatus::class));
 
         $item->refresh();
         $this->assertSame(IntegrationSyncItemStatus::Failed, $item->status);
@@ -160,7 +161,7 @@ class ProcessIntegrationSyncItemTest extends TestCase
             'position' => 1,
         ]);
 
-        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class));
+        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class), app(IntegrationSyncIssueStatus::class));
 
         $item->refresh();
         $neighbor->refresh();
@@ -229,7 +230,7 @@ class ProcessIntegrationSyncItemTest extends TestCase
             'position' => 0,
         ]);
 
-        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class));
+        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class), app(IntegrationSyncIssueStatus::class));
 
         $item->refresh();
         $this->assertSame('Failed to get daily expenses', $item->last_error);
@@ -262,7 +263,7 @@ class ProcessIntegrationSyncItemTest extends TestCase
             'position' => 0,
         ]);
 
-        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class));
+        (new ProcessIntegrationSyncItem($item->id))->handle(app(IntegrationSyncDispatcher::class), app(IntegrationSyncIssueStatus::class));
 
         $item->refresh();
         $run->refresh();
