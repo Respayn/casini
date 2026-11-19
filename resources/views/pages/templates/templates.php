@@ -50,6 +50,8 @@ new
 
         public function download(DownloadTemplateFileQueryHandler $query, int $templateId)
         {
+            $this->ensureCanReadTemplates();
+
             $file = $query->handle(
                 new DownloadTemplateFileQuery($templateId)
             );
@@ -62,6 +64,21 @@ new
             $this->ensureCanDeleteTemplates();
 
             $command->handle(new DeleteTemplateCommand($templateId));
+        }
+
+        private function ensureCanReadTemplates(): void
+        {
+            $user = auth()->user();
+
+            abort_unless(
+                $user !== null && (
+                    $user->can('read report templates')
+                    || $user->can('edit report templates')
+                    || $user->can('full report templates')
+                ),
+                403,
+                __('permissions.denied')
+            );
         }
 
         private function ensureCanDeleteTemplates(): void

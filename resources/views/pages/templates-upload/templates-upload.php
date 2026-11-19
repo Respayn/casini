@@ -1,6 +1,7 @@
 <?php
 
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -27,6 +28,8 @@ class extends Component
 
     public bool $showTags = false;
 
+    /** Id шаблона со страницы; с фронта не меняется. */
+    #[Locked]
     public ?int $editingTemplateId = null;
 
     public ?string $existingFileName = null;

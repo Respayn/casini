@@ -7,6 +7,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Src\Application\Reports\Generate\GenerateReportCommand;
@@ -42,6 +43,8 @@ class extends Component
 
     public string $reportingMonth = '';
 
+    /** Id отчёта со страницы; с фронта не меняется. */
+    #[Locked]
     public ?int $editingReportId = null;
 
     public string $generateError = '';
@@ -506,6 +509,16 @@ class extends Component
 
         if (! SidebarProjectAccess::userCanAccessProject((int) $this->projectId)) {
             abort(403, __('permissions.denied'));
+        }
+
+        if ($this->editingReportId !== null) {
+            $existingReport = app(ReportRepositoryInterface::class)->findById($this->editingReportId);
+
+            abort_unless(
+                SidebarProjectAccess::userCanAccessProject($existingReport->getProjectId()),
+                403,
+                __('permissions.denied')
+            );
         }
 
         $this->clampPeriodToPresent();

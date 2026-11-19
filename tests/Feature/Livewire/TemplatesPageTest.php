@@ -9,6 +9,7 @@ use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\DB;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Src\Application\Templates\TemplateTagReaderInterface;
@@ -169,6 +170,23 @@ class TemplatesPageTest extends TestCase
             ->assertForbidden();
 
         $this->assertDatabaseHas('templates', ['id' => $templateId]);
+    }
+
+    public function test_editing_template_id_is_locked(): void
+    {
+        $templateId = DB::table('templates')->insertGetId([
+            'name' => 'Шаблон для Locked',
+            'path' => 'templates/locked.docx',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $component = Livewire::test('pages::templates-upload', ['templateId' => $templateId])
+            ->assertSet('editingTemplateId', $templateId);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        $component->set('editingTemplateId', $templateId + 1);
     }
 
     public function test_full_user_can_delete_template_used_in_reports(): void

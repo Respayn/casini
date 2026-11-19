@@ -11,6 +11,7 @@ use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Livewire\Features\SupportLockedProperties\CannotUpdateLockedPropertyException;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Src\Domain\ValueObjects\Kpi;
@@ -183,6 +184,46 @@ class ReportsListPageTest extends TestCase
             ->assertHasNoErrors();
 
         $this->assertDatabaseMissing('reports', ['id' => $reportId]);
+    }
+
+    public function test_user_cannot_download_or_delete_inaccessible_report(): void
+    {
+        $owner = User::factory()->create(['is_active' => true]);
+        [$reportId] = $this->insertReport($owner);
+
+        $role = Role::findByName('seo');
+        $role->syncPermissions([
+            'read reports',
+            'edit reports',
+            'full reports',
+            'read clients and projects self',
+        ]);
+
+        $viewer = User::factory()->create(['is_active' => true]);
+        $viewer->assignRole($role);
+        $this->actingAs($viewer);
+
+        Livewire::test('pages::reports')
+            ->call('download', $reportId)
+            ->assertForbidden();
+
+        Livewire::test('pages::reports')
+            ->call('delete', $reportId)
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('reports', ['id' => $reportId]);
+    }
+
+    public function test_editing_report_id_is_locked(): void
+    {
+        [$reportId] = $this->insertReport();
+
+        $component = Livewire::test('pages::reports-create', ['reportId' => $reportId])
+            ->assertSet('editingReportId', $reportId);
+
+        $this->expectException(CannotUpdateLockedPropertyException::class);
+
+        $component->set('editingReportId', $reportId + 1);
     }
 
     public function test_templates_button_is_secondary(): void

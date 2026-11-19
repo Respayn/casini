@@ -2,6 +2,7 @@
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
 use App\Support\SharedProductFilters;
+use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
@@ -14,6 +15,7 @@ use Src\Application\Reports\Download\DownloadReportFileQuery;
 use Src\Application\Reports\Download\DownloadReportFileQueryHandler;
 use Src\Application\Reports\GetList\GetReportsListQuery;
 use Src\Application\Reports\GetList\GetReportsListQueryHandler;
+use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Presentation\Livewire\Traits\WithColumnSettings;
 
 new
@@ -158,6 +160,8 @@ new
 
         public function download(DownloadReportFileQueryHandler $queryHandler, int $reportId)
         {
+            $this->ensureCanAccessReport($reportId);
+
             $query = new DownloadReportFileQuery($reportId);
             $file = $queryHandler->handle($query);
 
@@ -167,6 +171,7 @@ new
         public function delete(DeleteReportCommandHandler $command, int $reportId): void
         {
             $this->ensureCanDeleteReports();
+            $this->ensureCanAccessReport($reportId);
             $this->resetErrorBag();
 
             $command->handle(new DeleteReportCommand($reportId));
@@ -176,5 +181,16 @@ new
         private function ensureCanDeleteReports(): void
         {
             abort_unless($this->canDeleteReports, 403, __('permissions.denied'));
+        }
+
+        private function ensureCanAccessReport(int $reportId): void
+        {
+            $report = app(ReportRepositoryInterface::class)->findById($reportId);
+
+            abort_unless(
+                SidebarProjectAccess::userCanAccessProject($report->getProjectId()),
+                403,
+                __('permissions.denied')
+            );
         }
     };
