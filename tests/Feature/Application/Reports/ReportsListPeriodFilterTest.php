@@ -5,6 +5,7 @@ namespace Tests\Feature\Application\Reports;
 use App\Models\Client;
 use App\Models\Project;
 use App\Models\User;
+use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
 use DateTimeImmutable;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -30,6 +31,7 @@ class ReportsListPeriodFilterTest extends TestCase
         parent::setUp();
 
         $this->seed(RolesTableSeeder::class);
+        $this->seed(PermissionSeeder::class);
 
         $this->admin = User::factory()->create(['is_active' => true]);
         $this->admin->assignRole(Role::findByName('admin'));
