@@ -11,7 +11,8 @@ class Report
     private function __construct(
         private ?int $id,
         private DateTimeImmutable $createdAt,
-        private int $templateId,
+        private ?int $templateId,
+        private string $templateName,
         private int $clientId,
         private ProjectType $projectType,
         private int $projectId,
@@ -19,6 +20,8 @@ class Report
         private int $specialistId,
         private int $managerId,
         private ReportFormat $format,
+        private ReportColumnGrouping $columnGrouping,
+        private ReportDateSort $dateSort,
         private bool $isReady,
         private bool $isAccepted,
         private bool $isSent,
@@ -28,6 +31,7 @@ class Report
 
     public static function create(
         int $templateId,
+        string $templateName,
         int $clientId,
         ProjectType $projectType,
         int $projectId,
@@ -39,12 +43,15 @@ class Report
         bool $isAccepted,
         bool $isSent,
         int $createdBy,
-        ?string $path = null
+        ?string $path = null,
+        ReportColumnGrouping $columnGrouping = ReportColumnGrouping::Months,
+        ReportDateSort $dateSort = ReportDateSort::NewestFirst,
     ): Report {
         return new self(
             null,
-            new DateTimeImmutable(),
+            new DateTimeImmutable,
             $templateId,
+            $templateName,
             $clientId,
             $projectType,
             $projectId,
@@ -52,6 +59,8 @@ class Report
             $specialistId,
             $managerId,
             $format,
+            $columnGrouping,
+            $dateSort,
             $isReady,
             $isAccepted,
             $isSent,
@@ -63,7 +72,8 @@ class Report
     public static function restore(
         int $id,
         DateTimeImmutable $createdAt,
-        int $templateId,
+        ?int $templateId,
+        string $templateName,
         int $clientId,
         ProjectType $projectType,
         int $projectId,
@@ -75,12 +85,15 @@ class Report
         bool $isAccepted,
         bool $isSent,
         int $createdBy,
-        string $path
+        string $path,
+        ReportColumnGrouping $columnGrouping = ReportColumnGrouping::Months,
+        ReportDateSort $dateSort = ReportDateSort::NewestFirst,
     ) {
         return new self(
             $id,
             $createdAt,
             $templateId,
+            $templateName,
             $clientId,
             $projectType,
             $projectId,
@@ -88,6 +101,8 @@ class Report
             $specialistId,
             $managerId,
             $format,
+            $columnGrouping,
+            $dateSort,
             $isReady,
             $isAccepted,
             $isSent,
@@ -106,9 +121,14 @@ class Report
         return $this->createdAt;
     }
 
-    public function getTemplateId(): int
+    public function getTemplateId(): ?int
     {
         return $this->templateId;
+    }
+
+    public function getTemplateName(): string
+    {
+        return $this->templateName;
     }
 
     public function getClientId(): int
@@ -156,6 +176,16 @@ class Report
         return $this->format;
     }
 
+    public function getColumnGrouping(): ReportColumnGrouping
+    {
+        return $this->columnGrouping;
+    }
+
+    public function getDateSort(): ReportDateSort
+    {
+        return $this->dateSort;
+    }
+
     public function getIsReady(): bool
     {
         return $this->isReady;
@@ -199,6 +229,37 @@ class Report
     public function setPath(string $path): void
     {
         $this->path = $path;
+    }
+
+    public function isPersisted(): bool
+    {
+        return $this->id !== null;
+    }
+
+    public function replace(
+        int $templateId,
+        string $templateName,
+        int $clientId,
+        ProjectType $projectType,
+        int $projectId,
+        DateTimeRange $period,
+        int $specialistId,
+        int $managerId,
+        ReportFormat $format,
+        ReportColumnGrouping $columnGrouping = ReportColumnGrouping::Months,
+        ReportDateSort $dateSort = ReportDateSort::NewestFirst,
+    ): void {
+        $this->templateId = $templateId;
+        $this->templateName = $templateName;
+        $this->clientId = $clientId;
+        $this->projectType = $projectType;
+        $this->projectId = $projectId;
+        $this->period = $period;
+        $this->specialistId = $specialistId;
+        $this->managerId = $managerId;
+        $this->format = $format;
+        $this->columnGrouping = $columnGrouping;
+        $this->dateSort = $dateSort;
     }
 
     public function getName(): string
