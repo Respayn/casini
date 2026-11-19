@@ -4,6 +4,7 @@ use App\Livewire\Concerns\RedirectsAfterAuth;
 use App\Livewire\Concerns\VerifiesYandexSmartCaptcha;
 use App\Models\User;
 use App\Services\Auth\UserInvitationService;
+use App\Support\UserPasswordRules;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\ValidationException;
@@ -21,6 +22,8 @@ class extends Component
     use RedirectsAfterAuth;
     use VerifiesYandexSmartCaptcha;
 
+    private const POST_ACCEPT_LOGIN_USER_ID = 'invitation.post_accept_login_user_id';
+
     public int $step = 1;
 
     public int $userId = 0;
@@ -30,8 +33,8 @@ class extends Component
     public string $signature = '';
 
     #[Validate('required', message: 'Поле пароль обязательно для заполнения', onUpdate: false)]
-    #[Validate('min:6', message: 'слишком короткий пароль', onUpdate: false)]
-    #[Validate('regex:/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', message: 'пароль должен состоять не менее чем из 6 символов и содержит латинские буквы и цифры', onUpdate: false)]
+    #[Validate(UserPasswordRules::RULE_MIN, message: UserPasswordRules::MESSAGE_MIN, onUpdate: false)]
+    #[Validate(UserPasswordRules::RULE_REGEX, message: UserPasswordRules::MESSAGE_REGEX, onUpdate: false)]
     public string $password = '';
 
     #[Validate('required', message: 'Поле повторите пароль обязательно для заполнения', onUpdate: false)]
@@ -51,8 +54,7 @@ class extends Component
     #[Computed]
     public function isStep1Ready(): bool
     {
-        return (bool) preg_match('/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/', $this->password)
-            && $this->password === $this->passwordConfirmation;
+        return UserPasswordRules::pairIsReady($this->password, $this->passwordConfirmation);
     }
 
     public function validateField(string $field): void
@@ -73,12 +75,21 @@ class extends Component
         $this->validateOnly('passwordConfirmation');
 
         $invitations->accept($user, $this->password);
+        Session::put(self::POST_ACCEPT_LOGIN_USER_ID, $user->id);
         $this->step = 2;
     }
 
     public function enterAccount(): void
     {
-        $user = User::query()->find($this->userId);
+        $acceptedUserId = (int) Session::pull(self::POST_ACCEPT_LOGIN_USER_ID, 0);
+
+        if ($acceptedUserId <= 0) {
+            $this->redirect(route('login'), navigate: true);
+
+            return;
+        }
+
+        $user = User::query()->find($acceptedUserId);
 
         if (! $user) {
             $this->redirect(route('login'), navigate: true);

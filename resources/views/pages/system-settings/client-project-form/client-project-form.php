@@ -45,6 +45,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -64,6 +65,10 @@ class extends Component
 
     /** Помечена как public, чтобы Livewire сохранял флаг между запросами формы. */
     public bool $autoEnabledGoogleSheetsForSeo = false;
+
+    /** Id проекта со страницы; с фронта не меняется. */
+    #[Locked]
+    public ?int $editingProjectId = null;
 
     public CreateClientProjectForm $clientProjectForm;
 
@@ -250,6 +255,8 @@ class extends Component
         if ($projectId === null) {
             ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
         }
+
+        $this->editingProjectId = filled($projectId) ? (int) $projectId : null;
 
         $this->clients = $this->clientService->getClients();
         $this->promotionRegions = $this->promotionRegionService->getPromotionRegions();
@@ -1859,6 +1866,19 @@ class extends Component
     {
         $this->ensureCanEdit();
 
+        $editingProjectId = $this->editingProjectId;
+
+        if ($editingProjectId !== null) {
+            $existingProject = $this->projectService->getProjectDataById($editingProjectId);
+            $existingClient = $this->clientRepository->findById($existingProject->client_id);
+            app(ClientProjectAccessPolicy::class)
+                ->ensureUserCanViewProject(
+                    Auth::user(),
+                    $existingProject,
+                    $existingClient->getManagerId()
+                );
+        }
+
         // Валидация обязательных форм
         $this->clientProjectForm->validate();
 
@@ -1877,7 +1897,7 @@ class extends Component
         try {
             // Подготовка данных для проекта
             $projectData = new ProjectData(
-                id: $this->clientProjectForm->id ?? null,
+                id: $editingProjectId,
                 name: $this->clientProjectForm->name,
                 domain: $this->clientProjectForm->domain ?? null,
                 client_id: $this->clientProjectForm->client,

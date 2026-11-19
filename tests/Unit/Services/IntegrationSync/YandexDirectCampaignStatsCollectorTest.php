@@ -8,12 +8,14 @@ use App\Enums\IntegrationCategory;
 use App\Models\Project;
 use App\Models\YandexDirectCampaignStats;
 use App\Repositories\IntegrationRepository;
+use App\Repositories\ProjectRepository;
 use App\Services\IntegrationSync\Collectors\YandexDirectCampaignStatsCollector;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Services\YandexDirectService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Carbon;
 use Mockery;
+use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
 use Tests\TestCase;
 
 class YandexDirectCampaignStatsCollectorTest extends TestCase
@@ -85,6 +87,8 @@ class YandexDirectCampaignStatsCollectorTest extends TestCase
 
         $collector = new YandexDirectCampaignStatsCollector(
             new IntegrationProjectCredentials($repository),
+            app(ProjectRepository::class),
+            app(YandexDirectRepositoryInterface::class),
         );
         $result = $collector->collectRange(
             $project->id,

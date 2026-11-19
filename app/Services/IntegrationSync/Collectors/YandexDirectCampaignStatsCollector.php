@@ -5,12 +5,12 @@ namespace App\Services\IntegrationSync\Collectors;
 use App\Contracts\IntegrationSyncCollector;
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
-use App\Models\Project;
-use App\Models\YandexDirectCampaignStats;
+use App\Repositories\ProjectRepository;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Services\YandexDirectService;
 use App\Support\SafeLogger;
 use Illuminate\Support\Carbon;
+use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
 
 class YandexDirectCampaignStatsCollector implements IntegrationSyncCollector
 {
@@ -20,6 +20,8 @@ class YandexDirectCampaignStatsCollector implements IntegrationSyncCollector
 
     public function __construct(
         private readonly IntegrationProjectCredentials $credentials,
+        private readonly ProjectRepository $projects,
+        private readonly YandexDirectRepositoryInterface $yandexDirect,
     ) {}
 
     public function key(): string
@@ -34,7 +36,7 @@ class YandexDirectCampaignStatsCollector implements IntegrationSyncCollector
 
     public function supportsProject(int $projectId): bool
     {
-        if (! Project::query()->whereKey($projectId)->where('is_active', true)->exists()) {
+        if (! $this->projects->isActive($projectId)) {
             return false;
         }
 
@@ -99,11 +101,6 @@ class YandexDirectCampaignStatsCollector implements IntegrationSyncCollector
                 $costWithoutVatByKey[$key] = round((float) $row['cost'], 2);
             }
 
-            YandexDirectCampaignStats::query()
-                ->where('project_id', $projectId)
-                ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-                ->delete();
-
             $now = now();
             $insert = [];
             foreach ($withVat as $row) {
@@ -124,9 +121,12 @@ class YandexDirectCampaignStatsCollector implements IntegrationSyncCollector
                 ];
             }
 
-            foreach (array_chunk($insert, 500) as $chunk) {
-                YandexDirectCampaignStats::query()->insert($chunk);
-            }
+            $this->yandexDirect->replaceCampaignStatsForPeriod(
+                $projectId,
+                $from->toDateString(),
+                $to->toDateString(),
+                $insert,
+            );
 
             return IntegrationSyncResult::success();
         } catch (\Throwable $e) {

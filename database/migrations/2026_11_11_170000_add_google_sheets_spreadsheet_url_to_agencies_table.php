@@ -15,7 +15,6 @@ return new class extends Migration
 
         $this->migrateSpreadsheetUrlsFromProjects();
         $this->stripLegacyGoogleSheetsProjectSettings();
-        $this->enableGoogleSheetsForSeoProjectsWithoutRow();
     }
 
     public function down(): void
@@ -131,44 +130,6 @@ return new class extends Migration
                     'settings' => json_encode($settings, JSON_UNESCAPED_UNICODE),
                     'updated_at' => now(),
                 ]);
-        }
-    }
-
-    private function enableGoogleSheetsForSeoProjectsWithoutRow(): void
-    {
-        $integrationId = DB::table('integrations')->where('code', 'google_sheets')->value('id');
-
-        if ($integrationId === null) {
-            return;
-        }
-
-        $existingProjectIds = DB::table('integration_project')
-            ->where('integration_id', $integrationId)
-            ->pluck('project_id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        $seoProjectIds = DB::table('projects')
-            ->where('project_type', 'seo_promotion')
-            ->pluck('id')
-            ->map(fn ($id) => (int) $id)
-            ->all();
-
-        $missing = array_values(array_diff($seoProjectIds, $existingProjectIds));
-
-        $now = now();
-
-        foreach ($missing as $projectId) {
-            DB::table('integration_project')->insert([
-                'integration_id' => $integrationId,
-                'project_id' => $projectId,
-                'is_enabled' => 1,
-                'settings' => json_encode([
-                    'sync_enabled_at' => $now->toDateString(),
-                ], JSON_UNESCAPED_UNICODE),
-                'created_at' => $now,
-                'updated_at' => $now,
-            ]);
         }
     }
 

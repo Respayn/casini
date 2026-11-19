@@ -8,6 +8,7 @@ use App\Models\CompletedWork;
 use App\Models\Integration;
 use App\Models\Project;
 use App\Models\User;
+use App\Repositories\ProjectRepository;
 use App\Services\Bitrix24\Bitrix24Client;
 use App\Services\IntegrationSync\Collectors\Bitrix24WorksCollector;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
@@ -228,6 +229,7 @@ class Bitrix24WorksCollectorTest extends TestCase
             app(IntegrationProjectCredentials::class),
             new Bitrix24Client(pauseMs: 0),
             app(CompletedWorkRepositoryInterface::class),
+            app(ProjectRepository::class),
         );
     }
 

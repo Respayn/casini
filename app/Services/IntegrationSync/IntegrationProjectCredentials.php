@@ -41,11 +41,34 @@ class IntegrationProjectCredentials
     }
 
     /**
+     * Активные интеграции для списка проектов одним запросом.
+     *
+     * @param  list<int>  $projectIds
+     * @return Collection<int, Collection<int, object>>
+     */
+    public function mapByProjects(array $projectIds): Collection
+    {
+        return $this->integrationRepository->getActiveIntegrationsMappedByProjects($projectIds);
+    }
+
+    /**
      * @return object{settings: mixed, integration: object}|null
      */
     public function projectIntegration(int $projectId, string $integrationCode): ?object
     {
-        $mapped = $this->integrationRepository->getActiveIntegrationsMappedByProjects([$projectId]);
+        return $this->integrationFromMap(
+            $this->mapByProjects([$projectId]),
+            $projectId,
+            $integrationCode,
+        );
+    }
+
+    /**
+     * @param  Collection<int, Collection<int, object>>  $mapped
+     * @return object{settings: mixed, integration: object}|null
+     */
+    public function integrationFromMap(Collection $mapped, int $projectId, string $integrationCode): ?object
+    {
         /** @var Collection<int, object> $list */
         $list = $mapped->get($projectId, collect());
 

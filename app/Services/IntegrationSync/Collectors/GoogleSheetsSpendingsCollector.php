@@ -5,7 +5,7 @@ namespace App\Services\IntegrationSync\Collectors;
 use App\Contracts\IntegrationSyncCollector;
 use App\Data\IntegrationSync\IntegrationSyncCollectContext;
 use App\Data\IntegrationSync\IntegrationSyncResult;
-use App\Models\Project;
+use App\Repositories\ProjectRepository;
 use App\Services\GoogleSheetsService;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
 use App\Support\SafeLogger;
@@ -21,6 +21,7 @@ class GoogleSheetsSpendingsCollector implements IntegrationSyncCollector
     public function __construct(
         private readonly IntegrationProjectCredentials $credentials,
         private readonly GoogleSheetsService $googleSheetsService,
+        private readonly ProjectRepository $projects,
     ) {}
 
     public function key(): string
@@ -35,7 +36,7 @@ class GoogleSheetsSpendingsCollector implements IntegrationSyncCollector
 
     public function supportsProject(int $projectId): bool
     {
-        if (! Project::query()->whereKey($projectId)->where('is_active', true)->exists()) {
+        if (! $this->projects->isActive($projectId)) {
             return false;
         }
 

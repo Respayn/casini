@@ -6,26 +6,12 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 
 class ClientProjectVisibility
 {
-    public static function seesAllProjects(?User $user = null): bool
-    {
-        $user ??= Auth::user();
-
-        if ($user === null) {
-            return false;
-        }
-
-        return $user->hasAnyPermission([
-            'read clients and projects all',
-            'full clients and projects all',
-        ]);
-    }
-
     /**
-     * Те же границы, что у Каналов: менеджер видит своих клиентов,
-     * специалист видит проекты, где он назначен.
+     * Те же границы, что у карточки клиенто-проекта (ClientProjectAccessPolicy).
      *
      * @param  Collection<int, mixed>  $clients
      * @param  Collection<int, mixed>  $projects
@@ -33,22 +19,30 @@ class ClientProjectVisibility
      */
     public static function limit(User $user, Collection $clients, Collection $projects): array
     {
-        if ($user->isManager() && ! self::seesAllProjects($user)) {
-            $clients = $clients->filter(
-                fn ($client) => $client->manager_id === $user->id
-            )->values();
+        if (ClientsAndProjectsPermissions::userCanSeeAll($user)) {
+            return [$clients, $projects];
         }
 
-        $clientIds = $clients->pluck('id');
-        $projects = $projects->filter(
-            fn ($project) => $clientIds->contains($project->client_id)
+        if (! ClientsAndProjectsPermissions::userCanSeeSelf($user)) {
+            return [collect(), collect()];
+        }
+
+        $policy = app(ClientProjectAccessPolicy::class);
+        $clientsById = $clients->keyBy(fn ($client) => (int) $client->id);
+
+        $projects = $projects->filter(function ($project) use ($user, $clientsById, $policy) {
+            $client = $clientsById->get((int) $project->client_id);
+            $managerId = $client?->manager_id !== null ? (int) $client->manager_id : null;
+            $specialistId = $project->specialist_id !== null ? (int) $project->specialist_id : null;
+
+            return $policy->userCanViewProjectAssignment($user, $specialistId, $managerId);
+        })->values();
+
+        $visibleClientIds = $projects->pluck('client_id')->map(fn ($id) => (int) $id)->unique();
+        $clients = $clients->filter(
+            fn ($client) => $visibleClientIds->contains((int) $client->id)
+                || ((int) ($client->manager_id ?? 0) === (int) $user->id)
         )->values();
-
-        if ($user->isSpecialist() && ! self::seesAllProjects($user)) {
-            $projects = $projects->filter(
-                fn ($project) => $project->specialist_id === $user->id
-            )->values();
-        }
 
         return [$clients, $projects];
     }
@@ -60,19 +54,23 @@ class ClientProjectVisibility
     {
         $user ??= Auth::user();
 
-        if ($user === null || self::seesAllProjects($user)) {
+        if ($user === null || ClientsAndProjectsPermissions::userCanSeeAll($user)) {
             return;
         }
 
-        if ($user->isManager()) {
-            $query->whereHas(
-                'client',
-                fn (Builder $client) => $client->where('manager_id', $user->id)
-            );
+        if (! ClientsAndProjectsPermissions::userCanSeeSelf($user)) {
+            $query->whereRaw('0 = 1');
+
+            return;
         }
 
-        if ($user->isSpecialist()) {
-            $query->where('specialist_id', $user->id);
-        }
+        $query->where(function (Builder $scoped) use ($user): void {
+            $scoped
+                ->where('specialist_id', $user->id)
+                ->orWhereHas(
+                    'client',
+                    fn (Builder $client) => $client->where('manager_id', $user->id)
+                );
+        });
     }
 }

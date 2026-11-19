@@ -1160,16 +1160,9 @@ class StatisticsService
         Carbon $from,
         Carbon $to,
     ): array {
-        $map = [];
-        foreach ($projects as $project) {
-            $projectId = (int) $project->id;
-            $byDay = $this->projectKpiFacts->leadsByDay($projectId, $from, $to);
-            if ($byDay !== []) {
-                $map[$projectId] = $byDay;
-            }
-        }
+        $projectIds = $projects->pluck('id')->map(fn ($id) => (int) $id)->filter()->values()->all();
 
-        return $map;
+        return $this->projectKpiFacts->leadsByDayForProjects($projectIds, $from, $to);
     }
 
     /**
@@ -1183,28 +1176,22 @@ class StatisticsService
         Carbon $from,
         Carbon $to,
     ): array {
-        $map = [];
+        $contextIds = [];
+        $seoIds = [];
         foreach ($projects as $project) {
             $projectId = (int) $project->id;
             if ($project->project_type === ProjectType::CONTEXT_AD) {
-                $byDay = $this->projectKpiFacts->directClicksByDay($projectId, $from, $to);
-                if ($byDay !== []) {
-                    $map[$projectId] = $byDay;
-                }
-
-                continue;
+                $contextIds[] = $projectId;
+            } elseif ($project->project_type === ProjectType::SEO_PROMOTION) {
+                $seoIds[] = $projectId;
             }
+        }
 
-            if ($project->project_type === ProjectType::SEO_PROMOTION) {
-                $byDay = $this->seoMonthlyMetricByLastDay(
-                    $projectId,
-                    $from,
-                    $to,
-                    fn (int $id, Carbon $monthStart, Carbon $monthEnd): ?int => $this->projectKpiFacts->seoSearchVisits($id, $monthStart, $monthEnd),
-                );
-                if ($byDay !== []) {
-                    $map[$projectId] = $byDay;
-                }
+        $map = $this->projectKpiFacts->directClicksByDayForProjects($contextIds, $from, $to);
+
+        foreach ($this->seoMonthlyMetricByLastDayForProjects($seoIds, $from, $to, 'visits') as $projectId => $byDay) {
+            if ($byDay !== []) {
+                $map[$projectId] = $byDay;
             }
         }
 
@@ -1222,52 +1209,56 @@ class StatisticsService
         Carbon $from,
         Carbon $to,
     ): array {
-        $map = [];
+        $seoIds = [];
         foreach ($projects as $project) {
-            if ($project->project_type !== ProjectType::SEO_PROMOTION) {
-                continue;
-            }
-            $projectId = (int) $project->id;
-            $byDay = $this->seoMonthlyMetricByLastDay(
-                $projectId,
-                $from,
-                $to,
-                fn (int $id, Carbon $monthStart, Carbon $monthEnd): ?int => $this->projectKpiFacts->seoSearchConversions($id, $monthStart, $monthEnd),
-            );
-            if ($byDay !== []) {
-                $map[$projectId] = $byDay;
+            if ($project->project_type === ProjectType::SEO_PROMOTION) {
+                $seoIds[] = (int) $project->id;
             }
         }
 
-        return $map;
+        return $this->seoMonthlyMetricByLastDayForProjects($seoIds, $from, $to, 'conversions');
     }
 
     /**
      * Месячные метрики Метрики кладём на последний день каждого месяца.
      *
-     * @param  callable(int, Carbon, Carbon): ?int  $loader
-     * @return array<string, int>
+     * @param  list<int>  $projectIds
+     * @param  'visits'|'conversions'  $column
+     * @return array<int, array<string, int>>
      */
-    private function seoMonthlyMetricByLastDay(
-        int $projectId,
+    private function seoMonthlyMetricByLastDayForProjects(
+        array $projectIds,
         Carbon $from,
         Carbon $to,
-        callable $loader,
+        string $column,
     ): array {
-        $map = [];
+        if ($projectIds === []) {
+            return [];
+        }
+
+        $byMonth = $this->projectKpiFacts->seoSearchEnginesByMonthForProjects(
+            $projectIds,
+            $from,
+            $to,
+            $column,
+        );
+
+        $result = [];
         $cursor = $from->copy()->startOfMonth();
         $end = $to->copy()->startOfMonth();
         while ($cursor->lte($end)) {
-            $monthStart = $cursor->copy()->startOfMonth();
-            $monthEnd = $cursor->copy()->endOfMonth()->startOfDay();
-            $value = $loader($projectId, $monthStart, $monthEnd);
-            if ($value !== null) {
-                $map[$monthEnd->toDateString()] = $value;
+            $monthKey = $cursor->format('Y-m-01');
+            $monthEnd = $cursor->copy()->endOfMonth()->startOfDay()->toDateString();
+            foreach ($projectIds as $projectId) {
+                if (! array_key_exists($monthKey, $byMonth[$projectId] ?? [])) {
+                    continue;
+                }
+                $result[$projectId][$monthEnd] = $byMonth[$projectId][$monthKey];
             }
             $cursor->addMonth();
         }
 
-        return $map;
+        return $result;
     }
 
     /**

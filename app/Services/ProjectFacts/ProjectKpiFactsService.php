@@ -5,16 +5,19 @@ namespace App\Services\ProjectFacts;
 use App\Clients\Callibri\Filters\UtmFilter;
 use App\Data\IntegrationSettings\YandexMetrikaIntegrationSettingsData;
 use App\Factories\CallibriFilterFactory;
-use App\Models\CallibriDailyLeadCount;
 use App\Models\CallibriLead;
-use App\Models\YandexDirectCampaignStats;
-use App\Models\YandexDirectDailySpending;
-use App\Models\YandexMetrikaGoalDirectSummary;
-use App\Models\YandexMetrikaGoalUtm;
-use App\Models\YandexMetrikaSearchEnginesStats;
-use App\Models\YandexSearchApiDailyTopPercent;
+use App\Repositories\CallibriLeadRepository;
+use App\Repositories\YandexSearchApiDailyTopPercentRepository;
 use App\Services\IntegrationSync\IntegrationProjectCredentials;
+use DateTimeImmutable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Src\Domain\ValueObjects\DateTimeRange;
+use Src\Domain\YandexDirect\YandexDirectRepositoryInterface;
+use Src\Domain\YandexMetrika\YandexMetrikaGoalDirectSummary;
+use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
+use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
+use Src\Domain\YandexMetrika\YandexMetrikaSearchEnginesStats;
 
 /**
  * Общие факты KPI для Каналов / Статистики / отчётов.
@@ -24,6 +27,10 @@ class ProjectKpiFactsService
     public function __construct(
         private readonly IntegrationProjectCredentials $credentials,
         private readonly CallibriFilterFactory $callibriFilterFactory,
+        private readonly YandexDirectRepositoryInterface $yandexDirect,
+        private readonly CallibriLeadRepository $callibriLeads,
+        private readonly YandexMetrikaRepositoryInterface $yandexMetrika,
+        private readonly YandexSearchApiDailyTopPercentRepository $searchApiTopPercents,
     ) {}
 
     /**
@@ -40,17 +47,12 @@ class ProjectKpiFactsService
             return null;
         }
 
-        $column = $includeVat ? 'cost_with_vat' : 'cost_without_vat';
-        $rows = YandexDirectDailySpending::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['date', $column]);
-
-        if ($rows->isEmpty()) {
-            return null;
-        }
-
-        return round((float) $rows->sum($column), 2);
+        return $this->yandexDirect->sumDailySpendings(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+            $includeVat,
+        );
     }
 
     /**
@@ -60,73 +62,7 @@ class ProjectKpiFactsService
      */
     public function leadsByDay(int $projectId, Carbon $from, Carbon $to): array
     {
-        [$from, $to] = $this->clampPeriod($from, $to);
-        if ($from->greaterThan($to)) {
-            return [];
-        }
-
-        $map = [];
-
-        if ($this->credentials->hasEnabled($projectId, 'callibri')) {
-            foreach ($this->filteredCallibriLeads($projectId, $from, $to) as $lead) {
-                $day = Carbon::parse((string) $lead->date)->toDateString();
-                $map[$day] = ($map[$day] ?? 0) + 1;
-            }
-        }
-
-        if ($this->credentials->hasEnabled($projectId, 'yandex_metrika')) {
-            $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
-            $countSource = YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($settings);
-
-            if ($countSource === YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_DIRECT_SUMMARY) {
-                foreach ($this->directSummaryGoalsByMonth($projectId, $from, $to) as $month => $conversions) {
-                    $day = Carbon::parse($month)->endOfMonth();
-                    if ($day->greaterThan($to)) {
-                        $day = $to->copy();
-                    }
-                    if ($day->lessThan($from)) {
-                        $day = $from->copy();
-                    }
-                    $key = $day->toDateString();
-                    $map[$key] = ($map[$key] ?? 0) + $conversions;
-                }
-            } else {
-                foreach ($this->filteredMetrikaUtmGoals($projectId, $from, $to) as $goal) {
-                    $day = $goal->achieved_date instanceof Carbon
-                        ? $goal->achieved_date->toDateString()
-                        : Carbon::parse((string) $goal->achieved_date)->toDateString();
-                    $map[$day] = ($map[$day] ?? 0) + 1;
-                }
-            }
-        }
-
-        if ($map === []
-            && ! $this->credentials->hasEnabled($projectId, 'callibri')
-            && ! $this->credentials->hasEnabled($projectId, 'yandex_metrika')
-        ) {
-            return [];
-        }
-
-        // Нулевые дни тоже пишем: в Статистике «Итог» требует срез за последний день месяца.
-        if ($this->credentials->hasEnabled($projectId, 'callibri')
-            || $this->credentials->hasEnabled($projectId, 'yandex_metrika')
-        ) {
-            for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
-                $key = $day->toDateString();
-                if (! array_key_exists($key, $map)) {
-                    $map[$key] = 0;
-                }
-            }
-        }
-
-        ksort($map);
-
-        return $map;
-    }
-
-    public function leadsTotal(int $projectId, Carbon $from, Carbon $to): int
-    {
-        return array_sum($this->leadsByDay($projectId, $from, $to));
+        return $this->leadsByDayForProjects([$projectId], $from, $to)[$projectId] ?? [];
     }
 
     /**
@@ -136,25 +72,173 @@ class ProjectKpiFactsService
      */
     public function directClicksByDay(int $projectId, Carbon $from, Carbon $to): array
     {
+        return $this->directClicksByDayForProjects([$projectId], $from, $to)[$projectId] ?? [];
+    }
+
+    /**
+     * Клики Директа по дням для списка проектов.
+     *
+     * @param  list<int>  $projectIds
+     * @return array<int, array<string, int>>
+     */
+    public function directClicksByDayForProjects(array $projectIds, Carbon $from, Carbon $to): array
+    {
         [$from, $to] = $this->clampPeriod($from, $to);
-        if ($from->greaterThan($to)) {
+        if ($from->greaterThan($to) || $projectIds === []) {
             return [];
         }
 
-        $rows = YandexDirectCampaignStats::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['date', 'clicks']);
+        return $this->yandexDirect->clicksByDayForProjects(
+            $projectIds,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
+    }
+
+    /**
+     * Лиды по дням для списка проектов одним проходом по БД.
+     *
+     * @param  list<int>  $projectIds
+     * @return array<int, array<string, int>>
+     */
+    public function leadsByDayForProjects(array $projectIds, Carbon $from, Carbon $to): array
+    {
+        [$from, $to] = $this->clampPeriod($from, $to);
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($from->greaterThan($to) || $projectIds === []) {
+            return [];
+        }
+
+        $integrations = $this->credentials->mapByProjects($projectIds);
+        $callibriProjectIds = [];
+        $metrikaProjectIds = [];
+        foreach ($projectIds as $projectId) {
+            if ($this->credentials->integrationFromMap($integrations, $projectId, 'callibri') !== null) {
+                $callibriProjectIds[] = $projectId;
+            }
+            if ($this->credentials->integrationFromMap($integrations, $projectId, 'yandex_metrika') !== null) {
+                $metrikaProjectIds[] = $projectId;
+            }
+        }
+
+        $leadsByProject = $callibriProjectIds === []
+            ? collect()
+            : $this->callibriLeads->getLeadsBetweenForProjects(
+                $callibriProjectIds,
+                $from->copy()->startOfDay()->toDateTimeString(),
+                $to->copy()->endOfDay()->toDateTimeString(),
+            )->groupBy(fn (CallibriLead $lead) => (int) $lead->project_id);
+
+        $utmByProject = [];
+        if ($metrikaProjectIds !== []) {
+            foreach ($this->yandexMetrika->getGoalUtmStatsForProjects($metrikaProjectIds, $this->toRange($from, $to)) as $goal) {
+                $utmByProject[$goal->getProjectId()][] = $goal;
+            }
+        }
+
+        $directSummaryByProject = [];
+        if ($metrikaProjectIds !== []) {
+            foreach ($this->yandexMetrika->getGoalDirectSummaryStatsForProjects($metrikaProjectIds, $this->toMonthRange($from, $to)) as $row) {
+                $directSummaryByProject[$row->getProjectId()][] = $row;
+            }
+        }
+
+        $result = [];
+        foreach ($projectIds as $projectId) {
+            $map = [];
+            $callibriEnabled = $this->credentials->integrationFromMap($integrations, $projectId, 'callibri') !== null;
+            $metrikaItem = $this->credentials->integrationFromMap($integrations, $projectId, 'yandex_metrika');
+            $metrikaEnabled = $metrikaItem !== null;
+            $settings = is_array($metrikaItem?->settings ?? null) ? $metrikaItem->settings : [];
+
+            if ($callibriEnabled) {
+                $callibriSettings = $this->credentials->integrationFromMap($integrations, $projectId, 'callibri');
+                $callibriSettingsArray = is_array($callibriSettings?->settings ?? null) ? $callibriSettings->settings : [];
+                /** @var Collection<int, CallibriLead> $projectLeads */
+                $projectLeads = $leadsByProject->get($projectId, collect());
+                foreach ($this->filterCallibriLeadModels($projectLeads, $callibriSettingsArray) as $lead) {
+                    $day = Carbon::parse((string) $lead->date)->toDateString();
+                    $map[$day] = ($map[$day] ?? 0) + 1;
+                }
+            }
+
+            if ($metrikaEnabled) {
+                $countSource = YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($settings);
+
+                if ($countSource === YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_DIRECT_SUMMARY) {
+                    foreach ($this->directSummaryGoalsByMonthFromRows(
+                        $settings,
+                        $directSummaryByProject[$projectId] ?? [],
+                    ) as $month => $conversions) {
+                        $day = Carbon::parse($month)->endOfMonth();
+                        if ($day->greaterThan($to)) {
+                            $day = $to->copy();
+                        }
+                        if ($day->lessThan($from)) {
+                            $day = $from->copy();
+                        }
+                        $key = $day->toDateString();
+                        $map[$key] = ($map[$key] ?? 0) + $conversions;
+                    }
+                } else {
+                    foreach ($this->filterMetrikaUtmGoalsFromRows($settings, $utmByProject[$projectId] ?? []) as $goal) {
+                        $day = $goal->getAchievedDate()->format('Y-m-d');
+                        $map[$day] = ($map[$day] ?? 0) + 1;
+                    }
+                }
+            }
+
+            if ($map === [] && ! $callibriEnabled && ! $metrikaEnabled) {
+                continue;
+            }
+
+            if ($callibriEnabled || $metrikaEnabled) {
+                for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
+                    $key = $day->toDateString();
+                    if (! array_key_exists($key, $map)) {
+                        $map[$key] = 0;
+                    }
+                }
+            }
+
+            ksort($map);
+            $result[$projectId] = $map;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Визиты / конверсии SEO по месяцам для списка проектов.
+     *
+     * @param  list<int>  $projectIds
+     * @param  'visits'|'conversions'  $column
+     * @return array<int, array<string, int>> project_id => (Y-m-01 => value)
+     */
+    public function seoSearchEnginesByMonthForProjects(
+        array $projectIds,
+        Carbon $from,
+        Carbon $to,
+        string $column,
+    ): array {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
+        $rows = $this->yandexMetrika->getSearchEnginesStatsForProjects(
+            $projectIds,
+            $this->toMonthRange($from, $to),
+        );
 
         $map = [];
         foreach ($rows as $row) {
-            $day = $row->date instanceof Carbon
-                ? $row->date->toDateString()
-                : Carbon::parse((string) $row->date)->toDateString();
-            $map[$day] = ($map[$day] ?? 0) + (int) $row->clicks;
+            /** @var YandexMetrikaSearchEnginesStats $row */
+            $projectId = $row->getProjectId();
+            $month = $row->getMonth()->format('Y-m-01');
+            $value = $column === 'conversions' ? $row->getConversions() : $row->getVisits();
+            $map[$projectId][$month] = ($map[$projectId][$month] ?? 0) + $value;
         }
-
-        ksort($map);
 
         return $map;
     }
@@ -169,44 +253,11 @@ class ProjectKpiFactsService
             return null;
         }
 
-        $rows = YandexSearchApiDailyTopPercent::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['top_10_percent']);
-
-        if ($rows->isEmpty()) {
-            return null;
-        }
-
-        return round((float) $rows->avg('top_10_percent'), 2);
-    }
-
-    /**
-     * @return array<string, float> Y-m-d => %
-     */
-    public function top10ByDay(int $projectId, Carbon $from, Carbon $to): array
-    {
-        [$from, $to] = $this->clampPeriod($from, $to);
-        if ($from->greaterThan($to)) {
-            return [];
-        }
-
-        $rows = YandexSearchApiDailyTopPercent::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
-            ->get(['date', 'top_10_percent']);
-
-        $map = [];
-        foreach ($rows as $row) {
-            $day = $row->date instanceof Carbon
-                ? $row->date->toDateString()
-                : Carbon::parse((string) $row->date)->toDateString();
-            $map[$day] = (float) $row->top_10_percent;
-        }
-
-        ksort($map);
-
-        return $map;
+        return $this->searchApiTopPercents->averageTop10Percent(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
     }
 
     /**
@@ -214,9 +265,7 @@ class ProjectKpiFactsService
      */
     public function seoSearchVisits(int $projectId, Carbon $from, Carbon $to): ?int
     {
-        $sum = $this->seoSearchEnginesSum($projectId, $from, $to, 'visits');
-
-        return $sum;
+        return $this->seoSearchEnginesSum($projectId, $from, $to, 'visits');
     }
 
     /**
@@ -233,14 +282,68 @@ class ProjectKpiFactsService
     public function filteredCallibriLeads(int $projectId, Carbon $from, Carbon $to): array
     {
         $settings = $this->credentials->settingsFor($projectId, 'callibri') ?? [];
-        $leads = CallibriLead::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('date', [
-                $from->copy()->startOfDay()->toDateTimeString(),
-                $to->copy()->endOfDay()->toDateTimeString(),
-            ])
-            ->get();
+        $leads = $this->callibriLeads->getLeadsBetween(
+            $projectId,
+            $from->copy()->startOfDay()->toDateTimeString(),
+            $to->copy()->endOfDay()->toDateTimeString(),
+        );
 
+        return $this->filterCallibriLeadModels($leads, $settings);
+    }
+
+    /**
+     * Цели UTM для общей статистики, когда источник числа - UTM-метки.
+     *
+     * @return list<YandexMetrikaGoalUtm>
+     */
+    public function filteredMetrikaUtmGoals(int $projectId, Carbon $from, Carbon $to): array
+    {
+        $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+        $goals = $this->yandexMetrika->getGoalUtmStats($projectId, $this->toRange($from, $to));
+
+        return $this->filterMetrikaUtmGoalsFromRows($settings, $goals);
+    }
+
+    /**
+     * Сумма целей «Директ, сводка» за месяцы периода. Без разреза по кампаниям.
+     */
+    public function directSummaryGoalsTotal(int $projectId, Carbon $from, Carbon $to): ?int
+    {
+        $byMonth = $this->directSummaryGoalsByMonth($projectId, $from, $to);
+        if ($byMonth === []) {
+            return null;
+        }
+
+        return (int) array_sum($byMonth);
+    }
+
+    /**
+     * @return array<string, int> Y-m-01 => conversions
+     */
+    public function directSummaryGoalsByMonth(int $projectId, Carbon $from, Carbon $to): array
+    {
+        $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
+
+        [$from, $to] = $this->clampPeriod($from, $to);
+        if ($from->greaterThan($to)) {
+            return [];
+        }
+
+        $rows = $this->yandexMetrika->getGoalDirectSummaryStats(
+            $projectId,
+            $this->toMonthRange($from, $to),
+        );
+
+        return $this->directSummaryGoalsByMonthFromRows($settings, $rows);
+    }
+
+    /**
+     * @param  Collection<int, CallibriLead>  $leads
+     * @param  array<string, mixed>  $settings
+     * @return list<CallibriLead>
+     */
+    private function filterCallibriLeadModels(Collection $leads, array $settings): array
+    {
         if ($leads->isEmpty()) {
             return [];
         }
@@ -275,13 +378,12 @@ class ProjectKpiFactsService
     }
 
     /**
-     * Цели UTM для общей статистики, когда источник числа - UTM-метки.
-     *
+     * @param  array<string, mixed>  $settings
+     * @param  list<YandexMetrikaGoalUtm>  $goals
      * @return list<YandexMetrikaGoalUtm>
      */
-    public function filteredMetrikaUtmGoals(int $projectId, Carbon $from, Carbon $to): array
+    private function filterMetrikaUtmGoalsFromRows(array $settings, array $goals): array
     {
-        $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
         $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
         if (! ($reports['goals_utm'] ?? false)) {
             return [];
@@ -293,58 +395,44 @@ class ProjectKpiFactsService
             return [];
         }
 
-        $goals = YandexMetrikaGoalUtm::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('achieved_date', [$from->toDateString(), $to->toDateString()])
-            ->get();
-
         $mode = (string) ($settings['utm_filter_mode'] ?? 'none');
         if ($mode === 'none' || $mode === '') {
-            return $goals->all();
+            return $goals;
         }
 
         $pattern = trim((string) ($settings['utm_'.$mode] ?? ''));
-        $field = match ($mode) {
-            'campaign' => 'utm_campaign',
-            'medium' => 'utm_medium',
-            default => 'utm_source',
-        };
 
-        return $goals->filter(function (YandexMetrikaGoalUtm $goal) use ($field, $pattern) {
-            $value = trim((string) ($goal->{$field} ?? ''));
-            if ($pattern === '') {
-                return $value !== '';
-            }
+        return array_values(array_filter(
+            $goals,
+            function (YandexMetrikaGoalUtm $goal) use ($mode, $pattern): bool {
+                $value = trim((string) match ($mode) {
+                    'campaign' => $goal->getUtmCampaign() ?? '',
+                    'medium' => $goal->getUtmMedium() ?? '',
+                    default => $goal->getUtmSource() ?? '',
+                });
 
-            foreach (array_map('trim', explode(',', $pattern)) as $piece) {
-                if ($piece !== '' && str_contains(mb_strtolower($value), mb_strtolower($piece))) {
-                    return true;
+                if ($pattern === '') {
+                    return $value !== '';
                 }
-            }
 
-            return false;
-        })->values()->all();
+                foreach (array_map('trim', explode(',', $pattern)) as $piece) {
+                    if ($piece !== '' && str_contains(mb_strtolower($value), mb_strtolower($piece))) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
+        ));
     }
 
     /**
-     * Сумма целей «Директ, сводка» за месяцы периода. Без разреза по кампаниям.
+     * @param  array<string, mixed>  $settings
+     * @param  list<YandexMetrikaGoalDirectSummary>  $rows
+     * @return array<string, int>
      */
-    public function directSummaryGoalsTotal(int $projectId, Carbon $from, Carbon $to): ?int
+    private function directSummaryGoalsByMonthFromRows(array $settings, array $rows): array
     {
-        $byMonth = $this->directSummaryGoalsByMonth($projectId, $from, $to);
-        if ($byMonth === []) {
-            return null;
-        }
-
-        return (int) array_sum($byMonth);
-    }
-
-    /**
-     * @return array<string, int> Y-m-01 => conversions
-     */
-    public function directSummaryGoalsByMonth(int $projectId, Carbon $from, Carbon $to): array
-    {
-        $settings = $this->credentials->settingsFor($projectId, 'yandex_metrika') ?? [];
         $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
         if (! ($reports['goals_direct_summary'] ?? false)) {
             return [];
@@ -356,62 +444,17 @@ class ProjectKpiFactsService
             return [];
         }
 
-        [$from, $to] = $this->clampPeriod($from, $to);
-        if ($from->greaterThan($to)) {
-            return [];
-        }
-
-        $monthStart = $from->copy()->startOfMonth()->toDateString();
-        $monthEnd = $to->copy()->startOfMonth()->toDateString();
-
-        $rows = YandexMetrikaGoalDirectSummary::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('month', [$monthStart, $monthEnd])
-            ->get(['month', 'conversions']);
-
-        if ($rows->isEmpty()) {
+        if ($rows === []) {
             return [];
         }
 
         $map = [];
         foreach ($rows as $row) {
-            $month = $row->month instanceof Carbon
-                ? $row->month->copy()->startOfMonth()->toDateString()
-                : Carbon::parse((string) $row->month)->startOfMonth()->toDateString();
-            $map[$month] = ($map[$month] ?? 0) + (int) $row->conversions;
+            $month = $row->getMonth()->format('Y-m-01');
+            $map[$month] = ($map[$month] ?? 0) + $row->getConversions();
         }
 
         return $map;
-    }
-
-    /**
-     * Пересчитать дневные счётчики Callibri из сохранённых лидов (после фильтров UTM).
-     */
-    public function recountCallibriDailyCounts(int $projectId, Carbon $from, Carbon $to): void
-    {
-        [$from, $to] = $this->clampPeriod($from, $to);
-        if ($from->greaterThan($to)) {
-            return;
-        }
-
-        $byDay = [];
-        foreach ($this->filteredCallibriLeads($projectId, $from, $to) as $lead) {
-            $day = Carbon::parse((string) $lead->date)->toDateString();
-            $byDay[$day] = ($byDay[$day] ?? 0) + 1;
-        }
-
-        for ($day = $from->copy(); $day->lte($to); $day->addDay()) {
-            $key = $day->toDateString();
-            CallibriDailyLeadCount::query()->updateOrCreate(
-                [
-                    'project_id' => $projectId,
-                    'date' => $key,
-                ],
-                [
-                    'leads_count' => $byDay[$key] ?? 0,
-                ],
-            );
-        }
     }
 
     /**
@@ -431,18 +474,36 @@ class ProjectKpiFactsService
 
     private function seoSearchEnginesSum(int $projectId, Carbon $from, Carbon $to, string $column): ?int
     {
-        $monthStart = $from->copy()->startOfMonth()->toDateString();
-        $monthEnd = $to->copy()->startOfMonth()->toDateString();
+        $rows = $this->yandexMetrika->getSearchEnginesStats(
+            $projectId,
+            $this->toMonthRange($from, $to),
+        );
 
-        $rows = YandexMetrikaSearchEnginesStats::query()
-            ->where('project_id', $projectId)
-            ->whereBetween('month', [$monthStart, $monthEnd])
-            ->get([$column]);
-
-        if ($rows->isEmpty()) {
+        if ($rows === []) {
             return null;
         }
 
-        return (int) $rows->sum($column);
+        $sum = 0;
+        foreach ($rows as $row) {
+            $sum += $column === 'conversions' ? $row->getConversions() : $row->getVisits();
+        }
+
+        return $sum;
+    }
+
+    private function toRange(Carbon $from, Carbon $to): DateTimeRange
+    {
+        return new DateTimeRange(
+            new DateTimeImmutable($from->toDateString()),
+            new DateTimeImmutable($to->toDateString()),
+        );
+    }
+
+    private function toMonthRange(Carbon $from, Carbon $to): DateTimeRange
+    {
+        return new DateTimeRange(
+            new DateTimeImmutable($from->copy()->startOfMonth()->toDateString()),
+            new DateTimeImmutable($to->copy()->startOfMonth()->toDateString()),
+        );
     }
 }

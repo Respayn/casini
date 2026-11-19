@@ -401,10 +401,6 @@ class YandexMetrikaReportsSync
     }
 
     /**
-     * @param  list<array{goal_name: string, month: string, value: int}>  $rows
-     * @return list<array{goal_name: string, month: string, conversions: int}>
-     */
-    /**
      * @param  list<int>  $goalIds
      * @param  array{entry_page?: ?string, last_search_phrase?: ?string, geo?: ?string}|null  $filters
      */
@@ -444,6 +440,10 @@ class YandexMetrikaReportsSync
         );
     }
 
+    /**
+     * @param  list<array{goal_name: string, month: string, value: int}>  $rows
+     * @return list<array{goal_name: string, month: string, conversions: int}>
+     */
     private function mapGoalRows(array $rows): array
     {
         return array_map(fn (array $row) => [

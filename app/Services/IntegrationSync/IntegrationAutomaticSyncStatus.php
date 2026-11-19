@@ -3,9 +3,8 @@
 namespace App\Services\IntegrationSync;
 
 use App\Enums\IntegrationSyncItemStatus;
-use App\Enums\IntegrationSyncRunStatus;
 use App\Models\IntegrationSyncItem;
-use App\Models\IntegrationSyncRun;
+use App\Repositories\IntegrationSyncRunRepository;
 
 /**
  * Снимок текущего ночного (автоматического) прогона для плашки Каналов / Статистики.
@@ -27,11 +26,13 @@ use App\Models\IntegrationSyncRun;
  */
 class IntegrationAutomaticSyncStatus
 {
+    public function __construct(
+        private readonly IntegrationSyncRunRepository $runs,
+    ) {}
+
     public function isRunning(): bool
     {
-        return IntegrationSyncRun::query()
-            ->where('status', IntegrationSyncRunStatus::Running)
-            ->exists();
+        return $this->runs->hasRunning();
     }
 
     /**
@@ -39,20 +40,13 @@ class IntegrationAutomaticSyncStatus
      */
     public function currentSnapshot(): ?array
     {
-        $run = IntegrationSyncRun::query()
-            ->where('status', IntegrationSyncRunStatus::Running)
-            ->orderByDesc('id')
-            ->first();
+        $run = $this->runs->latestRunning();
 
         if ($run === null) {
             return null;
         }
 
-        $items = IntegrationSyncItem::query()
-            ->where('run_id', $run->id)
-            ->with(['project:id,name'])
-            ->orderBy('position')
-            ->get();
+        $items = $this->runs->itemsForRunOrdered((int) $run->id);
 
         if ($items->isEmpty()) {
             return null;

@@ -4,6 +4,7 @@ namespace App\Livewire\Forms\SystemSettings\Users;
 
 use App\Enums\UserAccountStatus;
 use App\Models\User;
+use App\Support\UserPasswordRules;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Validate;
@@ -71,35 +72,12 @@ class UserForm extends Form
 
     public function passwordChangeRules(string $prefix = ''): array
     {
-        $passwordField = $prefix.'password';
-
-        return [
-            $prefix.'current_password' => [
-                'required',
-                'string',
-            ],
-            $prefix.'password' => [
-                'required',
-                'min:6',
-                'regex:/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/',
-            ],
-            $prefix.'password_confirmation' => [
-                'required',
-                'same:'.$passwordField,
-            ],
-        ];
+        return UserPasswordRules::changeRules($prefix);
     }
 
     public function passwordChangeMessages(string $prefix = ''): array
     {
-        return [
-            $prefix.'current_password.required' => 'Поле текущий пароль обязательно для заполнения',
-            $prefix.'password.required' => 'Поле пароль обязательно для заполнения',
-            $prefix.'password.min' => 'слишком короткий пароль',
-            $prefix.'password.regex' => 'пароль должен состоять не менее чем из 6 символов и содержит латинские буквы и цифры',
-            $prefix.'password_confirmation.required' => 'Поле повторите пароль обязательно для заполнения',
-            $prefix.'password_confirmation.same' => 'пароли не совпадают',
-        ];
+        return UserPasswordRules::changeMessages($prefix);
     }
 
     public function rules()

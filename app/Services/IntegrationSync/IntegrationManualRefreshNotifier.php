@@ -2,13 +2,14 @@
 
 namespace App\Services\IntegrationSync;
 
-use App\Models\Agency;
+use App\Repositories\AgencyRepository;
 use App\Services\NotificationService;
 
 class IntegrationManualRefreshNotifier
 {
     public function __construct(
         private readonly NotificationService $notifications,
+        private readonly AgencyRepository $agencies,
     ) {}
 
     /**
@@ -83,15 +84,7 @@ class IntegrationManualRefreshNotifier
         int $failed,
         int $skipped,
     ): void {
-        $userIds = Agency::query()
-            ->whereKey($agencyId)
-            ->first()
-            ?->users()
-            ->pluck('users.id')
-            ->map(static fn ($id): int => (int) $id)
-            ->unique()
-            ->values()
-            ->all() ?? [];
+        $userIds = $this->agencies->getUserIds($agencyId);
 
         if ($userIds === []) {
             $userIds = [$fallbackUserId];

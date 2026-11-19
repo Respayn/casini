@@ -194,10 +194,10 @@ class extends Component
             unset($data['account_status']);
         }
 
-        $userService->update($this->form->id, $data);
+        $userService->update((int) $this->user->id, $data);
 
         if (! $this->form->enable_notifications) {
-            $notificationService->markAllAsRead((int) $this->form->id);
+            $notificationService->markAllAsRead((int) $this->user->id);
         }
 
         $this->form->clearPasswordFields();

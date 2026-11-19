@@ -9,9 +9,9 @@ use Tests\TestCase;
 
 class ClientProjectVisibilityTest extends TestCase
 {
-    public function test_manager_with_product_access_still_sees_only_own_clients(): void
+    public function test_self_access_manager_sees_only_own_clients(): void
     {
-        $manager = $this->viewer(id: 7, manager: true, seesAll: false);
+        $manager = $this->viewer(id: 7, seesAll: false, seesSelf: true);
         $ownClient = (object) ['id' => 1, 'manager_id' => 7];
         $foreignClient = (object) ['id' => 2, 'manager_id' => 8];
         $ownProject = (object) ['id' => 10, 'client_id' => 1, 'specialist_id' => 9];
@@ -29,7 +29,7 @@ class ClientProjectVisibilityTest extends TestCase
 
     public function test_all_access_keeps_every_project(): void
     {
-        $manager = $this->viewer(id: 7, manager: true, seesAll: true);
+        $manager = $this->viewer(id: 7, seesAll: true, seesSelf: false);
         $own = (object) ['id' => 10, 'client_id' => 1, 'specialist_id' => 9];
         $foreign = (object) ['id' => 11, 'client_id' => 2, 'specialist_id' => 9];
 
@@ -45,9 +45,9 @@ class ClientProjectVisibilityTest extends TestCase
         $this->assertEqualsCanonicalizing([10, 11], $projects->pluck('id')->all());
     }
 
-    public function test_specialist_sees_only_assigned_projects(): void
+    public function test_self_access_specialist_sees_only_assigned_projects(): void
     {
-        $specialist = $this->viewer(id: 9, manager: false, specialist: true, seesAll: false);
+        $specialist = $this->viewer(id: 9, seesAll: false, seesSelf: true);
         $assigned = (object) ['id' => 10, 'client_id' => 1, 'specialist_id' => 9];
         $other = (object) ['id' => 11, 'client_id' => 1, 'specialist_id' => 4];
 
@@ -60,35 +60,58 @@ class ClientProjectVisibilityTest extends TestCase
         $this->assertSame([10], $projects->pluck('id')->all());
     }
 
-    private function viewer(int $id, bool $manager, bool $seesAll, bool $specialist = false): User
+    public function test_without_self_or_all_access_sees_nothing(): void
+    {
+        $viewer = $this->viewer(id: 5, seesAll: false, seesSelf: false);
+
+        [$clients, $projects] = ClientProjectVisibility::limit(
+            $viewer,
+            new Collection([
+                (object) ['id' => 1, 'manager_id' => 7],
+                (object) ['id' => 2, 'manager_id' => 8],
+            ]),
+            new Collection([
+                (object) ['id' => 10, 'client_id' => 1, 'specialist_id' => 9],
+                (object) ['id' => 11, 'client_id' => 2, 'specialist_id' => 4],
+            ]),
+        );
+
+        $this->assertSame([], $clients->pluck('id')->all());
+        $this->assertSame([], $projects->pluck('id')->all());
+    }
+
+    private function viewer(int $id, bool $seesAll, bool $seesSelf): User
     {
         $user = new class extends User
         {
-            public bool $managerFlag = false;
-
-            public bool $specialistFlag = false;
-
             public bool $seesAllFlag = false;
 
-            public function isManager(): bool
-            {
-                return $this->managerFlag;
-            }
-
-            public function isSpecialist(): bool
-            {
-                return $this->specialistFlag;
-            }
+            public bool $seesSelfFlag = false;
 
             public function hasAnyPermission(...$permissions): bool
             {
-                return $this->seesAllFlag;
+                $names = collect($permissions)->flatten()->all();
+
+                foreach ($names as $name) {
+                    if (! is_string($name)) {
+                        continue;
+                    }
+
+                    if ($this->seesAllFlag && str_ends_with($name, ' all')) {
+                        return true;
+                    }
+
+                    if ($this->seesSelfFlag && str_ends_with($name, ' self')) {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         };
         $user->id = $id;
-        $user->managerFlag = $manager;
-        $user->specialistFlag = $specialist;
         $user->seesAllFlag = $seesAll;
+        $user->seesSelfFlag = $seesSelf;
 
         return $user;
     }

@@ -10,18 +10,11 @@
     $refreshTooltip = $lastRefreshLabel
         ? 'Последнее обновление данных: '.$lastRefreshLabel
         : 'Последнее обновление данных: ещё не обновлялось';
-
-    $tooltipBox = 'z-index: 9999; width: max-content; max-width: min(16rem, calc(100vw - 1.5rem)); border-radius: 0.375rem; background: #374151; padding: 0.5rem 0.75rem; text-align: left; font-size: 0.875rem; line-height: 1.375; color: #fff; box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);';
 @endphp
 
 <div {{ $attributes->class(['ml-auto flex flex-wrap items-center']) }}>
-    <div
-        class="relative inline-flex"
-        x-data="{ open: false }"
-        @mouseenter="open = true"
-        @mouseleave="open = false"
-    >
-        <span x-ref="columnsButton" class="inline-flex">
+    <x-overlay.tooltip panel-class="not-italic" panel-max-width="16rem">
+        <x-slot:trigger>
             <x-overlay.modal-trigger :name="$columnModal" :wire:click="$columnTriggerAction">
                 <x-button.button
                     icon="icons.columns"
@@ -30,22 +23,9 @@
                     aria-label="Настроить колонки"
                 />
             </x-overlay.modal-trigger>
-        </span>
-
-        {{-- Как x-overlay.tooltip: к телу страницы и к самой иконке, иначе пузырь уезжает к чужой кнопке. --}}
-        <template x-teleport="body">
-            <div
-                x-show="open"
-                x-cloak
-                x-anchor.left.offset.6="$refs.columnsButton"
-                role="tooltip"
-                class="pointer-events-none"
-                style="{{ $tooltipBox }}"
-            >
-                Настроить колонки
-            </div>
-        </template>
-    </div>
+        </x-slot:trigger>
+        Настроить колонки
+    </x-overlay.tooltip>
 
     @if ($refreshable)
     <div
@@ -143,8 +123,7 @@
                 x-cloak
                 x-anchor.left.offset.6="$refs.refreshButton"
                 role="tooltip"
-                class="pointer-events-none"
-                style="{{ $tooltipBox }}"
+                class="pointer-events-none z-[9999] w-max max-w-[min(16rem,calc(100vw-1.5rem))] rounded-md bg-gray-700 px-3 py-2 text-left text-sm leading-snug text-white shadow-lg"
             >
                 <div x-show="refreshing()" class="leading-snug">
                     <div x-show="modeLine()" x-text="modeLine()" class="break-words"></div>

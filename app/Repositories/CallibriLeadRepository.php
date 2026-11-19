@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\CallibriLead;
 use App\Repositories\Interfaces\CallibriLeadRepositoryInterface;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 class CallibriLeadRepository implements CallibriLeadRepositoryInterface
@@ -15,7 +16,7 @@ class CallibriLeadRepository implements CallibriLeadRepositoryInterface
             CallibriLead::updateOrCreate(
                 [
                     'project_id' => $projectId,
-                    'external_id' => $leadData['id']
+                    'external_id' => $leadData['id'],
                 ],
                 [
                     'date' => Carbon::parse($leadData['date']),
@@ -30,7 +31,7 @@ class CallibriLeadRepository implements CallibriLeadRepositoryInterface
             Log::error('Failed to save Callibri lead', [
                 'project_id' => $projectId,
                 'lead' => $leadData,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -39,7 +40,25 @@ class CallibriLeadRepository implements CallibriLeadRepositoryInterface
     {
         return CallibriLead::where([
             'project_id' => $projectId,
-            'external_id' => $externalId
+            'external_id' => $externalId,
         ])->exists();
+    }
+
+    public function getLeadsBetween(int $projectId, string $dateTimeFrom, string $dateTimeTo): Collection
+    {
+        return $this->getLeadsBetweenForProjects([$projectId], $dateTimeFrom, $dateTimeTo);
+    }
+
+    public function getLeadsBetweenForProjects(array $projectIds, string $dateTimeFrom, string $dateTimeTo): Collection
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return collect();
+        }
+
+        return CallibriLead::query()
+            ->whereIn('project_id', $projectIds)
+            ->whereBetween('date', [$dateTimeFrom, $dateTimeTo])
+            ->get();
     }
 }

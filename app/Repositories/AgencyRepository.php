@@ -208,4 +208,28 @@ class AgencyRepository extends EloquentRepository implements AgencyRepositoryInt
 
         return filled($time) ? (string) $time : null;
     }
+
+    /**
+     * @return list<int>
+     */
+    public function getUserIds(int $agencyId): array
+    {
+        return Agency::query()
+            ->whereKey($agencyId)
+            ->first()
+            ?->users()
+            ->pluck('users.id')
+            ->map(static fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
+            ->all() ?? [];
+    }
+
+    public function firstConfiguredGoogleSheetsAgency(): ?Agency
+    {
+        return Agency::query()
+            ->orderBy('id')
+            ->get()
+            ->first(fn (Agency $agency) => $agency->isGoogleSheetsSpreadsheetConfigured());
+    }
 }

@@ -20,6 +20,22 @@ class ClientProjectAccessPolicy
 
     public function userCanViewProject(User $user, ProjectData $project, ?int $clientManagerId): bool
     {
+        return $this->userCanViewProjectAssignment(
+            $user,
+            $project->specialist_id,
+            $clientManagerId,
+        );
+    }
+
+    /**
+     * Одно правило для карточки, списков и сайдбара:
+     * право «все» / право «свои» + менеджер клиента или специалист проекта.
+     */
+    public function userCanViewProjectAssignment(
+        User $user,
+        ?int $specialistId,
+        ?int $clientManagerId,
+    ): bool {
         if (ClientsAndProjectsPermissions::userCanSeeAll($user)) {
             return true;
         }
@@ -32,6 +48,6 @@ class ClientProjectAccessPolicy
             return true;
         }
 
-        return $project->specialist_id !== null && $project->specialist_id === $user->id;
+        return $specialistId !== null && $specialistId === $user->id;
     }
 }

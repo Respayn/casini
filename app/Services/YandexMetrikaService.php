@@ -14,7 +14,6 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Log;
-use Src\Domain\YandexMetrika\GeographyDisplayList;
 use Src\Domain\YandexMetrika\SearchEnginesDisplayList;
 use Src\Domain\YandexMetrika\SearchPhraseNormalizer;
 use Src\Domain\YandexMetrika\SearchQueriesMinusList;
@@ -569,7 +568,7 @@ class YandexMetrikaService
             : 'ym:s:visits';
 
         $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
-        $cityDimension = GeographyDisplayList::CITY_DIMENSION;
+        $cityDimension = 'ym:s:regionCity';
         $dimensions = $includeMonth
             ? $cityDimension.',ym:s:month'
             : $cityDimension;
