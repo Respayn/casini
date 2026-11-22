@@ -56,6 +56,22 @@ class ReportNamingServiceTest extends TestCase
         $this->assertStringNotContainsString('/', $name);
     }
 
+    public function test_saved_report_id_is_appended_to_filename(): void
+    {
+        $name = (new ReportNamingService)->generateName(
+            $this->savedReport(
+                new DateTimeRange(
+                    new DateTimeImmutable('2026-09-01'),
+                    new DateTimeImmutable('2026-09-30'),
+                ),
+                123,
+            ),
+            $this->project(ProjectType::SEO_PROMOTION, 'mmk-metiz.ru'),
+        );
+
+        $this->assertSame('Отчет SEO-продвижение mmk-metiz.ru сентябрь 2026 123', $name);
+    }
+
     private function project(ProjectType $type, string $domain): Project
     {
         return new Project(30, $domain, 1, $type, 1, $domain);
@@ -77,6 +93,28 @@ class ReportNamingServiceTest extends TestCase
             false,
             false,
             1,
+        );
+    }
+
+    private function savedReport(DateTimeRange $period, int $reportId): Report
+    {
+        return Report::restore(
+            $reportId,
+            new DateTimeImmutable('2026-09-15 12:00:00'),
+            97,
+            'Шаблон',
+            1,
+            ProjectType::SEO_PROMOTION,
+            30,
+            $period,
+            1,
+            1,
+            ReportFormat::DOCX,
+            false,
+            false,
+            false,
+            1,
+            '',
         );
     }
 }

@@ -2,15 +2,14 @@
 
 namespace Src\Application\Reports\GetFormData;
 
+use App\Models\Project;
 use App\Models\User;
-use App\Support\SidebarProjectAccess;
-use Src\Domain\Projects\ProjectRepositoryInterface;
+use App\Support\ClientProjectVisibility;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 
 class GetReportFormDataQueryHandler
 {
     public function __construct(
-        private readonly ProjectRepositoryInterface $projectsRepository,
         private readonly TemplateRepositoryInterface $templateRepository,
     ) {}
 
@@ -20,21 +19,16 @@ class GetReportFormDataQueryHandler
             ? User::query()->find($query->userId)
             : null;
 
-        $projects = $this->projectsRepository->findAll();
-        $projectsData = [];
+        $projectsQuery = Project::query()->orderBy('name');
+        ClientProjectVisibility::restrictProjectQuery($projectsQuery, $user);
 
-        foreach ($projects as $project) {
-            if ($user !== null && ! SidebarProjectAccess::userCanAccessProject($project->getId(), $user)) {
-                continue;
-            }
-
-            $projectsData[] = [
-                'value' => $project->getId(),
-                'label' => $project->getName(),
-            ];
-        }
-
-        usort($projectsData, fn (array $a, array $b): int => strcmp($a['label'], $b['label']));
+        $projectsData = $projectsQuery
+            ->get(['id', 'name'])
+            ->map(static fn (Project $project): array => [
+                'value' => $project->id,
+                'label' => $project->name,
+            ])
+            ->all();
 
         $formats = [
             ['value' => 'docx', 'label' => 'DOCX'],

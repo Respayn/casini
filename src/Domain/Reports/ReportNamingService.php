@@ -17,6 +17,10 @@ class ReportNamingService
 
         $name = implode(' ', array_filter($parts, static fn (string $part): bool => $part !== ''));
 
+        if ($report->getId() !== null) {
+            $name .= ' '.$report->getId();
+        }
+
         return self::sanitize($name);
     }
 
