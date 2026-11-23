@@ -137,8 +137,12 @@ new class extends Component
             if (Number.isNaN(num)) {
                 return null;
             }
+            // Деньги на экране - целые рубли, как в Статистике; в базе по-прежнему с копейками.
             if (this.isVatKey(key) && this.includeVat) {
-                return Math.round(num * this.vatMultiplier * 100) / 100;
+                return Math.round(num * this.vatMultiplier);
+            }
+            if (this.isVatKey(key)) {
+                return Math.round(num);
             }
             return num;
         },
@@ -212,8 +216,9 @@ new class extends Component
                     return new Intl.NumberFormat('ru-RU', {
                         style: 'currency',
                         currency: 'RUB',
-                        maximumFractionDigits: 2
-                    }).format(num);
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: 0
+                    }).format(Math.round(num));
                 case 'percent':
                     return new Intl.NumberFormat('ru-RU', {
                         minimumFractionDigits: 0,
@@ -258,15 +263,16 @@ new class extends Component
                                 const num = parseFloat(value);
                                 if (Number.isNaN(num)) {
                                     value = null;
-                                } else if (parameter.format === 'integer' || parameter.format === 'percent') {
+                                } else if (
+                                    parameter.format === 'integer'
+                                    || parameter.format === 'percent'
+                                    || parameter.format === 'currency'
+                                ) {
                                     value = Math.round(num);
                                 } else {
                                     value = num;
                                 }
                             }
-
-                            // Экранное число → без НДС для базы
-                            const storageValue = value === null ? null : toStorage(value, parameter.key);
 
                             let prev = parameters[index].plans[month];
                             if (prev === '' || prev === undefined) {
@@ -281,6 +287,19 @@ new class extends Component
                                     prev = prevNum;
                                 }
                             }
+
+                            // Клик без правки: экран уже округлён, базу не перезаписываем.
+                            if (
+                                value !== null
+                                && prev !== null
+                                && parameter.format === 'currency'
+                                && value === toDisplay(prev, parameter.key)
+                            ) {
+                                return;
+                            }
+
+                            // Экранное число → без НДС для базы
+                            const storageValue = value === null ? null : toStorage(value, parameter.key);
 
                             if (prev === null && storageValue === null) {
                                 return;

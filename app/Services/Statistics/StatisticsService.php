@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Auth;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
 use Src\Planning\Application\ProjectPlanService;
+use Src\Planning\Domain\ValueObjects\VatRate;
 
 class StatisticsService
 {
@@ -56,6 +57,8 @@ class StatisticsService
     private bool $treatMissingPlanAsUnmet = true;
 
     private bool $accumulateData = true;
+
+    private bool $includeVat = false;
 
     public function __construct(
         ProjectRepository $projectRepository,
@@ -143,6 +146,7 @@ class StatisticsService
     {
         $this->treatMissingPlanAsUnmet = $query->treatMissingPlanAsUnmet === 'Y';
         $this->accumulateData = $query->accumulateData === 'Y';
+        $this->includeVat = $query->includeVat;
 
         $user = Auth::user();
 
@@ -1381,6 +1385,8 @@ class StatisticsService
             return;
         }
 
+        $this->includeVat = $includeVat;
+
         $month = $month->copy()->startOfMonth()->startOfDay();
         $projects = $this->projectRepository->all()
             ->filter(fn ($project) => in_array((int) $project->id, $projectIds, true))
@@ -1478,6 +1484,7 @@ class StatisticsService
 
     /**
      * Ячейка «План»: массив слотов {value, format, highlight, code}. При отсутствии плана — плейсхолдеры для «-».
+     * Денежные budget/cpl/cpc при includeVat показываются с НДС 22% (в базе всегда без НДС).
      *
      * @param  array<int|string, mixed>  $plans
      * @return list<array{value: mixed, format: mixed, highlight: bool, code: ?string}>
@@ -1493,11 +1500,18 @@ class StatisticsService
         $result = [];
         foreach ($schema as $index => $meta) {
             $slot = $raw[$index] ?? ['value' => null, 'format' => null];
+            $code = $codes[$index] ?? null;
+            $value = $slot['value'] ?? null;
+
+            if ($code !== null && VatRate::affects($code) && is_numeric($value)) {
+                $value = VatRate::toDisplay((float) $value, $this->includeVat);
+            }
+
             $result[] = [
-                'value' => $slot['value'] ?? null,
+                'value' => $value,
                 'format' => $slot['format'] ?? null,
                 'highlight' => ! empty($meta['highlight']),
-                'code' => $codes[$index] ?? null,
+                'code' => $code,
             ];
         }
 
