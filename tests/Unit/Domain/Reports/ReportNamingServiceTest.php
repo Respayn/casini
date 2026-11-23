@@ -72,6 +72,39 @@ class ReportNamingServiceTest extends TestCase
         $this->assertSame('Отчет SEO-продвижение mmk-metiz.ru сентябрь 2026 123', $name);
     }
 
+    public function test_storage_name_adds_suffix_for_unsaved_report(): void
+    {
+        $period = new DateTimeRange(
+            new DateTimeImmutable('2026-09-01'),
+            new DateTimeImmutable('2026-09-30'),
+        );
+        $project = $this->project(ProjectType::SEO_PROMOTION, 'mmk-metiz.ru');
+        $service = new ReportNamingService;
+
+        $first = $service->generateStorageName($this->report($period), $project);
+        $second = $service->generateStorageName($this->report($period), $project);
+
+        $this->assertStringStartsWith('Отчет SEO-продвижение mmk-metiz.ru сентябрь 2026 ', $first);
+        $this->assertNotSame($first, $second);
+        $this->assertMatchesRegularExpression('/ [0-9a-f]{8}$/', $first);
+    }
+
+    public function test_storage_name_for_saved_report_uses_id_only(): void
+    {
+        $name = (new ReportNamingService)->generateStorageName(
+            $this->savedReport(
+                new DateTimeRange(
+                    new DateTimeImmutable('2026-09-01'),
+                    new DateTimeImmutable('2026-09-30'),
+                ),
+                123,
+            ),
+            $this->project(ProjectType::SEO_PROMOTION, 'mmk-metiz.ru'),
+        );
+
+        $this->assertSame('Отчет SEO-продвижение mmk-metiz.ru сентябрь 2026 123', $name);
+    }
+
     private function project(ProjectType $type, string $domain): Project
     {
         return new Project(30, $domain, 1, $type, 1, $domain);

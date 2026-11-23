@@ -75,15 +75,12 @@ class GenerateReportCommandHandler
             );
         }
 
-        // Сначала строка в БД: номер нужен в имени файла до записи на диск.
-        $reportId = $this->reportRepository->save($report);
-        $report = $this->reportRepository->findById($reportId);
-
-        $reportName = $this->reportNamingService->generateName($report, $project);
+        // Файл сначала на диск: path в БД обязателен, строку без файла не сохраняем.
+        $reportName = $this->reportNamingService->generateStorageName($report, $project);
         $generated = $this->reportGenerator->generate($template->getPath(), $reportData, $reportName);
 
         $report->setPath($generated->path);
-        $this->reportRepository->save($report);
+        $reportId = $this->reportRepository->save($report);
 
         return new GenerateReportResult($reportId, $generated->warnings);
     }
