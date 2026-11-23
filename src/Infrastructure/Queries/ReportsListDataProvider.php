@@ -3,6 +3,7 @@
 namespace Src\Infrastructure\Queries;
 
 use App\Models\User;
+use App\Support\ClientsAndProjectsPermissions;
 use DateTimeImmutable;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -19,22 +20,21 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
         DateTimeRange $period,
         ?int $userId,
         ?int $projectId = null,
-    ): array
-    {
+    ): array {
         $query = DB::table('reports')
-            ->join('templates', 'templates.id', '=', 'reports.template_id')
+            ->leftJoin('templates', 'templates.id', '=', 'reports.template_id')
             ->join('clients', 'clients.id', '=', 'reports.client_id')
             ->join('projects', 'projects.id', '=', 'reports.project_id')
             ->join('users as specialists', 'specialists.id', '=', 'reports.specialist_id');
 
         if ($projectId !== null) {
             $query = $query->where('projects.id', '=', $projectId);
-        } elseif (!$showInactiveProjects) {
+        } elseif (! $showInactiveProjects) {
             $query = $query->where('projects.is_active', '=', true);
         }
 
-        $query = $query->where('reports.created_at', '>=', $period->start->format('Y-m-d'))
-            ->where('reports.created_at', '<=', $period->end->format('Y-m-d'));
+        $query = $query->where('reports.created_at', '>=', $period->start->format('Y-m-d 00:00:00'))
+            ->where('reports.created_at', '<=', $period->end->format('Y-m-d 23:59:59'));
 
         // Применяем фильтрацию по правам доступа
         $query = $this->applyAccessFilter($query, $userId);
@@ -49,21 +49,22 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
                 'reports.is_ready',
                 'reports.is_accepted',
                 'reports.is_sent',
-                'templates.name as template_name',
+                'reports.template_name as stored_template_name',
+                'templates.name as live_template_name',
                 'clients.id as client_id',
                 'clients.name as client_name',
                 'projects.id as project_id',
                 'projects.name as project_name',
                 'projects.project_type as project_type',
                 'specialists.first_name as specialist_first_name',
-                'specialists.last_name as specialist_last_name'
+                'specialists.last_name as specialist_last_name',
             ])
             ->orderBy('reports.created_at', 'desc')
             ->get();
 
-        return $results->map(fn(object $row) => new ReportListItemDto(
+        return $results->map(fn (object $row) => new ReportListItemDto(
             new DateTimeImmutable($row->created_at),
-            $row->template_name,
+            $this->resolveTemplateName($row),
             $row->client_id,
             $row->client_name,
             $row->report_id,
@@ -72,7 +73,7 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
             $row->project_name,
             new DateTimeImmutable($row->period_start),
             new DateTimeImmutable($row->period_end),
-            $row->specialist_last_name . ' ' . mb_substr($row->specialist_first_name, 0, 1) . '.',
+            $row->specialist_last_name.' '.mb_substr($row->specialist_first_name, 0, 1).'.',
             ReportFormat::from($row->format)->value,
             $row->is_ready,
             $row->is_accepted,
@@ -80,52 +81,46 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
         ))->toArray();
     }
 
+    private function resolveTemplateName(object $row): string
+    {
+        if (is_string($row->stored_template_name) && $row->stored_template_name !== '') {
+            return $row->stored_template_name;
+        }
+
+        if (is_string($row->live_template_name) && $row->live_template_name !== '') {
+            return $row->live_template_name;
+        }
+
+        return 'Шаблон удалён';
+    }
+
     /**
-     * Применяет фильтрацию по правам доступа к запросу.
+     * Тот же контур, что у карточки проекта и скачивания: «все» или «свои».
      */
     private function applyAccessFilter(Builder $query, ?int $userId): Builder
     {
-        // Если userId не передан, возвращаем все отчёты (для совместимости)
         if ($userId === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        $user = User::query()->find($userId);
+
+        if ($user === null) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        if (ClientsAndProjectsPermissions::userCanSeeAll($user)) {
             return $query;
         }
 
-        $user = User::with('roles')->find($userId);
-
-        if (!$user) {
-            return $query->whereRaw('1 = 0'); // Пользователь не найден - нет доступа
+        if (! ClientsAndProjectsPermissions::userCanSeeSelf($user)) {
+            return $query->whereRaw('1 = 0');
         }
 
-        $roleNames = $user->roles->pluck('name')->toArray();
-
-        // ADMIN и руководитель отдела менеджеров видят все отчёты
-        if (in_array('admin', $roleNames, true) || in_array('rucovotdelmanager', $roleNames, true)) {
-            return $query;
-        }
-
-        return $query->where(function (Builder $q) use ($userId, $roleNames) {
-            // Всегда: пользователь видит отчёты, которые сам создал
-            $q->where('reports.created_by', '=', $userId);
-
-            // Руководитель отдела SEO видит отчёты по SEO-проектам
-            if (in_array('rucovotdelseo', $roleNames, true)) {
-                $q->orWhere('projects.project_type', '=', ProjectType::SEO_PROMOTION->value);
-            }
-
-            // Руководитель отдела КР видит отчёты по контекстной рекламе
-            if (in_array('rucovotdelkp', $roleNames, true)) {
-                $q->orWhere('projects.project_type', '=', ProjectType::CONTEXT_AD->value);
-            }
-
-            // Менеджер видит отчёты, где он назначен менеджером
-            if (in_array('manager', $roleNames, true)) {
-                $q->orWhere('reports.manager_id', '=', $userId);
-            }
-
-            // Специалист видит отчёты, где он назначен специалистом
-            if (in_array('seo', $roleNames, true) || in_array('kr', $roleNames, true)) {
-                $q->orWhere('reports.specialist_id', '=', $userId);
-            }
+        return $query->where(function (Builder $scoped) use ($userId): void {
+            $scoped
+                ->where('projects.specialist_id', '=', $userId)
+                ->orWhere('clients.manager_id', '=', $userId);
         });
     }
 }

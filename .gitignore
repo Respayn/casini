@@ -31,3 +31,7 @@ yarn-error.log
 /scripts/staging-deploy-files.sh
 /scripts/staging-hot-zones.conf
 /scripts/staging-pre-deploy-check.sh
+
+# Локальные копии шаблонов с SAO (не коммитить)
+/tmp/sao-templates/
+/template_report/

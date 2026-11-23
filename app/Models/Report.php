@@ -4,6 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Src\Domain\Reports\ReportColumnGrouping;
+use Src\Domain\Reports\ReportDateSort;
 use Src\Domain\Reports\ReportFormat;
 
 class Report extends Model
@@ -12,7 +14,9 @@ class Report extends Model
         'created_at' => 'immutable_datetime',
         'period_start' => 'immutable_datetime',
         'period_end' => 'immutable_datetime',
-        'format' => ReportFormat::class
+        'format' => ReportFormat::class,
+        'column_grouping' => ReportColumnGrouping::class,
+        'date_sort' => ReportDateSort::class,
     ];
 
     public function template(): BelongsTo

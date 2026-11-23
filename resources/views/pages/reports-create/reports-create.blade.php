@@ -1,56 +1,189 @@
-<div class="flex flex-col h-full">
+<div class="flex h-full flex-col">
     <div class="mb-5">
         <x-menu.back-button />
     </div>
 
-    <h1 class="mb-9">Создать отчет</h1>
+    <h1 class="mb-7">{{ $this->isEditing ? 'Редактирование отчета' : 'Создать отчет' }}</h1>
 
-    <div class="grid grid-cols-2 gap-7">
-        <div>
-            <span class="font-semibold text-sm">Выберите клиенто-проект *</span>
-        </div>
-        <div>
-            <div class="max-w-80">
-                <x-form.select wire:model="projectId" :options="$this->formData->projects" />
+    <x-layout.sidebar-filter-hint class="mb-4 self-start" />
+
+    @if ($this->noticeMessage)
+        <x-feedback.notice :variant="$this->noticeVariant">
+            {{ $this->noticeMessage }}
+        </x-feedback.notice>
+    @endif
+
+    <form wire:submit.prevent="create" class="flex flex-1 flex-col">
+        <div class="grid grid-cols-2 gap-7">
+            <div>
+                <span class="text-sm font-semibold">Выберите клиенто-проект *</span>
             </div>
-        </div>
-
-        <div>
-            <span class="font-semibold text-sm">Выберите период отчетности *</span>
-        </div>
-        <div>
-            <div class="flex justify-between gap-9 max-w-80">
-                <x-form.month-picker wire:model="from" borderColor="#94A8C1" />
-                <x-form.month-picker wire:model="to" borderColor="#94A8C1" />
+            <div>
+                <div class="max-w-80">
+                    <x-form.select
+                        wire:key="report-create-project-{{ $this->sidebarProjectId ?? 'all' }}-{{ count($this->projectOptions) }}"
+                        wire:model.live="projectId"
+                        :options="$this->projectOptions"
+                        placeholder="Выберите клиенто-проект"
+                        empty-placeholder="Нет доступных клиенто-проектов"
+                        searchable
+                        search-placeholder="Начните вводить название"
+                    />
+                </div>
             </div>
-        </div>
 
-        <div>
-            <span class="font-semibold text-sm">Выберите формат отчетности *</span>
-        </div>
-        <div>
-            <div class="max-w-80">
-                <x-form.select wire:model="format" :options="$this->formData->formats" />
+            @if ($this->projectId)
+            <div>
+                <span class="text-sm font-semibold">Выберите период отчетности *</span>
             </div>
-        </div>
-
-        <div class="flex flex-col">
-            <span class="font-semibold text-sm">Выберите шаблон отчета *</span>
-            <span class="italic text-caption-text">Выбранный шаблон влияет на содержание отчета</span>
-        </div>
-        <div>
-            <div class="max-w-80">
-                <x-form.select wire:model="templateId" :options="$this->formData->templates" />
+            <div>
+                <div class="max-w-80">
+                    <div class="flex justify-between gap-4">
+                        <x-form.month-picker
+                            wire:key="report-period-from-{{ $this->projectId }}"
+                            wire:model.live="from"
+                            placeholder="Месяц и год"
+                            disable-future
+                            :available-months="$this->availablePeriodMonths"
+                            :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
+                        />
+                        <x-form.month-picker
+                            wire:key="report-period-to-{{ $this->projectId }}"
+                            wire:model.live="to"
+                            placeholder="Месяц и год"
+                            disable-future
+                            :available-months="$this->availablePeriodMonths"
+                            :unavailable-tooltip="\App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP"
+                        />
+                    </div>
+                    @if ($this->availablePeriodMonths === [])
+                        <span class="text-warning-red mt-2 block text-[12px]">
+                            {{ \App\Services\Reports\ReportMonthAvailability::UNAVAILABLE_TOOLTIP }}
+                        </span>
+                    @endif
+                </div>
             </div>
-        </div>
-    </div>
 
-    <div class="flex justify-between mt-auto">
-        <div class="flex gap-2"">
-            <x-button.button wire:click="create" variant="primary" label="Сформировать" />
-            <x-button.button wire:click="create(true)" variant="primary" label="Сформировать и скачать"
-                icon="icons.download" />
+            @if ($this->isMultiMonthPeriod)
+                <div>
+                    <span class="text-sm font-semibold">Группировка колонок в таблицах *</span>
+                </div>
+                <div>
+                    <div class="max-w-80">
+                        <x-form.select
+                            wire:model.live="columnGrouping"
+                            :options="$this->columnGroupingOptions"
+                            placeholder="Выберите группировку"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <span class="text-sm font-semibold">Сортировка дат в таблицах *</span>
+                </div>
+                <div>
+                    <div class="max-w-80">
+                        <x-form.select
+                            wire:model.live="dateSort"
+                            :options="$this->dateSortOptions"
+                            placeholder="Выберите сортировку"
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <x-form.form-label
+                        class="text-sm font-semibold max-w-none"
+                        tooltip="Берется последний месяц выбранного периода отчетности. За этот месяц подтягивается список выполненных работ и месяц в названии документа."
+                        tooltip-panel-max-width="18rem"
+                    >
+                        Месяц отчетности *
+                    </x-form.form-label>
+                </div>
+                <div>
+                    <div class="max-w-80">
+                        <x-form.select
+                            wire:key="reporting-month-{{ $this->reportingMonth }}"
+                            wire:model="reportingMonth"
+                            :options="$this->reportingMonthOptions"
+                            placeholder="Месяц отчетности"
+                            disabled
+                        />
+                    </div>
+                </div>
+            @endif
+
+            <div>
+                <span class="text-sm font-semibold">Выберите формат отчетности *</span>
+            </div>
+            <div>
+                <div class="max-w-80">
+                    <x-form.select
+                        wire:model.live="format"
+                        :options="$this->formData->formats"
+                        placeholder="Выберите формат"
+                        empty-placeholder="Нет доступных форматов"
+                        :disabled="count($this->formData->formats) <= 1"
+                    />
+                </div>
+            </div>
+
+            <div>
+                <x-form.form-label
+                    class="text-sm font-semibold max-w-none"
+                    tooltip="Выбранный шаблон влияет на содержание отчета"
+                    tooltip-panel-max-width="14rem"
+                >
+                    Выберите шаблон отчета *
+                </x-form.form-label>
+            </div>
+            <div>
+                <div class="max-w-80">
+                    <x-form.select
+                        wire:model.live="templateId"
+                        :options="$this->formData->templates"
+                        placeholder="Выберите шаблон"
+                        empty-placeholder="Нет доступных шаблонов"
+                    />
+                </div>
+            </div>
+            @endif
         </div>
-        <x-button.button href="{{ route('reports') }}" label="Отменить" />
-    </div>
+
+        @if (($this->hasPendingChanges || $this->isEditing) && $this->projectId)
+            <div class="mt-auto flex justify-between pt-7">
+                <button
+                    type="submit"
+                    @class([
+                        'inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-lg px-3.5 transition',
+                        'bg-primary border-primary border text-white',
+                        'hover:not-disabled:bg-transparent hover:not-disabled:text-primary',
+                        'disabled:cursor-not-allowed disabled:border-0 disabled:bg-secondary disabled:text-default-button-disabled',
+                    ])
+                    @disabled(! $this->canSubmit)
+                    wire:loading.class="pointer-events-none"
+                    wire:target="create"
+                >
+                    <span class="relative inline-flex size-5 shrink-0 items-center justify-center">
+                        <x-icons.download
+                            class="size-5"
+                            wire:loading.remove
+                            wire:target="create"
+                        />
+                        <x-icons.progress-activity
+                            class="absolute inset-0 size-5 animate-spin"
+                            wire:loading
+                            wire:target="create"
+                        />
+                    </span>
+                    <span class="whitespace-nowrap">Сформировать и скачать</span>
+                </button>
+                <x-button.button
+                    type="button"
+                    label="Отменить"
+                    wire:click="discardChanges"
+                />
+            </div>
+        @endif
+    </form>
 </div>
