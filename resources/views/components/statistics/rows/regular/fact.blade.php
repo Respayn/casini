@@ -80,54 +80,42 @@
 @endphp
 
 {{--
-  Высота: CSS grid auto-rows-fr — как у «Параметр»/«План», иначе nested table
-  раздаёт лишнюю высоту неравномерно и строка «Рекламный бюджет» уезжает вверх.
-  Ширина: скрытый измеритель (как раньше visibility:collapse в table).
+  Высота на tr вложенной таблицы (44px). У div внутри ячейки Firefox высоту не держит:
+  прочерк ниже, сумма с процентом выше, линии между днями не сходятся.
+  Скрытая строка задаёт ширину обеих половин по самой длинной подписи и не занимает высоту.
 --}}
-<x-data.table-cell {{ $attributes }} class="!p-0 h-1">
-    <div
-        class="relative h-full"
-        style="width: max-content; min-width: 100%"
-    >
-        <div
-            aria-hidden="true"
-            class="pointer-events-none absolute"
-            style="top: 0; bottom: 0; left: 50%; width: 1px; margin-left: -0.5px; background-color: var(--color-table-cell);"
-        ></div>
-
-        <div
-            aria-hidden="true"
-            class="pointer-events-none overflow-hidden"
-            style="height: 0; visibility: hidden"
-        >
-            <div class="grid grid-cols-2">
-                <div class="whitespace-nowrap px-2.5 font-bold">{{ $maxSizer }}</div>
-                <div class="whitespace-nowrap px-2.5 font-bold">{{ $maxSizer }}</div>
-            </div>
-        </div>
-
-        <div class="grid h-full auto-rows-fr divide-y divide-table-cell">
-            @foreach ($rows as $row)
-                <div class="grid h-full grid-cols-2">
-                    <div
-                        class="flex items-center whitespace-nowrap px-2.5 py-2"
-                        style="color: #A0B5D2"
-                    >{{ $row['planText'] }}</div>
-                    <div
-                        class="flex items-center whitespace-nowrap px-2.5 py-2 font-bold gap-1"
-                        @if ($row['factBg'] !== null) style="background-color: {{ $row['factBg'] }}" @endif
-                    >
-                        @if ($row['hasFact'])
+<x-data.table-cell {{ $attributes }} class="!p-0" style="vertical-align: top">
+    <table class="border-collapse" style="width: max-content; min-width: 100%">
+        <tr style="height: 0; line-height: 0">
+            <td style="height: 0; max-height: 0; padding: 0; border: 0; line-height: 0">
+                <div aria-hidden="true" class="pointer-events-none overflow-hidden whitespace-nowrap font-bold" style="height: 0; max-height: 0; visibility: hidden">{{ $maxSizer }}</div>
+            </td>
+            <td style="height: 0; max-height: 0; padding: 0; border: 0; line-height: 0">
+                <div aria-hidden="true" class="pointer-events-none overflow-hidden whitespace-nowrap font-bold" style="height: 0; max-height: 0; visibility: hidden">{{ $maxSizer }}</div>
+            </td>
+        </tr>
+        @foreach ($rows as $row)
+            <tr style="height: 44px">
+                <td
+                    class="whitespace-nowrap"
+                    style="height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; color: #A0B5D2; {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}"
+                >{{ $row['planText'] }}</td>
+                <td
+                    class="whitespace-nowrap font-bold"
+                    style="height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; border-left: 1px solid var(--color-table-cell); {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}{{ $row['factBg'] !== null ? 'background-color: '.$row['factBg'].';' : '' }}"
+                >
+                    @if ($row['hasFact'])
+                        <span class="inline-flex items-center gap-1">
                             <span>{{ $row['factText'] }}</span>
                             @if ($row['planPercent'] !== null)
                                 <span class="text-xs font-normal text-secondary-text">({{ $row['planPercent'] }}%)</span>
                             @endif
-                        @else
-                            -
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    </div>
+                        </span>
+                    @else
+                        -
+                    @endif
+                </td>
+            </tr>
+        @endforeach
+    </table>
 </x-data.table-cell>

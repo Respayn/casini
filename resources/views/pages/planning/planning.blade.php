@@ -231,7 +231,7 @@
                                             $rowIndex = $loop->index;
                                             $rowBgColor = $rowIndex % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
                                         @endphp
-                                        <x-data.table-row :bg-color="$rowBgColor">
+                                        <x-data.table-row class="h-px" :bg-color="$rowBgColor">
                                             <x-data.table-cell>
                                                 <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
                                                     wire:navigate>
@@ -257,7 +257,7 @@
                                             <x-data.table-cell>
                                                 {{ $projectPlan['kpi'] }}
                                             </x-data.table-cell>
-                                            <x-data.table-cell class="!p-0 h-1">
+                                            <x-data.table-cell class="!p-0 h-full">
                                                 <div class="grid auto-rows-fr h-full divide-y divide-table-cell">
                                                     @foreach ($projectPlan['parameters'] as $param)
                                                         <div
@@ -306,25 +306,23 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.3" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][1]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 1 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.1.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][1]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][1]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][1]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="1"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                {{-- Подсветка на самой ячейке: в Firefox height 100% у внутреннего блока не работает, синий прямоугольник остаётся по высоте галочки. --}}
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][1]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 1 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.1.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][1]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][1]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][1]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="1"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
 
@@ -339,25 +337,22 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.6" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][2]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 2 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.2.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][2]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][2]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][2]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="2"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][2]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 2 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.2.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][2]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][2]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][2]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="2"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
 
@@ -372,25 +367,22 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.9" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][3]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 3 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.3.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][3]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][3]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][3]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="3"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][3]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 3 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.3.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][3]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][3]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][3]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="3"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
 
@@ -405,25 +397,22 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.12" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][4]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 4 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.4.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][4]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][4]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][4]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="4"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][4]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 4 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.4.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][4]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][4]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][4]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="4"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
                                         </x-data.table-row>

@@ -66,7 +66,7 @@ new class extends Component
 };
 ?>
 
-<x-data.table-cell class="!p-0 h-1">
+<x-data.table-cell class="!p-0 h-full">
     <div class="grid auto-rows-fr h-full divide-y divide-table-cell" x-data="{
         parameters: @js($parameters),
         month: {{ $month }},

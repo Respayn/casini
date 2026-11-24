@@ -26,34 +26,38 @@
     $slots = is_array($params) ? $params : [];
 @endphp
 
-<x-data.table-cell class="bg-table-summary-bg !p-0 h-1" {{ $attributes }}>
-    @if ($slots === [])
-        <div class="flex h-full items-center justify-end px-2.5 py-2 font-bold">-</div>
-    @else
-        <div class="grid h-full auto-rows-fr divide-y divide-table-cell">
-            @foreach ($slots as $slot)
-                @php
-                    $planPercent = (($slot['format'] ?? null) === 'percent' && is_numeric($slot['value'] ?? null))
-                        ? (int) $slot['value']
-                        : null;
-                    $slotBg = $highlightUnmetKpi ? $kpiHighlightBg($planPercent) : null;
-                @endphp
-                <div
-                    class="flex h-full items-center justify-end grow px-2.5 py-2 whitespace-nowrap gap-1 font-bold"
-                    @if ($slotBg !== null) style="background-color: {{ $slotBg }}" @endif
+<x-data.table-cell class="bg-table-summary-bg !p-0" style="vertical-align: top" {{ $attributes }}>
+    <table class="w-full border-collapse">
+        @forelse ($slots as $slot)
+            @php
+                $planPercent = (($slot['format'] ?? null) === 'percent' && is_numeric($slot['value'] ?? null))
+                    ? (int) $slot['value']
+                    : null;
+                $slotBg = $highlightUnmetKpi ? $kpiHighlightBg($planPercent) : null;
+            @endphp
+            <tr style="height: 44px">
+                <td
+                    class="whitespace-nowrap text-right font-bold"
+                    style="height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}{{ $slotBg !== null ? 'background-color: '.$slotBg.';' : '' }}"
                 >
                     @if (isset($slot['value']) && $slot['value'] !== null && $slot['value'] !== '')
-                        <span>{{ $formatValue($slot) }}</span>
-                        @if (($slot['format'] ?? null) === 'percent')
-                            <x-overlay.tooltip>
-                                % считается по основным параметрам клиенто-проектов
-                            </x-overlay.tooltip>
-                        @endif
+                        <span class="inline-flex items-center justify-end gap-1">
+                            <span>{{ $formatValue($slot) }}</span>
+                            @if (($slot['format'] ?? null) === 'percent')
+                                <x-overlay.tooltip>
+                                    % считается по основным параметрам клиенто-проектов
+                                </x-overlay.tooltip>
+                            @endif
+                        </span>
                     @else
                         -
                     @endif
-                </div>
-            @endforeach
-        </div>
-    @endif
+                </td>
+            </tr>
+        @empty
+            <tr style="height: 44px">
+                <td class="whitespace-nowrap text-right font-bold" style="height: 44px; vertical-align: middle; padding: 0 10px">-</td>
+            </tr>
+        @endforelse
+    </table>
 </x-data.table-cell>
