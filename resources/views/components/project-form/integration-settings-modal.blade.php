@@ -8,6 +8,8 @@
 ])
 
 @php
+    use App\Support\IntegrationLogo;
+
     $formattedIntegrationCode = Str::kebab(Str::camel($projectIntegration?->integration->code));
     $integrationCode = $projectIntegration?->integration->code;
     $isConfigured = match ($integrationCode) {
@@ -38,17 +40,26 @@
     $modalSidebarKey = $projectIntegration
         ? $integrationCode.'-'.$bodyRevision.'-'.(string) $projectType
         : 'empty';
+
+    $logoComponent = $integrationCode
+        ? 'icons.logo.'.IntegrationLogo::component((string) $integrationCode)
+        : null;
+
+    $sidebarComponent = 'project-form.'.$formattedIntegrationCode.'-integration-modal-sidebar';
 @endphp
 
 <x-overlay.modal
     name="integration-settings-modal"
     title="{{ $projectIntegration?->integration->name }}"
+    :icon="$logoComponent"
+    :collapsible-sidebar="true"
 >
     @if ($isConfigured && $canEdit)
         <x-slot:titleActions>
             <x-button.button
+                icon="icons.delete"
                 label="Удалить интеграцию"
-                x-on:click="$wire.removeIntegration({{ $projectIntegration->integration->id }}); $dispatch('modal-hide', { name: 'integration-settings-modal' })"
+                x-on:click="$dispatch('modal-show', { name: 'integration-delete-confirm' })"
             />
         </x-slot:titleActions>
     @endif
@@ -70,13 +81,75 @@
             <div wire:key="integration-modal-sidebar-{{ $modalSidebarKey }}">
                 @if ($integrationCode === 'yandex_metrika')
                     <x-dynamic-component
-                        component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar"
+                        :component="$sidebarComponent"
                         :project-type="$projectType"
                     />
                 @else
-                    <x-dynamic-component component="project-form.{{ $formattedIntegrationCode }}-integration-modal-sidebar" />
+                    <x-dynamic-component :component="$sidebarComponent" />
                 @endif
             </div>
         </x-slot:sidebar>
     @endif
 </x-overlay.modal>
+
+@if ($isConfigured && $canEdit && $projectIntegration)
+    <x-overlay.modal
+        name="integration-delete-confirm"
+        title="Вы уверены?"
+        :stacked="true"
+    >
+        <x-slot:body>
+            <p class="text-primary-text">Интеграция будет удалена.</p>
+            <div class="mt-6 flex justify-between gap-4">
+                <x-button.button
+                    icon="icons.delete"
+                    label="Удалить"
+                    variant="primary"
+                    x-on:click="
+                        $wire.removeIntegration({{ $projectIntegration->integration->id }});
+                        $dispatch('modal-hide', { name: 'integration-delete-confirm' });
+                        $dispatch('modal-hide', { name: 'integration-settings-modal' });
+                    "
+                />
+                <x-button.button
+                    label="Отменить"
+                    x-on:click="$dispatch('modal-hide', { name: 'integration-delete-confirm' })"
+                />
+            </div>
+        </x-slot:body>
+    </x-overlay.modal>
+@endif
+
+@if ($projectIntegration)
+    <x-overlay.modal
+        name="integration-instruction-modal"
+        title="Инструкция"
+        :stacked="true"
+    >
+        <x-slot:body>
+            {{-- Без пересборки Tailwind: прячем повтор заголовка и min-width сайдбаров Директа/Метрики. --}}
+            <style>
+                .integration-instruction-body .text-2xl {
+                    display: none !important;
+                }
+
+                .integration-instruction-body [class*='min-w-'] {
+                    min-width: 0 !important;
+                }
+            </style>
+            <div
+                wire:key="integration-instruction-body-{{ $modalSidebarKey }}"
+                class="integration-instruction-body"
+            >
+                @if ($integrationCode === 'yandex_metrika')
+                    <x-dynamic-component
+                        :component="$sidebarComponent"
+                        :project-type="$projectType"
+                    />
+                @else
+                    <x-dynamic-component :component="$sidebarComponent" />
+                @endif
+            </div>
+        </x-slot:body>
+    </x-overlay.modal>
+@endif
