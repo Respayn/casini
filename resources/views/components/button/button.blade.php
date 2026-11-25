@@ -11,12 +11,19 @@
     'type' => 'button',
     'target' => '_self',
     'loading' => null,
+    'wrap' => false,
 ])
 @php
     // Если параметр square не передан, делаем кнопку квадратной, если label пустой
     $square ??= empty($label) && $slot->isEmpty();
+    // HTML-атрибут wrap без значения приходит как строка "wrap"
+    $allowWrap = $wrap === true || $wrap === 1 || $wrap === '1' || $wrap === 'true' || $wrap === 'wrap';
     $isAction = in_array($variant, ['action', 'implicit-action']);
-    $size = $isAction ? 'xs-action' : $size;
+    if ($allowWrap) {
+        $size = 'none';
+    } elseif ($isAction) {
+        $size = 'xs-action';
+    }
     $hasLoading = filled($loading);
 
     // TODO: добавить severity для изменения цветовой темы. Пример - https://primevue.org/button/#severity
@@ -38,18 +45,22 @@
         default => 'h-10 rounded-lg ' . ($square ? 'w-10' : 'px-3.5'),
     };
 
-    $underlineColor = match ($variant) {
+    // При wrap не рисуем отдельную полоску: она растягивается на ширину колонки.
+    // Подчёркивание - обычное по буквам (box-decoration-clone), как 14.08.2026.
+    $underlineColor = $allowWrap ? null : match ($variant) {
         'action' => 'border-primary',
         'implicit-action' => 'border-secondary-text',
         default => null,
     };
 
     $classes = [
-        'inline-flex gap-2 items-center justify-center cursor-pointer transition',
+        'cursor-pointer transition',
         'disabled:cursor-not-allowed' => !$href,
         $variantClasses,
         $sizeClasses,
-        '!rounded-full' => $rounded,
+        '!rounded-full' => $rounded && ! $allowWrap,
+        'inline-flex gap-2 items-center justify-center' => ! $allowWrap,
+        'inline-block max-w-full p-0 h-auto text-left bg-transparent border-0 appearance-none whitespace-normal align-top' => $allowWrap,
     ];
 
     $useSpaNavigation = $target !== '_blank';
@@ -68,7 +79,7 @@
         @endif
     >
 @endif
-    @if ($hasLoading && $icon)
+    @if ($hasLoading && $icon && ! $allowWrap)
         <span class="relative inline-flex size-5 shrink-0 items-center justify-center">
             <x-dynamic-component
                 :component="$icon"
@@ -82,7 +93,7 @@
                 wire:target="{{ $loading }}"
             />
         </span>
-    @elseif ($hasLoading)
+    @elseif ($hasLoading && ! $allowWrap)
         <span
             class="relative inline-flex size-5 shrink-0 items-center justify-center"
             wire:loading
@@ -90,27 +101,37 @@
         >
             <x-icons.progress-activity class="size-5 animate-spin" />
         </span>
-    @elseif ($icon)
+    @elseif ($icon && ! $allowWrap)
         <x-dynamic-component :component="$icon" @class([$iconClasses])/>
     @endif
 
     @if ($label || $slot->isNotEmpty())
-        <span @class(['relative' => $underlineColor])>
-            <span @class(['whitespace-nowrap' => $isAction])>
+        @if ($allowWrap)
+            <span @class(['inline box-decoration-clone', 'underline' => $isAction])>
                 @if ($label)
                     {{ $label }}
                 @else
                     {{ $slot }}
                 @endif
             </span>
+        @else
+            <span @class(['relative' => $underlineColor])>
+                <span @class(['whitespace-nowrap' => $isAction])>
+                    @if ($label)
+                        {{ $label }}
+                    @else
+                        {{ $slot }}
+                    @endif
+                </span>
 
-        @if ($underlineColor)
-            <span
-            @class(['absolute bottom-[2px] left-0 right-0 rounded-xl border-b', $underlineColor])
-                style="border-width: .5px;"
-            ></span>
+            @if ($underlineColor)
+                <span
+                @class(['absolute bottom-[2px] left-0 right-0 rounded-xl border-b', $underlineColor])
+                    style="border-width: .5px;"
+                ></span>
+            @endif
+            </span>
         @endif
-        </span>
     @endif
 
 @if ($href)
