@@ -114,20 +114,13 @@
     </div>
 
     {{-- Отступ до таблицы: раньше давал year-picker (margin-bottom 12px), теперь у ряда фильтров --}}
-    <div class="relative mt-3" style="min-height: 240px">
-        <div
-            wire:loading
-            wire:target="year,showInactive,includeVat"
-            class="absolute inset-0 z-10 overflow-hidden"
-            style="background-color: rgba(255, 255, 255, 0.75)"
-        >
-            <x-planning.table-skeleton style="min-height: 100%" />
-        </div>
-
-        <div
-            wire:loading.class="pointer-events-none opacity-40"
-            wire:target="year,showInactive,includeVat"
-        >
+    <x-report.table-loading-bars />
+    <div
+        class="relative mt-3"
+        style="min-height: 240px"
+        wire:loading.class="report-table-loading"
+        wire:target="year,showInactive,includeVat"
+    >
             @if (empty($tableData))
                 <div class="mt-20 flex flex-col items-center gap-4">
                     <span class="text-caption-text">Нет клиенто-проектов для планирования</span>
@@ -421,7 +414,6 @@
                 </x-data.table>
             </x-panel.scroll-panel>
             @endif
-        </div>
     </div>
 
     <x-overlay.modal name="planning-leave-guard" title="Выйти без сохранения?">

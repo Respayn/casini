@@ -24,7 +24,14 @@
     </div>
 
     {{-- Фильтры --}}
-    <div class="flex flex-wrap items-center gap-y-3">
+    @php
+        $reportLoadingTargets = 'showInactiveProjects, periodFrom, periodTo, applyColumnSettings, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+    @endphp
+    <div
+        class="flex flex-wrap items-center gap-y-3"
+        wire:loading.class="pointer-events-none opacity-60"
+        wire:target="{{ $reportLoadingTargets }}"
+    >
         <div class="mr-3.5 flex items-center gap-2">
             <label>Неактивные клиенто-проекты:</label>
             <x-form.checkbox wire:model.live="showInactiveProjects" />
@@ -39,6 +46,7 @@
         <x-report.table-toolbar :refreshable="false" :column-trigger-action="false" />
     </div>
 
+    <x-report.table-loading :targets="$reportLoadingTargets">
     @if (empty($this->reports))
         <div class="mt-20 flex flex-col items-center gap-4">
             <span class="text-caption-text">Нет отчетов для отображения</span>
@@ -50,7 +58,7 @@
             @endif
         </div>
     @else
-        <div class="mt-3">
+        <div>
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                 <x-data.table class="w-full">
                     <x-data.table-columns>
@@ -161,6 +169,7 @@
             </x-panel.scroll-panel>
         </div>
     @endif
+    </x-report.table-loading>
 
     <x-column-settings-modal :columns="$columnSettings" />
 
