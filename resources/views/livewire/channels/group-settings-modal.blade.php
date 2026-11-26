@@ -1,6 +1,7 @@
 <x-overlay.modal name="group-settings-modal" title="Настроить отчет">
     <x-slot:body>
-        <div>
+        {{-- min-width как у модалки настроек Статистики (~648px с padding), иначе одно короткое поле сжимает окно --}}
+        <div style="min-width: 600px">
             <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
                 <x-form.form-field>
                     <x-form.form-label>Сгруппировать отчет</x-form.form-label>
