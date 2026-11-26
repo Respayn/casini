@@ -150,10 +150,13 @@
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
-                        @php $clientProjectStripe = 0; @endphp
+                        @php
+                            $clientProjectStripe = 0;
+                            $isFlatView = $sidebarProjectId !== null || $queryData->grouping->value === 'none';
+                        @endphp
                         @foreach ($this->reportData->groups as $groupIndex => $group)
                             {{-- Итого по группе --}}
-                            @unless (empty($group->summary))
+                            @unless ($isFlatView || empty($group->summary))
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.name">
                                     <x-data.table-cell colspan="100">
                                         <div class="flex cursor-pointer items-center gap-2"
@@ -192,7 +195,7 @@
                                     $clientProjectStripe++;
                                     $rowPending = $this->isRefreshRowPending((int) $row->id);
                                 @endphp
-                                @if ($queryData->grouping->value === 'none')
+                                @if ($isFlatView)
                                     <x-data.table-row
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
@@ -247,26 +250,28 @@
                             @endforeach
                         @endforeach
                         {{-- Итого по таблице --}}
-                        <x-data.table-row>
-                            @if ($this->isRefreshTableSummaryPending())
-                                <x-report.table-row-skeleton :columns="$this->visibleColumns" />
-                            @else
-                                @foreach ($this->visibleColumns as $column)
-                                    @if (in_array($column->component, ['fact', 'summary'], true))
-                                        <x-dynamic-component
-                                            :component="'statistics.rows.summary.' . $column->component"
-                                            :params="$this->reportData->summary->get($column->field)"
-                                            :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
-                                        />
-                                    @else
-                                        <x-dynamic-component
-                                            :component="'statistics.rows.summary.' . $column->component"
-                                            :params="$this->reportData->summary->get($column->field)"
-                                        />
-                                    @endif
-                                @endforeach
-                            @endif
-                        </x-data.table-row>
+                        @unless ($sidebarProjectId !== null)
+                            <x-data.table-row>
+                                @if ($this->isRefreshTableSummaryPending())
+                                    <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                @else
+                                    @foreach ($this->visibleColumns as $column)
+                                        @if (in_array($column->component, ['fact', 'summary'], true))
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$this->reportData->summary->get($column->field)"
+                                                :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                            />
+                                        @else
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$this->reportData->summary->get($column->field)"
+                                            />
+                                        @endif
+                                    @endforeach
+                                @endif
+                            </x-data.table-row>
+                        @endunless
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.scroll-panel>
@@ -352,11 +357,14 @@
                     <x-form.form-field>
                         <x-form.form-label>Сгруппировать отчет</x-form.form-label>
                         <div>
-                            <x-form.select :options="[
-        ['label' => 'Без группировки', 'value' => 'none'],
-        ['label' => 'По клиентам', 'value' => 'clients'],
-        ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
-    ]" wire:model="queryData.grouping"></x-form.select>
+                            <x-form.select
+                                wire:model="queryData.grouping"
+                                :options="[
+                                    ['label' => 'Без группировки', 'value' => 'none'],
+                                    ['label' => 'По клиентам', 'value' => 'clients'],
+                                    ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
+                                ]"
+                            />
                         </div>
                     </x-form.form-field>
 

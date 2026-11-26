@@ -8,6 +8,7 @@ use Livewire\Component;
 class GroupSettingsModal extends Component
 {
     public ChannelReportGrouping $initialGrouping;
+
     public ChannelReportGrouping $grouping;
 
     public function mount($initialGrouping)
@@ -16,9 +17,11 @@ class GroupSettingsModal extends Component
         $this->grouping = $initialGrouping;
     }
 
-    public function setGrouping($grouping)
+    public function apply(): void
     {
-        $this->grouping = ChannelReportGrouping::from($grouping);
+        $this->initialGrouping = $this->grouping;
+        $this->dispatch('group-settings-applied', grouping: $this->grouping->value);
+        $this->dispatch('modal-hide', name: 'group-settings-modal');
     }
 
     public function cancel(): void

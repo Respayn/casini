@@ -5,6 +5,7 @@ namespace App\Livewire\Statistics;
 use App\Data\Statistics\StatisticsReportQueryData;
 use App\Data\TableReportColumnData;
 use App\Data\TableReportData;
+use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithReportDataRefresh;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
 use App\Services\Statistics\StatisticsService;
@@ -195,7 +196,12 @@ class extends Component
             $this->queryData,
         );
 
-        return $this->statisticsService->getReportData($this->queryData, $this->sidebarProjectId);
+        $query = clone $this->queryData;
+        if ($this->sidebarProjectId !== null) {
+            $query->grouping = ChannelReportGrouping::NONE;
+        }
+
+        return $this->statisticsService->getReportData($query, $this->sidebarProjectId);
     }
 
     private function rebuildQueryDataForPeriod(): void

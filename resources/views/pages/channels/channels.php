@@ -182,7 +182,12 @@ class extends Component
     {
         $this->persistUserSettings();
 
-        return $this->channelReportService->getReportData($this->queryData, $this->sidebarProjectId);
+        $query = clone $this->queryData;
+        if ($this->sidebarProjectId !== null) {
+            $query->grouping = ChannelReportGrouping::NONE;
+        }
+
+        return $this->channelReportService->getReportData($query, $this->sidebarProjectId);
     }
 
     #[On('group-settings-applied')]
