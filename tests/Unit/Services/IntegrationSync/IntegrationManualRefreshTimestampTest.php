@@ -39,44 +39,44 @@ class IntegrationManualRefreshTimestampTest extends TestCase
 
     public function test_returns_null_when_never_recorded_and_no_sync(): void
     {
-        $service = new IntegrationManualRefreshTimestamp();
+        $service = new IntegrationManualRefreshTimestamp;
 
-        $this->assertNull($service->formattedLabel(1, 'channels'));
+        $this->assertNull($service->formattedLabel(1));
     }
 
     public function test_formats_recorded_timestamp(): void
     {
-        $service = new IntegrationManualRefreshTimestamp();
-        $service->record(7, 'channels');
+        $service = new IntegrationManualRefreshTimestamp;
+        $service->record(7);
 
-        $label = $service->formattedLabel(7, 'channels');
+        $label = $service->formattedLabel(7);
 
         $this->assertNotNull($label);
         $this->assertMatchesRegularExpression('/^\d{2}:\d{2}, \d{2}\.\d{2}\.\d{2}$/', $label);
     }
 
-    public function test_product_keys_are_independent_for_manual_stamps(): void
+    public function test_agency_stamp_is_shared_for_both_products(): void
     {
-        $service = new IntegrationManualRefreshTimestamp();
-        $service->record(3, 'statistics');
+        $service = new IntegrationManualRefreshTimestamp;
+        $service->record(3);
 
-        $this->assertNotNull($service->formattedLabel(3, 'statistics'));
-        $this->assertNull($service->formattedLabel(3, 'channels'));
+        $this->assertNotNull($service->formattedLabel(3));
+        $this->assertNull($service->formattedLabel(4));
     }
 
     public function test_falls_back_to_nightly_sync_finished_at(): void
     {
         $this->createFinishedSyncRun(Carbon::parse('2026-08-07 00:15:00', 'UTC'));
 
-        $service = new IntegrationManualRefreshTimestamp();
+        $service = new IntegrationManualRefreshTimestamp;
 
         $this->assertSame(
             '00:15, 07.08.26',
-            $service->formattedLabel(1, 'channels'),
+            $service->formattedLabel(1),
         );
         $this->assertSame(
             '00:15, 07.08.26',
-            $service->formattedLabel(1, 'statistics'),
+            $service->formattedLabel(2),
         );
     }
 
@@ -84,29 +84,29 @@ class IntegrationManualRefreshTimestampTest extends TestCase
     {
         $this->createFinishedSyncRun(Carbon::parse('2026-08-07 00:15:00', 'UTC'));
 
-        $service = new IntegrationManualRefreshTimestamp();
-        $service->record(1, 'channels');
+        $service = new IntegrationManualRefreshTimestamp;
+        $service->record(1);
 
         $this->assertSame(
             '12:34, 07.08.26',
-            $service->formattedLabel(1, 'channels'),
+            $service->formattedLabel(1),
         );
     }
 
     public function test_prefers_more_recent_nightly_over_stale_manual(): void
     {
         Cache::forever(
-            'integrations.manual_refresh.last_at.user.1.channels',
+            'integrations.manual_refresh.last_at.agency.1',
             Carbon::parse('2026-08-06 10:00:00', 'UTC')->toIso8601String(),
         );
 
         $this->createFinishedSyncRun(Carbon::parse('2026-08-07 00:15:00', 'UTC'));
 
-        $service = new IntegrationManualRefreshTimestamp();
+        $service = new IntegrationManualRefreshTimestamp;
 
         $this->assertSame(
             '00:15, 07.08.26',
-            $service->formattedLabel(1, 'channels'),
+            $service->formattedLabel(1),
         );
     }
 

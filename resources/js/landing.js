@@ -78,6 +78,24 @@ function isMainPage() {
     );
 }
 
+function getEarlyAccessTarget() {
+    return document.getElementById("form") || document.getElementById("early-access");
+}
+
+function scrollToEarlyAccess() {
+    const target = getEarlyAccessTarget();
+    if (!target) {
+        return false;
+    }
+
+    target.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+    });
+
+    return true;
+}
+
 // Все кнопки «ранний доступ»: плавный скролл к форме + передача информации о блоке
 function initEarlyAccessButtons() {
     const earlyButtons = document.querySelectorAll(
@@ -102,15 +120,15 @@ function initEarlyAccessButtons() {
 
             // Если мы не на главной странице, перенаправляем на неё с параметром для скролла
             if (!isMainPage()) {
-                window.location.href = "/?scroll_to_form=true";
+                window.location.href = "/#form";
                 return;
             }
 
-            const target = document.getElementById("early-access");
+            const target = getEarlyAccessTarget();
             if (!target) {
                 // Если элемент не найден, пробуем еще раз через небольшое время
                 setTimeout(() => {
-                    const target = document.getElementById("early-access");
+                    const target = getEarlyAccessTarget();
                     if (target) {
                         target.scrollIntoView({
                             behavior: "smooth",
@@ -160,7 +178,7 @@ function initEarlyAccessButtons() {
 
             // Дополнительная проверка через небольшое время
             setTimeout(() => {
-                const target = document.getElementById("early-access");
+                const target = getEarlyAccessTarget();
                 if (target) {
                     target.scrollIntoView({
                         behavior: "smooth",
@@ -266,15 +284,15 @@ function handleEarlyAccessClick(e) {
 
     // Если мы не на главной странице, перенаправляем на неё с параметром для скролла
     if (!isMainPage()) {
-        window.location.href = "/?scroll_to_form=true";
+        window.location.href = "/#form";
         return;
     }
 
-    const target = document.getElementById("early-access");
+    const target = getEarlyAccessTarget();
     if (!target) {
         // Если элемент не найден, пробуем еще раз через небольшое время
         setTimeout(() => {
-            const target = document.getElementById("early-access");
+            const target = getEarlyAccessTarget();
             if (target) {
                 target.scrollIntoView({
                     behavior: "smooth",
@@ -312,7 +330,7 @@ function handleEarlyAccessClick(e) {
 
     // Дополнительная проверка через небольшое время
     setTimeout(() => {
-        const target = document.getElementById("early-access");
+        const target = getEarlyAccessTarget();
         if (target) {
             target.scrollIntoView({
                 behavior: "smooth",
@@ -370,35 +388,21 @@ window.preventHorizontalScroll = preventHorizontalScroll;
 // Функция для проверки URL параметров и автоматического скролла к форме
 function checkUrlParamsAndScroll() {
     const urlParams = new URLSearchParams(window.location.search);
-    const scrollToForm = urlParams.get("scroll_to_form");
+    const hash = window.location.hash;
+    const scrollToForm = urlParams.get("scroll_to_form") === "true";
+    const hasFormHash = hash === "#form" || hash === "#early-access";
 
-    if (scrollToForm === "true") {
-        // Убираем параметр из URL
-        const newUrl = window.location.pathname;
-        window.history.replaceState({}, document.title, newUrl);
-
-        // Ждем немного, чтобы страница полностью загрузилась
-        setTimeout(() => {
-            const target = document.getElementById("early-access");
-            if (target) {
-                target.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                });
-            }
-        }, 500);
-
-        // Дополнительная проверка через большее время
-        setTimeout(() => {
-            const target = document.getElementById("early-access");
-            if (target) {
-                target.scrollIntoView({
-                    behavior: "smooth",
-                    block: "start",
-                });
-            }
-        }, 1000);
+    if (!scrollToForm && !hasFormHash) {
+        return;
     }
+
+    if (scrollToForm) {
+        window.history.replaceState({}, document.title, window.location.pathname + "#form");
+    }
+
+    const tryScroll = () => scrollToEarlyAccess();
+    setTimeout(tryScroll, 100);
+    setTimeout(tryScroll, 500);
 }
 
 // Вызываем функцию при загрузке страницы
@@ -407,6 +411,11 @@ window.addEventListener("load", () => {
     checkUrlParamsAndScroll();
 });
 window.addEventListener("resize", preventHorizontalScroll);
+window.addEventListener("hashchange", checkUrlParamsAndScroll);
+document.addEventListener("livewire:navigated", () => {
+    initEarlyAccessButtons();
+    checkUrlParamsAndScroll();
+});
 
 // Вызываем функцию после загрузки header
 window.addEventListener("DOMContentLoaded", () => {

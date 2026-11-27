@@ -2,42 +2,43 @@
 
 namespace Src\Application\Reports\GetFormData;
 
-use Src\Domain\Projects\ProjectRepositoryInterface;
+use App\Models\Project;
+use App\Models\User;
+use App\Support\ClientProjectVisibility;
 use Src\Domain\Templates\TemplateRepositoryInterface;
 
 class GetReportFormDataQueryHandler
 {
-    private readonly ProjectRepositoryInterface $projectsRepository;
-    private readonly TemplateRepositoryInterface $templateRepository;
-
-    public function __construct(ProjectRepositoryInterface $projectRepository, TemplateRepositoryInterface $templateRepository)
-    {
-        $this->projectsRepository = $projectRepository;
-        $this->templateRepository = $templateRepository;
-    }
+    public function __construct(
+        private readonly TemplateRepositoryInterface $templateRepository,
+    ) {}
 
     public function handle(GetReportFormDataQuery $query): ReportFormDataResponse
     {
-        $projects = $this->projectsRepository->findAll();
-        $projectsData = array_map(function($project) {
-            return [
-                'value' => $project->getId(),
-                'label' => $project->getName()
-            ];
-        }, $projects);
-        usort($projectsData, function($a, $b) {
-            return strcmp($a['label'], $b['label']);
-        });
+        $user = $query->userId !== null
+            ? User::query()->find($query->userId)
+            : null;
+
+        $projectsQuery = Project::query()->orderBy('name');
+        ClientProjectVisibility::restrictProjectQuery($projectsQuery, $user);
+
+        $projectsData = $projectsQuery
+            ->get(['id', 'name'])
+            ->map(static fn (Project $project): array => [
+                'value' => $project->id,
+                'label' => $project->name,
+            ])
+            ->all();
 
         $formats = [
-            ['value' => 'docx', 'label' => 'DOCX']
+            ['value' => 'docx', 'label' => 'DOCX'],
         ];
 
         $templates = $this->templateRepository->findAll();
-        $templatesData = array_map(function($template) {
+        $templatesData = array_map(function ($template) {
             return [
                 'value' => $template->getId(),
-                'label' => $template->getName()
+                'label' => $template->getName(),
             ];
         }, $templates);
 

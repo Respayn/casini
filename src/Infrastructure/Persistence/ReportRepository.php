@@ -3,7 +3,11 @@
 namespace Src\Infrastructure\Persistence;
 
 use App\Models\Report as EloquentReport;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Src\Domain\Reports\Report;
+use Src\Domain\Reports\ReportColumnGrouping;
+use Src\Domain\Reports\ReportDateSort;
 use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
 
@@ -11,8 +15,8 @@ class ReportRepository implements ReportRepositoryInterface
 {
     public function findById(int $id): Report
     {
-        $eloquentReport = EloquentReport::with('project')
-            ->find($id);
+        $eloquentReport = EloquentReport::with('project')->findOrFail($id);
+
         return $this->mapToEntity($eloquentReport);
     }
 
@@ -20,11 +24,12 @@ class ReportRepository implements ReportRepositoryInterface
     {
         $reportId = $report->getId();
         if ($reportId === null) {
-            $eloquentReport = new EloquentReport();
+            $eloquentReport = new EloquentReport;
         } else {
-            $eloquentReport = EloquentReport::find($reportId);
+            $eloquentReport = EloquentReport::query()->findOrFail($reportId);
         }
         $eloquentReport->template_id = $report->getTemplateId();
+        $eloquentReport->template_name = $report->getTemplateName();
         $eloquentReport->client_id = $report->getClientId();
         $eloquentReport->project_id = $report->getProjectId();
         $eloquentReport->period_start = $report->getPeriodStart();
@@ -32,6 +37,8 @@ class ReportRepository implements ReportRepositoryInterface
         $eloquentReport->specialist_id = $report->getSpecialistId();
         $eloquentReport->manager_id = $report->getManagerId();
         $eloquentReport->format = $report->getFormat();
+        $eloquentReport->column_grouping = $report->getColumnGrouping();
+        $eloquentReport->date_sort = $report->getDateSort();
         $eloquentReport->is_ready = $report->getIsReady();
         $eloquentReport->is_accepted = $report->getIsAccepted();
         $eloquentReport->is_sent = $report->getIsSent();
@@ -43,12 +50,36 @@ class ReportRepository implements ReportRepositoryInterface
         return $eloquentReport->id;
     }
 
+    public function remove(Report $report): void
+    {
+        EloquentReport::query()->whereKey($report->getId())->delete();
+        $this->deleteStoredFile($report->getPath());
+    }
+
+    private function deleteStoredFile(string $path): void
+    {
+        if ($path === '') {
+            return;
+        }
+
+        if (File::exists($path)) {
+            File::delete($path);
+
+            return;
+        }
+
+        if (Storage::exists($path)) {
+            Storage::delete($path);
+        }
+    }
+
     private function mapToEntity(EloquentReport $eloquentReport): Report
     {
         return Report::restore(
             $eloquentReport->id,
             $eloquentReport->created_at,
             $eloquentReport->template_id,
+            (string) ($eloquentReport->template_name ?? ''),
             $eloquentReport->client_id,
             $eloquentReport->project->project_type,
             $eloquentReport->project_id,
@@ -63,7 +94,13 @@ class ReportRepository implements ReportRepositoryInterface
             $eloquentReport->is_accepted,
             $eloquentReport->is_sent,
             $eloquentReport->created_by,
-            $eloquentReport->path
+            $eloquentReport->path,
+            $eloquentReport->column_grouping instanceof ReportColumnGrouping
+                ? $eloquentReport->column_grouping
+                : ReportColumnGrouping::tryFrom((string) $eloquentReport->column_grouping) ?? ReportColumnGrouping::Months,
+            $eloquentReport->date_sort instanceof ReportDateSort
+                ? $eloquentReport->date_sort
+                : ReportDateSort::tryFrom((string) $eloquentReport->date_sort) ?? ReportDateSort::NewestFirst,
         );
     }
 }

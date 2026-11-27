@@ -2,9 +2,12 @@
 
 namespace App\Livewire\Users;
 
+use App\Data\UserData;
+use App\Enums\Role as RoleEnum;
 use App\Services\AgencySettingsService;
 use App\Services\UserService;
 use App\Support\SystemSettingsSectionPermissions;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -52,6 +55,7 @@ class extends Component
                 'first_name' => $user->first_name,
                 'last_name' => $user->last_name,
                 'roles' => $user->roles,
+                'role_label' => $this->roleLabel($user),
                 'is_active' => $user->is_active,
                 'account_status' => $status->value,
                 'account_status_label' => $status->listLabel(),
@@ -59,5 +63,24 @@ class extends Component
                 'rate_value' => $user->rate_value,
             ];
         })->toArray();
+    }
+
+    private function roleLabel(UserData $user): string
+    {
+        $roles = $user->roles;
+        $role = $roles instanceof Collection ? $roles->first() : ($roles[0] ?? null);
+
+        if ($role === null) {
+            return '-';
+        }
+
+        $displayName = is_array($role) ? ($role['display_name'] ?? null) : $role->display_name;
+        if (filled($displayName)) {
+            return (string) $displayName;
+        }
+
+        $name = is_array($role) ? ($role['name'] ?? '') : (string) $role->name;
+
+        return RoleEnum::tryFrom($name)?->label() ?? '-';
     }
 };

@@ -59,7 +59,7 @@ class YandexMetrikaReportsCollector implements IntegrationSyncCollector
     {
         return $this->sync(
             $projectId,
-            fn (string $syncEnabledAt) => $this->syncPeriod->range($from, $to, $syncEnabledAt),
+            fn (string $_syncEnabledAt) => $this->syncPeriod->requestedRange($from, $to),
         );
     }
 

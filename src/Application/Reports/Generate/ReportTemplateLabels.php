@@ -1,0 +1,62 @@
+<?php
+
+namespace Src\Application\Reports\Generate;
+
+class ReportTemplateLabels
+{
+    private const LABELS = [
+        'agency_image' => 'Логотип агентства',
+        'manager_photo' => 'Фото менеджера',
+        'callibri.table' => 'Таблица Callibri',
+        'yandex_search.phrase' => 'Фразы Yandex Search API',
+        'yandex_search.position' => 'Позиции Yandex Search API',
+        'yd.table' => 'Таблица Яндекс.Директ',
+        'yd.table.utm_campaign_match' => 'Таблица сопоставления кампаний',
+        'yd.stats.campaign' => 'Общая статистика Директа',
+        'yd.stats.impressions' => 'Показы Директа',
+        'yd.stats.clicks' => 'Клики Директа',
+        'yd.stats.cost' => 'Расход Директа',
+        'yd.stats.ctr' => 'CTR Директа',
+        'yd.stats.cpc' => 'CPC Директа',
+        'yd.stats.conversions' => 'Ключевые конверсии Директа',
+        'yd.stats.cpl' => 'CPL Директа',
+        'yd.stats.total.impressions' => 'Итого показов Директа',
+        'yd.stats.total.clicks' => 'Итого кликов Директа',
+        'yd.stats.total.cost' => 'Итого расхода Директа',
+        'yd.stats.total.ctr' => 'Итого CTR Директа',
+        'yd.stats.total.cpc' => 'Итого CPC Директа',
+        'yd.stats.total.conversions' => 'Итого ключевых конверсий Директа',
+        'yd.stats.total.cpl' => 'Итого CPL Директа',
+        'yd.appeals.campaign' => 'Кампании в статистике по обращениям',
+        'yd.appeals.goal' => 'Статистика по обращениям',
+        'yd.appeals.value' => 'Достижения цели по кампании',
+        'yd.appeals.total' => 'Итого по обращениям',
+        'ym.table.goals_search_engines' => 'Таблица целей по поисковым системам',
+        'ym.table.goals_search_engines.yandex' => 'Таблица целей Яндекс',
+        'ym.table.goals_search_engines.google' => 'Таблица целей Google',
+        'ym.goals_yandex.name' => 'Цели из Яндекса',
+        'ym.goals_yandex.value' => 'Достижения целей из Яндекса',
+        'ym.goals_yandex.total' => 'Итого целей из Яндекса',
+        'ym.goals_google.name' => 'Цели из Google',
+        'ym.goals_google.value' => 'Достижения целей из Google',
+        'ym.goals_google.total' => 'Итого целей из Google',
+        'ym.table.goals_utm' => 'Таблица целей по UTM',
+        'ym.table.goals_conversions' => 'Таблица конверсий целей',
+        'ym.table.goals_direct_summary' => 'Таблица целей Директа',
+        'ym.table.visits_search_systems' => 'Таблица визитов из поиска',
+        'ym.table.visits_geo' => 'Таблица визитов по географии',
+        'ym.visits_geo.city' => 'Города из отчёта География',
+        'ym.visits_geo.visits' => 'Переходы по городам',
+        'ym.table.visits_search_queries' => 'Таблица визитов по запросам',
+        'ym.search_queries.phrase' => 'Фразы из отчёта Поисковые запросы',
+        'ym.search_queries.visits' => 'Переходы по поисковым фразам',
+        'bitrix24.worklist' => 'Список выполненных работ',
+    ];
+
+    public static function label(string $key): string
+    {
+        $normalized = preg_replace('/\[\d+\]$/', '', $key) ?? $key;
+
+        return self::LABELS[$normalized] ?? 'Блок «'.$key.'»';
+    }
+}

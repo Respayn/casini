@@ -65,20 +65,33 @@ final class Bitrix24TaskSelection
      * Месяц отчёта по названию задачи («SEO подзадача, октябрь 2026»). Без месяца в названии: месяц дня работы.
      * Без года: ближайший к дню работы год (декабрь в январе = прошлый год).
      */
+    public static function hasMonthInTitle(string $title): bool
+    {
+        foreach (self::MONTH_FORMS as $form) {
+            if (preg_match('/(?<!\p{L})'.$form.'(?!\p{L})/iu', $title) === 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function reportMonth(string $title, Carbon $workDate): Carbon
     {
         $found = null;
 
         foreach (self::MONTH_FORMS as $month => $form) {
-            if (preg_match('/(?<!\p{L})'.$form.'(?!\p{L})(?:\s+(\d{4}))?/iu', $title, $matches, PREG_OFFSET_CAPTURE) !== 1) {
+            if (preg_match('/(?<!\p{L})'.$form.'(?!\p{L})(?:\s*(?:\([^)]*\)\s*)?(\d{4}))?/iu', $title, $matches, PREG_OFFSET_CAPTURE) !== 1) {
                 continue;
             }
+
+            $year = isset($matches[1]) && $matches[1][0] !== '' ? (int) $matches[1][0] : null;
 
             if ($found === null || $matches[0][1] < $found['offset']) {
                 $found = [
                     'offset' => $matches[0][1],
                     'month' => $month,
-                    'year' => isset($matches[1]) ? (int) $matches[1][0] : null,
+                    'year' => $year,
                 ];
             }
         }
@@ -101,5 +114,15 @@ final class Bitrix24TaskSelection
         usort($candidates, fn (Carbon $a, Carbon $b) => abs($a->diffInMonths($workMonth)) <=> abs($b->diffInMonths($workMonth)));
 
         return $candidates[0];
+    }
+
+    /**
+     * Сравнение календарных месяцев, без сдвига из-за часового пояса агентства и приложения.
+     */
+    public static function monthInRange(Carbon $month, Carbon $from, Carbon $to): bool
+    {
+        $value = $month->format('Y-m');
+
+        return $value >= $from->format('Y-m') && $value <= $to->format('Y-m');
     }
 }

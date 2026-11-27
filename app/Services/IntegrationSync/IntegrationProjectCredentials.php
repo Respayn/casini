@@ -41,11 +41,34 @@ class IntegrationProjectCredentials
     }
 
     /**
+     * Активные интеграции для списка проектов одним запросом.
+     *
+     * @param  list<int>  $projectIds
+     * @return Collection<int, Collection<int, object>>
+     */
+    public function mapByProjects(array $projectIds): Collection
+    {
+        return $this->integrationRepository->getActiveIntegrationsMappedByProjects($projectIds);
+    }
+
+    /**
      * @return object{settings: mixed, integration: object}|null
      */
     public function projectIntegration(int $projectId, string $integrationCode): ?object
     {
-        $mapped = $this->integrationRepository->getActiveIntegrationsMappedByProjects([$projectId]);
+        return $this->integrationFromMap(
+            $this->mapByProjects([$projectId]),
+            $projectId,
+            $integrationCode,
+        );
+    }
+
+    /**
+     * @param  Collection<int, Collection<int, object>>  $mapped
+     * @return object{settings: mixed, integration: object}|null
+     */
+    public function integrationFromMap(Collection $mapped, int $projectId, string $integrationCode): ?object
+    {
         /** @var Collection<int, object> $list */
         $list = $mapped->get($projectId, collect());
 
@@ -174,7 +197,7 @@ class IntegrationProjectCredentials
     /**
      * Вебхук и часовой пояс берутся из агентства специалиста проекта (иначе первое агентство с Битрикс24).
      *
-     * @return array{webhook: string, root_task_id: int, search_query: string, timezone: string}|null
+     * @return array{webhook: string, root_task_id: int, search_query: string, timezone: string, parse_comment_works: bool}|null
      */
     public function bitrix24(int $projectId): ?array
     {
@@ -206,6 +229,7 @@ class IntegrationProjectCredentials
             'root_task_id' => $rootTaskId,
             'search_query' => (string) ($settings['search_query'] ?? ''),
             'timezone' => filled($agency->time_zone) ? (string) $agency->time_zone : (string) config('app.timezone', 'UTC'),
+            'parse_comment_works' => (bool) ($settings['parse_comment_works'] ?? false),
         ];
     }
 

@@ -20,7 +20,7 @@ class YandexMetrikaSyncPeriod
     }
 
     /**
-     * Ручное обновление и backfill: все месяцы периода, но не раньше месяца включения съёма.
+     * Backfill / ночной clamp: все месяцы периода, но не раньше месяца включения съёма.
      */
     public function range(Carbon $from, Carbon $to, string $syncEnabledAt): ?DateTimeRange
     {
@@ -41,6 +41,22 @@ class YandexMetrikaSyncPeriod
 
         if ($from->lessThan($enabledMonth)) {
             $from = $enabledMonth;
+        }
+
+        return new DateTimeRange($from->toDateTimeImmutable(), $to->toDateTimeImmutable());
+    }
+
+    /**
+     * Ручное обновление из Каналов / Статистики: ровно выбранный период, без отсечки по sync_enabled_at.
+     * Пользователь сам запросил даты - Касини не отказывает.
+     */
+    public function requestedRange(Carbon $from, Carbon $to): ?DateTimeRange
+    {
+        $to = $to->copy()->startOfDay();
+        $from = $from->copy()->startOfMonth()->startOfDay();
+
+        if ($from->greaterThan($to)) {
+            return null;
         }
 
         return new DateTimeRange($from->toDateTimeImmutable(), $to->toDateTimeImmutable());

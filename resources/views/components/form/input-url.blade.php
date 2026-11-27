@@ -6,13 +6,33 @@
 @php
     $wireModel = $attributes->whereStartsWith('wire:model')->first();
     $isDisabled = filter_var($disabled, FILTER_VALIDATE_BOOLEAN);
+
+    $initialFull = '';
+    try {
+        $livewire = \Livewire\Livewire::current();
+        if ($livewire && filled($wireModel)) {
+            $initialFull = (string) (data_get($livewire, $wireModel) ?? '');
+        }
+    } catch (\Throwable $e) {
+        $initialFull = '';
+    }
+
+    $initialProtocol = 'https://';
+    $initialHost = $initialFull;
+    if (preg_match('#^https://#i', $initialFull)) {
+        $initialProtocol = 'https://';
+        $initialHost = preg_replace('#^https://#i', '', $initialFull);
+    } elseif (preg_match('#^http://#i', $initialFull)) {
+        $initialProtocol = 'http://';
+        $initialHost = preg_replace('#^http://#i', '', $initialFull);
+    }
 @endphp
 
 <div {{ $attributes->class(['flex flex-col gap-2'])->only(['class', 'style']) }}>
     <div
         x-data="{
-            protocol: 'https://',
-            host: '',
+            protocol: @js($initialProtocol),
+            host: @js($initialHost),
             disabled: {{ $isDisabled ? 'true' : 'false' }},
             full: @entangle($wireModel).live,
 
@@ -88,17 +108,18 @@
             @disabled($isDisabled)
             tabindex="{{ $isDisabled ? '-1' : '0' }}"
             title="Нажмите, чтобы переключить http:// и https://"
-        ></button>
+        >{{ $initialProtocol }}</button>
         <input
             type="text"
             class="text-input-text min-h-[42px] w-full border-0 bg-transparent px-3 outline-none disabled:cursor-not-allowed"
             placeholder="{{ $placeholder }}"
+            value="{{ $initialHost }}"
             x-bind:value="host"
             x-on:input="onHostInput($event)"
             @disabled($isDisabled)
             inputmode="url"
             autocomplete="url"
-            {{ $attributes->whereDoesntStartWith('wire:model')->except(['class', 'style']) }}
+            {{ $attributes->whereDoesntStartWith('wire:model')->except(['class', 'style', 'value']) }}
         />
     </div>
     @if ($wireModel)

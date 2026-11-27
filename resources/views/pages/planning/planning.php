@@ -1,6 +1,8 @@
 <?php
 
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Support\SharedProductFilters;
+use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -10,7 +12,7 @@ use Livewire\Component;
 use Src\Planning\Application\ProjectPlanService;
 
 new
-    #[Title('Casini - Планирование')]
+    #[Title('Планирование')]
     class extends Component
     {
         use WithSidebarProjectFilter;
@@ -60,6 +62,8 @@ new
         {
             $this->year = Carbon::now()->year;
             $this->loadedYear = $this->year;
+            $this->showInactive = SharedProductFilters::resolveShowInactive($this->showInactive);
+            $this->includeVat = SharedProductFilters::resolveIncludeVat($this->includeVat);
             $this->loadTableData();
         }
 
@@ -74,6 +78,7 @@ new
 
         public function updatedShowInactive(): void
         {
+            SharedProductFilters::rememberShowInactive($this->showInactive);
             $this->reloadTableAfterFilterChange();
         }
 
@@ -83,6 +88,7 @@ new
          */
         public function updatedIncludeVat(): void
         {
+            SharedProductFilters::rememberIncludeVat($this->includeVat);
             $this->js('window.dispatchEvent(new CustomEvent("planning-vat-sync"))');
             $this->skipRender();
         }
@@ -124,6 +130,14 @@ new
         #[On('project-plan-updated')]
         public function updateProjectPlan(int $rowIndex, array $parameters, int $month)
         {
+            if (! $this->canEditPlanValues) {
+                return;
+            }
+
+            if (! isset($this->tableData[$rowIndex])) {
+                return;
+            }
+
             foreach ($this->tableData[$rowIndex]['parameters'] as $index => $param) {
                 if (empty($param['is_calculated'])) {
                     $this->tableData[$rowIndex]['parameters'][$index]['plans'][$month] = $parameters[$index]['plans'][$month];
@@ -157,6 +171,10 @@ new
             $parts = explode('.', $key);
 
             if (preg_match('/^(\d+)\.approvals\.(\d+)\.approved$/', $key, $matches)) {
+                if (! $this->canEditApprovals) {
+                    return;
+                }
+
                 $rowIndex = (int) $matches[1];
                 $quarter = (int) $matches[2];
                 $approved = (bool) $value;
@@ -194,8 +212,15 @@ new
 
         public function save()
         {
+            if (! $this->canEditPlanValues && ! $this->canEditApprovals) {
+                return;
+            }
+
             $plansToSave = array_filter($this->tableData, function ($plan) {
-                return isset($this->modifiedProjectIds[$plan['project_id']]);
+                $projectId = (int) ($plan['project_id'] ?? 0);
+
+                return isset($this->modifiedProjectIds[$projectId])
+                    && SidebarProjectAccess::userCanAccessProject($projectId);
             });
 
             if (! empty($plansToSave)) {

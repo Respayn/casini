@@ -72,6 +72,11 @@ class User extends Authenticatable implements CanResetPasswordContract
         return $this->belongsToMany(Agency::class);
     }
 
+    public function storesNotificationsAsRead(): bool
+    {
+        return ! $this->enable_notifications || ! $this->enable_important_notifications;
+    }
+
     public static function statusFromFlags(bool $isActive, mixed $emailVerifiedAt): UserAccountStatus
     {
         if ($isActive) {

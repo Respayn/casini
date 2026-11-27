@@ -15,6 +15,7 @@ class UserService
 
     /**
      * Получить всех пользователей агентства (можно только активных)
+     *
      * @return Collection<UserData>
      */
     public function getByAgency(int $agencyId, ?bool $onlyActive = null, array $with = []): Collection
@@ -24,40 +25,42 @@ class UserService
 
     /**
      * Получить всех менеджеров агентства
+     *
      * @return Collection<UserData>
      */
     public function getManagers(?int $agencyId = null, array $with = []): Collection
     {
-        if (!$agencyId) {
+        if (! $agencyId) {
             $agencyId = Auth::user()?->agencies()->first()?->id;
         }
 
-        if (!$agencyId) {
+        if (! $agencyId) {
             return collect();
         }
 
         return $this->repository->allByAgency($agencyId, null, $with)
-            ->filter(fn(UserData $user) => $user->roles->contains(fn($role) => $role->use_in_managers_list))
+            ->filter(fn (UserData $user) => $user->roles->contains(fn ($role) => $role->use_in_managers_list))
             ->values();
     }
 
     public function getSpecialists(?int $agencyId = null, array $with = []): Collection
     {
-        if (!$agencyId) {
+        if (! $agencyId) {
             $agencyId = Auth::user()?->agencies()->first()?->id;
         }
 
-        if (!$agencyId) {
+        if (! $agencyId) {
             return collect();
         }
 
         return $this->repository->allByAgency($agencyId, null, $with)
-            ->filter(fn(UserData $user) => $user->roles->contains(fn($role) => $role->use_in_specialist_list))
+            ->filter(fn (UserData $user) => $user->roles->contains(fn ($role) => $role->use_in_specialist_list))
             ->values();
     }
 
     /**
      * Получить всех пользователей (без фильтрации)
+     *
      * @return Collection<UserData>
      */
     public function getAll(array $with = []): Collection
@@ -83,24 +86,31 @@ class UserService
 
     /**
      * Создать пользователя с историей ставок
-     * @param array $data
-     * @return UserData
      */
     public function create(array $data): UserData
     {
         $user = $this->repository->createWithRate($data);
+
         return UserData::fromLivewire($user);
     }
 
     /**
      * Обновить пользователя и сохранить историю ставок
-     * @param int $userId
-     * @param array $data
-     * @return UserData
      */
     public function update(int $userId, array $data): UserData
     {
         $user = $this->repository->updateWithRate($userId, $data);
+
         return UserData::fromLivewire($user);
+    }
+
+    public function isLinkedToClientsOrProjects(int $userId): bool
+    {
+        return $this->repository->isLinkedToClientsOrProjects($userId);
+    }
+
+    public function delete(int $userId): void
+    {
+        $this->repository->deleteById($userId);
     }
 }

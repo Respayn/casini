@@ -20,6 +20,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
     public function all(array $with = [])
     {
         $query = $this->queryWith($with);
+
         return IntegrationData::collect($query->get());
     }
 
@@ -42,10 +43,11 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ->with('integration')
             ->get()
             ->map(function ($setting) {
-                $integrationData = new ProjectIntegrationData();
+                $integrationData = new ProjectIntegrationData;
                 $integrationData->integration = IntegrationData::from($setting->integration);
                 $integrationData->settings = $this->normalizeSettings($setting->settings);
                 $integrationData->isEnabled = $setting->is_enabled;
+
                 return $integrationData;
             });
 
@@ -57,7 +59,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
         IntegrationProject::updateOrCreate(
             [
                 'integration_id' => $attributes['integration_id'],
-                'project_id' => $attributes['project_id']
+                'project_id' => $attributes['project_id'],
             ],
             [
                 'is_enabled' => $attributes['is_enabled'],
@@ -66,7 +68,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
         );
     }
 
-    public function  removeIntegrationSettingsForProject(int $projectId)
+    public function removeIntegrationSettingsForProject(int $projectId)
     {
         IntegrationProject::where('project_id', $projectId)->delete();
     }
@@ -78,10 +80,10 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
         $projectIntegration = IntegrationProject::where([
             'project_id' => $projectId,
             'integration_id' => $integration->id,
-            'is_enabled' => true
+            'is_enabled' => true,
         ])->first();
 
-        if (!$projectIntegration) {
+        if (! $projectIntegration) {
             throw new \RuntimeException(
                 "Callibri integration not configured for project $projectId"
             );
@@ -92,7 +94,7 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
 
     /**
      * Summary of getActiveIntegrationsMappedByProjects
-     * @param array|\Illuminate\Support\Collection $projectIds
+     *
      * @return \Illuminate\Database\Eloquent\Collection<int, \Illuminate\Database\Eloquent\Collection<int, IntegrationProject>>
      */
     public function getActiveIntegrationsMappedByProjects(array|Collection $projectIds): Collection
@@ -107,10 +109,11 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
             ->get();
 
         return $activeIntegrations->mapToGroups(function (IntegrationProject $item) {
-            $projectIntegrationData = new ProjectIntegrationData();
+            $projectIntegrationData = new ProjectIntegrationData;
             $projectIntegrationData->integration = IntegrationData::from($item->integration);
             $projectIntegrationData->settings = $this->normalizeSettings($item->settings);
             $projectIntegrationData->isEnabled = $item->is_enabled;
+
             return [$item->project_id => $projectIntegrationData];
         });
     }
@@ -128,6 +131,46 @@ class IntegrationRepository extends EloquentRepository implements IntegrationRep
         return $this->enabledProjectIntegrationsQuery($code)
             ->where('project_id', $projectId)
             ->first();
+    }
+
+    public function findProjectIntegrationByCode(int $projectId, string $code): ?IntegrationProject
+    {
+        return IntegrationProject::query()
+            ->where('project_id', $projectId)
+            ->whereHas('integration', fn (Builder $query) => $query->where('code', $code))
+            ->first();
+    }
+
+    /**
+     * @param  callable(array<string, mixed>): array<string, mixed>  $mutator
+     */
+    public function mutateProjectIntegrationSettings(int $projectId, string $code, callable $mutator): void
+    {
+        $row = $this->findProjectIntegrationByCode($projectId, $code);
+
+        if ($row === null) {
+            return;
+        }
+
+        $settings = is_array($row->settings) ? $row->settings : [];
+        $row->settings = $mutator($settings);
+        $row->save();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function projectIntegrationSettingsByIntegrationId(int $projectId): array
+    {
+        return IntegrationProject::query()
+            ->where('project_id', $projectId)
+            ->get()
+            ->mapWithKeys(function (IntegrationProject $row): array {
+                $settings = is_array($row->settings) ? $row->settings : [];
+
+                return [(int) $row->integration_id => $settings];
+            })
+            ->all();
     }
 
     private function enabledProjectIntegrationsQuery(string $code): Builder

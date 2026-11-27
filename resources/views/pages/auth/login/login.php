@@ -7,10 +7,13 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
-new #[Layout('layouts::auth')]
+new
+#[Layout('layouts::auth')]
+#[Title('Вход')]
 class extends Component
 {
     use RedirectsAfterAuth;

@@ -14,6 +14,103 @@
       --titlep3:20px;
       --fsbtn:18px;
     }
+
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 400;
+      src: url('/fonts/open-sans/open-sans-cyrillic-ext-400-normal.woff2') format('woff2');
+      unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 400;
+      src: url('/fonts/open-sans/open-sans-cyrillic-400-normal.woff2') format('woff2');
+      unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 400;
+      src: url('/fonts/open-sans/open-sans-latin-ext-400-normal.woff2') format('woff2');
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 400;
+      src: url('/fonts/open-sans/open-sans-latin-400-normal.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 600;
+      src: url('/fonts/open-sans/open-sans-cyrillic-ext-600-normal.woff2') format('woff2');
+      unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 600;
+      src: url('/fonts/open-sans/open-sans-cyrillic-600-normal.woff2') format('woff2');
+      unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 600;
+      src: url('/fonts/open-sans/open-sans-latin-ext-600-normal.woff2') format('woff2');
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 600;
+      src: url('/fonts/open-sans/open-sans-latin-600-normal.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 700;
+      src: url('/fonts/open-sans/open-sans-cyrillic-ext-700-normal.woff2') format('woff2');
+      unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 700;
+      src: url('/fonts/open-sans/open-sans-cyrillic-700-normal.woff2') format('woff2');
+      unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 700;
+      src: url('/fonts/open-sans/open-sans-latin-ext-700-normal.woff2') format('woff2');
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: 'Open Sans';
+      font-style: normal;
+      font-display: swap;
+      font-weight: 700;
+      src: url('/fonts/open-sans/open-sans-latin-700-normal.woff2') format('woff2');
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
     
     /* Предотвращение горизонтального скролла */
     html, body { 
@@ -177,6 +274,15 @@
       overflow: hidden;
       white-space: nowrap;
       text-overflow: ellipsis;
+    }
+
+    .early-access__form .form__btn {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      overflow: visible;
+      white-space: normal;
+      text-overflow: clip;
     }
     
     /* Исправление для ссылок */
@@ -366,12 +472,20 @@
     #integrations {background-color: #FFFBF3;}
 
     /* Cards for Audience */
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 24px; }
+    .cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
     .card { border-radius: 16px; overflow: hidden; background:var(--background); padding:32px; }
     .card__img { width: 100%; height: 232px; object-fit: cover; border-radius:8px; }
     .card__body { padding: 16px; }
-    .card__title { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; color: var(--mid-gray); font-size: var(--titlep2); }
-    .card__text { font-size: 18px; color: var(--mid-gray); }
+    .card__title { font-size: 1.1rem; font-weight: 600; margin-bottom: 8px; color: var(--mid-gray); font-size: var(--titlep2); overflow-wrap: normal; word-wrap: normal; }
+    .card__text { font-size: 18px; color: var(--mid-gray); overflow-wrap: normal; word-wrap: normal; }
+
+    @media (max-width: 992px) {
+      .cards {
+        grid-template-columns: 1fr;
+        max-width: 413px;
+        margin-inline: auto;
+      }
+    }
 
     /* Developed Section */
     .developed { display: flex; align-items: center; gap: 32px; flex-wrap: wrap; margin-bottom: 40px; }
@@ -504,6 +618,34 @@
       max-width: 100%;
       width: fit-content;
     }
+    .footer__socials {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .footer__col a.footer__social {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      margin-bottom: 0;
+      color: var(--mid-gray);
+      text-decoration: none;
+      overflow: visible;
+    }
+    .footer__col a.footer__social:hover {
+      color: var(--primary-blue);
+      opacity: 0.8;
+    }
+    .footer__social img,
+    .footer__social svg {
+      width: 24px;
+      height: 24px;
+      max-width: 24px;
+      display: block;
+    }
 
  
 
@@ -634,6 +776,7 @@
   border-radius: 12px;
   padding: 48px;
   margin-bottom: 60px;
+  scroll-margin-top: 96px;
 
   /* Добавляем фоновую стрелочку */
   background-image: url("/resources/images/polosa.svg");
@@ -756,19 +899,34 @@
     box-sizing: border-box;
   }
   
-  .footer__col a,
+  .footer__col a:not(.footer__social),
   .footer__col h3,
   .footer__disclaimer {
     width: 100%;
   }
-  /* Прячем ссылки под логотипом, чтобы не дублировались на мобилке */
-  .footer .footer__col:nth-child(1) a { display: none; }
+  /* Прячем текстовые ссылки под логотипом, чтобы не дублировались на мобилке */
+  .footer .footer__col:nth-child(1) > a { display: none; }
 }
 .form__actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 8px; /* по макету */
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.early-access__form .form__btn {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+}
+
+.early-access__form .early-access__disclaimer {
+  display: block;
+  width: 100%;
+  margin-top: 0;
 }
 
 /* Убираем лишние отступы у дисклэймера */
@@ -1333,6 +1491,36 @@ body.menu-open .mm-close{
   text-decoration: underline; 
   word-wrap: break-word;        /* переносим длинные ссылки */
   max-width: 100%;              /* ограничиваем ширину */
+}
+
+.mm-socials {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.mm-social {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: var(--mid-gray);
+  text-decoration: none;
+}
+
+.mm-social:hover {
+  color: var(--primary-blue);
+  opacity: 0.8;
+}
+
+.mm-social img,
+.mm-social svg {
+  width: 24px;
+  height: 24px;
+  max-width: 24px;
+  display: block;
 }
 
 

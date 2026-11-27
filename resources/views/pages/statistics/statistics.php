@@ -8,6 +8,7 @@ use App\Data\TableReportData;
 use App\Livewire\Concerns\WithReportDataRefresh;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
 use App\Services\Statistics\StatisticsService;
+use App\Support\SharedProductFilters;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Renderless;
@@ -15,7 +16,7 @@ use Livewire\Attributes\Title;
 use Livewire\Component;
 
 new
-#[Title('Статистика - Casini')]
+#[Title('Статистика')]
 class extends Component
 {
     use WithReportDataRefresh;
@@ -43,8 +44,32 @@ class extends Component
     {
         $this->queryData = $this->statisticsService->getUserSettings(
             Auth::user()->id,
+            session('current_agency_id') ? (int) session('current_agency_id') : null,
         );
         $this->queryData->clampPeriodToPresent();
+        $this->applySharedProductFilters();
+    }
+
+    public function updatedQueryDataShowInactive(): void
+    {
+        SharedProductFilters::rememberShowInactive($this->queryData->showInactive);
+        unset($this->reportData);
+    }
+
+    public function updatedQueryDataIncludeVat(): void
+    {
+        if ($this->restoreLockedRefreshSliceFilters()) {
+            return;
+        }
+
+        SharedProductFilters::rememberIncludeVat($this->queryData->includeVat);
+        unset($this->reportData);
+    }
+
+    private function applySharedProductFilters(): void
+    {
+        $this->queryData->showInactive = SharedProductFilters::resolveShowInactive($this->queryData->showInactive);
+        $this->queryData->includeVat = SharedProductFilters::resolveIncludeVat($this->queryData->includeVat);
     }
 
     protected function afterSidebarProjectFilterChanged(): void
@@ -74,30 +99,34 @@ class extends Component
 
     public function updatedQueryDataDateFrom(): void
     {
+        if ($this->restoreLockedRefreshSliceFilters()) {
+            return;
+        }
+
         $this->rebuildQueryDataForPeriod();
     }
 
     public function updatedQueryDataDateTo(): void
     {
+        if ($this->restoreLockedRefreshSliceFilters()) {
+            return;
+        }
+
         $this->rebuildQueryDataForPeriod();
     }
 
     /**
-     * Применяет изменения в настройках столбцов
+     * Применяет изменения в настройках столбцов / отчёта
      */
-    public function applySettingsSnapshot()
+    public function applySettingsSnapshot(): void
     {
         if ($this->originalQueryData !== null
             && $this->queryData->detailLevel !== $this->originalQueryData->detailLevel) {
             $this->rebuildQueryDataForPeriod();
         }
 
-        if ($this->originalQueryData !== null
-            && $this->queryData->grouping !== $this->originalQueryData->grouping) {
-            unset($this->reportData);
-        }
-
         $this->originalQueryData = null;
+        unset($this->reportData);
     }
 
     #[Renderless]
@@ -184,6 +213,7 @@ class extends Component
         $rebuilt->includeVat = $previous->includeVat;
         $rebuilt->accumulateData = $previous->accumulateData;
         $rebuilt->highlightUnmetKpi = $previous->highlightUnmetKpi;
+        $rebuilt->treatMissingPlanAsUnmet = $previous->treatMissingPlanAsUnmet;
         $rebuilt->applySavedColumnPreferences($previous->columns);
 
         $this->queryData = $rebuilt;

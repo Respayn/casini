@@ -67,6 +67,7 @@ enum PermissionGroup: string
             self::ADVERTISING_FUNDS_MOVEMENT_STATUS,
             self::ADVERTISING_FUNDS_MOVEMENT_INVOICE,
             self::PLANNING_APPROVAL,
+            self::REPORT_TEMPLATES,
         ], true);
     }
 
@@ -84,8 +85,9 @@ enum PermissionGroup: string
                 self::PLANNING_APPROVAL,
             ],
             self::MEDIA_PLANNING->value => [],
-            self::REPORTS->value => [],
-            self::REPORT_TEMPLATES->value => [],
+            self::REPORTS->value => [
+                self::REPORT_TEMPLATES,
+            ],
             self::SYSTEM_SETTINGS->value => [],
             self::SYSTEM_SETTINGS_DICTIONARIES->value => [],
             self::SYSTEM_SETTINGS_USERS->value => [],
@@ -128,7 +130,6 @@ enum PermissionGroup: string
         return [
             self::CHANNELS,
             self::STATISTICS,
-            self::CLIENTS_AND_PROJECTS,
             self::CLIENTS_AND_PROJECTS_SELF,
             self::CLIENTS_AND_PROJECTS_ALL,
             self::BUDGET_RECONCILIATION,
@@ -138,7 +139,6 @@ enum PermissionGroup: string
             self::REPORTS,
             self::SYSTEM_SETTINGS,
             self::SYSTEM_SETTINGS_DICTIONARIES,
-            self::SYSTEM_SETTINGS_USERS,
             self::SYSTEM_SETTINGS_ROLES_AND_PERMISSIONS,
         ];
     }

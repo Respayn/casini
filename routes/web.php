@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\PermissionGroup;
-use App\Http\Controllers\GoogleSheetsOAuthController;
 use App\Http\Controllers\YandexDirectOAuthController;
 use App\Http\Controllers\YandexMetrikaAuthController;
 use App\Livewire\LandingPage;
@@ -71,12 +70,25 @@ Route::middleware(['auth'])->group(function () {
         Route::livewire('/drs', 'pages::drs')->name('drs');
     });
 
-    Route::middleware(['permission:read reports|full reports'])->group(function () {
+    Route::middleware(['permission:read reports|edit reports|full reports'])->group(function () {
         Route::livewire('/reports', 'pages::reports')->name('reports');
-        Route::livewire('/reports/create', 'pages::reports-create')->name('reports.create');
     });
 
-    Route::livewire('/templates', 'pages::templates')->name('templates');
+    Route::middleware(['permission:edit reports|full reports'])->group(function () {
+        Route::livewire('/reports/create/{reportId?}', 'pages::reports-create')
+            ->whereNumber('reportId')
+            ->name('reports.create');
+    });
+
+    Route::middleware(['permission:read report templates|edit report templates|full report templates'])->group(function () {
+        Route::livewire('/templates', 'pages::templates')->name('reports.templates');
+    });
+
+    Route::middleware(['permission:edit report templates|full report templates'])->group(function () {
+        Route::livewire('/templates/upload/{templateId?}', 'pages::templates-upload')
+            ->whereNumber('templateId')
+            ->name('reports.templates.upload');
+    });
 
     Route::middleware(['permission:read planning|full planning'])->group(function () {
         Route::livewire('/planning', 'pages::planning')->name('planning');
@@ -97,12 +109,6 @@ Route::middleware(['auth'])->group(function () {
             ->name('yandex-metrika.callback');
     });
 
-    Route::prefix('google-sheets')->group(function () {
-        Route::get('/connect', [GoogleSheetsOAuthController::class, 'redirect'])
-            ->name('google_sheets.oauth.redirect');
-        Route::get('/callback', [GoogleSheetsOAuthController::class, 'callback'])
-            ->name('google_sheets.oauth.callback');
-    });
 });
 
 Route::livewire('/', LandingPage::class)->name('landing');

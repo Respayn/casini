@@ -3,8 +3,8 @@
 namespace Src\Infrastructure\Persistence\Eloquent;
 
 use App\Models\SerpKeyword;
-use App\Models\SerpTask;
 use App\Models\SerpPosition;
+use App\Models\SerpTask;
 use Src\Domain\Serp\SerpPositionRepositoryInterface;
 use Src\Domain\ValueObjects\DateTimeRange;
 

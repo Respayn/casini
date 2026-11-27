@@ -16,7 +16,7 @@
     >
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ $title ?? 'Page Title' }}</title>
+    <x-layout.document-head-brand :title="$title ?? null" />
 
     <x-layout.favicon />
 
@@ -27,12 +27,19 @@
 </head>
 
 <body
-    class="bg-body text-primary-text flex gap-5 font-sans"
+    class="bg-body text-primary-text flex font-sans"
     x-data
 >
+    <script>
+        try {
+            if (localStorage.getItem('casini.sidebarOpen') === 'false') {
+                document.documentElement.classList.add('sidebar-collapsed');
+            }
+        } catch (e) {}
+    </script>
     <livewire:sidebar />
 
-    <div class="app-main flex h-screen w-full flex-col gap-[25px]">
+    <div class="app-main flex h-screen w-full flex-col gap-[25px] pe-[20px]">
         <livewire:header />
 
         <x-menu.navbar :items="collect([
@@ -40,7 +47,7 @@
             ['label' => 'Статистика', 'route' => 'statistics', 'permissions' => ['read statistics', 'full statistics']],
             ['label' => 'ДРС', 'route' => 'drs', 'permissions' => ['read advertising funds movement', 'edit advertising funds movement', 'full advertising funds movement']],
             ['label' => 'Планирование', 'route' => 'planning', 'permissions' => ['read planning', 'full planning']],
-            ['label' => 'Отчеты', 'route' => 'reports', 'permissions' => ['read reports', 'full reports']],
+            ['label' => 'Отчеты', 'route' => 'reports', 'permissions' => ['read reports', 'edit reports', 'full reports']],
         ])->map(function (array $item) {
             $item['canAccess'] = collect($item['permissions'])
                 ->contains(fn (string $permission) => auth()->user()?->can($permission));
@@ -48,7 +55,7 @@
             return $item;
         })->values()->all()" />
 
-        <div class="rounded-tl-2xl bg-white p-5 flex-1">
+        <div class="flex-1 rounded-2xl bg-white p-5">
             {{ $slot }}
         </div>
     </div>

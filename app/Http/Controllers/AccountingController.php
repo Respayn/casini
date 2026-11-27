@@ -11,7 +11,9 @@ class AccountingController extends Controller
 {
     public function handleWorkActs(IntegrationAuthRequest $request, AccountingService $service): JsonResponse
     {
+        $request->authenticate();
         $service->processWorkActs(WorkActData::collection($request->input('data')));
+
         return response()->json(['success' => true]);
     }
 }

@@ -36,6 +36,10 @@
         }
     }
 
+    $syncIssueMessage = \App\Services\IntegrationSync\IntegrationSyncIssueStatus::messageFromSettings(
+        is_array($savedSettings) ? $savedSettings : []
+    );
+
     $callibriSettings = [
         'is_enabled' => $projectIntegration->isEnabled ?? false,
         'email' => $getSetting('email', ''),
@@ -58,6 +62,7 @@
     x-data="{
         canEdit: @js($canEdit),
         settings: {{ Js::from($callibriSettings) }},
+        syncIssueMessage: {{ Js::from($syncIssueMessage) }},
         projectOptions: [],
         projectsLoading: false,
         projectsError: null,
@@ -220,7 +225,15 @@
             }
 
             this.testLoading = false;
-        }
+        },
+
+        get integrationError() {
+            return this.syncIssueMessage || null;
+        },
+
+        get hasIntegrationError() {
+            return this.integrationError !== null && this.integrationError !== '';
+        },
     }"
 >
     <x-panel.scroll-panel style="max-height: 500px">
@@ -233,11 +246,20 @@
             поле «Основной часовой пояс агентства» совпадал с «Часовым поясом» в Callibri.
         </div>
 
+        <div
+            class="mb-4 break-words rounded-lg border border-[#FF7373] bg-[#FFF5F5] p-4 text-sm text-[#FF7373]"
+            x-show="hasIntegrationError"
+            x-text="integrationError"
+            x-cloak
+        ></div>
+
         <x-form.form>
             <x-form.form-field>
                 <x-form.form-label>Синхронизация</x-form.form-label>
                 <div class="flex w-[305px] items-center gap-4">
-                    <x-form.toggle-switch x-model="settings.is_enabled"></x-form.toggle-switch>
+                    <div :class="{ 'yd-direct-error-toggle': hasIntegrationError && settings.is_enabled }">
+                        <x-form.toggle-switch x-model="settings.is_enabled"></x-form.toggle-switch>
+                    </div>
                     <span
                         class="text-secondary-text text-sm"
                         x-show="settings.is_enabled"

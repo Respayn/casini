@@ -40,6 +40,8 @@ class AgencySettingsForm extends Form
 
     public ?string $bitrix24Webhook = null;
 
+    public ?string $googleSheetsSpreadsheetUrl = null;
+
     // Массив админов (чтение)
     public array $admins = [];
 
@@ -56,6 +58,7 @@ class AgencySettingsForm extends Form
             'logo' => 'nullable|image|mimes:jpg,jpeg,png,gif|max:1024',
             'bitrix24PortalUrl' => 'nullable|url|max:255',
             'bitrix24Webhook' => 'nullable|string|max:2000',
+            'googleSheetsSpreadsheetUrl' => 'nullable|string|max:2000',
         ];
     }
 
@@ -126,6 +129,7 @@ class AgencySettingsForm extends Form
         $this->logoSrc = $agency->logoSrc ?? null;
         $this->bitrix24PortalUrl = $agency->bitrix24PortalUrl ?? null;
         $this->bitrix24Webhook = $agency->bitrix24Webhook ?? null;
+        $this->googleSheetsSpreadsheetUrl = $agency->googleSheetsSpreadsheetUrl ?? null;
 
         $this->admins = collect($agency->users ?? [])->map(function ($admin) {
             return [

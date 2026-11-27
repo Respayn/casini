@@ -10,11 +10,16 @@ return [
     'integer' => 'Поле :attribute должно быть целым числом.',
     'in' => 'Выбранное значение для :attribute неверно.',
     'max' => [
-        'string' => 'Поле :attribute не должно превышать :max символов.',
+        'array' => 'Поле :attribute не должно содержать больше :max элементов.',
+        'file' => 'Файл :attribute не должен быть больше :max КБ.',
         'numeric' => 'Поле :attribute не должно быть больше :max.',
+        'string' => 'Поле :attribute не должно превышать :max символов.',
     ],
     'min' => [
+        'array' => 'Поле :attribute должно содержать не меньше :min элементов.',
+        'file' => 'Файл :attribute должен быть не меньше :min КБ.',
         'numeric' => 'Поле :attribute не должно быть меньше :min.',
+        'string' => 'Поле :attribute должно содержать не меньше :min символов.',
     ],
     'gte' => [
         'numeric' => 'Поле :attribute должно быть не меньше :value.',
@@ -28,6 +33,17 @@ return [
     'uploaded' => 'Не удалось загрузить файл :attribute. Попробуйте ещё раз или выберите другой файл.',
     'attributes' => [
         'form.photo' => 'фото пользователя',
+        'form.first_name' => 'имя',
+        'first_name' => 'имя',
         'photo' => 'фото пользователя',
+        'clientProjectForm.name' => 'название клиенто-проекта',
+        'clientProjectForm.client' => 'клиент',
+        'clientProjectForm.domain' => 'URL-адрес сайта',
+        'clientProjectForm.manager' => 'менеджер',
+        'clientProjectForm.specialist' => 'специалист',
+        'clientProjectForm.kpi' => 'KPI',
+        'clientProjectForm.projectType' => 'тип клиенто-проекта',
+        'clientProjectForm.isActive' => 'статус клиенто-проекта',
+        'clientProjectForm.isInternal' => 'свой проект',
     ],
 ];

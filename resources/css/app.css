@@ -45,6 +45,15 @@
     --scrollpanel-transition-duration: 0.2s;
 }
 
+/* Место под полосу прокрутки всегда: иначе при её появлении контент прыгает влево */
+html {
+    scrollbar-gutter: stable;
+}
+
+.app-main > .overflow-y-auto {
+    scrollbar-gutter: stable;
+}
+
 body:has(.modal.open) {
     overflow: hidden
 }
@@ -189,6 +198,15 @@ html.sidebar-collapsed .sidebar-toggle-icon {
 
 h1 {
     @apply text-primary-text text-xl font-semibold;
+}
+
+.auth-heading {
+    @apply mb-7 flex items-baseline justify-between gap-4;
+}
+
+.auth-heading a {
+    font-size: 18px;
+    line-height: 1;
 }
 
 h2 {

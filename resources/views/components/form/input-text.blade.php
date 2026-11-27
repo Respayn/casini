@@ -11,6 +11,18 @@
     $wireModel = $attributes->whereStartsWith('wire:model')->first();
     $isPhoneMask = $mask === 'phone';
     $hasError = $wireModel && $errors->has($wireModel);
+
+    $ssrValue = $attributes->get('value');
+    if ($ssrValue === null && filled($wireModel)) {
+        try {
+            $livewire = \Livewire\Livewire::current();
+            if ($livewire) {
+                $ssrValue = data_get($livewire, $wireModel);
+            }
+        } catch (\Throwable $e) {
+            $ssrValue = null;
+        }
+    }
 @endphp
 
 <div {{ $attributes->class(['flex flex-col gap-2'])->only(['class', 'style']) }}>
@@ -35,6 +47,9 @@
                 x-mask="+7 (999) 999-99-99"
                 inputmode="tel"
                 autocomplete="tel"
+            @endif
+            @if ($ssrValue !== null && ! $attributes->has('value'))
+                value="{{ $ssrValue }}"
             @endif
             {{ $attributes->except(['class', 'style', 'type']) }}
         />

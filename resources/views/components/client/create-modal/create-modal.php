@@ -1,13 +1,18 @@
 <?php
 
 use App\Enums\FeeType;
+use App\Enums\PermissionGroup;
+use App\Services\ClientService;
 use App\Services\UserService;
 use App\Support\ClientsAndProjectsPermissions;
+use App\Support\SystemSettingsSectionPermissions;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Src\Application\Clients\Create\CreateClientCommand;
 use Src\Application\Clients\Create\CreateClientCommandHandler;
 use Src\Application\Clients\Update\UpdateClientCommand;
@@ -17,15 +22,23 @@ use Src\Domain\Clients\ClientRepositoryInterface;
 new class extends Component
 {
     public ?int $id = null;
+
     public string $name;
+
     public string $inn;
+
     public int $managerId;
+
     public ?float $initialBalance = null;
+
     public string $adFeeType = 'three_percent';
+
     public ?string $adFeeChangedAt = null;
 
     /** Поля окна на момент открытия: кнопки показываем, только если есть изменения */
     public array $snapshot = [];
+
+    public ?string $deleteError = null;
 
     private UserService $userService;
 
@@ -47,6 +60,7 @@ new class extends Component
         ClientsAndProjectsPermissions::ensureUserCanEdit(Auth::user());
 
         $this->reset();
+        $this->deleteError = null;
         $this->takeSnapshot();
         $this->dispatch('modal-show', name: 'client-modal');
     }
@@ -61,6 +75,7 @@ new class extends Component
         $this->inn = $inn;
         $this->initialBalance = $initialBalance;
         $this->managerId = $managerId;
+        $this->deleteError = null;
 
         $client = app(ClientRepositoryInterface::class)->findById($id);
         $this->adFeeType = ($client->chargesAdFee() ? FeeType::THREE_PERCENT : FeeType::NONE)->value;
@@ -89,6 +104,13 @@ new class extends Component
     }
 
     #[Computed]
+    public function canDeleteClient(): bool
+    {
+        return $this->id !== null
+            && SystemSettingsSectionPermissions::userCanFull(PermissionGroup::CLIENTS_AND_PROJECTS);
+    }
+
+    #[Computed]
     public function modalTitle()
     {
         return $this->id === null ? 'Создание клиента' : 'Редактирование клиента';
@@ -107,9 +129,9 @@ new class extends Component
 
         return $this->userService
             ->getManagers($currentAgencyId)
-            ->map(fn($manager) => [
+            ->map(fn ($manager) => [
                 'label' => $this->formatManagerName($manager),
-                'value' => $manager->id
+                'value' => $manager->id,
             ])
             ->values()
             ->all();
@@ -127,6 +149,7 @@ new class extends Component
     private function formatManagerName($manager): string
     {
         $fullName = trim("{$manager->first_name} {$manager->last_name}");
+
         return $fullName !== '' ? $fullName : $manager->login;
     }
 
@@ -139,7 +162,7 @@ new class extends Component
             'inn' => [
                 'required',
                 'regex:/^\d{10,12}$/',
-                'unique:clients,inn,' . ($this->id ?: 'null')
+                'unique:clients,inn,'.($this->id ?: 'null'),
             ],
             'managerId' => 'required|exists:users,id',
             'initialBalance' => 'nullable|numeric',
@@ -184,6 +207,52 @@ new class extends Component
             ));
         }
 
+        $this->dispatch('modal-hide', name: 'client-modal');
+        $this->dispatch('client-saved');
+    }
+
+    public function deleteClient(ClientService $clientService): void
+    {
+        $this->deleteError = null;
+
+        if (! $this->canDeleteClient) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::fullPermissionNames(
+                    PermissionGroup::CLIENTS_AND_PROJECTS
+                )
+            );
+        }
+
+        $clientId = (int) $this->id;
+
+        if ($clientService->hasProjects($clientId)) {
+            $this->deleteError = 'Нельзя удалить клиента: у него есть клиенто-проекты.';
+
+            return;
+        }
+
+        if ($clientService->hasPayments($clientId)) {
+            $this->deleteError = 'Нельзя удалить клиента: у него есть платежи.';
+
+            return;
+        }
+
+        if ($clientService->hasReports($clientId)) {
+            $this->deleteError = 'Нельзя удалить клиента: на него ссылаются отчеты.';
+
+            return;
+        }
+
+        try {
+            $clientService->delete($clientId);
+        } catch (QueryException) {
+            $this->deleteError = 'Нельзя удалить клиента: на него ссылаются отчеты.';
+
+            return;
+        }
+
+        $this->reset();
+        $this->deleteError = null;
         $this->dispatch('modal-hide', name: 'client-modal');
         $this->dispatch('client-saved');
     }

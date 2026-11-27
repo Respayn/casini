@@ -98,6 +98,10 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 **Свой профиль:** маршрут `system-settings.users.edit` для `user.id === auth()->id()` доступен любому авторизованному (middleware `EnsureCanAccessUserEdit`). Список пользователей — с `read|edit|full system settings users`; создание (`/users/create`) — только с `edit|full system settings users` (кнопка «+ Добавить пользователя» disabled без edit). Поля логин / статус / роль / ставка / ID Битрикс24 редактируются только при `edit|full system settings users`; без этого права — disabled в UI и отсекаются в `UserProfileAccess::mergeSavePayload`.
 
+**Удаление пользователя:** галочка «Полный доступ» у продукта «Пользователи и роли» доступна ролям (не locked). С правом `full system settings users` в чужой карточке справа от заголовка кнопка «Удалить пользователя» (как «Удалить интеграцию»). Себя удалить нельзя. Если пользователь менеджер клиента (`clients.manager_id`) или специалист клиенто-проекта (`projects.specialist_id`) — удаление не выполняется, на экране `x-feedback.notice` error: «Нельзя удалить пользователя: на нем есть клиенты или клиенто-проекты.» При чужих FK (например отчёты) — «Нельзя удалить пользователя: на него ссылаются отчеты.» Успех: запись удаляется (`UserRepository::deleteById`), редирект в список.
+
+**Удаление клиента:** галочка «Полный доступ» у продукта «Клиенты и клиенто-проекты» доступна ролям (не locked; дочерние «свои» / «все» по-прежнему locked). С правом `full clients and projects` в модалке редактирования клиента в `titleActions` кнопка «Удалить клиента». При создании кнопки нет. Если у клиента есть клиенто-проекты (`projects.client_id`) — удаление не выполняется, в модалке `x-feedback.notice` error: «Нельзя удалить клиента: у него есть клиенто-проекты.» Если есть платежи (`payments.client_id`, в т.ч. soft-deleted) — «Нельзя удалить клиента: у него есть платежи.» Если на клиента ссылаются отчёты — «Нельзя удалить клиента: на него ссылаются отчеты.» Успех: `ClientRepository::deleteById`, модалка закрывается, событие `client-saved` обновляет список.
+
 **ID Битрикс24:** `users.bitrix24_id` (unsigned bigint, nullable, unique). Валидация в `UserForm`: `nullable|integer|min:1|unique`; пустая строка сохраняется как `NULL` (`UserRepository::normalizeBitrix24Id`). По этому номеру съём часов из задач Битрикс24 сопоставляет исполнителя с пользователем Касини. `megaplan_id` форма больше не передаёт, поэтому `updateWithRate` не трогает сохранённые значения.
 
 **Продукты и права:** `read` открывает страницу; `edit|full` — изменение. Без edit UI в режиме read-only: кнопки, ссылки, чекбоксы и переключатели disabled, при наведении — `permissions.denied` (`field-guard` / Alpine-тултип). `save()` без edit бросает `UnauthorizedException`.
@@ -117,7 +121,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 ## Сайдбар (виджет портфеля)
 
-Левая панель: «Поиск по клиентам и клиенто-проектам», «Удалить фильтры», «Собрать портфель клиенто-проектов по», дерево сотрудник → клиент → клиенто-проект.
+Левая панель: «Поиск по клиентам и клиенто-проектам», «Сбросить фильтр», «Собрать портфель клиенто-проектов по», дерево сотрудник → клиент → клиенто-проект.
 
 | Часть | Роль |
 |-------|------|
@@ -130,6 +134,10 @@ Seeder копирует read/edit/full с `system settings` на три новы
 - иначе → «По роли {display_name}»; проекты с `specialist_id = user.id`, сгруппированные по клиенту.
 
 Права просматривающего: `clients and projects all` — все пользователи роли; только `self` — только свой узел; без прав — пусто.
+
+Каналы, Статистика и Планирование берут тот же круг клиенто-проектов (`App\Support\ClientProjectVisibility`). Право `read` или `full clients and projects all` показывает всех. Роль из списка менеджеров без этого права видит только клиентов, где она менеджер. Роль из списка специалистов видит только проекты, где она специалист. Право на продукт (`read statistics`, `read planning`) открывает экран, но не чужие клиенто-проекты. Если строк нет, вместо пустой таблицы с нулями показывается заглушка.
+
+После задания пароля по приглашению человек попадает в Каналы. Адрес страницы, открытой до входа, не подставляется. То же после подтверждения email при самостоятельной регистрации.
 
 ### Фильтрация продуктов по клиенто-проекту
 
@@ -144,8 +152,10 @@ Seeder копирует read/edit/full с `system settings` на три новы
 
 Поведение:
 - клик по проекту → сохранение в session + событие; страницы показывают только этот клиенто-проект (в т.ч. неактивный);
-- повторный клик по тому же проекту, «Удалить фильтры» в сайдбаре (активна при выбранном проекте или непустом поиске) или «Сбросить фильтр» в подсказке → сброс; поиск тоже очищается через «Удалить фильтры»;
+- повторный клик по тому же проекту, «Сбросить фильтр» в сайдбаре (активна при выбранном проекте или непустом поиске) или «Сбросить фильтр» в подсказке → сброс; поиск тоже очищается через «Сбросить фильтр»;
 - выбор сохраняется при переходе между продуктами до явного сброса.
+
+Галочки «Неактивные клиенто-проекты» и «НДС» тоже общие для Каналов, Статистики и Планирования (`App\Support\SharedProductFilters`, сессия). Отметили на одном экране — на остальных уже стоят. На Отчётах общей остаётся только «Неактивные клиенто-проекты»: списка «НДС» там нет. Пока в этой сессии галочку не переключали, экран оставляет своё сохранённое значение и запоминает его для остальных.
 
 Если в дереве **ровно один** сотрудник (менеджер/специалист) — его узел и все клиенты сразу раскрыты (`open = true`), чтобы сразу были видны клиенто-проекты. При нескольких сотрудниках ветки по умолчанию свёрнуты (поиск по-прежнему раскрывает совпадения).
 
@@ -168,7 +178,7 @@ Seeder копирует read/edit/full с `system settings` на три новы
 Поведение:
 - смена года и уход на другой продукт при несохранённых правках → «Сохранить» / «Выйти без сохранения» / отмена;
 - фильтр сайдбара при открытом черновике сбрасывает черновик и перезагружает таблицу;
-- чекбокс «Неактивные клиенто-проекты» (по умолчанию выкл.): в таблице только `is_active`; выбранный в сайдбаре клиенто-проект показывается и если неактивный;
+- чекбокс «Неактивные клиенто-проекты» (общий с Каналами, Статистикой и Отчётами, по умолчанию выкл.): в таблице только `is_active`; выбранный в сайдбаре клиенто-проект показывается и если неактивный;
 - чекбокс «НДС»: для ключей `budget` / `cpl` / `cpc` (контекстная реклама) показ и ввод с НДС 22% (`VatRate`); в `project_plan_values` всегда сумма **без** НДС; при вводе с галочкой — ÷1,22 перед записью; визиты/лиды считаются по сырым значениям и не меняются при переключении; смена галочки — `skipRender` + `planning-vat-sync` и скелетон таблицы (`wire:target` включает `includeVat`, как на Каналах); при редактировании — тултип «НДС не учитывается» / «учитывая НДС»;
 - смена «Неактивные…» при открытом черновике сбрасывает черновик и перезагружает таблицу (как фильтр сайдбара);
 - расчётные параметры (лиды/визиты и т.п.) не редактируются; форматы `integer` / `percent` округляются до целых при расчёте, вводе и отображении;
@@ -221,7 +231,13 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 
 Фото пользователей и логотипы агентства отдаются по URL `/storage/...` через симлинк `public/storage` → `storage/app/public`. Без `php artisan storage:link` браузер получает 403/битую картинку при живом файле на диске. Smoke: `scripts/staging-smoke.sh` проверяет наличие симлинка.
 
-Загрузка фото (Livewire temporary upload): PHP-FPM `upload_max_filesize` должен быть не меньше лимита в форме (сейчас подсказка «До 2 Мб», правило `max:2048`). На staging выставлено `upload_max_filesize=8M` при `post_max_size=8M`. При заниженном лимите PHP пользователь видит `validation.uploaded` («Не удалось загрузить файл…»), а не сообщение о размере.
+Загрузка фото (Livewire temporary upload): PHP-FPM `upload_max_filesize` должен быть не меньше лимита в форме (подсказка «До 2 Мб», правило `max:2048`). На staging выставлено `upload_max_filesize=8M` при `post_max_size=8M`. При заниженном лимите PHP пользователь видит «Не удалось загрузить файл…», а не сообщение о размере. Общий временный приём Livewire пускает файл до 12 Мб, поэтому форма сама отсекает фото больше 2 Мб в момент выбора (`guardPhoto`) и при сохранении. Текст ошибки: «Можно загружать фото не больше 2 Мб». В `lang/ru/validation.php` у `min` и `max` должны оставаться ключи `string` и `file`, иначе вместо фразы на экране появляется сырой ключ `validation.min.string` или `validation.max.file`.
+
+## Уведомления пользователя
+
+В форме пользователя один ползунок «Уведомления» (по умолчанию включен). Он пишет одно и то же значение в `users.enable_notifications` и `users.enable_important_notifications`.
+
+Если ползунок выключен, колокольчик не копит непрочитанное: уже лежащие записи помечаются прочитанными при сохранении пользователя, а новые (`NotificationRepository::create`) сразу получают `read_at`. Получатели проектных уведомлений при этом не отсекаются.
 
 ## Авторизация
 
@@ -231,7 +247,7 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
   - **Активен** (`is_active=true`) — вход разрешён;
   - **Неактивен** (`is_active=false`, `email_verified_at` задан) — вход запрещён, сообщение `auth.inactive`;
   - **Подтвердить email** (`is_active=false`, `email_verified_at=null`) — вход запрещён, сообщение `auth.pending_email`, на форме входа ссылка «Повторно выслать письмо» (`LoginService::resendVerificationEmail`, письмо `VerifyRegistrationMail`, throttle 3/10 мин).
-- Чтение статуса: `User::accountStatus()` / `User::statusFromFlags()` (и `UserData::accountStatus()` в списке). Запись из формы: `User::persistenceForAccountStatus()`. Enum — справочник подписей и options для select, без зависимости на модель.
+- Чтение статуса: `User::accountStatus()` / `User::statusFromFlags()` (и `UserData::accountStatus()` в списке). Запись из формы: `User::persistenceForAccountStatus()`. При создании пользователя пароль не задаётся: кнопка «Создать и отправить инструкции на email» создаёт учётку в статусе «Подтвердить email» и отправляет письмо со ссылкой на 7 дней (`UserInvitationService`, страница `invitation.accept`). По ссылке человек задаёт пароль, после этого учётка становится активной и почта считается подтверждённой. Поле статуса на создании заблокировано и показывает этот служебный статус. В карточке уже существующего пользователя в списке только «Активен» и «Неактивен». «Подтвердить email» в этот список выбрать нельзя. Правило формы пускает его только для новой учётки и для пользователя, у которого он уже стоит.
 - Middleware `App\Http\Middleware\EnsureUserIsActive` в группе `web`: если сессия есть, а `is_active=false` — logout, invalidate session, redirect на login с flash `inactive` или `pending_email`.
 - Переводы: `resources/lang/ru/auth.php` (`failed`, `inactive`, `pending_email`, `verification_resent`, `verification_resend_throttle`).
 - Пароли: в Eloquent передаётся plain-text; cast `password => hashed` в `User` хеширует при сохранении. Не вызывать `Hash::make` / `bcrypt` перед записью в модель.
@@ -249,11 +265,21 @@ Livewire 4 компилирует multi-file components (MFC) в `storage/framew
 | KPI / тип | Параметры | Источники |
 |---|---|---|
 | Контекст + Traffic | CPC, бюджет, визиты | Яндекс Директ (расходы / клики) |
-| Контекст + Leads | CPL, бюджет, лиды | Директ (расходы); Callibri ЕЖЛ и/или Метрика (цели UTM; цели «Поисковые системы» — этап 3) |
+| Контекст + Leads | CPL, бюджет, лиды | Директ (расходы); Callibri ЕЖЛ и/или Метрика (цели UTM; цели «Поисковые системы» - этап 3) |
 | SEO + Positions | % в топ 10, конверсии | Yandex Search API; схема в коде ещё пишет «цели Поисковые системы», в UI этот отчёт Метрики доступен только для Контекста |
-| SEO + Traffic | объём визитов, конверсии | Метрика (переходы «Поисковые системы»); цели в UI — только для Контекста |
+| SEO + Traffic | объём визитов, конверсии | Метрика (переходы «Поисковые системы»); цели в UI - только для Контекста |
 
-**Yandex Search API не влияет** на CPL, рекламный бюджет и лиды. Если для параметра нет подходящей интеграции — текст `Не настроено`. Длинные схемы обрезаются с `…`, полный текст в `title`.
+**Видимость интеграций в карточке** (`hiddenIntegrationCodes` в форме клиенто-проекта):
+
+| Тип / KPI | Не показываем |
+|---|---|
+| Контекст (любой KPI) | `yandex_search_api` |
+| Контекст + Traffic | ещё `yandex_metrika`, `callibri` |
+| SEO (любой KPI) | `yandex_direct` |
+
+Скрытые интеграции не открываются из UI. Если уже были включены - при сохранении проекта `is_enabled = false`, настройки не стираем. Если в блоке («Аналитика» / «Инструменты») список пуст, кнопка «Добавить интеграцию» disabled с тултипом «Нет доступных интеграций для этого типа клиенто-проекта и KPI».
+
+**Yandex Search API не влияет** на CPL, рекламный бюджет и лиды. Если для параметра нет подходящей интеграции - текст `Не настроено`. Длинные схемы обрезаются с `…`, полный текст в `title`.
 
 Пересчёт на форме сразу после `setIntegrationSettings` / `removeIntegration` / `setIntegrationEnabled` / OAuth Директа (без сохранения всей формы).
 
@@ -367,7 +393,7 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 
 ## Интеграция Яндекс Метрики (настройки клиенто-проекта, этап 1)
 
-Модалка в карточке «Аналитика». На этапе 1 сохраняются настройки и OAuth. Разбор фильтров в параметр API — этап 2 (ниже). Съём отчёта «Поисковые системы / цели» — этап 3.
+Модалка в карточке «Аналитика». Для клиенто-проекта «Контекстная реклама» с KPI «Трафик» карточка Метрики в UI не предлагается (вместе с Callibri). На этапе 1 сохраняются настройки и OAuth. Разбор фильтров в параметр API - этап 2 (ниже). Съём отчёта «Поисковые системы / цели» - этап 3.
 
 ### Переменные окружения (OAuth)
 
@@ -416,7 +442,14 @@ Legacy `account_id` (раньше ошибочно писался `client_id` OA
 | `search_queries_minus` | минус-фразы для отчёта «Поисковые запросы» (каждая с новой строки) | `''` |
 | `visits_metric` | `visits` (Визиты) или `users` (Посетители) для отчётов «Переходы» | `visits` |
 
-Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries` (`visits_geo` снят с UI интеграции). Из четырёх источников целей (`goals_search_engines` / `goals_utm` / `goals_conversions` / `goals_direct_summary`) в UI можно выбрать только один — остальные disabled с тултипом «Может быть выбран только один источник достижения целей». `visits_search_engines` и `visits_search_queries` доступны только при типе клиенто-проекта `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». `goals_search_engines` доступен только при типе `seo_promotion` (SEO-продвижение); иначе disabled с тултипом «Доступен только для клиенто-проектов с типом SEO-продвижение». Если этот отчёт включён, нужны выбранные цели и параметр `goals_metric`.
+Ключи `reports`: `goals_search_engines`, `goals_utm`, `goals_conversions`, `goals_direct_summary`, `visits_search_engines`, `visits_search_queries`, `visits_geo`. На экране галочек нет: пакет включает Касини при сохранении по типу проекта ([`YandexMetrikaIntegrationSettingsData::reportsPackageFor`](app/Data/IntegrationSettings/YandexMetrikaIntegrationSettingsData.php)).
+
+| Тип проекта | Пакет `reports.*` |
+|-------------|-------------------|
+| `context_ad` | `goals_utm`, `goals_conversions`, `goals_direct_summary` |
+| `seo_promotion` | `goals_search_engines`, `visits_search_engines`, `visits_search_queries`, `visits_geo` |
+
+Дополнительно для контекста: `goals_count_source` = `utm` (по умолчанию) или `direct_summary`. Это источник числа целей в «Общей статистике» и «Статистике по обращениям»: UTM раскладывается по `utm_campaign` = `campaign_id` Директа; «Директ, сводка» - из `yandex_metrika_goal_direct_campaigns` (стыковка сначала по номеру кампании, затем по точному названию; несовпавшее в общей статистике - строка «Без кампании»). Если разреза по кампаниям нет, а месячная сводка есть, итог общей статистики берётся из сводки без разреза. Старые проекты без ключа: если был включён только `goals_direct_summary`, источник `direct_summary`, иначе `utm`. Для любого пакета целей нужны выбранные `goals` и `goals_metric`.
 
 ### Фильтры в запросах к API (этап 2)
 
@@ -479,7 +512,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 - проекты с включённой Метрикой, `reports.goals_search_engines`, токеном, счётчиком, целями и `sync_enabled_at`;
 - период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
-- запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits`.
+- запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits` (сумма выбранных целей по поисковику);
+- отдельно в `yandex_metrika_search_engine_goals` каждая выбранная цель по Яндексу и Google за каждый месяц съёма, в том числе с нулём. Название цели берётся из `getGoals()` в момент съёма, иначе «Цель {id}».
+
+В Word список целей: `{{ym.goals_yandex.name}}` / `{{ym.goals_yandex.value}}` и `{{ym.goals_google.name}}` / `{{ym.goals_google.value}}` в одной строке таблицы (копируется целиком). Итог ниже: `{{ym.goals_yandex.total}}` и `{{ym.goals_google.total}}`. Месяц в шапке: `{{period_month}}`. В списке только цели, отмеченные в интеграции. Живые таблицы `{{ym.table.goals_search_engines}}`, `.yandex` и `.google` остаются.
 
 Ошибка по одному проекту не останавливает остальные.
 
@@ -515,8 +551,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 [`YandexMetrikaService::fetchUtmGoalsStats()`](app/Services/YandexMetrikaService.php):
 
 - как отчёт [«Метки UTM»](https://yandex.ru/support/metrica/ru/reports/tags-utm.html) / preset `tags_u_t_m`;
-- группировка: `ym:s:<attribution>UTM{Source|Medium|Campaign},ym:s:date` (под выбранную атрибуцию);
-- фильтр UTM строит [`YandexMetrikaUtmFilterBuilder`](src/Domain/YandexMetrika/YandexMetrikaUtmFilterBuilder.php): пустое поле → «не пусто» на том же attribution-измерении, значения через запятую → OR с `=@` / `=*`;
+- группировка всегда: `ym:s:<attribution>UTMSource,ym:s:<attribution>UTMCampaign,ym:s:date` — в строку БД пишутся оба поля (`utm_source` и `utm_campaign`);
+- фильтр UTM (`utm_filter_mode` / значение) строит [`YandexMetrikaUtmFilterBuilder`](src/Domain/YandexMetrika/YandexMetrikaUtmFilterBuilder.php) и отсекает лишние визиты, но не затирает второе поле: пустое поле → «не пусто» на измерении фильтра, значения через запятую → OR с `=@` / `=*`;
 - метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches`;
 - фильтры этапа 2, timezone, attribution — как обычно.
 
@@ -603,7 +639,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync goals_direct_summary`:
 
 - условия: `is_enabled`, `reports.goals_direct_summary`, токен, счётчик, цели, `sync_enabled_at`;
-- стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary`.
+- стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary`;
+- дополнительно: разрез по кампании Директа (`ym:s:goal` + `ym:s:<attribution>DirectClickOrder`) → `yandex_metrika_goal_direct_campaigns` для таблицы «Статистика по обращениям» в Word-отчёте.
 
 ## Интеграция Яндекс Метрики (этап 3.5: переходы «Поисковые системы»)
 
@@ -657,6 +694,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 - период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
 - upsert `visits` по `(project_id, search_engine, month)`.
 
+Теги шаблона (цифры, без похода в API): `{{ym.search_visits.yandex}}` / `{{ym.search_visits.google}}` / `{{ym.search_visits.other}}` / `{{ym.search_visits.total}}`. Сумма колонки `visits` за период отчёта (`YandexMetrikaSearchVisits`): `yandex`, `google`, остальные root-ID в `other`, нулевые строки не входят, нет данных → `0`. Блок план/факт/выполнение: `{{ym.search_visits.plan}}` (сумма планов `visits` из Планирования за месяцы периода, нет плана → `0`), `{{ym.search_visits.fact}}` (тот же итог, что `total`, уже с фильтрами съёма), `{{ym.search_visits.performance}}` (факт / план × 100, знак `%` в значении; нет плана или план 0 → пусто). Месяц в шапке таблицы: `{{period_month}}`. Живая таблица план/факт `{{ym.table.visits_search_systems}}` остаётся.
+
 ## Интеграция Яндекс Метрики (этап 3.6: переходы «Поисковые запросы»)
 
 Шестой отчёт этапа 3. Переходы по поисковым фразам с исключением минус-слов.
@@ -665,7 +704,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 `visits_search_queries` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
 
-Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`; `visits_geo` снят с UI) можно включать одновременно (условие «И» с фильтрами этапа 2).
+Три отчёта по переходам (`visits_search_engines`, `visits_search_queries`, `visits_geo`) можно включать одновременно (условие «И» с фильтрами этапа 2).
 
 ### Ключи settings
 
@@ -703,11 +742,55 @@ Callibri отдаёт каждое обращение с временем в UTC
 - период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
 - upsert по `(project_id, month, phrase)`.
 
+Теги шаблона в справочнике: `{{ym.search_queries.phrase[10]}}` и `{{ym.search_queries.visits[10]}}` в одной строке Word. `[10]` в скобках: только фразы с 10 и более переходами; без скобок: все фразы. Данные из `yandex_metrika_visits_search_queries` за период (`YandexMetrikaSearchQueries`): при `visits_metric=users` берётся `visitors`, иначе `visits`; одинаковые фразы складываются, нулевые строки не выводятся, сортировка по числу переходов. При съёме фраза нормализуется (`SearchPhraseNormalizer`: нижний регистр, пробелы схлопываются, обрезка до 255 символов), визиты одинаковых фраз складываются. Порог читает `KeywordPairThreshold`. Строку копирует `YandexSearchKeywordRowHandler`, остатки тегов очищает `YandexSearchLeftoverTagHandler`. Фильтры интеграции уже внутри съёма. Живая таблица `{{ym.table.visits_search_queries}}` остаётся. Месяц в шапке: `{{period_month}}`.
+
 ## Интеграция Яндекс Метрики (этап 3.7: переходы «География»)
 
-Отчёт `visits_geo` **снят с UI** интеграции: Reporting API Метрики не отдаёт стабильные данные по `ym:s:regionCity` в режиме «без роботов» (пустой ответ при `ym:s:isRobot=='No'`), сверка с интерфейсом Метрики получается неоднозначной.
+Седьмой отчёт этапа 3. Переходы по городам из отчёта [«География»](https://yandex.ru/support/metrica/ru/visitors/geography.html) (API preset `geo_country`).
 
-Ключ `reports.visits_geo` при сохранении принудительно `false`. Кода съёма «Географии» нет: ни команды, ни отчёта в collector `yandex_metrika`. Таблица `yandex_metrika_visits_geo`, чтение `getVisitsGeoStats` и переменная отчёта `ym.table.visits_geo` остаются для исторических данных и шаблонов. Если отчёт вернут в UI, съём добавляется отчётом в `YandexMetrikaReportsSync::REPORTS`, без отдельной команды и расписания.
+### Ограничение по типу проекта
+
+`visits_geo` доступен только для `seo_promotion` (через `$seoOnlyVisitReportKeys`).
+
+Все три SEO-отчёта по переходам (`visits_search_engines`, `visits_search_queries`, `visits_geo`) можно включать одновременно (условие «И» с фильтрами этапа 2).
+
+### Ключи settings
+
+| Ключ | Значения | По умолчанию |
+|------|----------|--------------|
+| `visits_metric` | `visits` / `users` (общий с другими отчётами «Переходы») | `visits` |
+
+### UI
+
+При включённом `visits_geo` блок обёрнут рамкой:
+
+1. «По какому параметру рассчитываем переходы?» - тот же `visits_metric`.
+2. «Проверить работу интеграции» - результат: `Количество переходов из отчета География: N`. Livewire: `testYandexMetrikaVisitsGeoIntegration()`.
+
+### API
+
+[`YandexMetrikaService::fetchGeoVisitsStats()`](app/Services/YandexMetrikaService.php):
+
+- группировка: `ym:s:regionCity` (+ `ym:s:month` на несколько месяцев) - лист дерева country, area, city;
+- метрики: `ym:s:visits` / `ym:s:users`;
+- `lang=ru`, чтобы названия городов были по-русски;
+- атрибуция в измерениях не нужна (локация посетителя); параметр `attribution` передаётся как у соседних методов;
+- фильтры этапа 2, timezone - как обычно;
+- измерение города: `ym:s:regionCity` (в `YandexMetrikaService::fetchGeoVisitsStats`).
+
+### БД
+
+Таблица `yandex_metrika_visits_geo` (`city`, `visits`, `visitors`, `goal_reaches`). Upsert через `upsertVisitsGeo` обновляет только выбранную метрику, не затирая вторую и `goal_reaches`.
+
+### Ночной съём
+
+Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync visits_geo`:
+
+- условия: `is_enabled`, `reports.visits_geo`, токен, счётчик, `sync_enabled_at`;
+- период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
+- upsert по `(project_id, month, city)`.
+
+Теги шаблона в справочнике: `{{ym.visits_geo.city[10]}}` и `{{ym.visits_geo.visits[10]}}` в одной строке Word. `[10]` в скобках: только города с 10 и более переходами; без скобок: все города. Данные из `yandex_metrika_visits_geo` за период (`YandexMetrikaGeoVisits`): при `visits_metric=users` берётся `visitors`, иначе `visits`; одинаковые города складываются, нулевые строки не выводятся, сортировка по числу переходов. Порог читает `KeywordPairThreshold`. Строку копирует `YandexSearchKeywordRowHandler`, остатки тегов очищает `YandexSearchLeftoverTagHandler`. Фильтры интеграции уже внутри съёма. Живая таблица `{{ym.table.visits_geo}}` остаётся. Месяц в шапке: `{{period_month}}`.
 
 ## UI-шаблон: проверка работы интеграции
 
@@ -761,13 +844,15 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Остаток | `YandexDirectService::getAccountBalance()` (API v4) — только «сейчас»; кэш Laravel `channels.direct.budget.{projectId}` = `{value, updated_at}` (TTL 7 дней); в ячейке `ЧЧ:мм, дд.мм.гг / сумма ₽` (время по `agencies.time_zone`, дата — `text-secondary-text`); обновление — иконка в шапке |
 | План | только если `dateFrom` и `dateTo` в одном месяце; иначе в ячейке `-` |
 | Расход | сумма дней из `yandex_direct_daily_spendings` за `dateFrom`…`dateTo` (до сегодня для текущего месяца; колонка с/без НДС). Ночной съём + ручной refresh через `YandexDirectDailySpendCollector` |
-| Обновление | иконка в шапке (`refreshAllData`): collectors + остаток бюджета Директа по всем видимым проектам; клик по ячейке отключён |
+| Обновление | иконка в шапке (`refreshAllData`) ставит в очередь по одной задаче на клиенто-проект (`RefreshReportIntegrationsJob`, timeout 10 мин на проект): collectors + остаток бюджета Директа. Один прогресс на агентство (`integrations.manual_refresh.{agencyId}`), общий для Каналов и Статистики: все пользователи агентства видят одну подсказку и те же серые строки. Страница не ждёт HTTP. У неготовых строк серые полоски, у готовых - цифры; шапка не закрывается. Серые строки только для того же периода и НДС, что при клике. На время ручного съёма НДС и период в Каналах/Статистике заблокированы (UI + откат на сервере), чтобы полоски не пропадали; «Неактивные», фильтр слева и колонки остаются доступны. Подсказка: имя клиенто-проекта, источник, `N из M, m:ss`. В конце notice «Данные в Каналах и Статистике обновлены» на каждом открытом экране отдельно + уведомление `report.data.refreshed` каждому пользователю агентства (ссылки на оба продукта; страница колокольчик не гасит). Время «Последнее обновление» одно на агентство. Второй клик, пока идёт съём, не запускается. Лимит API - на нажавшего. Без выбранного в сайдбаре проекта сначала модалка подтверждения. Клик по ячейке отключён |
 | Сервис UI | `ChannelDirectMetricsService`; строки — `ChannelReportService::enrichWithDirectMetrics()` |
 | Автообновление | `channels:dispatch-due-budget-refresh` (schedule `everyMinute`): если по `agencies.time_zone` наступило `agencies.direct_budget_refresh_time` (default 09:00) и за текущий local-date ещё не запускали — `refreshBudgetsForcedWithoutThrottle` по всем активным проектам с интеграцией `yandex_direct`. Без user-throttle. Guard — cache key `channels.direct.budget.scheduled.{localDate}` (TTL 25 ч) |
 | Настройка времени | «Настройка агентства» → «Основные настройки» → поле «Время обновления "Остаток бюджета в Директе"» (`agencies.direct_budget_refresh_time`, тип `time`, default `09:00:00`). Интерпретируется в `agencies.time_zone` |
 | Битрикс24 (агентство) | «Настройка агентства» → «Интеграция с Битрикс24»: `agencies.bitrix24_portal_url`, `agencies.bitrix24_webhook` (cast `encrypted`). Поля только парой; пустая пара = не подключено. Съём часов в Каналы — отдельно |
-| Битрикс24 (клиенто-проект) | Категория «Деньги», код `bitrix24`. Настройки в `integration_project.settings`: `root_task`, `search_query`, `parse_comment_works`, `sync_enabled_at` (+ `is_enabled`). Вебхук/URL из агентства. Кнопка disabled без пары агентства. **Часы:** коллектор `bitrix24_labor` (`Bitrix24LaborCollector`, ночной съём + «Обновить данные») берёт вебхук и часовой пояс из агентства специалиста проекта, номер корневой задачи из URL, все вложенные подзадачи (`tasks.task.list` по `PARENT_ID`, до 10 уровней / 1000 задач), фильтр названия по кускам `search_query` через запятую (пусто: все), записи `task.elapseditem.getlist` за день. Сотрудник ищется по `users.bitrix24_id` (без совпадения часы пропускаются). Колонка: ставка с «аналитик» в названии → `analyst`; иначе `projects.specialist_id` → `seo-specialist`; `clients.manager_id` → `ork-manager`; `project_assistant` (если таблица есть) → `seo-assistant`; иначе пропуск. Хранение: `bitrix24_daily_labor` (project_id, date, report_month, user_id, role, seconds; unique project+date+report_month+user), повторный съём дня перезаписывает строки проекта за период по `date`. `report_month`: месяц из названия задачи (`Bitrix24TaskSelection::reportMonth`, «октябрь 2026», «в мае»; без года: ближайший к дню записи), без месяца в названии: месяц дня записи. Каналы: `ChannelLaborSpendingsService` суммирует часы по `report_month` за месяцы отчёта, ₽ = часы × ставка на день записи (`UserRateHistory`: `rate_user` + `rate_values.start_date`), `buildProjectSpendingsData` добавляет четыре роли к данным Google Таблиц. Комментарии со 💪 не переносятся |
+| Google Таблицы (агентство) | «Настройка агентства» → «Интеграция с Google Таблицами»: `agencies.google_sheets_spreadsheet_url` (ссылка или id). Чтение через ключ служебной учётки на сервере (`GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON` → путь к JSON). OAuth пользователя нет. Таблицу нужно открыть на `client_email` из ключа с правом просмотра. Без ссылки или без ключа кнопка в клиенто-проекте disabled. После выкладки один раз: `php artisan google-sheets:enable-for-seo-projects` - включает Google Таблицы у SEO-проектов без строки `integration_project` (повторный запуск безопасен) |
+| Битрикс24 (клиенто-проект) | Категория «Деньги», код `bitrix24`. Настройки в `integration_project.settings`: `root_task`, `search_query`, `parse_comment_works`, `sync_enabled_at` (+ `is_enabled`). Вебхук/URL из агентства. Кнопка disabled без пары агентства. **Часы:** коллектор `bitrix24_labor` (`Bitrix24LaborCollector`, ночной съём + «Обновить данные») берёт вебхук и часовой пояс из агентства специалиста проекта, номер корневой задачи из URL, все вложенные подзадачи (`tasks.task.list` по `PARENT_ID`, до 10 уровней / 1000 задач), фильтр названия по кускам `search_query` через запятую (пусто: все), записи `task.elapseditem.getlist` за день. Сотрудник ищется по `users.bitrix24_id` (без совпадения часы пропускаются). Колонка: ставка с «аналитик» в названии → `analyst`; иначе `projects.specialist_id` → `seo-specialist`; `clients.manager_id` → `ork-manager`; `project_assistant` (если таблица есть) → `seo-assistant`; иначе пропуск. Хранение: `bitrix24_daily_labor` (project_id, date, report_month, user_id, role, seconds; unique project+date+report_month+user), повторный съём дня перезаписывает строки проекта за период по `date`. `report_month`: месяц из названия задачи (`Bitrix24TaskSelection::reportMonth`, «октябрь 2026», «в мае»; без года: ближайший к дню записи), без месяца в названии: месяц дня записи. Каналы: `ChannelLaborSpendingsService` суммирует часы по `report_month` за месяцы отчёта, ₽ = часы × ставка на день записи (`UserRateHistory`: `rate_user` + `rate_values.start_date`), `buildProjectSpendingsData` добавляет четыре роли к данным Google Таблиц. **Работы в отчёт:** коллектор `bitrix24_works` (`Bitrix24WorksCollector`) пишет в `completed_works` закрытые пункты чек-листа (`task.checklistitem.getlist`, `IS_COMPLETE=Y`) задачи месяца (дочерняя задача корневой с месяцем в названии и фильтром `search_query`); съём дня перезаписывает весь месяц. При `parse_comment_works` добавляет куски комментариев после 💪 из той же задачи. Отчёт подставляет список в тег `{{bitrix24.worklist}}` |
 | Макс. бонусы | `BonusService::resolveMaxBonusAmount`: max по интервалам настроек клиенто-проекта (фикс. ₽ или `% × чек`); `bonuses_enabled=false` / нет интервалов / `%` без чека → `-`. **Итого по группировке / таблице** для «Чек клиента» и «Макс. бонусы» — сумма по строкам (`enrichWithFinancialTotals`) |
+| Акты | Колонка `acts`. Источник: `sao_performed_work_acts` за месяц начала периода. Приём: `POST /api/work-acts` → `AccountingService` (акт сохраняется даже без совпадения; `project_id` nullable). Сопоставление как в SAO (`WorkActRelationService`): номера договора из интеграции `1c_acts` (`main_contract_number`, `additional_agreement_number` через запятую), запасной вариант по `projects.inn` если у акта нет номеров. Синхронизация выключена или нет основного договора → `-`. Один акт - один проект (сначала договор, потом ИНН). Нет подходящих актов → `-`; сумма 0 → `0,00 ₽`. Итоги группы/таблицы - в `enrichWithFinancialTotals` |
 | Расходы итого | `ChannelReportService::createSpendingsData`: сумма ₽ из программинга, копирайтера, SEO-ссылок, четырёх ролей labor (`seo-assistant`, `seo-specialist`, `analyst`, `ork-manager`) и динамических ставок `position_*`. Пока данных по роли нет — в ячейке `-`, но при появлении `sum` она уже входит в итог. Если все источники пустые — итог `null` (прочерк), не 0. Агрегация по группе/таблице — `enrichWithSpendingsTotals` |
 
 Пока расхода нет в БД, в ячейке `-`.
@@ -795,19 +880,50 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Колонки детализации «месяц» | по каждому месяцу `dateFrom`…`dateTo` (`detailMonths()` → `month_0`, `month_1`, …) |
 | План | только если `isSingleMonthPeriod()`; иначе в ячейке `-` |
 | Тип клиенто-проекта | `projects.project_type` → `ProjectType::label()` |
-| Факт «Рекламный бюджет» (CONTEXT_AD) | сумма дней из `yandex_direct_daily_spendings` за бакет (день/неделя/месяц сетки); колонка с/без НДС по `includeVat`; нет строк в БД → `-` |
-| Факт «Лиды» (CONTEXT_AD + KPI LEADS) | сумма дней из `callibri_daily_lead_counts` в слот параметра index **2**; нет строк → `-`; нулевой день пишется как `0` |
+| Значки интеграций | тот же набор, что в Каналах: `App\Support\IntegrationLogo` (Директ, Метрика, Callibri, Search API, Google Таблицы, Битрикс24, 1С). Коды `1c_acts` / `1c_check` / `1c_ad_budget_flow` складываются в один значок `1c`. Неизвестный код - заглушка |
+| Шапка таблицы | в Каналах, Статистике, Планировании и Отчётах строка заголовка липкая внутри `.scrollpanel-content` (при вертикальной прокрутке остаётся наверху). Вертикальная полоса прокрутки начинается под шапкой и её не перекрывает |
+| Факт «Рекламный бюджет» (CONTEXT_AD) | общий расчёт `ProjectKpiFactsService::directBudget`: сумма `yandex_direct_daily_spendings` за бакет; колонка с/без НДС по `includeVat`; нет строк → `-`. Тот же источник в Каналах и в итоге Word (`budgetTotalOverride`) |
+| Факт «Лиды» (CONTEXT_AD + KPI LEADS) | `ProjectKpiFactsService::leadsByDay`: Callibri после фильтров интеграции + цели UTM Метрики (если отчёт включён), с текущими фильтрами настроек; пустой фильтр = все сохранённые; нулевые дни пишутся как `0` |
 | Факт CPL (CONTEXT_AD + LEADS) | `рекламный бюджет / лиды` за бакет; дробное до 2 знаков; нет бюджета/лидов или лиды = 0 → `-` |
-| Факт CPC (CONTEXT_AD + TRAFFIC) | `рекламный бюджет / объём визитов` за бакет; дробное до 2 знаков; визиты пока без источника → `-` |
-| Факт «% позиций в ТОП» (SEO + POSITIONS) | среднее дневных `%` из `yandex_search_api_daily_top_percents` за бакет; нет снимка → `-` |
-| Обновление данных | иконка в шапке отчёта (`WithReportDataRefresh` + `refreshAllData`) → все видимые клиенто-проекты отчёта; Каналы: collectors + остаток бюджета Директа; Статистика: только collectors; один `IntegrationApiThrottle::consume()`; тултип «Последнее обновление данных: чч:мм, дд.мм.гг» — max(ручной клик пользователя по продукту, `integration_sync_runs.finished_at` ночного съёма); если ни того ни другого — «ещё не обновлялось» (`IntegrationManualRefreshTimestamp`) |
-| Остальные факты (визиты, конверсии SEO…) | пока `-` (без тестовых заглушек) |
-| Итог | только один месяц; заполняется, если есть срез за **последний день месяца**; сумма за месяц по параметру (бюджет/лиды/визиты/конверсии), CPL/CPC = отношение сумм, `% в ТОП` = значение последнего дня; рядом `(N%)` = итог/план×100, если план задан; primary-параметр (значение и %) — **жирным**. **Итого по группировке / таблице** — один `%` только по primary KPI = сумма primary-фактов / сумма primary-планов × 100. **Итого по срезам детализации** (день/неделя/месяц) — тот же `%` по primary в каждом бакете `day_*` / `week_*` / `month_*`. Классы: `StatisticsClosingColumnsCalculator`, `StatisticsClosingColumnsAggregator` |
+| Факт CPC (CONTEXT_AD + TRAFFIC) | `рекламный бюджет / объём визитов` за бакет; дробное до 2 знаков |
+| Факт «Объём визитов» (CONTEXT_AD + TRAFFIC) | сумма кликов Директа из `yandex_direct_campaign_stats` (`directClicksByDay`); нет строк → `-` |
+| Факт «Объём визитов» / «Конверсии» (SEO) | визиты и конверсии из `yandex_metrika_search_engines_stats` за месяц; в сетке Статистики значение кладётся на последний день месяца |
+| Факт «% позиций в ТОП» (SEO + POSITIONS) | среднее дневных `%` из `yandex_search_api_daily_top_percents` за бакет (`top10Average`); тот же источник в Word (`yd.search` / top_10); нет снимка → `-` |
+| Обновление данных | фон: `IntegrationMetricsRefreshService::queueReportDataRefresh` + `RefreshReportIntegrationsJob` (по проекту). Прогресс один на агентство (`IntegrationManualRefreshProgress`, ключ без user/product; поля `period_from` / `period_to` / `include_vat`, `current_project_label`, `noticed` по ключу `userId:product`). Обе страницы опрашивают `pollRefreshProgress`: раз в 3 с при крутилке, раз в 30 с в покое. Неготовые строки - скелет в той же таблице; шапка не закрывается ни при съёме, ни при смене фильтра/настроек (`table-loading` ниже `thead`). На время ручного съёма НДС и период заблокированы (как в Каналах), чтобы скелет строк не пропадал. Каналы: collectors + остаток бюджета; Статистика: collectors, в конце за один месяц - бонусы. Один `IntegrationApiThrottle::consume()` на клик (на пользователя, не на агентство). Тултип в покое: «Последнее обновление данных…» (`IntegrationManualRefreshTimestamp` на agencyId); во время ручного съёма плашка (проект / источник / счётчик) только если в отчёте пользователя есть проекты из текущего съёма (`visibleReportProjectIds`); чужой текущий проект имени и «N из M» не показывает. Сообщение «Данные обновлены» на экране - только если в съёме был хотя бы один его проект. Ночной прогон (`integration_sync_runs` status `running`, снимок `IntegrationAutomaticSyncStatus`) на той же плашке: первая строка «Автоматический съём данных», дальше свои проект / источник / счётчик; скелет строк не включается; без своих проектов плашки нет. Пока ночной `running`, ручной `refreshAllData` не стартует (сообщение «Сейчас идёт автоматический съём данных…»), в том числе при пустой таблице. В конце колокольчик всем пользователям агентства. Модалка подтверждения без фильтра сайдбара. Уход со страницы не блокируется |
+| Сходимость со Word | итог параметра в отчёте = факт Статистики за тот же месяц; в «Общей статистике» совпавшие `utm_campaign` в строках кампаний, остальные отфильтрованные лиды - строка «Без кампании»; пустую строку не показывают |
+| Итог | только один месяц; заполняется, если есть срез за **последний день месяца**; сумма за месяц по параметру (бюджет/лиды/визиты/конверсии), CPL/CPC = отношение сумм, `% в ТОП` = значение последнего дня; рядом `(N%)` = итог/план×100, если план задан; при настройке агентства «Клиенто-проекты, по которым нет плана считать невыполненными» = Да и числе факта без плана - `(0%)` (заливка как невыполненный, если включено выделение KPI). primary-параметр (значение и %) — **жирным**. **Итого по группировке / таблице** — один `%` = среднее процентов primary KPI по строкам (`StatisticsClosingColumnsAggregator`); план > 0: факт/план×100 (нет факта → 0%); нет плана: при «Да» вклад 0%, при «Нет» строка не входит в среднее. **Итого по срезам детализации** (день/неделя/месяц) — тот же средний `%` по primary в каждом бакете `day_*` / `week_*` / `month_*`. Классы: `StatisticsClosingColumnsCalculator`, `StatisticsClosingColumnsAggregator`. Модалка «Настроить отчет» (выделение KPI, накопление, детализация, группировка, «нет плана = невыполнен») хранится в `statistics_report_agency_settings` на агентство; период/НДС/неактивные/колонки - в `statistics_report_user_settings` |
 | План (Каналы, Статистика) | у **основных** параметров рядом со значением в скобках: `(лидов)` / `(визитов)` / `(позиций в топ 10)`; `PlanValueHelper::planColumnParts`, `PrimaryParameterPlanHelper` |
 | Прогноз | только KPI Трафик/Лиды и только слот primary («Объем визитов» / «Лиды»); `~факт/прошедшие_дни×дней_месяца`; &lt; 3 дней с данными → курсив «мало данных»; в «Итого» таблицы не суммируется |
 | Бонусы и гарантии | только когда заполнен Итог primary KPI; иначе `-`. Первый расчёт сохраняется в `statistics_project_monthly_bonuses` (снимок за проект+месяц); смена настроек бонусов в клиенто-проекте снимок не меняет. Пересчёт и перезапись — только кнопка «Обновить данные». Live: `bonuses_enabled=false` → «Не настроены»; `% от чека` без чека → курсив «Заполните Чек клиента»; иначе `BonusService::calculateBonuses` по `% выполнения = итог/план×100`. **Итого по группировке / таблице** — сумма `amount` (₽), включая отрицательные гарантии |
 | Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |
 | Выделять невыполненные KPI | `highlightUnmetKpi` по умолчанию `N`; при `Y` в ячейках факта (срезы) и «Итог» у строк проектов и у строк Итого (группа / таблица) фон по `%`: `≥90` → `#EBFCF0`, `<90` → `#FCEBEB` |
+| План и факт накапливаются | `accumulateData` по умолчанию `Y` (агентство). При `N` срез = только свой день/неделя/месяц. При `Y` окно с начала месяца (дни/недели) или с первого месяца периода (детализация по месяцам) до конца среза: суммы бюджета/лидов/визитов/конверсий, CPL/CPC от этих сумм, `% в ТОП` - среднее за окно; план счётных показателей - доля дней окна в месяце (для месяцев - сумма месячных планов колонок с начала периода). «Итог»/прогноз/бонусы без изменений. Класс окна: `StatisticsFactWindow` |
+
+## Отчёты: список и период
+
+Страница `/reports`. Права из «Продукты и права» (`reports`): список и скачивание - `read`/`edit`/`full`; создание отчёта (`/reports/create` и кнопка «Создать отчет») - только `edit`/`full` (`full` для не-админов в UI заблокирован). Период как в Каналах и Статистике: два `x-form.month-picker` с `disable-future` (`periodFrom` / `periodTo`, месяц–месяц). По умолчанию оба = текущий месяц. Нормализация при смене месяца (`clampPeriodToPresent()` в компоненте): начало месяца, будущий месяц обрезается до текущего, при `periodFrom > periodTo` конец подтягивается к началу.
+
+## Отчёты: создание (`/reports/create`)
+
+Форма `reports-create`: URL `/reports/create/{reportId?}`, имя `reports.create`. Пока клиенто-проект не выбран, на форме только его список; период, группировка, формат и шаблон скрыты. Период как в списке отчётов (`disable-future`, `clampPeriodToPresent`), плюс нельзя выбрать месяц без колонки «Итог» в Статистике этого проекта (`ReportMonthAvailability`, тот же `StatisticsClosingColumnsCalculator`: срез за последний день месяца; для SEO + Трафик учитываются визиты/конверсии Метрики «Поисковые системы», как в сетке Статистики). Подсказка на закрытом месяце: «Нет итога в Статистике. Пересоберите статистику в клиенто-проекте.» После выбора проекта оба края периода встают на последний месяц с итогом; при правке сохранённый период не сдвигается. Если начало и конец - разные месяцы, под периодом появляются группировка колонок (`months` / `quarters` / `years`, по умолчанию по месяцам), сортировка дат (`newest_first` / `oldest_first`, по умолчанию от нового к старому) и заблокированный «Месяц отчетности» = последний месяц периода. Значения пишутся в `reports.column_grouping` и `reports.date_sort`; при одном месяце в БД те же значения по умолчанию, на форме полей нет. Месяц отчетности отдельно не хранится. Список клиенто-проектов - только доступные по `SidebarProjectAccess` (`GetReportFormDataQuery` с `userId`); при выборе проекта в сайдбаре (`WithSidebarProjectFilter`) в списке только он и он предвыбран (в режиме правки сайдбар список не сужает). Перед сборкой - повторная проверка доступа и `Rule::in` по доступным id. Поиск по названию в select (`searchable` у `x-form.select`). Формат заблокирован, если в списке один вариант (сейчас DOCX). Кнопки «Сформировать и скачать» / «Отменить» видны при `hasPendingChanges` или в режиме правки; скачивание активно при выбранных проекте и шаблоне; во время `create` в кнопке спиннер (`progress-activity`) без смены ширины. Правка (`reportId`): заголовок «Редактирование отчета», поля из существующей записи, сборка обновляет тот же ряд (`GenerateReportCommand::$reportId`), затем flash-скачивание как после создания. Полный срыв сборки (шаблон/проект) - одно `x-feedback.notice` на странице создания. Ошибка отдельного блока (нет файла картинки, сбой таблицы/списка, ошибка чтения куска данных) - блок пропускается, тег очищается, отчёт всё равно сохраняется и скачивается; сообщения (`GenerateReportResult::warnings`) уходят flash `report_generation_warnings` и показываются на `/reports` отдельными notice (по одному на ошибку).
+
+Если период длиннее одного месяца, числовой тег в ячейке таблицы Word раскладывается в колонки дат (`ReportPeriodBuckets` + `PeriodColumnExpanderHandler`): по месяцам / календарным кварталам / годам, без колонки «Итого». Один тег может стоять в нескольких таблицах (сводка ТОП-3/5/10 и строка «Выведено в ТОП-10»): ячейка только с тегом раскладывается, ячейка с текстом вроде «запросы в ТОП» остаётся одним числом за период. Шапка колонок - первая строка той же таблицы (в SEO-шаблоне там `{{period_to}}`, его меняют подписи месяцев). Визиты, цели, план и факт в колонке месяца складываются внутри этого месяца; позиция и проценты (доля топа, выполнение плана) - значение этого месяца. Тег в абзаце остаётся одним числом за весь интервал. Готовые таблицы с датами (`ym.table.goals_search_engines` и соседние) собираются по тем же колонкам. Месяц съёма Метрики в сущности - календарный `Y-m-d` (`MetrikaMonth`: Laravel `toArray()` даёт UTC ISO и сдвигает день). `{{period_month}}`, список работ `{{bitrix24.worklist}}` и месяц в имени файла - последний месяц периода; `{{period_from}}` / `{{period_to}}` - границы всего интервала.
+
+**Общая статистика Директа (контекст):** строка кампании в оформленной таблице Word - теги `{{yd.stats.campaign}}`, `impressions`, `clicks`, `cost`, `ctr`, `cpc`, `conversions`, `cpl` (копирует `YandexDirectGeneralStatsRowHandler`). Строка «Итого» - `{{yd.stats.total.*}}`. Показы/клики/расход с НДС/CTR/CPC - из `yandex_direct_campaign_stats` за период (съём `yandex_direct_campaign_stats`). Подпись `{{yd.stats.campaign}}`: если в клиенто-проекте заполнен блок подмены `utm_campaign` (`project_utm_mappings`) и номер совпал с `campaign_id`, берётся `replacement_value`; иначе имя из Директа. Ключевые конверсии и CPL - как «Лиды»/«CPL» в настройках клиенто-проекта: Callibri и/или цели Метрики по `goals_count_source` (`utm` - совпадение `utm_campaign` с `campaign_id`; `direct_summary` - разрез `yandex_metrika_goal_direct_campaigns`, стыковка по номеру затем по точному названию; несовпавшее - строка «Без кампании»); без этих интеграций в ячейках `-`. CTR/CPC/CPL в «Итого» считаются от сумм, не усредняются. Готовый блок `{{yd.table}}` оформление шаблона заменяет и для этой таблицы не используется.
+
+**Статистика по обращениям (контекст):** матрица цель × кампания. В шапке `{{yd.appeals.campaign}}` (колонки кампаний из Директа; подпись по тому же блоку подмены `utm_campaign`, что и в общей статистике). Строка цели: `{{yd.appeals.goal}}` + `{{yd.appeals.value}}` (копирует строки, размножает ячейки значений). «Итого»: `{{yd.appeals.total}}`. Источник чисел совпадает с `goals_count_source`: при `utm` - цели UTM (`yandex_metrika_goal_utms`, те же фильтры, что в общей статистике), `utm_campaign` сопоставляется с `campaign_id` Директа; при `direct_summary` - `yandex_metrika_goal_direct_campaigns` (цель × `DirectClickOrder`), стыковка с колонками Директа сначала по номеру, затем по точному названию. Несовпавшие цели отдельной колонкой не показываются. Нет данных - теги очищаются.
+
+| Что | Как |
+|-----|-----|
+| Фильтр по периоду | по `reports.created_at` (колонка «Дата»), не по периоду отчёта; от `periodFrom` 00:00:00 до последнего дня месяца `periodTo` 23:59:59 (`ReportsListDataProvider`) |
+| Клиенто-проект в сайдбаре | `WithSidebarProjectFilter`: только отчёты выбранного проекта, флаг «Неактивные клиенто-проекты» при этом не применяется |
+| Колонки | без «Отчет готов? / принят менеджером? / отправлен клиенту?»; флаги `is_ready`, `is_accepted`, `is_sent` в таблице `reports` остаются; таблица на всю ширину страницы, как в Каналах и Статистике. Колонка «Период» показывает весь интервал (`DateTimeRange::monthYearLabel()`, «март 2026 - октябрь 2026»). Последняя колонка «Действия» (ключ `download`): скачать всегда; имя файла `Отчет {тип} {домен} {месяц отчетности}.docx` (`ReportNamingService`: тип из `ProjectType::label()`, месяц отчетности = последний месяц периода, например `Отчет SEO-продвижение mmk-metiz.ru октябрь 2026.docx`); «Редактировать» при `edit`/`full` открывает `/reports/create/{id}` с заполненной формой и пересобирает тот же отчет; «Удалить» только при `full`, с подтверждением |
+| Пустой список | кнопка «Создать отчет» → `reports.create` |
+| Шаблоны отчетов | URL `/templates`, имя маршрута `reports.templates`: middleware `permission:read report templates\|edit report templates\|full report templates`; загрузка - `edit` или `full`; удаление - только `full`; кнопка «Шаблоны отчетов» на `/reports` при любом праве на шаблоны. В «Продукты и права» группа `report templates` - дочерняя к `reports` (`PermissionGroup::hierarchicalValues`). `x-menu.navbar` подсвечивает вкладку «Отчеты» для маршрутов с префиксом `reports.` |
+| Удаление шаблона | Шаблон можно удалить, даже если по нему уже собраны отчеты. Готовый файл отчета (`reports.path`) не трогается, скачивание из списка работает. В `reports` хранится снимок названия `template_name`; `template_id` при удалении шаблона становится NULL (`ON DELETE SET NULL`). Список отчетов читает снимок, без обязательного JOIN к `templates`. Пересборка на `/reports/create/{id}` требует выбрать другой шаблон; если исходный удалён, notice: «Шаблон этого отчета удалён. Чтобы пересобрать, выберите другой шаблон.» |
+| Загрузка шаблона | URL `/templates/upload`, имя `reports.templates.upload`: middleware `edit report templates\|full report templates`. Кнопка «Загрузить шаблон» ведёт на страницу из двух шагов (оболочка как `/reports/create`): инструкция и один список тегов (колонки «Тег» с иконкой источника как в списке шаблонов (Битрикс24: официальный favicon с bitrix24.ru, тот же `icons.logo.bitrix24` в Каналах и Статистике), «Что подставляет» и «Формат отображения»), затем обязательные «Название шаблона» и выбор `.docx` кнопкой «Выбрать файл» (скрытый `input`, как загрузка фраз в интеграции Search API): имя выбранного файла и удаление, сохранение кнопкой «Сохранить шаблон» (неактивна, пока нет названия и файла). В колонке «Действия» списка шаблонов при праве `edit` или `full` есть «Редактировать»: тот же мастер сразу на шаге 2, название и текущий файл уже заполнены, можно заменить `.docx`. Справочник `ReportTagCatalog` описывает только теги, которые заполняет `ReportDataProvider`. У числовых тегов в «Что подставляет» указано: в ячейке таблицы за несколько месяцев появятся колонки по месяцам, в абзаце остаётся одно число за период. `{{period_to}}` в шапке таблицы с датами заменяет подписи месяцев. (список работ: `{{bitrix24.worklist}}`, не `{{megaplan.list}}`; границы периода цифрами `д.м.г`: `{{period_from}}` / `{{period_to}}` → «01.09.2026» / «30.09.2026»; те же границы текстом: `{{period_from_text}}` / `{{period_to_text}}` → «1 сентября 2026» / «30 сентября 2026»; отчетный месяц текстом: `{{period_month}}` → последний месяц периода, «октябрь 2026»; переходы из отчёта Метрики «Поисковые системы»: `{{ym.search_visits.yandex}}` / `google` / `other` / `total` → сумма `visits` за период, нет данных → `0`; план/факт/выполнение: `{{ym.search_visits.plan}}` / `fact` / `performance` (план из Планирования `visits`, факт = `total`, выполнение `факт/план%`, без плана ячейка пустая); переходы по фразам: `{{ym.search_queries.phrase}}` и `{{ym.search_queries.visits}}` в одной строке Word; переходы по городам: `{{ym.visits_geo.city}}` и `{{ym.visits_geo.visits}}` в одной строке Word; Search API: `{{yandex_search.region[1]}}`, `{{yandex_search.phrase[1]}}` и `{{yandex_search.position[1]}}` в одной строке таблицы Word, `{{yandex_search.top_3[1]}}` / `top_5` / `top_10` - доля тех же строк таблицы (позиция 1-10 входит, 11 и `-` нет), значение уже со знаком `%`, ячейку ставят отдельно от строки с фразой. Номер в квадратных скобках с 1 по порядку `integration_project.settings.regions`; `[1]` первый регион, `[2]` второй. Сборка (`YandexSearchIndexedTags` + `ReportDataProvider`) отдаёт только ключи с номером, позиции фильтруются по `serp_regions.geo_id`. Строку с фразой и позицией копирует `YandexSearchKeywordRowHandler` целиком, чтобы позиция не оказалась напротив чужой фразы. Старые теги без скобок, `{{yandex_search.table}}` / `{{yandex_search.table[1]}}` и номер вне списка очищаются (`YandexSearchLeftoverTagHandler`)). Синтаксис `{{имя}}`. Параметры вроде `ссылка=да` и свои теги с полем на форме отчёта не поддерживаются. |
+| Формат тегов шаблона | `{{имя}}`, блоки `{{имя}}…{{/имя}}`, повтор строки таблицы по тегу списка. Скобки задает `ReportTemplateProcessor` (наследник PhpWord `TemplateProcessor`) для сборки отчета и для чтения тегов. Word часто разносит скобки по отдельным runs (`{` `{` `имя` `}` `}`) - склейку делает переопределённый `fixBrokenMacros`. Старый формат `${имя}` не поддерживается: такие шаблоны нужно перезалить. Фото `{{manager_photo}}` и логотип `{{agency_image}}` вставляет `ImageHandler` размером 3.5 см с сохранением пропорций (без размера PhpWord ставит 115x70 px). Свой размер в теге: `{{manager_photo:2cm:2cm}}` |
+| Найденные теги в шаблоне | `TemplateTagReaderInterface` → `PhpWordTemplateTagReader`: `ReportTemplateProcessor::getVariables()` при каждом показе списка (в БД не хранятся), без закрывающих тегов блоков `/имя`; файл не найден или не читается → «Не удалось прочитать файл». В списке шаблонов видны первые две строки тегов, остальное за кнопкой «Показать все теги (N)», N - число всех найденных тегов; если теги умещаются в две строки, кнопка скрыта |
 
 ## Ночной съём интеграций (единый каркас)
 
@@ -821,35 +937,43 @@ Callibri отдаёт каждое обращение с временем в UTC
 | `ProcessIntegrationSyncItem` | Job: один item → collector → upsert; исключение в `collect` не валит соседние items |
 | `IntegrationSyncCollector` | контракт: `key`, `integrationCode`, `supportsProject`, `collect` / `collectRange` |
 | Кандидаты | активные проекты × collectors, где `supportsProject()` = true (per-collector) |
-| Ошибка одного сервиса | item `failed` (после max 3 attempts или без requeue); очередь идёт дальше; **только** запись в продукт «Уведомления» (`integrations.sync.failed`, без email): `{ошибка}, чч:мм, дд.мм.гг, [[proj]]` людям с доступом к клиенто-проекту (время агентства); непрочитано, пока не открыта страница «Уведомления» |
+| Ошибка одного сервиса | item `failed` (после max 3 attempts или без requeue); очередь идёт дальше; **только** запись в продукт «Уведомления» (`integrations.sync.failed`, без email) людям с доступом к клиенто-проекту; непрочитано, пока не открыта страница «Уведомления». Обычная ошибка съёма: короткий технический текст + `error_detail`. Ошибка доступа (протухший/отозванный OAuth, `invalid_grant`, код 53 и т.п.): заголовок «Доступ к {интеграция} больше не действует. Подключите его заново.»; повторно не пишем, пока у получателя уже есть такое же непрочитанное по этому клиенто-проекту и интеграции. Тот же итог пишется в `integration_project.settings` (`sync_issue_kind` = `access` \| `other`, `sync_issue_message` - человеческая фраза без сырого ответа API) через `IntegrationSyncIssueStatus`; при успехе ключи снимаются; при сохранении формы клиенто-проекта служебные ключи не затираются (`mergePreserved`). В окне настроек фраза попадает в уже существующий баннер `integrationError` (Директ / Метрика / Google Таблицы) и такой же блок у Callibri / Битрикс24 / Поиска Яндекса; ползунок краснеет классом `yd-direct-error-toggle` |
 
 ### Collectors (фаза 1)
 
 | Ключ | Интеграция | Таблица | UI |
 |------|------------|---------|-----|
 | `yandex_direct_daily_spend` | `yandex_direct` | `yandex_direct_daily_spendings` | Каналы: расход; Статистика: «Рекламный бюджет» |
-| `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат) | Статистика: «Лиды» (KPI LEADS, слот 2) |
+| `yandex_direct_campaign_stats` | `yandex_direct` | `yandex_direct_campaign_stats` | Отчёты: «Общая статистика» (`{{yd.stats.*}}`). CAMPAIGN_PERFORMANCE_REPORT по дням (показы, клики, расход с/без НДС); уникальность `project_id` + `campaign_id` + `date` |
+| `callibri_daily_leads` | `callibri` | `callibri_leads` (сырые) + `callibri_daily_lead_counts` (агрегат после фильтров) | Факт «Лиды» считает `ProjectKpiFactsService` из сырых + Метрика; дневной агрегат не затирается нулём при сбое API |
 | `yandex_search_api_daily_positions` | `yandex_search_api` | `serp_positions` + `yandex_search_api_daily_top_percents` | Статистика: «% позиций в ТОП» (SEO + POSITIONS) |
 | `bitrix24_labor` | `bitrix24` | `bitrix24_daily_labor` | Каналы: часы ролей (SEO-специалист, помощник, аналитик, ОРК) |
-| `yandex_metrika` | `yandex_metrika` | `yandex_metrika_*` (суммы за месяц) | Отчёты, переменные `ym.*`. Все включённые отчёты проекта за один item. Ночью: месяц вчерашней даты с 1-го числа по вчера (`YandexMetrikaSyncPeriod->nightly`, результат `DateTimeRange`), прошлые месяцы не перекачиваются; ручное обновление и backfill: все месяцы периода, не раньше месяца `sync_enabled_at` |
-| `google_sheets` | `google_sheets` | `google_sheets_monthly_spendings` | Каналы: «Программинг», «Копирайтер». Ночью только открытый месяц по поясу агентства (в ночь на 1-е это уже новый месяц), закрытые не трогаем; ручное обновление и backfill: месяц конца периода, в том числе закрытый |
+| `bitrix24_works` | `bitrix24` | `completed_works` | Отчёты: список `{{bitrix24.worklist}}` (закрытые пункты чек-листа задачи месяца + комментарии 💪 при включённом разборе). Порядок как в чек-листе (`Bitrix24ChecklistTree` по `SORT_INDEX` и `PARENT_ID`), не по дате галочки; вложенные пункты с `depth` сдвигаются вправо в Word (`w:ind`). Незакрытая группа вроде «Чек-лист 1» сама в отчёт не попадает и не увеличивает отступ детей. Год в названии читается и после скобок (`сентябрь (1) 2022`), чтобы старая задача не попала в отчёт другого года. Если тег в абзаце (маркер списка), `ListHandler` копирует абзац (`ReportTemplateProcessor::cloneParagraph`); если в строке таблицы - `cloneRow`. Месяц задачи сравнивается как календарный `Y-m` (`Bitrix24TaskSelection::monthInRange`), без `lt`/`gt` по поясам приложения и агентства. `completed_works.title` - TEXT, чтобы длинные пункты чек-листа не обрезались |
+| `yandex_metrika` | `yandex_metrika` | `yandex_metrika_*` (суммы за месяц) | Отчёты, переменные `ym.*`. Все включённые отчёты проекта за один item. Ночью: месяц вчерашней даты с 1-го числа по вчера (`YandexMetrikaSyncPeriod->nightly`), не раньше месяца `sync_enabled_at`, прошлые месяцы не перекачиваются. Ручное обновление из Каналов/Статистики: выбранный период как есть (`requestedRange`), без отсечки по `sync_enabled_at`. Команда `metrika:sync` / backfill: с месяца `sync_enabled_at` по сегодня (`range`) |
+| `google_sheets` | `google_sheets` | `google_sheets_monthly_spendings` | Каналы: «Программинг», «Копирайтер». Ссылка на таблицу и ключ служебной учётки - на уровне агентства; в клиенто-проекте только `is_enabled` + `sync_enabled_at`. Для типа `seo_promotion` интеграция включается по умолчанию (форма и миграция для проектов без строки); уже выключенные руками не трогаем. После удаления из формы сохраняется выключенный маркер `manually_removed`, чтобы SEO-автоподстановка не вернула карточку после сохранения. Строки листов «Программинг» / «Копирайтинг» сопоставляются по URL сайта проекта. Ночью только открытый месяц по поясу агентства (в ночь на 1-е это уже новый месяц), закрытые не трогаем; ручное обновление и backfill: месяц конца периода, в том числе закрытый. Сбой листа: старые цифры листа сохраняются, шаг съёма считается ошибкой (`recordFailure` + одно уведомление `integrations.sync_failed`); отдельные «Перестали поступать данные…» по листам не создаём. Ошибка доступа (нет шаринга / нет ключа): «Откройте таблицу на почту служебной учётки» |
 
-**Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни — пересчёт агрегата из уже сохранённых `serp_positions`. Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`.
+**Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни - пересчёт агрегата из уже сохранённых `serp_positions`. Если в периоде есть дни раньше вчера и среди обновляемых проектов есть Search API, после обновления в Каналах/Статистике к уведомлению добавляется пояснение (`WithReportDataRefresh::searchApiHistoricalRefreshNote`). Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`. Word-отчёт: строки `yandex_search.phrase[N]` / `position[N]` из активных `serp_tasks`; если задач нет, фразы берутся из `settings.regions[].phrases`, позиция `-`. Доли ТОП-3/5/10 без числовых позиций тоже `-`, а не `0%`.
 
 Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Отдельные `Schedule::command` для интеграций не заводим: ночью всё идёт через `integrations:dispatch-due-syncs`. Команды `metrika:sync {report}` и `google-sheets:sync-spendings` остались только для ручного запуска.
 
-Staging: cron `schedule:run` + Supervisor `queue:work`. Расписание в `bootstrap/app.php` → `withSchedule()`.
+Staging: cron `schedule:run` + Supervisor `queue:work --sleep=1 --tries=1 --timeout=600` (10 мин на одну ручную задачу проекта; ночной `ProcessIntegrationSyncItem` сам задаёт `$timeout = 600`, те же 10 минут). Расписание в `bootstrap/app.php` → `withSchedule()`.
 
 ### Диагностика пропусков
 
 Ячейка `-` = нет строки в дневной таблице за день (нуль пишется как `0` / `0.00`).
 
 ```sql
--- Direct
+-- Direct (расход по аккаунту)
 SELECT date, cost_without_vat, cost_with_vat
 FROM yandex_direct_daily_spendings
 WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
 ORDER BY date;
+
+-- Direct (кампании для отчёта)
+SELECT date, campaign_id, campaign_name, impressions, clicks, cost_with_vat
+FROM yandex_direct_campaign_stats
+WHERE project_id = ? AND date BETWEEN 'YYYY-MM-DD' AND 'YYYY-MM-DD'
+ORDER BY date, campaign_id;
 
 -- Callibri
 SELECT date, leads_count

@@ -5,11 +5,13 @@ namespace App\Repositories;
 use App\Data\Accounting\WorkActData;
 use App\Models\SaoPerformedWorkAct;
 use App\Repositories\Interfaces\WorkActRepositoryInterface;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Spatie\LaravelData\DataCollection;
 
 class WorkActRepository implements WorkActRepositoryInterface
 {
-    public function upsertWorkAct(WorkActData $data, ?int $projectId): \App\Models\SaoPerformedWorkAct
+    public function upsertWorkAct(WorkActData $data, ?int $projectId): SaoPerformedWorkAct
     {
         return SaoPerformedWorkAct::updateOrCreate(
             ['number' => $data->actNumber],
@@ -19,7 +21,7 @@ class WorkActRepository implements WorkActRepositoryInterface
                 'price' => $data->total,
                 'customer_inn' => $data->company->inn,
                 'contract_number' => $data->company->contractNumber,
-                'customer_additional_number' => $data->company->additionalNumbers
+                'customer_additional_number' => $data->company->additionalNumbers,
             ]
         );
     }
@@ -33,8 +35,18 @@ class WorkActRepository implements WorkActRepositoryInterface
                 'name' => $item->name,
                 'quantity' => $item->count,
                 'unit' => $item->unit,
-                'price' => $item->price
+                'price' => $item->price,
             ]);
         }
+    }
+
+    public function getByCreationMonth(Carbon $month): Collection
+    {
+        $from = $month->copy()->startOfMonth()->toDateString();
+        $to = $month->copy()->endOfMonth()->toDateString();
+
+        return SaoPerformedWorkAct::query()
+            ->whereBetween('creation_date', [$from, $to])
+            ->get();
     }
 }

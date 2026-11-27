@@ -3,17 +3,21 @@
 namespace Src\Infrastructure\Persistence\Eloquent;
 
 use App\Models\YandexMetrikaGoalConversion as EloquentYandexMetrikaGoalConversion;
+use App\Models\YandexMetrikaGoalDirectCampaign as EloquentYandexMetrikaGoalDirectCampaign;
 use App\Models\YandexMetrikaGoalDirectSummary as EloquentYandexMetrikaGoalDirectSummary;
 use App\Models\YandexMetrikaGoalUtm as EloquentYandexMetrikaGoalUtm;
+use App\Models\YandexMetrikaSearchEngineGoal as EloquentYandexMetrikaSearchEngineGoal;
 use App\Models\YandexMetrikaSearchEnginesStats as EloquentYandexMetrikaSearchEnginesStats;
 use App\Models\YandexMetrikaVisitsGeo as EloquentYandexMetrikaVisitsGeo;
 use App\Models\YandexMetrikaVisitsSearchQueries as EloquentYandexMetrikaVisitsSearchQueries;
 use Carbon\Carbon;
 use Src\Domain\ValueObjects\DateTimeRange;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalConversion;
+use Src\Domain\YandexMetrika\YandexMetrikaGoalDirectCampaign;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalDirectSummary;
 use Src\Domain\YandexMetrika\YandexMetrikaGoalUtm;
 use Src\Domain\YandexMetrika\YandexMetrikaRepositoryInterface;
+use Src\Domain\YandexMetrika\YandexMetrikaSearchEngineGoal;
 use Src\Domain\YandexMetrika\YandexMetrikaSearchEnginesStats;
 use Src\Domain\YandexMetrika\YandexMetrikaVisitsGeo;
 use Src\Domain\YandexMetrika\YandexMetrikaVisitsSearchQueries;
@@ -25,8 +29,21 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
      */
     public function getSearchEnginesStats(int $projectId, DateTimeRange $period): array
     {
+        return $this->getSearchEnginesStatsForProjects([$projectId], $period);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getSearchEnginesStatsForProjects(array $projectIds, DateTimeRange $period): array
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
         $query = EloquentYandexMetrikaSearchEnginesStats::query()
-            ->where('project_id', '=', $projectId);
+            ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
             $query->where('month', '>=', $period->start->format('Y-m-01'));
@@ -37,7 +54,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaSearchEnginesStats $stats) => $this->mapSearchEnginesStatsToEntity($stats))
+            ->map(fn (EloquentYandexMetrikaSearchEnginesStats $stats) => $this->mapSearchEnginesStatsToEntity($stats))
             ->toArray();
     }
 
@@ -46,8 +63,21 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
      */
     public function getGoalUtmStats(int $projectId, DateTimeRange $period): array
     {
+        return $this->getGoalUtmStatsForProjects([$projectId], $period);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getGoalUtmStatsForProjects(array $projectIds, DateTimeRange $period): array
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
         $query = EloquentYandexMetrikaGoalUtm::query()
-            ->where('project_id', '=', $projectId);
+            ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
             $query->where('achieved_date', '>=', $period->start->format('Y-m-d'));
@@ -58,7 +88,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaGoalUtm $model) => $this->mapGoalUtmToEntity($model))
+            ->map(fn (EloquentYandexMetrikaGoalUtm $model) => $this->mapGoalUtmToEntity($model))
             ->toArray();
     }
 
@@ -79,7 +109,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaGoalConversion $model) => $this->mapGoalConversionToEntity($model))
+            ->map(fn (EloquentYandexMetrikaGoalConversion $model) => $this->mapGoalConversionToEntity($model))
             ->toArray();
     }
 
@@ -100,7 +130,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaVisitsGeo $model) => $this->mapVisitsGeoToEntity($model))
+            ->map(fn (EloquentYandexMetrikaVisitsGeo $model) => $this->mapVisitsGeoToEntity($model))
             ->toArray();
     }
 
@@ -121,7 +151,28 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaVisitsSearchQueries $model) => $this->mapVisitsSearchQueriesToEntity($model))
+            ->map(fn (EloquentYandexMetrikaVisitsSearchQueries $model) => $this->mapVisitsSearchQueriesToEntity($model))
+            ->toArray();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getSearchEngineGoals(int $projectId, DateTimeRange $period): array
+    {
+        $query = EloquentYandexMetrikaSearchEngineGoal::query()
+            ->where('project_id', '=', $projectId);
+
+        if ($period->start !== null) {
+            $query->where('month', '>=', $period->start->format('Y-m-01'));
+        }
+
+        if ($period->end !== null) {
+            $query->where('month', '<=', $period->end->format('Y-m-01'));
+        }
+
+        return $query->get()
+            ->map(fn (EloquentYandexMetrikaSearchEngineGoal $model) => $this->mapSearchEngineGoalToEntity($model))
             ->toArray();
     }
 
@@ -152,6 +203,33 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
             'visits' => 0,
             'conversions' => $conversions,
         ]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function upsertSearchEngineGoal(
+        int $projectId,
+        string $searchEngine,
+        int $goalId,
+        string $goalName,
+        string $month,
+        int $conversions
+    ): void {
+        $monthKey = Carbon::parse($month)->startOfMonth()->format('Y-m-d');
+
+        EloquentYandexMetrikaSearchEngineGoal::query()->updateOrCreate(
+            [
+                'project_id' => $projectId,
+                'search_engine' => $searchEngine,
+                'goal_id' => $goalId,
+                'month' => $monthKey,
+            ],
+            [
+                'goal_name' => $goalName,
+                'conversions' => $conversions,
+            ]
+        );
     }
 
     /**
@@ -226,6 +304,46 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
     /**
      * {@inheritdoc}
      */
+    public function upsertVisitsGeo(
+        int $projectId,
+        string $city,
+        string $month,
+        string $visitsMetric,
+        int $value
+    ): void {
+        $monthKey = Carbon::parse($month)->startOfMonth()->format('Y-m-d');
+        $isUsers = $visitsMetric === 'users';
+
+        $existing = EloquentYandexMetrikaVisitsGeo::query()
+            ->where('project_id', $projectId)
+            ->where('city', $city)
+            ->where('month', $monthKey)
+            ->first();
+
+        if ($existing !== null) {
+            if ($isUsers) {
+                $existing->visitors = $value;
+            } else {
+                $existing->visits = $value;
+            }
+            $existing->save();
+
+            return;
+        }
+
+        EloquentYandexMetrikaVisitsGeo::query()->create([
+            'project_id' => $projectId,
+            'city' => $city,
+            'month' => $monthKey,
+            'visits' => $isUsers ? 0 : $value,
+            'visitors' => $isUsers ? $value : 0,
+            'goal_reaches' => 0,
+        ]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function replaceGoalUtmRows(int $projectId, string $dateFrom, string $dateTo, array $rows): void
     {
         EloquentYandexMetrikaGoalUtm::query()
@@ -278,8 +396,21 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
      */
     public function getGoalDirectSummaryStats(int $projectId, DateTimeRange $period): array
     {
+        return $this->getGoalDirectSummaryStatsForProjects([$projectId], $period);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function getGoalDirectSummaryStatsForProjects(array $projectIds, DateTimeRange $period): array
+    {
+        $projectIds = array_values(array_unique(array_map('intval', $projectIds)));
+        if ($projectIds === []) {
+            return [];
+        }
+
         $query = EloquentYandexMetrikaGoalDirectSummary::query()
-            ->where('project_id', '=', $projectId);
+            ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
             $query->where('month', '>=', $period->start->format('Y-m-01'));
@@ -290,7 +421,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
 
         return $query->get()
-            ->map(fn(EloquentYandexMetrikaGoalDirectSummary $model) => $this->mapGoalDirectSummaryToEntity($model))
+            ->map(fn (EloquentYandexMetrikaGoalDirectSummary $model) => $this->mapGoalDirectSummaryToEntity($model))
             ->toArray();
     }
 
@@ -313,9 +444,56 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         }
     }
 
+    /**
+     * {@inheritdoc}
+     */
+    public function getGoalDirectCampaignStats(int $projectId, DateTimeRange $period): array
+    {
+        $query = EloquentYandexMetrikaGoalDirectCampaign::query()
+            ->where('project_id', '=', $projectId);
+
+        if ($period->start !== null) {
+            $query->where('month', '>=', $period->start->format('Y-m-01'));
+        }
+
+        if ($period->end !== null) {
+            $query->where('month', '<=', $period->end->format('Y-m-01'));
+        }
+
+        return $query->get()
+            ->map(fn (EloquentYandexMetrikaGoalDirectCampaign $model) => $this->mapGoalDirectCampaignToEntity($model))
+            ->toArray();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function upsertGoalDirectCampaigns(int $projectId, array $rows): void
+    {
+        foreach ($rows as $row) {
+            EloquentYandexMetrikaGoalDirectCampaign::query()->updateOrCreate(
+                [
+                    'project_id' => $projectId,
+                    'goal_name' => $row['goal_name'],
+                    'campaign_id' => $row['campaign_id'],
+                    'month' => $row['month'],
+                ],
+                [
+                    'campaign_name' => $row['campaign_name'],
+                    'conversions' => $row['conversions'],
+                ]
+            );
+        }
+    }
+
     private function mapSearchEnginesStatsToEntity(EloquentYandexMetrikaSearchEnginesStats $stats): YandexMetrikaSearchEnginesStats
     {
         return YandexMetrikaSearchEnginesStats::restore($stats->toArray());
+    }
+
+    private function mapSearchEngineGoalToEntity(EloquentYandexMetrikaSearchEngineGoal $model): YandexMetrikaSearchEngineGoal
+    {
+        return YandexMetrikaSearchEngineGoal::restore($model->toArray());
     }
 
     private function mapGoalUtmToEntity(EloquentYandexMetrikaGoalUtm $model): YandexMetrikaGoalUtm
@@ -331,6 +509,11 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
     private function mapGoalDirectSummaryToEntity(EloquentYandexMetrikaGoalDirectSummary $model): YandexMetrikaGoalDirectSummary
     {
         return YandexMetrikaGoalDirectSummary::restore($model->toArray());
+    }
+
+    private function mapGoalDirectCampaignToEntity(EloquentYandexMetrikaGoalDirectCampaign $model): YandexMetrikaGoalDirectCampaign
+    {
+        return YandexMetrikaGoalDirectCampaign::restore($model->toArray());
     }
 
     private function mapVisitsGeoToEntity(EloquentYandexMetrikaVisitsGeo $model): YandexMetrikaVisitsGeo

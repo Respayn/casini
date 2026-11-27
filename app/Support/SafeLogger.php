@@ -97,6 +97,33 @@ class SafeLogger
         return $clean;
     }
 
+    /**
+     * Ошибка доступа к внешней интеграции: ключ отозвали, протух или сервис отклонил OAuth.
+     */
+    public static function isIntegrationAccessError(string $message): bool
+    {
+        $haystack = self::unwrap($message);
+
+        if ($haystack === '') {
+            return false;
+        }
+
+        return str_contains($haystack, 'invalid_grant')
+            || str_contains($haystack, 'expired_token')
+            || str_contains($haystack, 'error_code":"53')
+            || str_contains($haystack, 'error_code":53')
+            || str_contains($haystack, 'Недействительный OAuth')
+            || str_contains($haystack, 'Authentication failed')
+            || str_contains($haystack, 'Failed to refresh')
+            || str_contains($haystack, 'OAuth refresh token is missing')
+            || str_contains($haystack, 'service account key is missing')
+            || str_contains($haystack, 'PERMISSION_DENIED')
+            || str_contains($haystack, 'ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+            || str_contains($haystack, 'The caller does not have permission')
+            || str_contains($haystack, 'Unauthorized')
+            || preg_match('/\b401\b/', $haystack) === 1;
+    }
+
     public static function isYandexDirectAuthError(Throwable $e): bool
     {
         $haystack = $e->getMessage();
@@ -113,11 +140,7 @@ class SafeLogger
             return true;
         }
 
-        return str_contains($haystack, 'error_code":"53')
-            || str_contains($haystack, 'Недействительный OAuth')
-            || str_contains($haystack, 'Authentication failed')
-            || str_contains($haystack, 'invalid_grant')
-            || str_contains($haystack, 'expired_token');
+        return self::isIntegrationAccessError($haystack);
     }
 
     private static function isGenericExpenseMessage(string $message): bool
