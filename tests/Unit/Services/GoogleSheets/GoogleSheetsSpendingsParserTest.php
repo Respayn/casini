@@ -59,6 +59,30 @@ class GoogleSheetsSpendingsParserTest extends TestCase
     }
 
     #[Test]
+    public function it_does_not_treat_old_two_digit_year_dates_as_current_month(): void
+    {
+        // Регрессия: Carbon::parse('06.07.23') давал «сегодня», и в ноябре
+        // в сумму попадали все старые строки с датой вида дд.мм.гг.
+        $rows = [
+            ['Проект', 'Статус оплаты', 'Объём ИТОГО', 'Итоговый ценник'],
+            ['example.com', '06.07.23', '6', '6000'],
+            ['example.com', '09.11.23', '6', '6000'],
+            ['example.com', '10.09.26', '0', '18000'],
+            ['example.com', '06.11.26', '0', '9000'],
+            ['example.com', '15.11.2026', '2', '3000'],
+        ];
+
+        $result = $this->parser->parseProgrammingSheet(
+            $rows,
+            Carbon::parse('2026-11-01'),
+            self::PROJECT_URL,
+        );
+
+        $this->assertSame(2.0, $result['hours']);
+        $this->assertSame(12000.0, $result['sum']);
+    }
+
+    #[Test]
     public function it_returns_zero_when_no_rows_match_month(): void
     {
         $rows = [

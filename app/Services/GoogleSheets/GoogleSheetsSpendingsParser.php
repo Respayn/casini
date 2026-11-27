@@ -231,26 +231,46 @@ class GoogleSheetsSpendingsParser
         }
 
         $string = trim((string) $value);
+        $date = $this->parseSheetDate($string);
 
-        foreach (['d.m.Y', 'd.m.y', 'Y-m-d', 'd/m/Y'] as $format) {
+        if ($date === null) {
+            return false;
+        }
+
+        return $date->year === $month->year && $date->month === $month->month;
+    }
+
+    /**
+     * Только явные форматы даты из колонки «Статус оплаты».
+     * Без Carbon::parse: для строк вроде «06.07.23» он даёт «сегодня» и
+     * все старые записи с двузначным годом ошибочно попадают в текущий месяц.
+     */
+    private function parseSheetDate(string $value): ?Carbon
+    {
+        foreach (['d.m.Y', 'd.m.y', 'j.n.Y', 'j.n.y', 'Y-m-d', 'd/m/Y'] as $format) {
             try {
-                $date = Carbon::createFromFormat($format, $string);
-
-                if ($date && $date->year === $month->year && $date->month === $month->month) {
-                    return true;
-                }
+                $date = Carbon::createFromFormat('!'.$format, $value);
             } catch (\Throwable) {
                 continue;
             }
+
+            if (! $date instanceof Carbon) {
+                continue;
+            }
+
+            $errors = Carbon::getLastErrors();
+            if (($errors['warning_count'] ?? 0) > 0 || ($errors['error_count'] ?? 0) > 0) {
+                continue;
+            }
+
+            if ($date->format($format) !== $value) {
+                continue;
+            }
+
+            return $date;
         }
 
-        try {
-            $date = Carbon::parse($string);
-
-            return $date->year === $month->year && $date->month === $month->month;
-        } catch (\Throwable) {
-            return false;
-        }
+        return null;
     }
 
     private function parseNumber(mixed $value): float
