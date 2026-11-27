@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
 use App\Support\SharedProductFilters;
 use App\Support\SidebarProjectAccess;
@@ -7,6 +8,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
+use Livewire\Attributes\Session;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Src\Planning\Application\ProjectPlanService;
@@ -29,6 +31,15 @@ new
          * Галочка «НДС»: показ/ввод бюджета, CPL, CPC с НДС 22% (в базе всегда без НДС).
          */
         public bool $includeVat = false;
+
+        /**
+         * Группировка таблицы: none | clients | project_type (как в Каналах).
+         */
+        #[Session(key: 'planning_report_grouping')]
+        public string $grouping = 'none';
+
+        /** Черновик группировки в модалке «Настроить отчет». */
+        public string $groupingDraft = 'none';
 
         public array $tableData = [];
 
@@ -64,7 +75,90 @@ new
             $this->loadedYear = $this->year;
             $this->showInactive = SharedProductFilters::resolveShowInactive($this->showInactive);
             $this->includeVat = SharedProductFilters::resolveIncludeVat($this->includeVat);
+            $this->sanitizeGrouping();
+            $this->groupingDraft = $this->grouping;
             $this->loadTableData();
+        }
+
+        public function openReportSettings(): void
+        {
+            $this->sanitizeGrouping();
+            $this->groupingDraft = $this->grouping;
+        }
+
+        public function applyReportGrouping(): void
+        {
+            $this->groupingDraft = $this->normalizeGrouping($this->groupingDraft);
+            $this->grouping = $this->groupingDraft;
+            unset($this->planGroups, $this->isFlatGroupingView);
+        }
+
+        public function cancelReportSettings(): void
+        {
+            $this->groupingDraft = $this->grouping;
+        }
+
+        private function sanitizeGrouping(): void
+        {
+            $this->grouping = $this->normalizeGrouping($this->grouping);
+        }
+
+        private function normalizeGrouping(string $value): string
+        {
+            return match ($value) {
+                ChannelReportGrouping::CLIENTS->value,
+                ChannelReportGrouping::PROJECT_TYPE->value => $value,
+                default => ChannelReportGrouping::NONE->value,
+            };
+        }
+
+        #[Computed]
+        public function isFlatGroupingView(): bool
+        {
+            return $this->sidebarProjectId !== null
+                || $this->grouping === ChannelReportGrouping::NONE->value;
+        }
+
+        /**
+         * @return list<array{label: ?string, rows: list<array{index: int, data: array}}}>
+         */
+        #[Computed]
+        public function planGroups(): array
+        {
+            $rows = [];
+            foreach ($this->tableData as $index => $row) {
+                $rows[] = [
+                    'index' => (int) $index,
+                    'data' => $row,
+                ];
+            }
+
+            if ($this->isFlatGroupingView) {
+                return [[
+                    'label' => null,
+                    'rows' => $rows,
+                ]];
+            }
+
+            $field = $this->grouping === ChannelReportGrouping::CLIENTS->value
+                ? 'client_name'
+                : 'department';
+
+            $grouped = [];
+            foreach ($rows as $item) {
+                $label = (string) ($item['data'][$field] ?? '-');
+                $grouped[$label][] = $item;
+            }
+
+            $result = [];
+            foreach ($grouped as $label => $groupRows) {
+                $result[] = [
+                    'label' => $label,
+                    'rows' => $groupRows,
+                ];
+            }
+
+            return $result;
         }
 
         public function loadTableData()
@@ -110,6 +204,7 @@ new
             }
 
             $this->loadTableData();
+            unset($this->planGroups, $this->isFlatGroupingView);
         }
 
         public function updatedYear(int $value): void

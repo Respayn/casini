@@ -162,7 +162,7 @@
                                         <div class="flex cursor-pointer items-center gap-2"
                                             x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']">
                                             <span class="font-bold">{{ $group->groupLabel }}</span>
-                                            <x-icons.accordion-arrow class="transition-transform duration-200"
+                                            <x-icons.arrow class="transition-transform duration-200"
                                                 x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }" />
                                         </div>
                                     </x-data.table-cell>

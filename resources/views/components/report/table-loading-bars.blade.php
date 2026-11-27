@@ -1,16 +1,17 @@
 {{-- Полоска внутри настоящей ячейки. Отдельная таблица с равными колонками
      не совпадает с шапкой, когда отчёт шире экрана. --}}
 <style>
-    .report-table-loading tbody td:not(:has(table)) {
+    /* Шапка группы (название + стрелка) без полоски: иначе одна длинная «ёлка» на всю ширину. */
+    .report-table-loading tbody td:not(:has(table)):not(.report-group-header-cell) {
         position: relative;
         color: transparent !important;
     }
 
-    .report-table-loading tbody td:not(:has(table)) > * {
+    .report-table-loading tbody td:not(:has(table)):not(.report-group-header-cell) > * {
         visibility: hidden;
     }
 
-    .report-table-loading tbody td:not(:has(table))::after {
+    .report-table-loading tbody td:not(:has(table)):not(.report-group-header-cell)::after {
         content: "";
         position: absolute;
         left: 10px;

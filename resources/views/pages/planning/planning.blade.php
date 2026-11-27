@@ -82,7 +82,19 @@
 
     {{-- Шапка компонента --}}
     <div class="mb-7 flex items-center justify-between gap-3">
-        <h1>Планирование</h1>
+        <div class="flex items-center gap-2">
+            <h1>Планирование</h1>
+            <x-overlay.modal-trigger name="planning-report-settings-modal" wire:click="openReportSettings">
+                <button
+                    type="button"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-secondary-text transition hover:text-primary disabled:cursor-not-allowed"
+                    title="Настроить отчет"
+                    aria-label="Настроить отчет"
+                >
+                    <x-icons.settings />
+                </button>
+            </x-overlay.modal-trigger>
+        </div>
         <div class="flex items-center">
             <x-button.button icon="icons.save" label="Сохранить изменения" variant="primary"
                 loading="save" :disabled="!$hasChanges" wire:click="save" />
@@ -105,7 +117,7 @@
         <div class="relative">
             <div
                 wire:loading
-                wire:target="year,showInactive,includeVat"
+                wire:target="year,showInactive,includeVat,applyReportGrouping"
                 class="absolute inset-0 z-10"
                 style="cursor: wait"
             ></div>
@@ -119,7 +131,7 @@
         class="relative mt-3"
         style="min-height: 240px"
         wire:loading.class="report-table-loading"
-        wire:target="year,showInactive,includeVat"
+        wire:target="year,showInactive,includeVat,applyReportGrouping,onSidebarProjectSelected,onSidebarProjectCleared,clearSidebarProjectFilter"
     >
             @if (empty($tableData))
                 <div class="mt-20 flex flex-col items-center gap-4">
@@ -129,6 +141,11 @@
                     </div>
                 </div>
             @else
+                @php $isFlatView = $this->isFlatGroupingView; @endphp
+                <div
+                    wire:key="planning-groups-{{ $isFlatView ? 'flat' : $grouping }}"
+                    x-data="{ expandedGroups: {}, isFlat: {{ $isFlatView ? 'true' : 'false' }} }"
+                >
                 <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                     <x-data.table>
                     <x-data.table-columns>
@@ -219,12 +236,77 @@
                     </x-data.table-columns>
 
                     <x-data.table-rows>
-                        @foreach ($tableData as $projectPlan)
+                        @php
+                            $clientProjectStripe = 0;
+                        @endphp
+                        @foreach ($this->planGroups as $groupIndex => $group)
+                            @unless ($isFlatView || $group['label'] === null)
+                                @php $groupRowCount = count($group['rows']); @endphp
+                                <x-data.table-row wire:key="planning-group.{{ $groupIndex }}.name">
+                                    <x-data.table-cell class="report-group-header-cell" colspan="100">
+                                        <div
+                                            class="flex cursor-pointer items-center gap-2"
+                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
+                                        >
+                                            <span class="font-bold">{{ $group['label'] }}</span>
+                                            <x-icons.arrow
+                                                class="transition-transform duration-200"
+                                                x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }"
+                                            />
+                                        </div>
+                                    </x-data.table-cell>
+                                </x-data.table-row>
+                                <x-data.table-row wire:key="planning-group.{{ $groupIndex }}.summary">
+                                    <x-data.table-cell class="bg-table-summary-bg whitespace-nowrap font-bold">
+                                        Итого: {{ $groupRowCount }}
+                                    </x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg font-bold">
+                                        Итого: {{ $groupRowCount }}
+                                    </x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                </x-data.table-row>
+                            @endunless
+                            @foreach ($group['rows'] as $item)
                                         @php
-                                            $rowIndex = $loop->index;
-                                            $rowBgColor = $rowIndex % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                            $rowIndex = $item['index'];
+                                            $projectPlan = $item['data'];
+                                            $rowBgColor = $clientProjectStripe % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                            $clientProjectStripe++;
                                         @endphp
-                                        <x-data.table-row class="h-px" :bg-color="$rowBgColor">
+                                        <x-data.table-row
+                                            class="h-px"
+                                            :bg-color="$rowBgColor"
+                                            wire:key="planning-row.{{ $rowIndex }}"
+                                            x-show="isFlat || expandedGroups['group-{{ $groupIndex }}']"
+                                        >
                                             <x-data.table-cell>
                                                 <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
                                                     wire:navigate>
@@ -409,12 +491,51 @@
                                                 </x-data.table-cell>
                                             @endif
                                         </x-data.table-row>
+                            @endforeach
                         @endforeach
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.scroll-panel>
+                </div>
             @endif
     </div>
+
+    <x-overlay.modal name="planning-report-settings-modal" title="Настроить отчет">
+        <x-slot:body>
+            <div style="min-width: 600px">
+                <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
+                    <x-form.form-field>
+                        <x-form.form-label>Сгруппировать отчет</x-form.form-label>
+                        <div>
+                            <x-form.select
+                                wire:model="groupingDraft"
+                                :options="[
+                                    ['label' => 'Без группировки', 'value' => 'none'],
+                                    ['label' => 'По клиентам', 'value' => 'clients'],
+                                    ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
+                                ]"
+                            />
+                        </div>
+                    </x-form.form-field>
+                </x-form.form>
+
+                <div class="mt-7 flex justify-between">
+                    <x-button
+                        icon="icons.check"
+                        label="Применить"
+                        variant="primary"
+                        wire:click="applyReportGrouping"
+                        x-on:click="$dispatch('modal-hide', { name: 'planning-report-settings-modal' })"
+                    />
+                    <x-button
+                        label="Отмена"
+                        wire:click="cancelReportSettings"
+                        x-on:click="$dispatch('modal-hide', { name: 'planning-report-settings-modal' })"
+                    />
+                </div>
+            </div>
+        </x-slot>
+    </x-overlay.modal>
 
     <x-overlay.modal name="planning-leave-guard" title="Выйти без сохранения?">
         <x-slot:body>

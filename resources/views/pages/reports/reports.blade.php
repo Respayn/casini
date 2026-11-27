@@ -1,8 +1,11 @@
-<div x-data x-init="
+<div
+    x-data
+    x-init="
         @if($pendingDownloadId)
             $nextTick(() => $wire.download({{ $pendingDownloadId }}))
         @endif
-    ">
+    "
+>
     <x-layout.sidebar-filter-hint />
 
     @foreach ($generationWarnings as $warning)
@@ -11,7 +14,19 @@
 
     {{-- Шапка компонента --}}
     <div class="mb-7 flex items-center justify-between gap-3">
-        <h1>Отчеты</h1>
+        <div class="flex items-center gap-2">
+            <h1>Отчеты</h1>
+            <x-overlay.modal-trigger name="reports-report-settings-modal" wire:click="openReportSettings">
+                <button
+                    type="button"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-secondary-text transition hover:text-primary disabled:cursor-not-allowed"
+                    title="Настроить отчет"
+                    aria-label="Настроить отчет"
+                >
+                    <x-icons.settings />
+                </button>
+            </x-overlay.modal-trigger>
+        </div>
         <div class="flex items-center gap-2.5">
             @if (auth()->user()?->can('read report templates') || auth()->user()?->can('edit report templates') || auth()->user()?->can('full report templates'))
                 <x-button.button href="{{ route('reports.templates') }}" label="Шаблоны отчетов" />
@@ -25,7 +40,7 @@
 
     {{-- Фильтры --}}
     @php
-        $reportLoadingTargets = 'showInactiveProjects, periodFrom, periodTo, applyColumnSettings, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+        $reportLoadingTargets = 'showInactiveProjects, periodFrom, periodTo, applyColumnSettings, applyReportGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
     @endphp
     <div
         class="flex flex-wrap items-center gap-y-3"
@@ -58,7 +73,11 @@
             @endif
         </div>
     @else
-        <div>
+        @php $isFlatView = $this->isFlatGroupingView; @endphp
+        <div
+            wire:key="reports-groups-{{ $isFlatView ? 'flat' : $grouping }}"
+            x-data="{ expandedGroups: {}, isFlat: {{ $isFlatView ? 'true' : 'false' }} }"
+        >
             <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                 <x-data.table class="w-full">
                     <x-data.table-columns>
@@ -67,8 +86,44 @@
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
-                        @foreach ($this->reports as $report)
-                            <x-data.table-row>
+                        @foreach ($this->reportGroups as $groupIndex => $group)
+                            @unless ($isFlatView || $group['label'] === null)
+                                @php $groupRowCount = count($group['rows']); @endphp
+                                <x-data.table-row wire:key="reports-group.{{ $groupIndex }}.name">
+                                    <x-data.table-cell class="report-group-header-cell" colspan="100">
+                                        <div
+                                            class="flex cursor-pointer items-center gap-2"
+                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
+                                        >
+                                            <span class="font-bold">{{ $group['label'] }}</span>
+                                            <x-icons.arrow
+                                                class="transition-transform duration-200"
+                                                x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }"
+                                            />
+                                        </div>
+                                    </x-data.table-cell>
+                                </x-data.table-row>
+                                <x-data.table-row wire:key="reports-group.{{ $groupIndex }}.summary">
+                                    @foreach ($this->visibleColumns as $column)
+                                        @if (in_array($column['key'], ['client', 'project'], true))
+                                            <x-data.table-cell @class([
+                                                'bg-table-summary-bg',
+                                                'font-bold',
+                                                'whitespace-nowrap' => $column['key'] === 'client',
+                                            ])>
+                                                Итого: {{ $groupRowCount }}
+                                            </x-data.table-cell>
+                                        @else
+                                            <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                        @endif
+                                    @endforeach
+                                </x-data.table-row>
+                            @endunless
+                            @foreach ($group['rows'] as $report)
+                            <x-data.table-row
+                                wire:key="report-row.{{ $report->reportId }}"
+                                x-show="isFlat || expandedGroups['group-{{ $groupIndex }}']"
+                            >
                                 @foreach ($this->visibleColumns as $column)
                                     @switch($column['key'])
                                         @case('date')
@@ -95,7 +150,7 @@
                                         @break
 
                                         @case('channel')
-                                            <x-data.table-cell>{{ $report->channel }}</x-data.table-cell>
+                                            <x-data.table-cell>{{ $report->channelGroupLabel }}</x-data.table-cell>
                                         @break
 
                                         @case('project')
@@ -163,6 +218,7 @@
                                     @endswitch
                                 @endforeach
                             </x-data.table-row>
+                            @endforeach
                         @endforeach
                     </x-data.table-rows>
                 </x-data.table>
@@ -172,6 +228,43 @@
     </x-report.table-loading>
 
     <x-column-settings-modal :columns="$columnSettings" />
+
+    <x-overlay.modal name="reports-report-settings-modal" title="Настроить отчет">
+        <x-slot:body>
+            <div style="min-width: 600px">
+                <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
+                    <x-form.form-field>
+                        <x-form.form-label>Сгруппировать отчет</x-form.form-label>
+                        <div>
+                            <x-form.select
+                                wire:model="groupingDraft"
+                                :options="[
+                                    ['label' => 'Без группировки', 'value' => 'none'],
+                                    ['label' => 'По клиентам', 'value' => 'clients'],
+                                    ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
+                                ]"
+                            />
+                        </div>
+                    </x-form.form-field>
+                </x-form.form>
+
+                <div class="mt-7 flex justify-between">
+                    <x-button
+                        icon="icons.check"
+                        label="Применить"
+                        variant="primary"
+                        wire:click="applyReportGrouping"
+                        x-on:click="$dispatch('modal-hide', { name: 'reports-report-settings-modal' })"
+                    />
+                    <x-button
+                        label="Отмена"
+                        wire:click="cancelReportSettings"
+                        x-on:click="$dispatch('modal-hide', { name: 'reports-report-settings-modal' })"
+                    />
+                </div>
+            </div>
+        </x-slot>
+    </x-overlay.modal>
 
     @if ($this->canDeleteReports)
         <x-overlay.modal name="report-delete-confirm" title="Вы уверены?">

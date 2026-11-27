@@ -14,6 +14,8 @@ class ReportListItemDto
         public string $clientName,
         public string $reportId,
         public string $channel,
+        /** Полное имя типа клиенто-проекта для шапки группы (не колонка «Канал»). */
+        public string $channelGroupLabel,
         public int $projectId,
         public string $projectName,
         public DateTimeImmutable $periodStart,

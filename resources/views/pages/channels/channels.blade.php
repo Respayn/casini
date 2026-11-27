@@ -145,7 +145,7 @@
                                             x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
                                         >
                                             <span class="font-bold">{{ $group->groupLabel }}</span>
-                                            <x-icons.accordion-arrow
+                                            <x-icons.arrow
                                                 class="transition-transform duration-200"
                                                 x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }"
                                             />
