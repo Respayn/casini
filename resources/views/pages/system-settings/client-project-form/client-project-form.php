@@ -18,6 +18,7 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\CreateClientProjectForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectBonusGuaranteeForm;
 use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Models\Agency;
+use App\Models\CallibriLead;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
 use App\Models\Report;
@@ -181,9 +182,14 @@ class extends Component
         }
 
         try {
-            Project::query()->whereKey($projectId)->firstOrFail()->delete();
+            DB::transaction(function () use ($projectId): void {
+                $project = Project::query()->whereKey($projectId)->firstOrFail();
+                $project->integrations()->detach();
+                CallibriLead::query()->where('project_id', $projectId)->delete();
+                $project->delete();
+            });
         } catch (QueryException) {
-            $this->deleteError = 'Нельзя удалить клиенто-проект: на него ссылаются отчеты.';
+            $this->deleteError = 'Нельзя удалить клиенто-проект: на него ссылаются другие данные.';
 
             return null;
         }

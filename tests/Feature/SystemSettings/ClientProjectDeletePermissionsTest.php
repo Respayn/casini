@@ -3,9 +3,12 @@
 namespace Tests\Feature\SystemSettings;
 
 use App\Models\Agency;
+use App\Models\CallibriLead;
 use App\Models\Client;
+use App\Models\Integration;
 use App\Models\Project;
 use App\Models\User;
+use Database\Seeders\IntegrationSeeder;
 use Database\Seeders\PermissionSeeder;
 use Database\Seeders\RolesTableSeeder;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -26,6 +29,7 @@ class ClientProjectDeletePermissionsTest extends TestCase
 
         $this->seed(RolesTableSeeder::class);
         $this->seed(PermissionSeeder::class);
+        $this->seed(IntegrationSeeder::class);
     }
 
     public function test_delete_button_hidden_without_full_permission(): void
@@ -113,6 +117,43 @@ class ClientProjectDeletePermissionsTest extends TestCase
             ->assertRedirect(route('system-settings.clients-and-projects'));
 
         $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+    }
+
+    public function test_delete_success_with_integration_and_callibri_leads(): void
+    {
+        $actor = $this->userWithPermissions([
+            'full clients and projects',
+            'edit clients and projects all',
+            'read clients and projects all',
+        ]);
+        $project = $this->createProject($actor);
+        $integration = Integration::query()->where('code', 'callibri')->firstOrFail();
+
+        DB::table('integration_project')->insert([
+            'project_id' => $project->id,
+            'integration_id' => $integration->id,
+            'is_enabled' => true,
+            'settings' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        CallibriLead::query()->create([
+            'project_id' => $project->id,
+            'external_id' => 'lead-delete-test-1',
+            'date' => now(),
+        ]);
+
+        $this->actingAs($actor);
+
+        Livewire::test('pages::system-settings.client-project-form', ['projectId' => $project->id])
+            ->call('deleteClientProject')
+            ->assertSet('deleteError', null)
+            ->assertRedirect(route('system-settings.clients-and-projects'));
+
+        $this->assertDatabaseMissing('projects', ['id' => $project->id]);
+        $this->assertDatabaseMissing('integration_project', ['project_id' => $project->id]);
+        $this->assertDatabaseMissing('callibri_leads', ['project_id' => $project->id]);
     }
 
     private function createProject(User $user): Project
