@@ -60,6 +60,10 @@ class extends Component
 
     public function updatedQueryDataShowInactive(): void
     {
+        if ($this->restoreLockedRefreshSliceFilters()) {
+            return;
+        }
+
         SharedProductFilters::rememberShowInactive($this->queryData->showInactive);
         unset($this->reportData);
     }

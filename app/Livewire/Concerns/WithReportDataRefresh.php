@@ -39,6 +39,8 @@ trait WithReportDataRefresh
 
     public bool $refreshIncludeVat = false;
 
+    public bool $refreshShowInactive = false;
+
     public function mountWithReportDataRefresh(
         IntegrationManualRefreshTimestamp $timestamps,
         IntegrationManualRefreshProgress $progress,
@@ -115,6 +117,7 @@ trait WithReportDataRefresh
             includeVat: (bool) $this->queryData->includeVat,
             withDirectBudget: $this->shouldRefreshDirectBudget(),
             recalculateBonuses: $product === 'statistics' && $this->queryData->isSingleMonthPeriod(),
+            showInactive: (bool) $this->queryData->showInactive,
         );
 
         if (! ($queued['ok'] ?? false)) {
@@ -134,6 +137,7 @@ trait WithReportDataRefresh
         $this->refreshPeriodFrom = $this->queryData->dateFrom->copy()->startOfMonth()->toDateString();
         $this->refreshPeriodTo = $this->queryData->dateTo->copy()->startOfMonth()->toDateString();
         $this->refreshIncludeVat = (bool) $this->queryData->includeVat;
+        $this->refreshShowInactive = (bool) $this->queryData->showInactive;
         unset($this->reportData);
     }
 
@@ -304,13 +308,13 @@ trait WithReportDataRefresh
             && (bool) $this->queryData->includeVat === $this->refreshIncludeVat;
     }
 
-    protected function isManualReportDataRefreshing(): bool
+    public function isManualReportDataRefreshing(): bool
     {
         return $this->isReportDataRefreshing && ! $this->isAutomaticDataRefresh;
     }
 
     /**
-     * НДС и период нельзя менять во время ручного съёма: иначе серые полоски пропадут.
+     * Неактивные, НДС и период нельзя менять во время ручного съёма: иначе серые полоски пропадут.
      * Возвращает true, если запрос нужно игнорировать (съём идёт).
      */
     protected function restoreLockedRefreshSliceFilters(): bool
@@ -325,7 +329,7 @@ trait WithReportDataRefresh
     }
 
     /**
-     * Подтянуть период и НДС экрана к срезу текущего ручного съёма.
+     * Подтянуть период, НДС и «Неактивные» экрана к срезу текущего ручного съёма.
      * Иначе после SharedProductFilters / перезагрузки matchesRefreshSlice молчит,
      * подсказка крутится, а строки показывают старые цифры.
      */
@@ -360,6 +364,11 @@ trait WithReportDataRefresh
             $changed = true;
         }
 
+        if ((bool) $this->queryData->showInactive !== $this->refreshShowInactive) {
+            $this->queryData->showInactive = $this->refreshShowInactive;
+            $changed = true;
+        }
+
         return $changed;
     }
 
@@ -390,6 +399,7 @@ trait WithReportDataRefresh
             ? $state['period_to']
             : null;
         $this->refreshIncludeVat = (bool) ($state['include_vat'] ?? false);
+        $this->refreshShowInactive = (bool) ($state['show_inactive'] ?? false);
 
         $isRunning = ($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_RUNNING;
 
@@ -485,6 +495,7 @@ trait WithReportDataRefresh
         $this->refreshPeriodFrom = null;
         $this->refreshPeriodTo = null;
         $this->refreshIncludeVat = false;
+        $this->refreshShowInactive = false;
 
         $visibleIds = $this->visibleRefreshProjectIdSet();
         $currentProjectId = isset($snapshot['current_project_id']) ? (int) $snapshot['current_project_id'] : 0;
@@ -588,6 +599,7 @@ trait WithReportDataRefresh
         $this->refreshPeriodFrom = null;
         $this->refreshPeriodTo = null;
         $this->refreshIncludeVat = false;
+        $this->refreshShowInactive = false;
     }
 
     private function hydrateRefreshProgressFromCache(

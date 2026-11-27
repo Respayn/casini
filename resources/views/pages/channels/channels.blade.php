@@ -35,7 +35,7 @@
     @php
         $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
         $lockRefreshSlice = $isReportDataRefreshing && ! $isAutomaticDataRefresh;
-        $lockRefreshSliceTitle = 'Пока идёт обновление данных, НДС и период менять нельзя';
+        $lockRefreshSliceTitle = 'Пока идёт обновление данных, неактивные, НДС, период, фильтр и клиенто-проект менять нельзя';
     @endphp
 
     <div
@@ -48,9 +48,15 @@
             wire:poll.30s="pollRefreshProgress"
         @endif
     >
-        <div class="mr-3.5 flex items-center gap-2">
+        <div
+            class="mr-3.5 flex items-center gap-2"
+            @if ($lockRefreshSlice) title="{{ $lockRefreshSliceTitle }}" @endif
+        >
             <label>Неактивные клиенто-проекты:</label>
-            <x-form.checkbox wire:model.live="queryData.showInactive" />
+            <x-form.checkbox
+                wire:model.live="queryData.showInactive"
+                :disabled="$lockRefreshSlice"
+            />
         </div>
 
         <div
