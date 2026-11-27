@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -12,6 +14,13 @@ class YandexSearchApiService
     private const DEFAULT_BASE_URL = 'https://searchapi.api.cloud.yandex.net/v2/web/search';
 
     private const MAX_RESULTS = 100;
+
+    /** Первый запрос + 2 повтора той же фразы при HTTP 429. */
+    private const MAX_ATTEMPTS = 3;
+
+    private const RATE_LIMIT_CACHE_KEY = 'yandex_search_api.rate_limit.next_at_ms';
+
+    private const RATE_LIMIT_LOCK_KEY = 'yandex_search_api.rate_limit.lock';
 
     private ?string $apiKey = null;
 
@@ -73,32 +82,93 @@ class YandexSearchApiService
             ],
         ];
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Api-Key '.$apiKey,
-            'Content-Type' => 'application/json',
-        ])
-            ->timeout($timeout)
-            ->acceptJson()
-            ->post($baseUrl, $payload);
+        $lastException = null;
 
-        if ($response->status() === 429 || $response->serverError()) {
-            throw new RequestException($response);
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
+            $this->waitForRateLimit();
+
+            $response = Http::withHeaders([
+                'Authorization' => 'Api-Key '.$apiKey,
+                'Content-Type' => 'application/json',
+            ])
+                ->timeout($timeout)
+                ->acceptJson()
+                ->post($baseUrl, $payload);
+
+            if ($response->status() === 429) {
+                $lastException = new RequestException($response);
+
+                if ($attempt < self::MAX_ATTEMPTS) {
+                    Log::info('Yandex Search API rate limited, retrying phrase', [
+                        'phrase' => $phrase,
+                        'region_id' => $regionId,
+                        'attempt' => $attempt,
+                    ]);
+
+                    continue;
+                }
+
+                throw $lastException;
+            }
+
+            if ($response->serverError()) {
+                throw new RequestException($response);
+            }
+
+            if (! $response->successful()) {
+                Log::warning('Yandex Search API request failed', [
+                    'status' => $response->status(),
+                    'body' => Str::limit($response->body(), 500),
+                    'phrase' => $phrase,
+                    'region_id' => $regionId,
+                ]);
+
+                throw new \RuntimeException(
+                    'Yandex Search API error HTTP '.$response->status().': '.Str::limit($response->body(), 200)
+                );
+            }
+
+            return $this->parseOrganicResults($response->json() ?? []);
         }
 
-        if (! $response->successful()) {
-            Log::warning('Yandex Search API request failed', [
-                'status' => $response->status(),
-                'body' => Str::limit($response->body(), 500),
-                'phrase' => $phrase,
-                'region_id' => $regionId,
-            ]);
+        throw $lastException ?? new \RuntimeException('Yandex Search API: исчерпаны попытки запроса');
+    }
 
-            throw new \RuntimeException(
-                'Yandex Search API error HTTP '.$response->status().': '.Str::limit($response->body(), 200)
-            );
+    /**
+     * Общая пауза на ключ: Яндекс пускает 1 запрос в секунду.
+     */
+    private function waitForRateLimit(): void
+    {
+        $intervalMs = (int) config('services.yandex_search_api.min_interval_ms', 1100);
+
+        if ($intervalMs <= 0) {
+            return;
         }
 
-        return $this->parseOrganicResults($response->json() ?? []);
+        $store = Cache::getStore();
+
+        if ($store instanceof LockProvider) {
+            Cache::lock(self::RATE_LIMIT_LOCK_KEY, 10)->block(10, function () use ($intervalMs): void {
+                $this->reserveRateLimitSlot($intervalMs);
+            });
+
+            return;
+        }
+
+        $this->reserveRateLimitSlot($intervalMs);
+    }
+
+    private function reserveRateLimitSlot(int $intervalMs): void
+    {
+        $nowMs = (int) floor(microtime(true) * 1000);
+        $nextAtMs = (int) Cache::get(self::RATE_LIMIT_CACHE_KEY, 0);
+
+        if ($nextAtMs > $nowMs) {
+            usleep(($nextAtMs - $nowMs) * 1000);
+            $nowMs = (int) floor(microtime(true) * 1000);
+        }
+
+        Cache::put(self::RATE_LIMIT_CACHE_KEY, $nowMs + $intervalMs, now()->addMinutes(5));
     }
 
     /**

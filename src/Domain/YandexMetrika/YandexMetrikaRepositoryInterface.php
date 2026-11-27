@@ -65,7 +65,23 @@ interface YandexMetrikaRepositoryInterface
     public function getSearchEngineGoals(int $projectId, DateTimeRange $period): array;
 
     /**
+     * Обнуляет конверсии «Поисковые системы» в диапазоне дат (колонка month = день).
+     */
+    public function zeroSearchEnginesConversionsInRange(int $projectId, string $dateFrom, string $dateTo): void;
+
+    /**
+     * Обнуляет визиты «Поисковые системы» в диапазоне дат (колонка month = день).
+     */
+    public function zeroSearchEnginesVisitsInRange(int $projectId, string $dateFrom, string $dateTo): void;
+
+    /**
+     * Удаляет строки «Директ, сводка» в диапазоне дат (колонка month = день).
+     */
+    public function deleteGoalDirectSummaryInRange(int $projectId, string $dateFrom, string $dateTo): void;
+
+    /**
      * Сохраняет конверсии из отчёта «Поисковые системы», не затирая визиты.
+     * $month — календарный день Y-m-d.
      */
     public function upsertSearchEnginesConversions(int $projectId, string $searchEngine, string $month, int $conversions): void;
 
@@ -83,6 +99,7 @@ interface YandexMetrikaRepositoryInterface
 
     /**
      * Сохраняет визиты/переходы из отчёта «Поисковые системы», не затирая конверсии.
+     * $month — календарный день Y-m-d.
      */
     public function upsertSearchEnginesVisits(int $projectId, string $searchEngine, string $month, int $visits): void;
 

@@ -512,7 +512,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 [`YandexMetrikaService::fetchSearchEnginesGoalsStats()`](app/Services/YandexMetrikaService.php) запрашивает Reporting API `stat/v1/data` как отчёт [«Поисковые системы»](https://yandex.ru/support/metrica/ru/sources/search-engines.html) / preset `search_engines`:
 
-- группировка: `ym:s:<attribution>SearchEngineRoot` (один месяц) или `ym:s:<attribution>SearchEngineRoot,ym:s:month` (несколько месяцев);
+- группировка: `ym:s:<attribution>SearchEngineRoot,ym:s:date` (по дням; длинный период режется по календарным месяцам);
 - фильтр источника: `ym:s:<attribution>TrafficSource=='organic'`;
 - метрики: `ym:s:goal{ID}visits` или `ym:s:goal{ID}reaches` по выбранным целям;
 - фильтры этапа 2, timezone и `attribution` — как обычно.
@@ -525,8 +525,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 - проекты с включённой Метрикой, `reports.goals_search_engines`, токеном, счётчиком, целями и `sync_enabled_at`;
 - период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
-- запись в `yandex_metrika_search_engines_stats.conversions` без затирания `visits` (сумма выбранных целей по поисковику);
-- отдельно в `yandex_metrika_search_engine_goals` каждая выбранная цель по Яндексу и Google за каждый месяц съёма, в том числе с нулём. Название цели берётся из `getGoals()` в момент съёма, иначе «Цель {id}».
+- запись в `yandex_metrika_search_engines_stats.conversions` по дням (колонка `month` = календарный день) без затирания `visits`; перед записью конверсии в диапазоне обнуляются;
+- отдельно в `yandex_metrika_search_engine_goals` каждая выбранная цель по Яндексу и Google за каждый месяц съёма (дни складываются), в том числе с нулём. Название цели берётся из `getGoals()` в момент съёма, иначе «Цель {id}».
 
 В Word список целей: `{{ym.goals_yandex.name}}` / `{{ym.goals_yandex.value}}` и `{{ym.goals_google.name}}` / `{{ym.goals_google.value}}` в одной строке таблицы (копируется целиком). Итог ниже: `{{ym.goals_yandex.total}}` и `{{ym.goals_google.total}}`. Месяц в шапке: `{{period_month}}`. В списке только цели, отмеченные в интеграции. Живые таблицы `{{ym.table.goals_search_engines}}`, `.yandex` и `.google` остаются.
 
@@ -640,7 +640,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 [`YandexMetrikaService::fetchDirectSummaryGoalsStats()`](app/Services/YandexMetrikaService.php):
 
-- группировка: `ym:s:goal` (один месяц) или `ym:s:goal,ym:s:month` (несколько месяцев);
+- группировка: `ym:s:goal,ym:s:date` (по дням; длинный период режется по календарным месяцам);
 - метрики: `ym:s:goal{ID}visits` / `ym:s:goal{ID}reaches` по выбранным целям;
 - сегмент как у отчёта [«Директ, сводка»](https://yandex.ru/support/metrica/ru/sources/direct-summary.html) / preset `sources_direct_summary`: фильтр `ym:s:<attribution>DirectClickOrder!n` (учтенный клик Директа / yclid), не `AdvEngine`;
 - в ответе оставляем только строки с `dimensions[0].id` из выбранных целей (API в разрезе `ym:s:goal` может отдать чужие цели);
@@ -652,8 +652,8 @@ Callibri отдаёт каждое обращение с временем в UTC
 Ночью отчёт снимает collector `yandex_metrika` (раздел «Ночной съём интеграций»). Ручной запуск по всем проектам: команда `metrika:sync goals_direct_summary`:
 
 - условия: `is_enabled`, `reports.goals_direct_summary`, токен, счётчик, цели, `sync_enabled_at`;
-- стратегия: upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary`;
-- дополнительно: разрез по кампании Директа (`ym:s:goal` + `ym:s:<attribution>DirectClickOrder`) → `yandex_metrika_goal_direct_campaigns` для таблицы «Статистика по обращениям» в Word-отчёте.
+- стратегия: перед записью удалить строки в диапазоне, затем upsert по unique `(project_id, goal_name, month)` в `yandex_metrika_goal_direct_summary` (колонка `month` = календарный день);
+- дополнительно: разрез по кампании Директа (`ym:s:goal` + `ym:s:<attribution>DirectClickOrder`) → `yandex_metrika_goal_direct_campaigns` для таблицы «Статистика по обращениям» в Word-отчёте (по-прежнему по месяцам).
 
 ## Интеграция Яндекс Метрики (этап 3.5: переходы «Поисковые системы»)
 
@@ -687,10 +687,10 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 [`YandexMetrikaService::fetchSearchEnginesVisitsStats()`](app/Services/YandexMetrikaService.php):
 
-- группировка: `ym:s:<attribution>SearchEngineRoot` или `ym:s:<attribution>SearchEngineRoot,ym:s:month` (при «Автоматической» → `automaticSearchEngineRoot`);
+- группировка: `ym:s:<attribution>SearchEngineRoot,ym:s:date` (при «Автоматической» → `automaticSearchEngineRoot`; длинный период режется по месяцам);
 - метрики: `ym:s:visits` / `ym:s:users`;
 - при `search_engines_all=false` — доп. фильтр `ym:s:<attribution>SearchEngineRoot=@'…'` (через [`SearchEnginesDisplayList::buildSearchEngineRootFilter()`](src/Domain/YandexMetrika/SearchEnginesDisplayList.php));
-- в БД пишется root-ID (`dimensions[0].id`), label из `name` — для отчётов;
+- в БД пишется root-ID (`dimensions[0].id`), label из `name` — для отчётов; колонка `month` = календарный день;
 - фильтры этапа 2, timezone, attribution — как обычно.
 
 Список опций для UI: `listSearchEngineRootOptions()` за последние 30 дней, `dimensions=ym:s:<attribution>SearchEngineRoot`, organic + without_robots.
@@ -705,7 +705,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 
 - условия: `is_enabled`, `reports.visits_search_engines`, токен, счётчик, `sync_enabled_at`;
 - период: ночью с 1-го числа месяца вчерашней даты по вчера (не раньше месяца `sync_enabled_at`); ручная команда: с начала месяца `sync_enabled_at` по сегодня;
-- upsert `visits` по `(project_id, search_engine, month)`.
+- перед записью обнулить `visits` в диапазоне, затем upsert по `(project_id, search_engine, month)` где `month` = день.
 
 Теги шаблона (цифры, без похода в API): `{{ym.search_visits.yandex}}` / `{{ym.search_visits.google}}` / `{{ym.search_visits.other}}` / `{{ym.search_visits.total}}`. Сумма колонки `visits` за период отчёта (`YandexMetrikaSearchVisits`): `yandex`, `google`, остальные root-ID в `other`, нулевые строки не входят, нет данных → `0`. Блок план/факт/выполнение: `{{ym.search_visits.plan}}` (сумма планов `visits` из Планирования за месяцы периода, нет плана → `0`), `{{ym.search_visits.fact}}` (тот же итог, что `total`, уже с фильтрами съёма), `{{ym.search_visits.performance}}` (факт / план × 100, знак `%` в значении; нет плана или план 0 → пусто). Месяц в шапке таблицы: `{{period_month}}`. Живая таблица план/факт `{{ym.table.visits_search_systems}}` остаётся.
 
@@ -900,7 +900,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Факт CPL (CONTEXT_AD + LEADS) | `рекламный бюджет / лиды` за бакет; дробное до 2 знаков; нет бюджета/лидов или лиды = 0 → `-` |
 | Факт CPC (CONTEXT_AD + TRAFFIC) | `рекламный бюджет / объём визитов` за бакет; дробное до 2 знаков |
 | Факт «Объём визитов» (CONTEXT_AD + TRAFFIC) | сумма кликов Директа из `yandex_direct_campaign_stats` (`directClicksByDay`); нет строк → `-` |
-| Факт «Объём визитов» / «Конверсии» (SEO) | визиты и конверсии из `yandex_metrika_search_engines_stats` за месяц; в сетке Статистики значение кладётся на последний день месяца |
+| Факт «Объём визитов» / «Конверсии» (SEO) | визиты и конверсии из `yandex_metrika_search_engines_stats` по дням (колонка `month` = день); в сетке Статистики сумма дней бакета |
 | Факт «% позиций в ТОП» (SEO + POSITIONS) | среднее дневных `%` из `yandex_search_api_daily_top_percents` за бакет (`top10Average`); тот же источник в Word (`yd.search` / top_10); нет снимка → `-` |
 | Обновление данных | фон: `IntegrationMetricsRefreshService::queueReportDataRefresh` + `RefreshReportIntegrationsJob` (по проекту). Прогресс один на агентство (`IntegrationManualRefreshProgress`, ключ без user/product; поля `period_from` / `period_to` / `include_vat`, `current_project_label`, `noticed` по ключу `userId:product`). Обе страницы опрашивают `pollRefreshProgress`: раз в 3 с при крутилке, раз в 30 с в покое. Неготовые строки - `table-row-skeleton` в той же таблице; при смене фильтра/настроек полоски в тех же ячейках (`report-table-loading`), без второй таблицы поверх. Список Отчетов: тот же класс при смене неактивных, периода, колонок и фильтра слева. На время ручного съёма заблокированы НДС, период, «Неактивные», сброс фильтра и выбор клиенто-проекта в виджете (как в Каналах), чтобы скелет строк не пропадал. Каналы: collectors + остаток бюджета; Статистика: collectors, в конце за один месяц - бонусы. Один `IntegrationApiThrottle::consume()` на клик (на пользователя, не на агентство). Тултип в покое: «Последнее обновление данных…» (`IntegrationManualRefreshTimestamp` на agencyId); во время ручного съёма плашка (проект / источник / счётчик) только если в отчёте пользователя есть проекты из текущего съёма (`visibleReportProjectIds`); чужой текущий проект имени и «N из M» не показывает. Сообщение «Данные обновлены» на экране - только если в съёме был хотя бы один его проект. Ночной прогон (`integration_sync_runs` status `running`, снимок `IntegrationAutomaticSyncStatus`) на той же плашке: первая строка «Автоматический съём данных», дальше свои проект / источник / счётчик; скелет строк не включается; без своих проектов плашки нет. Пока ночной `running`, ручной `refreshAllData` не стартует (сообщение «Сейчас идёт автоматический съём данных…»), в том числе при пустой таблице. В конце колокольчик всем пользователям агентства. Модалка подтверждения без фильтра сайдбара. Уход со страницы не блокируется |
 | Сходимость со Word | итог параметра в отчёте = факт Статистики за тот же месяц; в «Общей статистике» совпавшие `utm_campaign` в строках кампаний, остальные отфильтрованные лиды - строка «Без кампании»; пустую строку не показывают |
@@ -910,7 +910,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | Бонусы и гарантии | только когда заполнен Итог primary KPI; иначе `-`. Первый расчёт сохраняется в `statistics_project_monthly_bonuses` (снимок за проект+месяц); смена настроек бонусов в клиенто-проекте снимок не меняет. Пересчёт и перезапись — только кнопка «Обновить данные». Live: `bonuses_enabled=false` → «Не настроены»; `% от чека` без чека → курсив «Заполните Чек клиента»; иначе `BonusService::calculateBonuses` по `% выполнения = итог/план×100`. **Итого по группировке / таблице** — сумма `amount` (₽), включая отрицательные гарантии |
 | Настройки отчёта на пользователя | таблица `statistics_report_user_settings` (`user_id`, JSON `settings`); load в `mount`, save при `reportData` (как Каналы) |
 | Выделять невыполненные KPI | `highlightUnmetKpi` по умолчанию `N`; при `Y` в ячейках факта (срезы) и «Итог» у строк проектов и у строк Итого (группа / таблица) фон по `%`: `≥90` → `#EBFCF0`, `<90` → `#FCEBEB` |
-| План и факт накапливаются | `accumulateData` по умолчанию `Y` (агентство). При `N` срез = только свой день/неделя/месяц. При `Y` окно с начала месяца (дни/недели) или с первого месяца периода (детализация по месяцам) до конца среза: суммы бюджета/лидов/визитов/конверсий, CPL/CPC от этих сумм, `% в ТОП` - среднее за окно; план счётных показателей - доля дней окна в месяце (для месяцев - сумма месячных планов колонок с начала периода). «Итог»/прогноз/бонусы без изменений. Класс окна: `StatisticsFactWindow` |
+| План и факт накапливаются | `accumulateData` по умолчанию `Y` (агентство). При `N` срез = только свой день/неделя/месяц. При `Y` окно с начала месяца (дни/недели) или с первого месяца периода (детализация по месяцам) до конца среза: суммы бюджета/лидов/визитов/конверсий, CPL/CPC от этих сумм, `% в ТОП` - среднее за окно; план счётных показателей - доля дней окна в месяце (для месяцев - сумма месячных планов колонок с начала периода). Факт не заполняет срезы, которые ещё не начались (`StatisticsFactWindow::resolveForFact`: начало среза позже сегодня → `-`, конец окна не позже сегодня). «Итог»/прогноз/бонусы без изменений. Класс окна: `StatisticsFactWindow` |
 
 ## Отчёты: список и период
 
@@ -967,7 +967,7 @@ Callibri отдаёт каждое обращение с временем в UTC
 | `yandex_metrika` | `yandex_metrika` | `yandex_metrika_*` (суммы за месяц) | Отчёты, переменные `ym.*`. Все включённые отчёты проекта за один item. Ночью: месяц вчерашней даты с 1-го числа по вчера (`YandexMetrikaSyncPeriod->nightly`), не раньше месяца `sync_enabled_at`, прошлые месяцы не перекачиваются. Ручное обновление из Каналов/Статистики: выбранный период как есть (`requestedRange`), без отсечки по `sync_enabled_at`. Команда `metrika:sync` / backfill: с месяца `sync_enabled_at` по сегодня (`range`) |
 | `google_sheets` | `google_sheets` | `google_sheets_monthly_spendings` | Каналы: «Программинг», «Копирайтер». Ссылка на таблицу и ключ служебной учётки - на уровне агентства; в клиенто-проекте только `is_enabled` + `sync_enabled_at`. Для типа `seo_promotion` интеграция включается по умолчанию (форма и миграция для проектов без строки); уже выключенные руками не трогаем. После удаления из формы сохраняется выключенный маркер `manually_removed`, чтобы SEO-автоподстановка не вернула карточку после сохранения. Строки листов «Программинг» / «Копирайтинг» сопоставляются по URL сайта проекта. Ночью только открытый месяц по поясу агентства (в ночь на 1-е это уже новый месяц), закрытые не трогаем; ручное обновление и backfill: месяц конца периода, в том числе закрытый. Сбой листа: старые цифры листа сохраняются, шаг съёма считается ошибкой (`recordFailure` + одно уведомление `integrations.sync_failed`); отдельные «Перестали поступать данные…» по листам не создаём. Ошибка доступа (нет шаринга / нет ключа): «Откройте таблицу на почту служебной учётки» |
 
-**Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни - пересчёт агрегата из уже сохранённых `serp_positions`. Если в периоде есть дни раньше вчера и среди обновляемых проектов есть Search API, после обновления в Каналах/Статистике к уведомлению добавляется пояснение (`WithReportDataRefresh::searchApiHistoricalRefreshNote`). Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`. Word-отчёт: строки `yandex_search.phrase[N]` / `position[N]` из активных `serp_tasks`; если задач нет, фразы берутся из `settings.regions[].phrases`, позиция `-`. Доли ТОП-3/5/10 без числовых позиций тоже `-`, а не `0%`.
+**Search API (даты):** API отдаёт только текущий снимок. Ночной run с `target_date=вчера` пишет позиции с `check_date=target_date`. Ручной refresh за период: API только для сегодня/вчера (локально); прошлые дни - пересчёт агрегата из уже сохранённых `serp_positions`. Если в периоде есть дни раньше вчера и среди обновляемых проектов есть Search API, после обновления в Каналах/Статистике к уведомлению добавляется пояснение (`WithReportDataRefresh::searchApiHistoricalRefreshNote`). Credentials платформы: `YANDEX_SEARCH_API_API_KEY` + `YANDEX_SEARCH_API_FOLDER_ID`. Настройки проекта: `integration_project.settings.regions[]` → sync в `serp_keywords`/`serp_tasks`. Word-отчёт: строки `yandex_search.phrase[N]` / `position[N]` из активных `serp_tasks`; если задач нет, фразы берутся из `settings.regions[].phrases`, позиция `-`. Доли ТОП-3/5/10 без числовых позиций тоже `-`, а не `0%`. Квота Яндекса: 1 запрос в секунду на ключ (`webSearchRequestsPerSecond`); перед каждым запросом `YandexSearchApiService` ждёт `min_interval_ms` (по умолчанию 1100), при HTTP 429 повторяет ту же фразу ещё до 2 раз.
 
 Новый источник: реализовать collector → добавить в `IntegrationSyncDispatcher::defaultCollectors()` → таблица агрегата. Отдельные `Schedule::command` для интеграций не заводим: ночью всё идёт через `integrations:dispatch-due-syncs`. Команды `metrika:sync {report}` и `google-sheets:sync-spendings` остались только для ручного запуска.
 

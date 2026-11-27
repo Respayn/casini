@@ -1,5 +1,3 @@
-@blaze
-
 @props([
     'stacked' => false,
     'wrap' => false,

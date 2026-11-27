@@ -1,5 +1,3 @@
-@blaze
-
 @props([
     'params',
     'highlightUnmetKpi' => false,
@@ -77,27 +75,28 @@
 {{--
   Высота на tr вложенной таблицы (44px). У div внутри ячейки Firefox высоту не держит:
   прочерк ниже, сумма с процентом выше, линии между днями не сходятся.
-  Скрытая строка задаёт ширину обеих половин по самой длинной подписи и не занимает высоту.
+  Ширина: table-layout: fixed + одинаковый измеритель в обеих половинах,
+  чтобы вертикаль «План | Факт» совпадала с шапкой (там тоже 50/50).
 --}}
 <x-data.table-cell {{ $attributes }} class="!p-0" style="vertical-align: top">
-    <table class="border-collapse" style="width: max-content; min-width: 100%">
-        <tr style="height: 0; line-height: 0">
-            <td style="height: 0; max-height: 0; padding: 0; border: 0; line-height: 0">
-                <div aria-hidden="true" class="pointer-events-none overflow-hidden whitespace-nowrap font-bold" style="height: 0; max-height: 0; visibility: hidden">{{ $maxSizer }}</div>
+    <table class="border-collapse" style="table-layout: fixed; width: max-content; min-width: 100%">
+        <tr aria-hidden="true" style="height: 0; line-height: 0">
+            <td style="width: 50%; height: 0; max-height: 0; padding: 0 10px; border: 0; line-height: 0; overflow: hidden">
+                <div class="pointer-events-none whitespace-nowrap font-bold" style="height: 0; overflow: hidden">{{ $maxSizer }}</div>
             </td>
-            <td style="height: 0; max-height: 0; padding: 0; border: 0; line-height: 0">
-                <div aria-hidden="true" class="pointer-events-none overflow-hidden whitespace-nowrap font-bold" style="height: 0; max-height: 0; visibility: hidden">{{ $maxSizer }}</div>
+            <td style="width: 50%; height: 0; max-height: 0; padding: 0 10px; border: 0; line-height: 0; overflow: hidden">
+                <div class="pointer-events-none whitespace-nowrap font-bold" style="height: 0; overflow: hidden">{{ $maxSizer }}</div>
             </td>
         </tr>
         @foreach ($rows as $row)
             <tr style="height: 44px">
                 <td
                     class="whitespace-nowrap"
-                    style="height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; color: #A0B5D2; {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}"
+                    style="width: 50%; height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; color: #A0B5D2; {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}"
                 >{{ $row['planText'] }}</td>
                 <td
                     class="whitespace-nowrap font-bold"
-                    style="height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; border-left: 1px solid var(--color-table-cell); {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}{{ $row['factBg'] !== null ? 'background-color: '.$row['factBg'].';' : '' }}"
+                    style="width: 50%; height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; border-left: 1px solid var(--color-table-cell); {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}{{ $row['factBg'] !== null ? 'background-color: '.$row['factBg'].';' : '' }}"
                 >
                     @if ($row['hasFact'])
                         <span class="inline-flex items-center gap-1">

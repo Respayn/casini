@@ -302,28 +302,38 @@ class YandexMetrikaService
             $normalizedGoalIds
         ));
 
-        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
-        // Как отчёт «Поисковые системы» / preset search_engines: корень ПС + organic.
+        // Как отчёт «Поисковые системы» / preset search_engines: корень ПС + organic + день.
         $engineDimension = SearchEnginesDisplayList::SEARCH_ENGINE_ROOT_DIMENSION;
-        $dimensions = $includeMonth
-            ? $engineDimension.',ym:s:month'
-            : $engineDimension;
+        $dimensions = $engineDimension.',ym:s:date';
 
         try {
-            $params = $this->applyReportFilters([
-                'date1' => $dateFrom->format('Y-m-d'),
-                'date2' => $dateTo->format('Y-m-d'),
-                'metrics' => $metrics,
-                'dimensions' => $dimensions,
-                'filters' => "ym:s:<attribution>TrafficSource=='organic'",
-                'limit' => 10000,
-            ], $filters, $dataMode);
-            $params = $this->applyReportAttribution($params, $attributionModel);
-            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+            $aggregated = [];
 
-            $response = $this->getClient()->getVisitsReport($params);
+            foreach ($this->monthSlices($dateFrom, $dateTo) as [$sliceFrom, $sliceTo]) {
+                $params = $this->applyReportFilters([
+                    'date1' => $sliceFrom->format('Y-m-d'),
+                    'date2' => $sliceTo->format('Y-m-d'),
+                    'metrics' => $metrics,
+                    'dimensions' => $dimensions,
+                    'filters' => "ym:s:<attribution>TrafficSource=='organic'",
+                    'limit' => 10000,
+                ], $filters, $dataMode);
+                $params = $this->applyReportAttribution($params, $attributionModel);
+                $params = $this->applyReportTimezone($params, $timezone, $sliceFrom, $counterTimezone);
 
-            return $this->aggregateSearchEnginesGoalRows($response, $dateFrom, $includeMonth, $normalizedGoalIds);
+                $response = $this->getClient()->getVisitsReport($params);
+                foreach ($this->aggregateSearchEnginesGoalRows($response, $sliceFrom, $normalizedGoalIds) as $row) {
+                    $key = $row['search_engine'].'|'.$row['month'].'|'.$row['goal_id'];
+                    if (! isset($aggregated[$key])) {
+                        $aggregated[$key] = $row;
+
+                        continue;
+                    }
+                    $aggregated[$key]['value'] += $row['value'];
+                }
+            }
+
+            return array_values($aggregated);
         } catch (\InvalidArgumentException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -389,36 +399,46 @@ class YandexMetrikaService
             ? 'ym:s:users'
             : 'ym:s:visits';
 
-        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
         $engineRootDimension = SearchEnginesDisplayList::SEARCH_ENGINE_ROOT_DIMENSION;
-        $dimensions = $includeMonth
-            ? $engineRootDimension.',ym:s:month'
-            : $engineRootDimension;
+        $dimensions = $engineRootDimension.',ym:s:date';
 
         try {
-            $params = [
-                'date1' => $dateFrom->format('Y-m-d'),
-                'date2' => $dateTo->format('Y-m-d'),
-                'metrics' => $metrics,
-                'dimensions' => $dimensions,
-                'limit' => 10000,
-            ];
+            $aggregated = [];
 
-            $searchEngineFilter = SearchEnginesDisplayList::buildSearchEngineRootFilter(
-                $searchEnginesAll,
-                YandexMetrikaIntegrationSettingsData::normalizeSearchEngineIds($searchEngineIds)
-            );
-            if ($searchEngineFilter !== null) {
-                $params['filters'] = $searchEngineFilter;
+            foreach ($this->monthSlices($dateFrom, $dateTo) as [$sliceFrom, $sliceTo]) {
+                $params = [
+                    'date1' => $sliceFrom->format('Y-m-d'),
+                    'date2' => $sliceTo->format('Y-m-d'),
+                    'metrics' => $metrics,
+                    'dimensions' => $dimensions,
+                    'limit' => 10000,
+                ];
+
+                $searchEngineFilter = SearchEnginesDisplayList::buildSearchEngineRootFilter(
+                    $searchEnginesAll,
+                    YandexMetrikaIntegrationSettingsData::normalizeSearchEngineIds($searchEngineIds)
+                );
+                if ($searchEngineFilter !== null) {
+                    $params['filters'] = $searchEngineFilter;
+                }
+
+                $params = $this->applyReportFilters($params, $filters, $dataMode);
+                $params = $this->applyReportAttribution($params, $attributionModel);
+                $params = $this->applyReportTimezone($params, $timezone, $sliceFrom, $counterTimezone);
+
+                $response = $this->getClient()->getVisitsReport($params);
+                foreach ($this->aggregateSearchEnginesVisitsRows($response, $sliceFrom) as $row) {
+                    $key = $row['search_engine'].'|'.$row['month'];
+                    if (! isset($aggregated[$key])) {
+                        $aggregated[$key] = $row;
+
+                        continue;
+                    }
+                    $aggregated[$key]['value'] += $row['value'];
+                }
             }
 
-            $params = $this->applyReportFilters($params, $filters, $dataMode);
-            $params = $this->applyReportAttribution($params, $attributionModel);
-            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
-
-            $response = $this->getClient()->getVisitsReport($params);
-
-            return $this->aggregateSearchEnginesVisitsRows($response, $dateFrom, $includeMonth);
+            return array_values($aggregated);
         } catch (\InvalidArgumentException $e) {
             throw $e;
         } catch (\Exception $e) {
@@ -859,7 +879,6 @@ class YandexMetrikaService
     private function aggregateSearchEnginesGoalRows(
         array $response,
         Carbon $fallbackDate,
-        bool $includeMonth,
         array $goalIds
     ): array {
         $aggregated = [];
@@ -873,13 +892,13 @@ class YandexMetrikaService
             $engineName = is_array($dimensions[0] ?? null)
                 ? (string) ($dimensions[0]['name'] ?? '')
                 : '';
-            $monthName = $includeMonth && is_array($dimensions[1] ?? null)
-                ? (string) ($dimensions[1]['name'] ?? '')
+            $dayName = is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? $dimensions[1]['id'] ?? '')
                 : '';
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
 
             $engine = YandexMetrikaSearchEngine::fromApiName($engineName)->value;
-            $month = $this->parseMonthDimension($monthName, $fallbackDate);
+            $day = $this->parseDateDimension($dayName, $fallbackDate);
 
             foreach ($goalIds as $index => $goalId) {
                 if (! array_key_exists($index, $metrics)) {
@@ -887,12 +906,12 @@ class YandexMetrikaService
                 }
 
                 $value = (int) round((float) $metrics[$index]);
-                $key = $engine.'|'.$month.'|'.$goalId;
+                $key = $engine.'|'.$day.'|'.$goalId;
 
                 if (! isset($aggregated[$key])) {
                     $aggregated[$key] = [
                         'search_engine' => $engine,
-                        'month' => $month,
+                        'month' => $day,
                         'goal_id' => $goalId,
                         'value' => 0,
                     ];
@@ -911,7 +930,7 @@ class YandexMetrikaService
      * @param  array<string, mixed>  $response
      * @return list<array{search_engine: string, search_engine_label: string, month: string, value: int}>
      */
-    private function aggregateSearchEnginesVisitsRows(array $response, Carbon $fallbackDate, bool $includeMonth): array
+    private function aggregateSearchEnginesVisitsRows(array $response, Carbon $fallbackDate): array
     {
         $aggregated = [];
 
@@ -931,8 +950,8 @@ class YandexMetrikaService
                 $engineLabel = $engineId;
             }
 
-            $monthName = $includeMonth && is_array($dimensions[1] ?? null)
-                ? (string) ($dimensions[1]['name'] ?? '')
+            $dayName = is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? $dimensions[1]['id'] ?? '')
                 : '';
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $value = (int) round(array_sum(array_map('floatval', $metrics)));
@@ -941,14 +960,14 @@ class YandexMetrikaService
                 continue;
             }
 
-            $month = $this->parseMonthDimension($monthName, $fallbackDate);
-            $key = $engineId.'|'.$month;
+            $day = $this->parseDateDimension($dayName, $fallbackDate);
+            $key = $engineId.'|'.$day;
 
             if (! isset($aggregated[$key])) {
                 $aggregated[$key] = [
                     'search_engine' => $engineId,
                     'search_engine_label' => $engineLabel,
-                    'month' => $month,
+                    'month' => $day,
                     'value' => 0,
                 ];
             }
@@ -1095,6 +1114,43 @@ class YandexMetrikaService
         }
     }
 
+    private function parseDateDimension(string $value, Carbon $fallback): string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return $fallback->copy()->startOfDay()->format('Y-m-d');
+        }
+
+        try {
+            return Carbon::parse($value)->startOfDay()->format('Y-m-d');
+        } catch (\Throwable) {
+            return $fallback->copy()->startOfDay()->format('Y-m-d');
+        }
+    }
+
+    /**
+     * Куски периода по календарным месяцам (лимит строк Reporting API).
+     *
+     * @return list<array{0: Carbon, 1: Carbon}>
+     */
+    private function monthSlices(Carbon $from, Carbon $to): array
+    {
+        $slices = [];
+        $cursor = $from->copy()->startOfDay();
+        $end = $to->copy()->startOfDay();
+
+        while ($cursor->lte($end)) {
+            $sliceEnd = $cursor->copy()->endOfMonth()->startOfDay();
+            if ($sliceEnd->gt($end)) {
+                $sliceEnd = $end->copy();
+            }
+            $slices[] = [$cursor->copy(), $sliceEnd->copy()];
+            $cursor = $sliceEnd->copy()->addDay()->startOfDay();
+        }
+
+        return $slices;
+    }
+
     /**
      * @param  array<string, mixed>  $settings
      */
@@ -1188,8 +1244,12 @@ class YandexMetrikaService
     /**
      * @return list<array{goal_name: string, month: string, value: int}>
      */
-    private function aggregateConversionsGoalRows(array $response, Carbon $fallbackDate, bool $includeMonth): array
-    {
+    private function aggregateConversionsGoalRows(
+        array $response,
+        Carbon $fallbackDate,
+        bool $includeMonth,
+        bool $byDay = false,
+    ): array {
         $aggregated = [];
 
         foreach ($response['data'] ?? [] as $row) {
@@ -1201,19 +1261,21 @@ class YandexMetrikaService
             $goalName = is_array($dimensions[0] ?? null)
                 ? (string) ($dimensions[0]['name'] ?? '')
                 : '';
-            $monthName = $includeMonth && is_array($dimensions[1] ?? null)
-                ? (string) ($dimensions[1]['name'] ?? '')
+            $periodName = ($includeMonth || $byDay) && is_array($dimensions[1] ?? null)
+                ? (string) ($dimensions[1]['name'] ?? $dimensions[1]['id'] ?? '')
                 : '';
             $metrics = is_array($row['metrics'] ?? null) ? $row['metrics'] : [];
             $value = (int) round(array_sum(array_map('floatval', $metrics)));
 
-            $month = $this->parseMonthDimension($monthName, $fallbackDate);
-            $key = $goalName.'|'.$month;
+            $periodKey = $byDay
+                ? $this->parseDateDimension($periodName, $fallbackDate)
+                : $this->parseMonthDimension($periodName, $fallbackDate);
+            $key = $goalName.'|'.$periodKey;
 
             if (! isset($aggregated[$key])) {
                 $aggregated[$key] = [
                     'goal_name' => $goalName,
-                    'month' => $month,
+                    'month' => $periodKey,
                     'value' => 0,
                 ];
             }
@@ -1401,41 +1463,52 @@ class YandexMetrikaService
             $normalizedGoalIds
         ));
 
-        $includeMonth = $dateFrom->format('Y-m') !== $dateTo->format('Y-m');
-        $dimensions = $includeMonth
-            ? 'ym:s:goal,ym:s:month'
-            : 'ym:s:goal';
+        $dimensions = 'ym:s:goal,ym:s:date';
 
         try {
-            $params = $this->applyReportFilters([
-                'date1' => $dateFrom->format('Y-m-d'),
-                'date2' => $dateTo->format('Y-m-d'),
-                'metrics' => $metrics,
-                'dimensions' => $dimensions,
-                'limit' => 10000,
-            ], $filters, $dataMode);
-            $params = $this->applyReportAttribution($params, $attributionModel);
-            $params = $this->applyReportTimezone($params, $timezone, $dateFrom, $counterTimezone);
+            $aggregated = [];
 
-            $existingFilters = $params['filters'] ?? '';
-            // Отчёт «Директ, сводка» (preset sources_direct_summary): визиты с учтённым
-            // кликом Директа (yclid) — непустой DirectClickOrder под выбранную атрибуцию.
-            // Не путать с AdvEngine / «Рекламные системы».
-            $directFilter = 'ym:s:<attribution>DirectClickOrder!n';
-            $params['filters'] = $existingFilters !== ''
-                ? $existingFilters.' AND '.$directFilter
-                : $directFilter;
+            foreach ($this->monthSlices($dateFrom, $dateTo) as [$sliceFrom, $sliceTo]) {
+                $params = $this->applyReportFilters([
+                    'date1' => $sliceFrom->format('Y-m-d'),
+                    'date2' => $sliceTo->format('Y-m-d'),
+                    'metrics' => $metrics,
+                    'dimensions' => $dimensions,
+                    'limit' => 10000,
+                ], $filters, $dataMode);
+                $params = $this->applyReportAttribution($params, $attributionModel);
+                $params = $this->applyReportTimezone($params, $timezone, $sliceFrom, $counterTimezone);
 
-            $response = $this->getClient()->getVisitsReport($params);
+                $existingFilters = $params['filters'] ?? '';
+                // Отчёт «Директ, сводка» (preset sources_direct_summary): визиты с учтённым
+                // кликом Директа (yclid) — непустой DirectClickOrder под выбранную атрибуцию.
+                // Не путать с AdvEngine / «Рекламные системы».
+                $directFilter = 'ym:s:<attribution>DirectClickOrder!n';
+                $params['filters'] = $existingFilters !== ''
+                    ? $existingFilters.' AND '.$directFilter
+                    : $directFilter;
 
-            // В разрезе ym:s:goal API может вернуть чужие цели с ненулевыми значениями
-            // выбранной метрики — оставляем только запрошенные goal id.
-            $response['data'] = $this->filterGoalDimensionRowsByIds(
-                is_array($response['data'] ?? null) ? $response['data'] : [],
-                $normalizedGoalIds
-            );
+                $response = $this->getClient()->getVisitsReport($params);
 
-            return $this->aggregateConversionsGoalRows($response, $dateFrom, $includeMonth);
+                // В разрезе ym:s:goal API может вернуть чужие цели с ненулевыми значениями
+                // выбранной метрики — оставляем только запрошенные goal id.
+                $response['data'] = $this->filterGoalDimensionRowsByIds(
+                    is_array($response['data'] ?? null) ? $response['data'] : [],
+                    $normalizedGoalIds
+                );
+
+                foreach ($this->aggregateConversionsGoalRows($response, $sliceFrom, true, true) as $row) {
+                    $key = $row['goal_name'].'|'.$row['month'];
+                    if (! isset($aggregated[$key])) {
+                        $aggregated[$key] = $row;
+
+                        continue;
+                    }
+                    $aggregated[$key]['value'] += $row['value'];
+                }
+            }
+
+            return array_values($aggregated);
         } catch (\InvalidArgumentException $e) {
             throw $e;
         } catch (\Exception $e) {

@@ -77,6 +77,8 @@ return [
         'base_url' => env('YANDEX_SEARCH_API_BASE_URL', 'https://searchapi.api.cloud.yandex.net/v2/web/search'),
         'timeout' => (int) env('YANDEX_SEARCH_API_TIMEOUT', 30),
         'max_phrases_per_run' => (int) env('YANDEX_SEARCH_API_MAX_PHRASES', 200),
+        // Яндекс: webSearchRequestsPerSecond = 1 на ключ; чуть больше 1 с, чтобы не ловить 429.
+        'min_interval_ms' => (int) env('YANDEX_SEARCH_API_MIN_INTERVAL_MS', 1100),
     ],
 
     'callibri' => [

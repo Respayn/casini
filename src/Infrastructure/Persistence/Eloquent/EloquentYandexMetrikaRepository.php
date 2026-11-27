@@ -46,11 +46,11 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
             ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
-            $query->where('month', '>=', $period->start->format('Y-m-01'));
+            $query->where('month', '>=', $period->start->format('Y-m-d'));
         }
 
         if ($period->end !== null) {
-            $query->where('month', '<=', $period->end->format('Y-m-01'));
+            $query->where('month', '<=', $period->end->format('Y-m-d'));
         }
 
         return $query->get()
@@ -179,14 +179,56 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
     /**
      * {@inheritdoc}
      */
+    public function zeroSearchEnginesConversionsInRange(int $projectId, string $dateFrom, string $dateTo): void
+    {
+        EloquentYandexMetrikaSearchEnginesStats::query()
+            ->where('project_id', $projectId)
+            ->whereBetween('month', [
+                Carbon::parse($dateFrom)->toDateString(),
+                Carbon::parse($dateTo)->toDateString(),
+            ])
+            ->update(['conversions' => 0]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function zeroSearchEnginesVisitsInRange(int $projectId, string $dateFrom, string $dateTo): void
+    {
+        EloquentYandexMetrikaSearchEnginesStats::query()
+            ->where('project_id', $projectId)
+            ->whereBetween('month', [
+                Carbon::parse($dateFrom)->toDateString(),
+                Carbon::parse($dateTo)->toDateString(),
+            ])
+            ->update(['visits' => 0]);
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    public function deleteGoalDirectSummaryInRange(int $projectId, string $dateFrom, string $dateTo): void
+    {
+        EloquentYandexMetrikaGoalDirectSummary::query()
+            ->where('project_id', $projectId)
+            ->whereBetween('month', [
+                Carbon::parse($dateFrom)->toDateString(),
+                Carbon::parse($dateTo)->toDateString(),
+            ])
+            ->delete();
+    }
+
+    /**
+     * {@inheritdoc}
+     */
     public function upsertSearchEnginesConversions(int $projectId, string $searchEngine, string $month, int $conversions): void
     {
-        $monthKey = Carbon::parse($month)->startOfMonth()->format('Y-m-d');
+        $dayKey = Carbon::parse($month)->startOfDay()->format('Y-m-d');
 
         $existing = EloquentYandexMetrikaSearchEnginesStats::query()
             ->where('project_id', $projectId)
             ->where('search_engine', $searchEngine)
-            ->where('month', $monthKey)
+            ->where('month', $dayKey)
             ->first();
 
         if ($existing !== null) {
@@ -199,7 +241,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         EloquentYandexMetrikaSearchEnginesStats::query()->create([
             'project_id' => $projectId,
             'search_engine' => $searchEngine,
-            'month' => $monthKey,
+            'month' => $dayKey,
             'visits' => 0,
             'conversions' => $conversions,
         ]);
@@ -237,12 +279,12 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
      */
     public function upsertSearchEnginesVisits(int $projectId, string $searchEngine, string $month, int $visits): void
     {
-        $monthKey = Carbon::parse($month)->startOfMonth()->format('Y-m-d');
+        $dayKey = Carbon::parse($month)->startOfDay()->format('Y-m-d');
 
         $existing = EloquentYandexMetrikaSearchEnginesStats::query()
             ->where('project_id', $projectId)
             ->where('search_engine', $searchEngine)
-            ->where('month', $monthKey)
+            ->where('month', $dayKey)
             ->first();
 
         if ($existing !== null) {
@@ -255,7 +297,7 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
         EloquentYandexMetrikaSearchEnginesStats::query()->create([
             'project_id' => $projectId,
             'search_engine' => $searchEngine,
-            'month' => $monthKey,
+            'month' => $dayKey,
             'visits' => $visits,
             'conversions' => 0,
         ]);
@@ -413,11 +455,11 @@ class EloquentYandexMetrikaRepository implements YandexMetrikaRepositoryInterfac
             ->whereIn('project_id', $projectIds);
 
         if ($period->start !== null) {
-            $query->where('month', '>=', $period->start->format('Y-m-01'));
+            $query->where('month', '>=', $period->start->format('Y-m-d'));
         }
 
         if ($period->end !== null) {
-            $query->where('month', '<=', $period->end->format('Y-m-01'));
+            $query->where('month', '<=', $period->end->format('Y-m-d'));
         }
 
         return $query->get()

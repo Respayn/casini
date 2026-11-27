@@ -60,7 +60,7 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
         );
 
         $this->assertSame('ym:s:goal111visits,ym:s:goal222visits', $captured['metrics']);
-        $this->assertSame('ym:s:<attribution>SearchEngineRoot', $captured['dimensions']);
+        $this->assertSame('ym:s:<attribution>SearchEngineRoot,ym:s:date', $captured['dimensions']);
         $this->assertSame('automatic', $captured['attribution']);
         $this->assertStringContainsString("ym:s:<attribution>TrafficSource=='organic'", (string) $captured['filters']);
         $this->assertStringContainsString("ym:s:isRobot=='No'", (string) $captured['filters']);
@@ -70,7 +70,7 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
         foreach ($rows as $row) {
             $byEngineGoal[$row['search_engine']][$row['goal_id']] = ($byEngineGoal[$row['search_engine']][$row['goal_id']] ?? 0) + $row['value'];
             $engineTotals[$row['search_engine']] = ($engineTotals[$row['search_engine']] ?? 0) + $row['value'];
-            $this->assertSame('2026-08-01', $row['month']);
+            $this->assertSame('2026-08-18', $row['month']);
         }
 
         $this->assertSame(12, $byEngineGoal['yandex'][111]);
@@ -82,29 +82,35 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
     }
 
     #[Test]
-    public function test_fetch_uses_reaches_metrics_and_month_dimension(): void
+    public function test_fetch_uses_reaches_metrics_and_date_dimension_per_month_slice(): void
     {
         $captured = [];
         $client = Mockery::mock(YandexMetrikaClientInterface::class);
         $client->shouldReceive('getVisitsReport')
-            ->once()
+            ->twice()
             ->with(Mockery::on(function (array $params) use (&$captured) {
-                $captured = $params;
+                $captured[] = $params;
 
                 return true;
             }))
-            ->andReturn([
-                'data' => [
-                    [
-                        'dimensions' => [['name' => 'Yandex'], ['name' => '2026-07']],
-                        'metrics' => [4],
-                    ],
-                    [
-                        'dimensions' => [['name' => 'Yandex'], ['name' => '2026-08']],
-                        'metrics' => [9],
+            ->andReturn(
+                [
+                    'data' => [
+                        [
+                            'dimensions' => [['name' => 'Yandex'], ['name' => '2026-07-12']],
+                            'metrics' => [4],
+                        ],
                     ],
                 ],
-            ]);
+                [
+                    'data' => [
+                        [
+                            'dimensions' => [['name' => 'Yandex'], ['name' => '2026-08-05']],
+                            'metrics' => [9],
+                        ],
+                    ],
+                ],
+            );
 
         $service = $this->makeService($client);
         $rows = $service->fetchSearchEnginesGoalsStats(
@@ -114,15 +120,16 @@ class YandexMetrikaSearchEnginesGoalsTest extends TestCase
             YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
         );
 
-        $this->assertSame('ym:s:goal333reaches', $captured['metrics']);
-        $this->assertSame('ym:s:<attribution>SearchEngineRoot,ym:s:month', $captured['dimensions']);
-        $this->assertStringContainsString("ym:s:<attribution>TrafficSource=='organic'", (string) $captured['filters']);
+        $this->assertCount(2, $captured);
+        $this->assertSame('ym:s:goal333reaches', $captured[1]['metrics']);
+        $this->assertSame('ym:s:<attribution>SearchEngineRoot,ym:s:date', $captured[1]['dimensions']);
+        $this->assertStringContainsString("ym:s:<attribution>TrafficSource=='organic'", (string) $captured[1]['filters']);
 
         $this->assertCount(2, $rows);
-        $this->assertSame('2026-07-01', $rows[0]['month']);
+        $this->assertSame('2026-07-12', $rows[0]['month']);
         $this->assertSame(333, $rows[0]['goal_id']);
         $this->assertSame(4, $rows[0]['value']);
-        $this->assertSame('2026-08-01', $rows[1]['month']);
+        $this->assertSame('2026-08-05', $rows[1]['month']);
         $this->assertSame(333, $rows[1]['goal_id']);
         $this->assertSame(9, $rows[1]['value']);
     }
