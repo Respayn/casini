@@ -266,9 +266,10 @@ class extends Component
     }
 
     #[On('group-settings-applied')]
-    public function applyGrouping($grouping)
+    public function applyGrouping($grouping, $roundKopecks = 'Y')
     {
         SharedProductFilters::rememberGrouping((string) $grouping);
+        SharedProductFilters::rememberRoundKopecks($roundKopecks !== 'N');
         $this->queryData->grouping = ChannelReportGrouping::from(
             SharedProductFilters::normalizeGrouping((string) $grouping),
         );

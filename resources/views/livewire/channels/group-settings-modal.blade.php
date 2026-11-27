@@ -16,6 +16,19 @@
                         />
                     </div>
                 </x-form.form-field>
+
+                <x-form.form-field>
+                    <x-form.form-label>Округлять копейки?</x-form.form-label>
+                    <div>
+                        <x-form.select
+                            wire:model="roundKopecks"
+                            :options="[
+                                ['label' => 'Да', 'value' => 'Y'],
+                                ['label' => 'Нет', 'value' => 'N'],
+                            ]"
+                        />
+                    </div>
+                </x-form.form-field>
             </x-form.form>
 
             <div class="mt-7 flex justify-between">
@@ -28,5 +41,5 @@
                 <x-button wire:click="cancel" label="Отмена" />
             </div>
         </div>
-        </x-slot>
+    </x-slot:body>
 </x-overlay.modal>

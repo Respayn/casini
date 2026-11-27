@@ -303,7 +303,7 @@
     <x-report.refresh-all-confirm-modal />
 
     <livewire:channels.group-settings-modal
-        wire:key="group-settings-{{ $queryData->grouping->value }}"
+        wire:key="group-settings-{{ $queryData->grouping->value }}-{{ \App\Support\SharedProductFilters::roundKopecks() ? 'Y' : 'N' }}"
         :initial-grouping="$queryData->grouping"
     />
 </x-report.refresh-navigation-guard>

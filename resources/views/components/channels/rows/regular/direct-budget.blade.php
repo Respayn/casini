@@ -12,6 +12,6 @@
         @if ($updatedAt)
             <span class="text-secondary-text">{{ $updatedAt->format('H:i') }}, {{ $updatedAt->format('d.m.y') }}</span> /
         @endif
-        {{ Number::currency($value, in: 'RUB', locale: 'ru') }}
+        {{ \App\Helpers\MoneyDisplay::currency($value) }}
     @endif
 </x-data.table-cell>

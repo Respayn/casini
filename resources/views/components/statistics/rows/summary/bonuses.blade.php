@@ -7,9 +7,9 @@
 
 <x-data.table-cell class="bg-table-summary-bg font-bold" {{ $attributes }}>
     @if ($kind === 'amount' && is_numeric($value))
-        {{ Number::currency($value, in: 'RUB', locale: 'ru', precision: 0) }}
+        {{ \App\Helpers\MoneyDisplay::currency($value) }}
     @elseif (is_numeric($params))
-        {{ Number::currency($params, in: 'RUB', locale: 'ru', precision: 0) }}
+        {{ \App\Helpers\MoneyDisplay::currency($params) }}
     @else
         -
     @endif

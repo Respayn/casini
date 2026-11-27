@@ -1,5 +1,5 @@
 @props(['params'])
 
 <x-data.table-cell {{ $attributes }}>
-    {{ $params !== null ? Number::currency($params, in: 'RUB', locale: 'ru') : '-' }}
+    {{ \App\Helpers\MoneyDisplay::currency($params) }}
 </x-data.table-cell>

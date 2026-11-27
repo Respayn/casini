@@ -16,6 +16,8 @@ class SharedProductFilters
 
     public const GROUPING_KEY = 'shared_product_filters.grouping';
 
+    public const ROUND_KOPECKS_KEY = 'shared_product_filters.round_kopecks';
+
     /**
      * Если в этой сессии галочку ещё не трогали, остаётся значение экрана и оно становится общим.
      */
@@ -27,6 +29,26 @@ class SharedProductFilters
     public static function resolveIncludeVat(bool $pageValue): bool
     {
         return self::resolve(self::INCLUDE_VAT_KEY, $pageValue);
+    }
+
+    /**
+     * Округлять копейки в Каналах и Статистике. По умолчанию да.
+     */
+    public static function resolveRoundKopecks(bool $pageValue = true): bool
+    {
+        return self::resolve(self::ROUND_KOPECKS_KEY, $pageValue);
+    }
+
+    /**
+     * Текущий выбор для показа сумм (без записи в сессию). Нет ключа - да.
+     */
+    public static function roundKopecks(): bool
+    {
+        if (! session()->has(self::ROUND_KOPECKS_KEY)) {
+            return true;
+        }
+
+        return (bool) session(self::ROUND_KOPECKS_KEY);
     }
 
     /**
@@ -59,6 +81,11 @@ class SharedProductFilters
     public static function rememberGrouping(string $value): void
     {
         session([self::GROUPING_KEY => self::normalizeGrouping($value)]);
+    }
+
+    public static function rememberRoundKopecks(bool $value): void
+    {
+        session([self::ROUND_KOPECKS_KEY => $value]);
     }
 
     public static function normalizeGrouping(string $value): string

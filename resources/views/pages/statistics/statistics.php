@@ -34,6 +34,10 @@ class extends Component
 
     public string $actionMessageType = 'success';
 
+    public string $roundKopecks = 'Y';
+
+    public ?string $originalRoundKopecks = null;
+
     private StatisticsService $statisticsService;
 
     public function boot(StatisticsService $statisticsService)
@@ -49,6 +53,7 @@ class extends Component
         );
         $this->queryData->clampPeriodToPresent();
         $this->applySharedProductFilters();
+        $this->roundKopecks = SharedProductFilters::resolveRoundKopecks(true) ? 'Y' : 'N';
     }
 
     public function updatedQueryDataShowInactive(): void
@@ -93,6 +98,7 @@ class extends Component
     public function saveSettingsSnapshot()
     {
         $this->originalQueryData = clone $this->queryData;
+        $this->originalRoundKopecks = $this->roundKopecks;
     }
 
     /**
@@ -103,6 +109,11 @@ class extends Component
         if ($this->originalQueryData) {
             $this->queryData = clone $this->originalQueryData;
             $this->originalQueryData = null;
+        }
+
+        if ($this->originalRoundKopecks !== null) {
+            $this->roundKopecks = $this->originalRoundKopecks;
+            $this->originalRoundKopecks = null;
         }
     }
 
@@ -139,6 +150,9 @@ class extends Component
             SharedProductFilters::normalizeGrouping($this->queryData->grouping->value),
         );
 
+        $this->roundKopecks = $this->roundKopecks === 'N' ? 'N' : 'Y';
+        SharedProductFilters::rememberRoundKopecks($this->roundKopecks !== 'N');
+
         $pinnedField = $this->pinnedGroupingColumnField();
         if ($pinnedField !== null) {
             $this->queryData->columns->each(function (TableReportColumnData $col) use ($pinnedField): void {
@@ -149,6 +163,7 @@ class extends Component
         }
 
         $this->originalQueryData = null;
+        $this->originalRoundKopecks = null;
         unset($this->reportData, $this->visibleColumns);
     }
 

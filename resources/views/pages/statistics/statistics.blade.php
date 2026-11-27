@@ -396,6 +396,19 @@
                     </x-form.form-field>
 
                     <x-form.form-field>
+                        <x-form.form-label>Округлять копейки?</x-form.form-label>
+                        <div>
+                            <x-form.select
+                                wire:model="roundKopecks"
+                                :options="[
+                                    ['label' => 'Да', 'value' => 'Y'],
+                                    ['label' => 'Нет', 'value' => 'N'],
+                                ]"
+                            />
+                        </div>
+                    </x-form.form-field>
+
+                    <x-form.form-field>
                         <x-form.form-label
                             tooltip="При значении «Да» клиенто-проект без плана основного показателя считается невыполненным: в факте и итоге показывается (0%), а в общий % входит как 0%."
                         >Клиенто-проекты, по которым нет плана считать невыполненными</x-form.form-label>

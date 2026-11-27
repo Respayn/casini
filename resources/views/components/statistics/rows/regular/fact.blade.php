@@ -15,12 +15,7 @@
         }
 
         return match ($slot['format'] ?? null) {
-            'currency' => \Illuminate\Support\Number::currency(
-                $slot['value'],
-                in: 'RUB',
-                locale: 'ru',
-                precision: abs((float) $slot['value'] - round((float) $slot['value'])) < 0.001 ? 0 : 2,
-            ),
+            'currency' => \App\Helpers\MoneyDisplay::currency($slot['value']),
             'percent' => $slot['value'].'%',
             default => (string) $slot['value'],
         };
