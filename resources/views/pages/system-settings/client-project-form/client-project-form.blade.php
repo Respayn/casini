@@ -29,6 +29,12 @@
         x-text="successMessage"
     ></div>
 
+    @if ($deleteError)
+        <x-feedback.notice class="mt-4 mb-0 max-w-[950px]" variant="error">
+            {{ $deleteError }}
+        </x-feedback.notice>
+    @endif
+
     {{-- flex-1 + min-h-0: скролл только внутри панели, страница не растёт и браузерный скролл не появляется --}}
     <x-panel.scroll-panel
         class="mb-3 mt-4 min-h-0 flex-1"
@@ -39,7 +45,17 @@
             wire:submit.prevent="save"
         >
             <div class="flex max-w-[950px] flex-col gap-4">
-                <h1>{{ filled($clientProjectForm->id) ? 'Редактирование клиенто-проекта' : 'Добавление клиенто-проекта' }}</h1>
+                <div class="flex items-center justify-between gap-4">
+                    <h1>{{ filled($clientProjectForm->id) ? 'Редактирование клиенто-проекта' : 'Добавление клиенто-проекта' }}</h1>
+                    @if ($this->canDeleteClientProject)
+                        <x-button.button
+                            type="button"
+                            icon="icons.delete"
+                            label="Удалить клиенто-проект"
+                            x-on:click="$dispatch('modal-show', { name: 'client-project-delete-confirm' })"
+                        />
+                    @endif
+                </div>
             <div class="flex flex-col gap-4">
                 <h2>Основная информация</h2>
                 <x-form.form-field>
@@ -813,4 +829,31 @@
         :can-edit="$canEdit"
         :project-type="$clientProjectForm->projectType"
     />
+
+    @if ($this->canDeleteClientProject)
+        <x-overlay.modal name="client-project-delete-confirm" title="Вы уверены?">
+            <x-slot:body>
+                <p class="text-primary-text">
+                    Клиенто-проект будет удален. Связанные настройки интеграций и накопленные данные съёма тоже пропадут.
+                    Готовые отчеты останутся, пока на проект есть ссылка.
+                </p>
+                <div class="mt-6 flex justify-between gap-4">
+                    <x-button.button
+                        type="button"
+                        icon="icons.delete"
+                        label="Удалить"
+                        variant="primary"
+                        wire:click="deleteClientProject"
+                        loading="deleteClientProject"
+                        x-on:click="$dispatch('modal-hide', { name: 'client-project-delete-confirm' })"
+                    />
+                    <x-button.button
+                        type="button"
+                        label="Отменить"
+                        x-on:click="$dispatch('modal-hide', { name: 'client-project-delete-confirm' })"
+                    />
+                </div>
+            </x-slot:body>
+        </x-overlay.modal>
+    @endif
 </div>

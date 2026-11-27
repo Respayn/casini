@@ -9,6 +9,7 @@ use App\Data\ProjectForm\ProjectIntegrationData;
 use App\Data\ProjectUtmMappingData;
 use App\Data\UserData;
 use App\Enums\IntegrationCategory;
+use App\Enums\PermissionGroup;
 use App\Exceptions\CallibriApiException;
 use App\Factories\IntegrationSettingsFactory;
 use App\Helpers\PhraseDuplicateHelper;
@@ -19,6 +20,7 @@ use App\Livewire\Forms\SystemSettings\ClientAndProjects\ProjectUtmMappingForm;
 use App\Models\Agency;
 use App\Models\Project;
 use App\Models\ProjectFieldHistory;
+use App\Models\Report;
 use App\Services\CallibriService;
 use App\Services\ClientProject\ParameterCalculationSchemeBuilder;
 use App\Services\ClientService;
@@ -34,7 +36,10 @@ use App\Services\YandexMetrikaService;
 use App\Services\YandexSearchApiPhraseParser;
 use App\Support\Bitrix24ProjectSettingsValidator;
 use App\Support\ClientsAndProjectsPermissions;
+use App\Support\SidebarProjectAccess;
+use App\Support\SystemSettingsSectionPermissions;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -50,6 +55,7 @@ use Livewire\Attributes\On;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Spatie\Permission\Exceptions\UnauthorizedException;
 use Src\Application\Clients\Access\ClientProjectAccessPolicy;
 use Src\Domain\Clients\ClientRepositoryInterface;
 use Src\Domain\ValueObjects\Kpi;
@@ -69,6 +75,8 @@ class extends Component
     /** Id проекта со страницы; с фронта не меняется. */
     #[Locked]
     public ?int $editingProjectId = null;
+
+    public ?string $deleteError = null;
 
     public CreateClientProjectForm $clientProjectForm;
 
@@ -139,6 +147,51 @@ class extends Component
     public function canEditClientsAndProjects(): bool
     {
         return ClientsAndProjectsPermissions::userCanEdit(Auth::user());
+    }
+
+    #[Computed]
+    public function canDeleteClientProject(): bool
+    {
+        return $this->editingProjectId !== null
+            && SystemSettingsSectionPermissions::userCanFull(PermissionGroup::CLIENTS_AND_PROJECTS);
+    }
+
+    public function deleteClientProject(): mixed
+    {
+        $this->deleteError = null;
+
+        if (! $this->canDeleteClientProject) {
+            throw UnauthorizedException::forPermissions(
+                SystemSettingsSectionPermissions::fullPermissionNames(
+                    PermissionGroup::CLIENTS_AND_PROJECTS
+                )
+            );
+        }
+
+        $projectId = (int) $this->editingProjectId;
+
+        if (! SidebarProjectAccess::userCanAccessProject($projectId)) {
+            abort(403);
+        }
+
+        if (Report::query()->where('project_id', $projectId)->exists()) {
+            $this->deleteError = 'Нельзя удалить клиенто-проект: на него ссылаются отчеты.';
+
+            return null;
+        }
+
+        try {
+            Project::query()->whereKey($projectId)->firstOrFail()->delete();
+        } catch (QueryException) {
+            $this->deleteError = 'Нельзя удалить клиенто-проект: на него ссылаются отчеты.';
+
+            return null;
+        }
+
+        return $this->redirect(
+            route('system-settings.clients-and-projects'),
+            navigate: true
+        );
     }
 
     #[Computed]
