@@ -1,7 +1,8 @@
 @props([
     'name' => 'column-settings-modal',
     'title' => 'Настроить столбцы',
-    'columns'
+    'columns',
+    'pinnedKey' => null,
 ])
 
 <x-overlay.modal :name="$name" :title="$title">
@@ -11,12 +12,35 @@
             <x-panel.scroll-panel style="max-height: min(25rem, calc(100vh - 14rem))">
                 <div class="flex flex-col gap-2.5" x-data x-sort="$wire.sortColumn($item, $position)">
                     @foreach ($columns as $index => $column)
-                        <div class="flex items-center gap-2.5" wire:key="column.{{ $column['key'] }}"
-                            x-sort:item="'{{ $column['key'] }}'">
-                            <x-icons.burger class="text-secondary-text cursor-pointer" x-sort:handle />
-                            <x-form.checkbox :checked="$column['is_visible']" wire:click="toggleColumnVisibility('{{ $column['key'] }}')" />
-                            <label>{{ $column['label'] }}</label>
-                        </div>
+                        @php
+                            $isPinned = $pinnedKey !== null && $column['key'] === $pinnedKey;
+                        @endphp
+                        @if ($isPinned)
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column['key'] }}"
+                            >
+                                <x-icons.burger class="text-secondary-text pointer-events-none" />
+                                <x-form.checkbox
+                                    :checked="true"
+                                    :disabled="true"
+                                />
+                                <label>{{ $column['label'] }}</label>
+                            </div>
+                        @else
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column['key'] }}"
+                                x-sort:item="'{{ $column['key'] }}'"
+                            >
+                                <x-icons.burger class="text-secondary-text cursor-pointer" x-sort:handle />
+                                <x-form.checkbox
+                                    :checked="$column['is_visible']"
+                                    wire:click="toggleColumnVisibility('{{ $column['key'] }}')"
+                                />
+                                <label>{{ $column['label'] }}</label>
+                            </div>
+                        @endif
                     @endforeach
                 </div>
             </x-panel.scroll-panel>

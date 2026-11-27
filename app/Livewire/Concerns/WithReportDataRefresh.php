@@ -39,6 +39,8 @@ trait WithReportDataRefresh
 
     public bool $refreshIncludeVat = false;
 
+    public bool $refreshShowInactive = false;
+
     public function mountWithReportDataRefresh(
         IntegrationManualRefreshTimestamp $timestamps,
         IntegrationManualRefreshProgress $progress,
@@ -53,6 +55,10 @@ trait WithReportDataRefresh
 
         $this->lastDataRefreshLabel = $timestamps->formattedLabel($agencyId);
         $this->hydrateRefreshProgressFromCache($progress, $agencyId, (int) $userId);
+
+        if ($this->isManualReportDataRefreshing() && $this->syncQueryDataToLockedRefreshSlice()) {
+            unset($this->reportData);
+        }
 
         if (! $this->isReportDataRefreshing || $this->isAutomaticDataRefresh) {
             $this->hydrateAutomaticSyncStatus($automaticSync);
@@ -111,6 +117,7 @@ trait WithReportDataRefresh
             includeVat: (bool) $this->queryData->includeVat,
             withDirectBudget: $this->shouldRefreshDirectBudget(),
             recalculateBonuses: $product === 'statistics' && $this->queryData->isSingleMonthPeriod(),
+            showInactive: (bool) $this->queryData->showInactive,
         );
 
         if (! ($queued['ok'] ?? false)) {
@@ -130,6 +137,7 @@ trait WithReportDataRefresh
         $this->refreshPeriodFrom = $this->queryData->dateFrom->copy()->startOfMonth()->toDateString();
         $this->refreshPeriodTo = $this->queryData->dateTo->copy()->startOfMonth()->toDateString();
         $this->refreshIncludeVat = (bool) $this->queryData->includeVat;
+        $this->refreshShowInactive = (bool) $this->queryData->showInactive;
         unset($this->reportData);
     }
 
@@ -300,13 +308,13 @@ trait WithReportDataRefresh
             && (bool) $this->queryData->includeVat === $this->refreshIncludeVat;
     }
 
-    protected function isManualReportDataRefreshing(): bool
+    public function isManualReportDataRefreshing(): bool
     {
         return $this->isReportDataRefreshing && ! $this->isAutomaticDataRefresh;
     }
 
     /**
-     * НДС и период нельзя менять во время ручного съёма: иначе серые полоски пропадут.
+     * Неактивные, НДС и период нельзя менять во время ручного съёма: иначе серые полоски пропадут.
      * Возвращает true, если запрос нужно игнорировать (съём идёт).
      */
     protected function restoreLockedRefreshSliceFilters(): bool
@@ -315,31 +323,53 @@ trait WithReportDataRefresh
             return false;
         }
 
-        if ($this->refreshPeriodFrom !== null) {
-            $currentFrom = $this->queryData->dateFrom instanceof Carbon
-                ? $this->queryData->dateFrom->copy()->startOfMonth()->toDateString()
-                : null;
+        $this->syncQueryDataToLockedRefreshSlice();
 
-            if ($currentFrom !== $this->refreshPeriodFrom) {
-                $this->queryData->dateFrom = Carbon::parse($this->refreshPeriodFrom)->startOfMonth();
-            }
+        return true;
+    }
+
+    /**
+     * Подтянуть период, НДС и «Неактивные» экрана к срезу текущего ручного съёма.
+     * Иначе после SharedProductFilters / перезагрузки matchesRefreshSlice молчит,
+     * подсказка крутится, а строки показывают старые цифры.
+     */
+    protected function syncQueryDataToLockedRefreshSlice(): bool
+    {
+        if ($this->refreshPeriodFrom === null || $this->refreshPeriodTo === null) {
+            return false;
         }
 
-        if ($this->refreshPeriodTo !== null) {
-            $currentTo = $this->queryData->dateTo instanceof Carbon
-                ? $this->queryData->dateTo->copy()->startOfMonth()->toDateString()
-                : null;
+        $changed = false;
 
-            if ($currentTo !== $this->refreshPeriodTo) {
-                $this->queryData->dateTo = Carbon::parse($this->refreshPeriodTo)->startOfMonth();
-            }
+        $currentFrom = $this->queryData->dateFrom instanceof Carbon
+            ? $this->queryData->dateFrom->copy()->startOfMonth()->toDateString()
+            : null;
+
+        if ($currentFrom !== $this->refreshPeriodFrom) {
+            $this->queryData->dateFrom = Carbon::parse($this->refreshPeriodFrom)->startOfMonth();
+            $changed = true;
+        }
+
+        $currentTo = $this->queryData->dateTo instanceof Carbon
+            ? $this->queryData->dateTo->copy()->startOfMonth()->toDateString()
+            : null;
+
+        if ($currentTo !== $this->refreshPeriodTo) {
+            $this->queryData->dateTo = Carbon::parse($this->refreshPeriodTo)->startOfMonth();
+            $changed = true;
         }
 
         if ((bool) $this->queryData->includeVat !== $this->refreshIncludeVat) {
             $this->queryData->includeVat = $this->refreshIncludeVat;
+            $changed = true;
         }
 
-        return true;
+        if ((bool) $this->queryData->showInactive !== $this->refreshShowInactive) {
+            $this->queryData->showInactive = $this->refreshShowInactive;
+            $changed = true;
+        }
+
+        return $changed;
     }
 
     protected function currentRefreshAgencyId(): ?int
@@ -369,6 +399,7 @@ trait WithReportDataRefresh
             ? $state['period_to']
             : null;
         $this->refreshIncludeVat = (bool) ($state['include_vat'] ?? false);
+        $this->refreshShowInactive = (bool) ($state['show_inactive'] ?? false);
 
         $isRunning = ($state['status'] ?? null) === IntegrationManualRefreshProgress::STATUS_RUNNING;
 
@@ -390,6 +421,13 @@ trait WithReportDataRefresh
             return;
         }
 
+        $this->isReportDataRefreshing = true;
+        $this->isAutomaticDataRefresh = false;
+
+        if ($this->syncQueryDataToLockedRefreshSlice()) {
+            unset($this->reportData);
+        }
+
         $visibleIds = $this->visibleRefreshProjectIdSet();
         $pending = [];
 
@@ -407,7 +445,6 @@ trait WithReportDataRefresh
         $currentProjectId = isset($state['current_project_id']) ? (int) $state['current_project_id'] : 0;
         $currentIsVisible = $currentProjectId > 0 && isset($visibleIds[$currentProjectId]);
 
-        $this->isReportDataRefreshing = true;
         $this->refreshPendingProjects = $pending;
         $this->refreshStepStartedAt = isset($state['step_started_at'])
             ? (int) $state['step_started_at']
@@ -458,6 +495,7 @@ trait WithReportDataRefresh
         $this->refreshPeriodFrom = null;
         $this->refreshPeriodTo = null;
         $this->refreshIncludeVat = false;
+        $this->refreshShowInactive = false;
 
         $visibleIds = $this->visibleRefreshProjectIdSet();
         $currentProjectId = isset($snapshot['current_project_id']) ? (int) $snapshot['current_project_id'] : 0;
@@ -561,6 +599,7 @@ trait WithReportDataRefresh
         $this->refreshPeriodFrom = null;
         $this->refreshPeriodTo = null;
         $this->refreshIncludeVat = false;
+        $this->refreshShowInactive = false;
     }
 
     private function hydrateRefreshProgressFromCache(

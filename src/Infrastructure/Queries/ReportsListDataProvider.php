@@ -62,23 +62,28 @@ class ReportsListDataProvider implements ReportsListDataProviderInterface
             ->orderBy('reports.created_at', 'desc')
             ->get();
 
-        return $results->map(fn (object $row) => new ReportListItemDto(
-            new DateTimeImmutable($row->created_at),
-            $this->resolveTemplateName($row),
-            $row->client_id,
-            $row->client_name,
-            $row->report_id,
-            ProjectType::from($row->project_type)->shortLabel(),
-            $row->project_id,
-            $row->project_name,
-            new DateTimeImmutable($row->period_start),
-            new DateTimeImmutable($row->period_end),
-            $row->specialist_last_name.' '.mb_substr($row->specialist_first_name, 0, 1).'.',
-            ReportFormat::from($row->format)->value,
-            $row->is_ready,
-            $row->is_accepted,
-            $row->is_sent
-        ))->toArray();
+        return $results->map(function (object $row): ReportListItemDto {
+            $projectType = ProjectType::from($row->project_type);
+
+            return new ReportListItemDto(
+                new DateTimeImmutable($row->created_at),
+                $this->resolveTemplateName($row),
+                $row->client_id,
+                $row->client_name,
+                $row->report_id,
+                $projectType->shortLabel(),
+                $projectType->label(),
+                $row->project_id,
+                $row->project_name,
+                new DateTimeImmutable($row->period_start),
+                new DateTimeImmutable($row->period_end),
+                $row->specialist_last_name.' '.mb_substr($row->specialist_first_name, 0, 1).'.',
+                ReportFormat::from($row->format)->value,
+                $row->is_ready,
+                $row->is_accepted,
+                $row->is_sent
+            );
+        })->toArray();
     }
 
     private function resolveTemplateName(object $row): string

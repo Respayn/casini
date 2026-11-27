@@ -21,6 +21,10 @@ trait WithSidebarProjectFilter
     #[On('sidebar-project-selected')]
     public function onSidebarProjectSelected(int $projectId): void
     {
+        if ($this->isSidebarProjectFilterLocked()) {
+            return;
+        }
+
         if (! SidebarProjectAccess::userCanAccessProject($projectId)) {
             return;
         }
@@ -32,15 +36,32 @@ trait WithSidebarProjectFilter
     #[On('sidebar-project-cleared')]
     public function onSidebarProjectCleared(): void
     {
+        if ($this->isSidebarProjectFilterLocked()) {
+            return;
+        }
+
         $this->sidebarProjectId = null;
         $this->afterSidebarProjectFilterChanged();
     }
 
     public function clearSidebarProjectFilter(): void
     {
+        if ($this->isSidebarProjectFilterLocked()) {
+            return;
+        }
+
         $this->sidebarProjectId = null;
         $this->dispatch('sidebar-project-cleared');
         $this->afterSidebarProjectFilterChanged();
+    }
+
+    /**
+     * На Каналах/Статистике во время ручного съёма фильтр клиенто-проекта не меняем.
+     */
+    protected function isSidebarProjectFilterLocked(): bool
+    {
+        return method_exists($this, 'isManualReportDataRefreshing')
+            && $this->isManualReportDataRefreshing();
     }
 
     /**

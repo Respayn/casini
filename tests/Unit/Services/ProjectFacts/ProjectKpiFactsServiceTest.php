@@ -163,6 +163,58 @@ class ProjectKpiFactsServiceTest extends TestCase
         $this->assertSame(2, array_sum($byDay));
     }
 
+    public function test_leads_ignore_utm_goals_when_count_source_is_direct_summary(): void
+    {
+        $project = $this->makeProject();
+
+        YandexMetrikaGoalUtm::query()->create([
+            'project_id' => $project->id,
+            'goal_name' => 'Заявка',
+            'achieved_date' => '2026-10-06',
+            'utm_source' => 'yandex',
+            'utm_medium' => 'cpc',
+            'utm_campaign' => '100',
+        ]);
+        YandexMetrikaGoalUtm::query()->create([
+            'project_id' => $project->id,
+            'goal_name' => 'Заявка',
+            'achieved_date' => '2026-10-07',
+            'utm_source' => 'yandex',
+            'utm_medium' => 'cpc',
+            'utm_campaign' => '200',
+        ]);
+
+        $metrikaRow = (object) [
+            'settings' => [
+                'reports' => [
+                    'goals_utm' => true,
+                    'goals_direct_summary' => true,
+                ],
+                'goals_count_source' => 'direct_summary',
+                'utm_filter_mode' => 'source',
+                'utm_source' => 'yandex',
+            ],
+            'integration' => (object) ['code' => 'yandex_metrika'],
+        ];
+
+        $credentials = Mockery::mock(IntegrationProjectCredentials::class);
+        $credentials->shouldReceive('mapByProjects')
+            ->andReturn(collect([$project->id => collect([$metrikaRow])]));
+        $credentials->shouldReceive('integrationFromMap')
+            ->andReturnUsing(function ($mapped, int $projectId, string $code) use ($metrikaRow) {
+                return $code === 'yandex_metrika' ? $metrikaRow : null;
+            });
+
+        $service = $this->makeService($credentials);
+        $byDay = $service->leadsByDay(
+            $project->id,
+            Carbon::parse('2026-10-01'),
+            Carbon::parse('2026-10-31'),
+        );
+
+        $this->assertSame(0, array_sum($byDay));
+    }
+
     public function test_top10_and_seo_facts_match_shared_sources(): void
     {
         $project = $this->makeProject();

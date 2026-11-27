@@ -10,12 +10,7 @@
         }
 
         return match ($slot['format'] ?? null) {
-            'currency' => \Illuminate\Support\Number::currency(
-                $slot['value'],
-                in: 'RUB',
-                locale: 'ru',
-                precision: abs((float) $slot['value'] - round((float) $slot['value'])) < 0.001 ? 0 : 2,
-            ),
+            'currency' => \App\Helpers\MoneyDisplay::currency($slot['value']),
             'percent' => $slot['value'].'%',
             default => (string) $slot['value'],
         };
@@ -36,33 +31,37 @@
     $slots = is_array($params) ? $params : [];
 @endphp
 
-<x-data.table-cell {{ $attributes }} class="!p-0 h-1">
-    @if ($slots === [])
-        <div class="flex h-full items-center px-2.5 py-2">-</div>
-    @else
-        <div class="grid h-full auto-rows-fr divide-y divide-table-cell">
-            @foreach ($slots as $slot)
-                @php
-                    $isPrimary = ! empty($slot['highlight']);
-                    $planPercent = isset($slot['plan_percent']) && is_numeric($slot['plan_percent'])
-                        ? (int) $slot['plan_percent']
-                        : null;
-                    $slotBg = $highlightUnmetKpi ? $kpiHighlightBg($planPercent) : null;
-                @endphp
-                <div
-                    class="flex items-center grow px-2.5 py-2 whitespace-nowrap gap-1 {{ $isPrimary ? 'font-bold' : '' }}"
-                    @if ($slotBg !== null) style="background-color: {{ $slotBg }}" @endif
+<x-data.table-cell {{ $attributes }} class="!p-0" style="vertical-align: top">
+    <table class="w-full border-collapse">
+        @forelse ($slots as $slot)
+            @php
+                $isPrimary = ! empty($slot['highlight']);
+                $planPercent = isset($slot['plan_percent']) && is_numeric($slot['plan_percent'])
+                    ? (int) $slot['plan_percent']
+                    : null;
+                $slotBg = $highlightUnmetKpi ? $kpiHighlightBg($planPercent) : null;
+            @endphp
+            <tr style="height: 44px">
+                <td
+                    class="whitespace-nowrap {{ $isPrimary ? 'font-bold' : '' }}"
+                    style="height: 44px; max-height: 44px; vertical-align: middle; padding: 0 10px; overflow: hidden; {{ $loop->first ? '' : 'border-top: 1px solid var(--color-table-cell);' }}{{ $slotBg !== null ? 'background-color: '.$slotBg.';' : '' }}"
                 >
                     @if (isset($slot['value']) && $slot['value'] !== null && $slot['value'] !== '')
-                        <span>{{ $formatValue($slot) }}</span>
-                        @if ($planPercent !== null)
-                            <span class="text-xs font-normal text-secondary-text">({{ $planPercent }}%)</span>
-                        @endif
+                        <span class="inline-flex items-center gap-1">
+                            <span>{{ $formatValue($slot) }}</span>
+                            @if ($planPercent !== null)
+                                <span class="text-xs font-normal text-secondary-text">({{ $planPercent }}%)</span>
+                            @endif
+                        </span>
                     @else
                         -
                     @endif
-                </div>
-            @endforeach
-        </div>
-    @endif
+                </td>
+            </tr>
+        @empty
+            <tr style="height: 44px">
+                <td class="whitespace-nowrap" style="height: 44px; vertical-align: middle; padding: 0 10px">-</td>
+            </tr>
+        @endforelse
+    </table>
 </x-data.table-cell>

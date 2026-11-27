@@ -11,9 +11,9 @@
     @elseif ($kind === 'fill_check')
         <span class="italic">Заполните Чек клиента</span>
     @elseif ($kind === 'amount' && is_numeric($value))
-        {{ Number::currency($value, in: 'RUB', locale: 'ru', precision: 0) }}
+        {{ \App\Helpers\MoneyDisplay::currency($value) }}
     @elseif (is_numeric($params))
-        {{ Number::currency($params, in: 'RUB', locale: 'ru', precision: 0) }}
+        {{ \App\Helpers\MoneyDisplay::currency($params) }}
     @else
         -
     @endif

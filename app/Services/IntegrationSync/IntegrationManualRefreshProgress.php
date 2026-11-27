@@ -24,6 +24,7 @@ use Illuminate\Support\Str;
  *     period_from: string,
  *     period_to: string,
  *     include_vat: bool,
+ *     show_inactive: bool,
  *     all_ids: list<int>,
  *     updated: int,
  *     failed: int,
@@ -132,6 +133,7 @@ class IntegrationManualRefreshProgress
         string $periodFrom,
         string $periodTo,
         bool $includeVat,
+        bool $showInactive = false,
     ): array {
         $state = [
             'status' => self::STATUS_RUNNING,
@@ -152,6 +154,7 @@ class IntegrationManualRefreshProgress
             'period_from' => $periodFrom,
             'period_to' => $periodTo,
             'include_vat' => $includeVat,
+            'show_inactive' => $showInactive,
             'updated' => 0,
             'failed' => 0,
             'skipped' => 0,

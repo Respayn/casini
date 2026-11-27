@@ -2015,7 +2015,7 @@
                     </div>
                 </x-form.form-field>
 
-                <x-form.form-field>
+                <x-form.form-field x-show="settings.goals_count_source !== 'direct_summary'" x-cloak>
                     <x-form.form-label class="self-baseline">
                         С каких UTM-меток нужно забирать достижение целей?
                     </x-form.form-label>
@@ -2055,7 +2055,7 @@
                     </div>
                 </x-form.form-field>
 
-                <x-form.form-field x-show="settings.utm_filter_mode === 'source'" x-cloak>
+                <x-form.form-field x-show="settings.goals_count_source !== 'direct_summary' && settings.utm_filter_mode === 'source'" x-cloak>
                     <x-form.form-label tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_source.">
                         Какие цели забираем с меткой UTM_source?
                     </x-form.form-label>
@@ -2064,7 +2064,7 @@
                     </div>
                 </x-form.form-field>
 
-                <x-form.form-field x-show="settings.utm_filter_mode === 'medium'" x-cloak>
+                <x-form.form-field x-show="settings.goals_count_source !== 'direct_summary' && settings.utm_filter_mode === 'medium'" x-cloak>
                     <x-form.form-label tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_medium.">
                         Какие цели забираем с меткой UTM_medium?
                     </x-form.form-label>
@@ -2073,7 +2073,7 @@
                     </div>
                 </x-form.form-field>
 
-                <x-form.form-field x-show="settings.utm_filter_mode === 'campaign'" x-cloak>
+                <x-form.form-field x-show="settings.goals_count_source !== 'direct_summary' && settings.utm_filter_mode === 'campaign'" x-cloak>
                     <x-form.form-label tooltip="Можете указать полное содержание метки или частичное, несколько меток можно указать через запятую. Если оставить пустым, то будем забирать все цели, в которых заполнено UTM_campaign.">
                         Какие цели забираем с меткой UTM_campaign?
                     </x-form.form-label>

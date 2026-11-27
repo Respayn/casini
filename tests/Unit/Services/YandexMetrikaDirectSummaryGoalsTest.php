@@ -56,12 +56,13 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
         );
 
         $this->assertSame('ym:s:goal111visits,ym:s:goal222visits', $captured['metrics']);
-        $this->assertSame('ym:s:goal', $captured['dimensions']);
+        $this->assertSame('ym:s:goal,ym:s:date', $captured['dimensions']);
         $this->assertStringContainsString('ym:s:<attribution>DirectClickOrder!n', (string) $captured['filters']);
 
         $byGoal = [];
         foreach ($rows as $row) {
             $byGoal[$row['goal_name']] = $row;
+            $this->assertSame('2026-08-18', $row['month']);
         }
 
         $this->assertSame(15, $byGoal['Заявка']['value']);
@@ -70,29 +71,35 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
     }
 
     #[Test]
-    public function test_fetch_uses_month_dimension_for_multi_month(): void
+    public function test_fetch_uses_date_dimension_per_month_slice(): void
     {
         $captured = [];
         $client = Mockery::mock(YandexMetrikaClientInterface::class);
         $client->shouldReceive('getVisitsReport')
-            ->once()
+            ->twice()
             ->with(Mockery::on(function (array $params) use (&$captured) {
-                $captured = $params;
+                $captured[] = $params;
 
                 return true;
             }))
-            ->andReturn([
-                'data' => [
-                    [
-                        'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-07']],
-                        'metrics' => [4],
-                    ],
-                    [
-                        'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-08']],
-                        'metrics' => [9],
+            ->andReturn(
+                [
+                    'data' => [
+                        [
+                            'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-07-20']],
+                            'metrics' => [4],
+                        ],
                     ],
                 ],
-            ]);
+                [
+                    'data' => [
+                        [
+                            'dimensions' => [['id' => '333', 'name' => 'Заявка'], ['name' => '2026-08-03']],
+                            'metrics' => [9],
+                        ],
+                    ],
+                ],
+            );
 
         $service = $this->makeService($client);
         $rows = $service->fetchDirectSummaryGoalsStats(
@@ -102,14 +109,15 @@ class YandexMetrikaDirectSummaryGoalsTest extends TestCase
             YandexMetrikaIntegrationSettingsData::GOALS_METRIC_GOAL_REACHES
         );
 
-        $this->assertSame('ym:s:goal333reaches', $captured['metrics']);
-        $this->assertSame('ym:s:goal,ym:s:month', $captured['dimensions']);
-        $this->assertStringContainsString('ym:s:<attribution>DirectClickOrder!n', (string) $captured['filters']);
+        $this->assertCount(2, $captured);
+        $this->assertSame('ym:s:goal333reaches', $captured[1]['metrics']);
+        $this->assertSame('ym:s:goal,ym:s:date', $captured[1]['dimensions']);
+        $this->assertStringContainsString('ym:s:<attribution>DirectClickOrder!n', (string) $captured[1]['filters']);
 
         $this->assertCount(2, $rows);
-        $this->assertSame('2026-07-01', $rows[0]['month']);
+        $this->assertSame('2026-07-20', $rows[0]['month']);
         $this->assertSame(4, $rows[0]['value']);
-        $this->assertSame('2026-08-01', $rows[1]['month']);
+        $this->assertSame('2026-08-03', $rows[1]['month']);
         $this->assertSame(9, $rows[1]['value']);
     }
 

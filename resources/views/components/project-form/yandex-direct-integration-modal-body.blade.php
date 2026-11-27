@@ -75,7 +75,7 @@
 
 <div
     wire:ignore
-    class="flex h-full w-fit min-w-0 flex-col"
+    class="flex h-full w-full min-w-0 flex-col"
     x-data="{
         canEdit: @js($canEdit),
         platformConfigured: {{ Js::from($platformConfigured) }},
@@ -782,7 +782,8 @@
         },
     }"
 >
-    <x-form.form class="mb-7 lg:min-w-[580px]">
+    <x-panel.scroll-panel style="max-height: 500px">
+    <x-form.form class="lg:min-w-[580px]">
         @unless ($platformConfigured)
             <p class="text-warning-red mb-4 text-sm">
                 Интеграция Яндекс.Директ не настроена на сервере. Обратитесь к администратору.
@@ -939,6 +940,7 @@
             </div>
         </x-form.form-field>
     </x-form.form>
+    </x-panel.scroll-panel>
 
-    <x-project-form.integration-modal-footer />
+    <x-project-form.integration-modal-footer class="mt-4" />
 </div>

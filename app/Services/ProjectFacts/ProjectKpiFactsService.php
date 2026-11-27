@@ -138,7 +138,7 @@ class ProjectKpiFactsService
 
         $directSummaryByProject = [];
         if ($metrikaProjectIds !== []) {
-            foreach ($this->yandexMetrika->getGoalDirectSummaryStatsForProjects($metrikaProjectIds, $this->toMonthRange($from, $to)) as $row) {
+            foreach ($this->yandexMetrika->getGoalDirectSummaryStatsForProjects($metrikaProjectIds, $this->toRange($from, $to)) as $row) {
                 $directSummaryByProject[$row->getProjectId()][] = $row;
             }
         }
@@ -166,19 +166,11 @@ class ProjectKpiFactsService
                 $countSource = YandexMetrikaIntegrationSettingsData::resolveGoalsCountSource($settings);
 
                 if ($countSource === YandexMetrikaIntegrationSettingsData::GOALS_COUNT_SOURCE_DIRECT_SUMMARY) {
-                    foreach ($this->directSummaryGoalsByMonthFromRows(
+                    foreach ($this->directSummaryGoalsByDayFromRows(
                         $settings,
                         $directSummaryByProject[$projectId] ?? [],
-                    ) as $month => $conversions) {
-                        $day = Carbon::parse($month)->endOfMonth();
-                        if ($day->greaterThan($to)) {
-                            $day = $to->copy();
-                        }
-                        if ($day->lessThan($from)) {
-                            $day = $from->copy();
-                        }
-                        $key = $day->toDateString();
-                        $map[$key] = ($map[$key] ?? 0) + $conversions;
+                    ) as $day => $conversions) {
+                        $map[$day] = ($map[$day] ?? 0) + $conversions;
                     }
                 } else {
                     foreach ($this->filterMetrikaUtmGoalsFromRows($settings, $utmByProject[$projectId] ?? []) as $goal) {
@@ -209,13 +201,13 @@ class ProjectKpiFactsService
     }
 
     /**
-     * Визиты / конверсии SEO по месяцам для списка проектов.
+     * Визиты / конверсии SEO по дням для списка проектов.
      *
      * @param  list<int>  $projectIds
      * @param  'visits'|'conversions'  $column
-     * @return array<int, array<string, int>> project_id => (Y-m-01 => value)
+     * @return array<int, array<string, int>> project_id => (Y-m-d => value)
      */
-    public function seoSearchEnginesByMonthForProjects(
+    public function seoSearchEnginesByDayForProjects(
         array $projectIds,
         Carbon $from,
         Carbon $to,
@@ -228,16 +220,16 @@ class ProjectKpiFactsService
 
         $rows = $this->yandexMetrika->getSearchEnginesStatsForProjects(
             $projectIds,
-            $this->toMonthRange($from, $to),
+            $this->toRange($from, $to),
         );
 
         $map = [];
         foreach ($rows as $row) {
             /** @var YandexMetrikaSearchEnginesStats $row */
             $projectId = $row->getProjectId();
-            $month = $row->getMonth()->format('Y-m-01');
+            $day = $row->getMonth()->format('Y-m-d');
             $value = $column === 'conversions' ? $row->getConversions() : $row->getVisits();
-            $map[$projectId][$month] = ($map[$projectId][$month] ?? 0) + $value;
+            $map[$projectId][$day] = ($map[$projectId][$day] ?? 0) + $value;
         }
 
         return $map;
@@ -318,7 +310,7 @@ class ProjectKpiFactsService
     }
 
     /**
-     * @return array<string, int> Y-m-01 => conversions
+     * @return array<string, int> Y-m-01 => conversions (дни складываются в месяц)
      */
     public function directSummaryGoalsByMonth(int $projectId, Carbon $from, Carbon $to): array
     {
@@ -331,10 +323,16 @@ class ProjectKpiFactsService
 
         $rows = $this->yandexMetrika->getGoalDirectSummaryStats(
             $projectId,
-            $this->toMonthRange($from, $to),
+            $this->toRange($from, $to),
         );
 
-        return $this->directSummaryGoalsByMonthFromRows($settings, $rows);
+        $byMonth = [];
+        foreach ($this->directSummaryGoalsByDayFromRows($settings, $rows) as $day => $conversions) {
+            $monthKey = Carbon::parse($day)->startOfMonth()->format('Y-m-01');
+            $byMonth[$monthKey] = ($byMonth[$monthKey] ?? 0) + $conversions;
+        }
+
+        return $byMonth;
     }
 
     /**
@@ -429,9 +427,9 @@ class ProjectKpiFactsService
     /**
      * @param  array<string, mixed>  $settings
      * @param  list<YandexMetrikaGoalDirectSummary>  $rows
-     * @return array<string, int>
+     * @return array<string, int> Y-m-d => conversions
      */
-    private function directSummaryGoalsByMonthFromRows(array $settings, array $rows): array
+    private function directSummaryGoalsByDayFromRows(array $settings, array $rows): array
     {
         $reports = is_array($settings['reports'] ?? null) ? $settings['reports'] : [];
         if (! ($reports['goals_direct_summary'] ?? false)) {
@@ -450,8 +448,8 @@ class ProjectKpiFactsService
 
         $map = [];
         foreach ($rows as $row) {
-            $month = $row->getMonth()->format('Y-m-01');
-            $map[$month] = ($map[$month] ?? 0) + $row->getConversions();
+            $day = $row->getMonth()->format('Y-m-d');
+            $map[$day] = ($map[$day] ?? 0) + $row->getConversions();
         }
 
         return $map;
@@ -476,7 +474,7 @@ class ProjectKpiFactsService
     {
         $rows = $this->yandexMetrika->getSearchEnginesStats(
             $projectId,
-            $this->toMonthRange($from, $to),
+            $this->toRange($from, $to),
         );
 
         if ($rows === []) {

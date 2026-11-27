@@ -2,5 +2,5 @@
 
 <x-data.table-cell {{ $attributes->class(['bg-table-summary-bg', 'whitespace-nowrap', 'font-bold' => $bold]) }}>
 
-    <span>Итого: {{ $params['count'] ?? '-' }}</span>
+    <span>{{ $params['count'] ?? '-' }}</span>
 </x-data.table-cell>

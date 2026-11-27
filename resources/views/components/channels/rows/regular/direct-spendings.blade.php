@@ -5,5 +5,5 @@
 @endphp
 
 <x-data.table-cell class="whitespace-nowrap" {{ $attributes }}>
-    {{ $value === null ? '-' : Number::currency($value, in: 'RUB', locale: 'ru') }}
+    {{ \App\Helpers\MoneyDisplay::currency($value) }}
 </x-data.table-cell>

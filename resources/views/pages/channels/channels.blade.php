@@ -35,7 +35,7 @@
     @php
         $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, applySettingsSnapshot, applyGrouping, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
         $lockRefreshSlice = $isReportDataRefreshing && ! $isAutomaticDataRefresh;
-        $lockRefreshSliceTitle = 'Пока идёт обновление данных, НДС и период менять нельзя';
+        $lockRefreshSliceTitle = 'Пока идёт обновление данных, неактивные, НДС, период, фильтр и клиенто-проект менять нельзя';
     @endphp
 
     <div
@@ -48,9 +48,15 @@
             wire:poll.30s="pollRefreshProgress"
         @endif
     >
-        <div class="mr-3.5 flex items-center gap-2">
+        <div
+            class="mr-3.5 flex items-center gap-2"
+            @if ($lockRefreshSlice) title="{{ $lockRefreshSliceTitle }}" @endif
+        >
             <label>Неактивные клиенто-проекты:</label>
-            <x-form.checkbox wire:model.live="queryData.showInactive" />
+            <x-form.checkbox
+                wire:model.live="queryData.showInactive"
+                :disabled="$lockRefreshSlice"
+            />
         </div>
 
         <div
@@ -114,51 +120,83 @@
                     <x-data.table>
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
+                            @php
+                                $headerLabel = (string) $column->label;
+                                $headerTitle = $headerLabel;
+                                $headerUnit = null;
+                                if (preg_match('/^(.*?)\s*(\([^)]+\))\s*$/u', $headerLabel, $headerParts)) {
+                                    $headerTitle = trim($headerParts[1]);
+                                    $headerUnit = $headerParts[2];
+                                }
+                                $wrapHeader = $headerUnit !== null || mb_strlen($headerLabel) > 22;
+                            @endphp
                             <x-data.table-column
                                 @class([
-                                    'whitespace-nowrap border',
+                                    'border',
+                                    'whitespace-nowrap' => ! $wrapHeader,
                                     'min-w-28' => $column->field === 'tool',
                                 ])
                                 style="border-color: var(--color-table-cell)"
+                                :wrap="$wrapHeader"
+                                :stacked="$wrapHeader"
                             >
-                                <span>{{ $column->label }}</span>
-                                @if ($column->tooltip !== null)
-                                    <x-overlay.tooltip>
-                                        {{ $column->tooltip }}
-                                    </x-overlay.tooltip>
+                                @if ($wrapHeader)
+                                    <div @class([
+                                        'mx-auto text-center leading-tight',
+                                        'max-w-[9rem]' => $headerUnit === null,
+                                    ])>
+                                        <div @class([
+                                            'inline-flex items-start justify-center gap-1',
+                                            'whitespace-nowrap' => $headerUnit !== null,
+                                        ])>
+                                            <span>{{ $headerTitle }}</span>
+                                            @if ($column->tooltip !== null)
+                                                <x-overlay.tooltip>
+                                                    {{ $column->tooltip }}
+                                                </x-overlay.tooltip>
+                                            @endif
+                                        </div>
+                                        @if ($headerUnit !== null)
+                                            <div class="whitespace-nowrap">{{ $headerUnit }}</div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span>{{ $headerLabel }}</span>
+                                    @if ($column->tooltip !== null)
+                                        <x-overlay.tooltip>
+                                            {{ $column->tooltip }}
+                                        </x-overlay.tooltip>
+                                    @endif
                                 @endif
                             </x-data.table-column>
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
-                        @php $clientProjectStripe = 0; @endphp
+                        @php
+                            $clientProjectStripe = 0;
+                            $isFlatView = $sidebarProjectId !== null || $queryData->grouping->value === 'none';
+                            $pinnedField = $this->pinnedGroupingColumnField();
+                        @endphp
                         @foreach ($this->reportData->groups as $groupIndex => $group)
-                            {{-- Итого по группе --}}
-                            @unless (empty($group->summary))
-                                <x-data.table-row wire:key="group.{{ $groupIndex }}.name">
-                                    <x-data.table-cell colspan="100">
-                                        <div
-                                            class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
-                                        >
-                                            <span class="font-bold">{{ $group->groupLabel }}</span>
-                                            <x-icons.accordion-arrow
-                                                class="transition-transform duration-200"
-                                                x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }"
-                                            />
-                                        </div>
-                                    </x-data.table-cell>
-                                </x-data.table-row>
+                            {{-- Итого по группе: стрелка в первой (закреплённой) колонке --}}
+                            @unless ($isFlatView || empty($group->summary))
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary" data-channels-group-summary>
                                     @if ($this->isRefreshGroupPending($group))
                                         <x-report.table-row-skeleton :columns="$this->visibleColumns" />
                                     @else
                                         @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component
-                                                :component="'channels.rows.summary.' . $column->component"
-                                                :params="$group->summary->get($column->field)"
-                                                :bold="true"
-                                            />
+                                            @if ($pinnedField !== null && $column->field === $pinnedField)
+                                                <x-report.group-toggle-cell
+                                                    :label="$group->groupLabel"
+                                                    :group-index="$groupIndex"
+                                                />
+                                            @else
+                                                <x-dynamic-component
+                                                    :component="'channels.rows.summary.' . $column->component"
+                                                    :params="$group->summary->get($column->field)"
+                                                    :bold="true"
+                                                />
+                                            @endif
                                         @endforeach
                                     @endif
                                 </x-data.table-row>
@@ -170,7 +208,7 @@
                                     $clientProjectStripe++;
                                     $rowPending = $this->isRefreshRowPending((int) $row->id);
                                 @endphp
-                                @if ($queryData->grouping->value === 'none')
+                                @if ($isFlatView)
                                     <x-data.table-row
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
@@ -188,7 +226,7 @@
                                     </x-data.table-row>
                                 @else
                                     <x-data.table-row
-                                        x-show="expandedGroups['group-{{ $groupIndex }}']"
+                                        x-bind:class="{ 'report-group-data-row-collapsed': !expandedGroups['group-{{ $groupIndex }}'] }"
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
                                     >
@@ -207,19 +245,27 @@
                             @endforeach
                         @endforeach
                         {{-- Итого по таблице --}}
-                        <x-data.table-row>
-                            @if ($this->isRefreshTableSummaryPending())
-                                <x-report.table-row-skeleton :columns="$this->visibleColumns" />
-                            @else
-                                @foreach ($this->visibleColumns as $column)
-                                    <x-dynamic-component
-                                        :component="'channels.rows.summary.' . $column->component"
-                                        :params="$this->reportData->summary->get($column->field)"
-                                        :bold="true"
-                                    />
-                                @endforeach
-                            @endif
-                        </x-data.table-row>
+                        @unless ($sidebarProjectId !== null)
+                            <x-data.table-row>
+                                @if ($this->isRefreshTableSummaryPending())
+                                    <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                @else
+                                    @foreach ($this->visibleColumns as $column)
+                                        @if ($loop->first)
+                                            <x-data.table-cell class="bg-table-summary-bg whitespace-nowrap font-bold">
+                                                Итого
+                                            </x-data.table-cell>
+                                        @else
+                                            <x-dynamic-component
+                                                :component="'channels.rows.summary.' . $column->component"
+                                                :params="$this->reportData->summary->get($column->field)"
+                                                :bold="true"
+                                            />
+                                        @endif
+                                    @endforeach
+                                @endif
+                            </x-data.table-row>
+                        @endunless
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.scroll-panel>
@@ -238,19 +284,43 @@
                     x-data
                     x-sort="$wire.sortColumn($item, $position)"
                 >
-                    @foreach ($queryData->columns as $index => $column)
-                        <div
-                            class="flex items-center gap-2.5"
-                            wire:key="column.{{ $column->field }}"
-                            x-sort:item="'{{ $column->field }}'"
-                        >
-                            <x-icons.burger
-                                class="text-secondary-text cursor-pointer"
-                                x-sort:handle
-                            />
-                            <x-form.checkbox wire:model="queryData.columns.{{ $index }}.isVisible" />
-                            <label>{{ $column->label }}</label>
-                        </div>
+                    @php $pinnedField = $this->pinnedGroupingColumnField(); @endphp
+                    @foreach ($queryData->columns->sortBy(fn ($col) => ($pinnedField !== null && $col->field === $pinnedField) ? -1 : $col->order) as $column)
+                        @php
+                            $isPinned = $pinnedField !== null && $column->field === $pinnedField;
+                            $columnIndex = $queryData->columns->search(fn ($col) => $col->field === $column->field);
+                            if ($isPinned) {
+                                $queryData->columns[$columnIndex]->isVisible = true;
+                            }
+                        @endphp
+                        @if ($isPinned)
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column->field }}"
+                            >
+                                <x-icons.burger class="text-secondary-text pointer-events-none" />
+                                <x-form.checkbox
+                                    wire:model="queryData.columns.{{ $columnIndex }}.isVisible"
+                                    :disabled="true"
+                                />
+                                <label>{{ $column->label }}</label>
+                            </div>
+                        @else
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column->field }}"
+                                x-sort:item="'{{ $column->field }}'"
+                            >
+                                <x-icons.burger
+                                    class="text-secondary-text cursor-pointer"
+                                    x-sort:handle
+                                />
+                                <x-form.checkbox
+                                    wire:model="queryData.columns.{{ $columnIndex }}.isVisible"
+                                />
+                                <label>{{ $column->label }}</label>
+                            </div>
+                        @endif
                     @endforeach
                 </div>
             </x-panel.scroll-panel>
@@ -273,5 +343,8 @@
 
     <x-report.refresh-all-confirm-modal />
 
-    <livewire:channels.group-settings-modal :initial-grouping="$queryData->grouping" />
+    <livewire:channels.group-settings-modal
+        wire:key="group-settings-{{ $queryData->grouping->value }}-{{ \App\Support\SharedProductFilters::roundKopecks() ? 'Y' : 'N' }}"
+        :initial-grouping="$queryData->grouping"
+    />
 </x-report.refresh-navigation-guard>

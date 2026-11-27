@@ -28,6 +28,7 @@ use Illuminate\Support\Facades\Auth;
 use Src\Domain\ValueObjects\Kpi;
 use Src\Domain\ValueObjects\ProjectType;
 use Src\Planning\Application\ProjectPlanService;
+use Src\Planning\Domain\ValueObjects\VatRate;
 
 class StatisticsService
 {
@@ -56,6 +57,8 @@ class StatisticsService
     private bool $treatMissingPlanAsUnmet = true;
 
     private bool $accumulateData = true;
+
+    private bool $includeVat = false;
 
     public function __construct(
         ProjectRepository $projectRepository,
@@ -143,6 +146,7 @@ class StatisticsService
     {
         $this->treatMissingPlanAsUnmet = $query->treatMissingPlanAsUnmet === 'Y';
         $this->accumulateData = $query->accumulateData === 'Y';
+        $this->includeVat = $query->includeVat;
 
         $user = Auth::user();
 
@@ -868,6 +872,8 @@ class StatisticsService
         $daysInMonth = $gridMonth->daysInMonth();
         $result = [];
 
+        $today = Carbon::today()->startOfDay();
+
         foreach ($buckets as $key => [$bucketFrom, $bucketTo]) {
             [$from, $to] = StatisticsFactWindow::resolve(
                 $bucketFrom,
@@ -878,15 +884,34 @@ class StatisticsService
                 $this->accumulateData,
             );
 
-            $budgetFact = $budgetIndex === null
-                ? null
-                : $this->sumDirectSpendForRange($spendByDay, $from, $to);
-            $leadsFact = $leadsIndex === null
-                ? null
-                : $this->sumLeadCountsForRange($leadsByDay, $from, $to);
-            $visitsFact = $this->sumLeadCountsForRange($visitsByDay, $from, $to);
-            $conversionsFact = $this->sumLeadCountsForRange($conversionsByDay, $from, $to);
-            $topPercentFact = $this->averageTopPercentForRange($topPercentsByDay, $from, $to);
+            $factWindow = StatisticsFactWindow::resolveForFact(
+                $bucketFrom,
+                $bucketTo,
+                $detailLevel,
+                $gridMonth,
+                $periodFrom,
+                $this->accumulateData,
+                $today,
+            );
+
+            if ($factWindow === null) {
+                $budgetFact = null;
+                $leadsFact = null;
+                $visitsFact = null;
+                $conversionsFact = null;
+                $topPercentFact = null;
+            } else {
+                [$factFrom, $factTo] = $factWindow;
+                $budgetFact = $budgetIndex === null
+                    ? null
+                    : $this->sumDirectSpendForRange($spendByDay, $factFrom, $factTo);
+                $leadsFact = $leadsIndex === null
+                    ? null
+                    : $this->sumLeadCountsForRange($leadsByDay, $factFrom, $factTo);
+                $visitsFact = $this->sumLeadCountsForRange($visitsByDay, $factFrom, $factTo);
+                $conversionsFact = $this->sumLeadCountsForRange($conversionsByDay, $factFrom, $factTo);
+                $topPercentFact = $this->averageTopPercentForRange($topPercentsByDay, $factFrom, $factTo);
+            }
 
             $bucketDays = $from->diffInDays($to) + 1;
 
@@ -1189,7 +1214,7 @@ class StatisticsService
 
         $map = $this->projectKpiFacts->directClicksByDayForProjects($contextIds, $from, $to);
 
-        foreach ($this->seoMonthlyMetricByLastDayForProjects($seoIds, $from, $to, 'visits') as $projectId => $byDay) {
+        foreach ($this->seoDailyMetricForProjects($seoIds, $from, $to, 'visits') as $projectId => $byDay) {
             if ($byDay !== []) {
                 $map[$projectId] = $byDay;
             }
@@ -1216,17 +1241,17 @@ class StatisticsService
             }
         }
 
-        return $this->seoMonthlyMetricByLastDayForProjects($seoIds, $from, $to, 'conversions');
+        return $this->seoDailyMetricForProjects($seoIds, $from, $to, 'conversions');
     }
 
     /**
-     * Месячные метрики Метрики кладём на последний день каждого месяца.
+     * Дневные визиты/конверсии SEO из Метрики «Поисковые системы».
      *
      * @param  list<int>  $projectIds
      * @param  'visits'|'conversions'  $column
      * @return array<int, array<string, int>>
      */
-    private function seoMonthlyMetricByLastDayForProjects(
+    private function seoDailyMetricForProjects(
         array $projectIds,
         Carbon $from,
         Carbon $to,
@@ -1236,29 +1261,12 @@ class StatisticsService
             return [];
         }
 
-        $byMonth = $this->projectKpiFacts->seoSearchEnginesByMonthForProjects(
+        return $this->projectKpiFacts->seoSearchEnginesByDayForProjects(
             $projectIds,
             $from,
             $to,
             $column,
         );
-
-        $result = [];
-        $cursor = $from->copy()->startOfMonth();
-        $end = $to->copy()->startOfMonth();
-        while ($cursor->lte($end)) {
-            $monthKey = $cursor->format('Y-m-01');
-            $monthEnd = $cursor->copy()->endOfMonth()->startOfDay()->toDateString();
-            foreach ($projectIds as $projectId) {
-                if (! array_key_exists($monthKey, $byMonth[$projectId] ?? [])) {
-                    continue;
-                }
-                $result[$projectId][$monthEnd] = $byMonth[$projectId][$monthKey];
-            }
-            $cursor->addMonth();
-        }
-
-        return $result;
     }
 
     /**
@@ -1381,6 +1389,8 @@ class StatisticsService
             return;
         }
 
+        $this->includeVat = $includeVat;
+
         $month = $month->copy()->startOfMonth()->startOfDay();
         $projects = $this->projectRepository->all()
             ->filter(fn ($project) => in_array((int) $project->id, $projectIds, true))
@@ -1478,6 +1488,7 @@ class StatisticsService
 
     /**
      * Ячейка «План»: массив слотов {value, format, highlight, code}. При отсутствии плана — плейсхолдеры для «-».
+     * Денежные budget/cpl/cpc при includeVat показываются с НДС 22% (в базе всегда без НДС).
      *
      * @param  array<int|string, mixed>  $plans
      * @return list<array{value: mixed, format: mixed, highlight: bool, code: ?string}>
@@ -1493,11 +1504,18 @@ class StatisticsService
         $result = [];
         foreach ($schema as $index => $meta) {
             $slot = $raw[$index] ?? ['value' => null, 'format' => null];
+            $code = $codes[$index] ?? null;
+            $value = $slot['value'] ?? null;
+
+            if ($code !== null && VatRate::affects($code) && is_numeric($value)) {
+                $value = VatRate::toDisplay((float) $value, $this->includeVat);
+            }
+
             $result[] = [
-                'value' => $slot['value'] ?? null,
+                'value' => $value,
                 'format' => $slot['format'] ?? null,
                 'highlight' => ! empty($meta['highlight']),
-                'code' => $codes[$index] ?? null,
+                'code' => $code,
             ];
         }
 

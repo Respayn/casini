@@ -62,6 +62,7 @@ class IntegrationMetricsRefreshService
         bool $includeVat,
         bool $withDirectBudget,
         bool $recalculateBonuses = false,
+        bool $showInactive = false,
     ): array {
         $ids = $this->normalizeProjectIds(array_column($pendingProjects, 'id'));
 
@@ -115,6 +116,7 @@ class IntegrationMetricsRefreshService
             $periodFromKey,
             $periodToKey,
             $includeVat,
+            $showInactive,
         );
         [$from, $to] = $this->resolvePeriod($periodFrom, $periodTo);
 

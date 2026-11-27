@@ -20,17 +20,10 @@ class PlanValueHelper
             return (string) $value;
         }
 
-        $numeric = (float) round((float) $value);
-
         return match ($format) {
-            'currency' => Number::currency(
-                $numeric,
-                in: 'RUB',
-                locale: 'ru',
-                precision: 0,
-            ),
-            'percent' => self::formatNumber($numeric).'%',
-            default => self::formatNumber($numeric),
+            'currency' => MoneyDisplay::currency($value),
+            'percent' => self::formatNumber((float) round((float) $value)).'%',
+            default => self::formatNumber((float) round((float) $value)),
         };
     }
 

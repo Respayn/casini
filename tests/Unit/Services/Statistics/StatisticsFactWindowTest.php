@@ -115,4 +115,47 @@ class StatisticsFactWindowTest extends TestCase
         $this->assertSame('2026-11-01', $from->toDateString());
         $this->assertSame('2026-11-30', $to->toDateString());
     }
+
+    #[Test]
+    public function fact_window_is_null_for_future_bucket(): void
+    {
+        $gridMonth = Carbon::parse('2026-11-01');
+        $periodFrom = Carbon::parse('2026-11-01');
+        $today = Carbon::parse('2026-11-27');
+
+        $window = StatisticsFactWindow::resolveForFact(
+            Carbon::parse('2026-11-28'),
+            Carbon::parse('2026-11-28'),
+            StatisticsReportDetailLevel::BY_DAY,
+            $gridMonth,
+            $periodFrom,
+            accumulate: true,
+            today: $today,
+        );
+
+        $this->assertNull($window);
+    }
+
+    #[Test]
+    public function fact_window_clamps_end_to_today_for_partial_future_week(): void
+    {
+        $gridMonth = Carbon::parse('2026-11-01');
+        $periodFrom = Carbon::parse('2026-11-01');
+        $today = Carbon::parse('2026-11-27');
+
+        $window = StatisticsFactWindow::resolveForFact(
+            Carbon::parse('2026-11-23'),
+            Carbon::parse('2026-11-29'),
+            StatisticsReportDetailLevel::BY_WEEK,
+            $gridMonth,
+            $periodFrom,
+            accumulate: true,
+            today: $today,
+        );
+
+        $this->assertNotNull($window);
+        [$from, $to] = $window;
+        $this->assertSame('2026-11-01', $from->toDateString());
+        $this->assertSame('2026-11-27', $to->toDateString());
+    }
 }

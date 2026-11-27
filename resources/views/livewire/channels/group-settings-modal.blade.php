@@ -1,26 +1,45 @@
 <x-overlay.modal name="group-settings-modal" title="Настроить отчет">
     <x-slot:body>
-        <div>
-            <div class="flex max-w-[658px] flex-wrap gap-2.5">
-                {{-- TODO: изменять отображение кнопок на клиенте, без синхронизации с сервером --}}
-                <x-button.button :variant="$grouping->value === 'none' ? 'primary' : null"
-                    wire:click="setGrouping('none')" label="Без группировки" />
-                <x-button.button :variant="$grouping->value === 'clients' ? 'primary' : null"
-                    wire:click="setGrouping('clients')" label="По клиентам" />
-                <x-button.button :variant="$grouping->value === 'project_type' ? 'primary' : null"
-                    wire:click="setGrouping('project_type')" label="По типу клиенто-проекта" />
-            </div>
+        {{-- min-width как у модалки настроек Статистики (~648px с padding), иначе одно короткое поле сжимает окно --}}
+        <div style="min-width: 600px">
+            <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
+                <x-form.form-field>
+                    <x-form.form-label>Сгруппировать отчет</x-form.form-label>
+                    <div>
+                        <x-form.select
+                            wire:model="grouping"
+                            :options="[
+                                ['label' => 'Без группировки', 'value' => 'none'],
+                                ['label' => 'По клиентам', 'value' => 'clients'],
+                                ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
+                            ]"
+                        />
+                    </div>
+                </x-form.form-field>
 
-            <div class="mt-24 flex justify-between">
+                <x-form.form-field>
+                    <x-form.form-label>Округлять копейки?</x-form.form-label>
+                    <div>
+                        <x-form.select
+                            wire:model="roundKopecks"
+                            :options="[
+                                ['label' => 'Да', 'value' => 'Y'],
+                                ['label' => 'Нет', 'value' => 'N'],
+                            ]"
+                        />
+                    </div>
+                </x-form.form-field>
+            </x-form.form>
+
+            <div class="mt-7 flex justify-between">
                 <x-button
                     icon="icons.check"
-                    label="Применить"
+                    label="Применить изменения для всех"
                     variant="primary"
-                    wire:click="$parent.applyGrouping('{{ $grouping->value }}')"
-                    x-on:click="$wire.initialGrouping = $wire.grouping; $dispatch('modal-hide', { name: 'group-settings-modal' })"
+                    wire:click="apply"
                 />
                 <x-button wire:click="cancel" label="Отмена" />
             </div>
         </div>
-        </x-slot>
+    </x-slot:body>
 </x-overlay.modal>

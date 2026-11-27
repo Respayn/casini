@@ -214,17 +214,27 @@ class YandexMetrikaReportsSync
         $byGoal = [];
 
         foreach ($rows as $row) {
-            $engineKey = $row['search_engine'].'|'.$row['month'];
+            $day = $row['month'];
+            $monthKey = Carbon::parse($day)->startOfMonth()->toDateString();
+
+            $engineKey = $row['search_engine'].'|'.$day;
             $engineTotals[$engineKey] = ($engineTotals[$engineKey] ?? [
                 'search_engine' => $row['search_engine'],
-                'month' => $row['month'],
+                'month' => $day,
                 'value' => 0,
             ]);
             $engineTotals[$engineKey]['value'] += $row['value'];
 
-            $goalKey = $row['search_engine'].'|'.$row['month'].'|'.$row['goal_id'];
+            // Список целей для Word остаётся одной строкой на месяц.
+            $goalKey = $row['search_engine'].'|'.$monthKey.'|'.$row['goal_id'];
             $byGoal[$goalKey] = ($byGoal[$goalKey] ?? 0) + $row['value'];
         }
+
+        $this->repository->zeroSearchEnginesConversionsInRange(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
 
         foreach ($engineTotals as $row) {
             $this->repository->upsertSearchEnginesConversions(
@@ -375,6 +385,12 @@ class YandexMetrikaReportsSync
             $from, $to, $visitsMetric, $filters, $dataMode, $attributionModel, $timezone, $counterTimezone, $searchEnginesAll, $searchEngineIds
         );
 
+        $this->repository->zeroSearchEnginesVisitsInRange(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
+
         foreach ($rows as $row) {
             $this->repository->upsertSearchEnginesVisits($projectId, $row['search_engine'], $row['month'], $row['value']);
         }
@@ -416,6 +432,12 @@ class YandexMetrikaReportsSync
         ?string $timezone,
         ?string $counterTimezone,
     ): void {
+        $this->repository->deleteGoalDirectSummaryInRange(
+            $projectId,
+            $from->toDateString(),
+            $to->toDateString(),
+        );
+
         $this->repository->upsertGoalDirectSummary(
             $projectId,
             $this->mapGoalRows($this->metrikaService->fetchDirectSummaryGoalsStats(

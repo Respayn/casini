@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\AgencyReportViewSettingsService;
 use App\Support\SharedProductFilters;
 use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
@@ -30,6 +32,15 @@ new
          */
         public bool $includeVat = false;
 
+        /**
+         * Группировка таблицы: none | clients | project_type (как в Каналах).
+         * Общая для продуктов через SharedProductFilters.
+         */
+        public string $grouping = 'none';
+
+        /** Черновик группировки в модалке «Настроить отчет». */
+        public string $groupingDraft = 'none';
+
         public array $tableData = [];
 
         public bool $hasChanges = false;
@@ -53,18 +64,101 @@ new
 
         private ProjectPlanService $projectPlanService;
 
-        public function boot(ProjectPlanService $projectPlanService): void
-        {
+        private AgencyReportViewSettingsService $agencyReportViewSettings;
+
+        public function boot(
+            ProjectPlanService $projectPlanService,
+            AgencyReportViewSettingsService $agencyReportViewSettings,
+        ): void {
             $this->projectPlanService = $projectPlanService;
+            $this->agencyReportViewSettings = $agencyReportViewSettings;
         }
 
         public function mount(): void
         {
             $this->year = Carbon::now()->year;
             $this->loadedYear = $this->year;
+            $this->agencyReportViewSettings->syncSessionFromAgency();
             $this->showInactive = SharedProductFilters::resolveShowInactive($this->showInactive);
             $this->includeVat = SharedProductFilters::resolveIncludeVat($this->includeVat);
+            $this->grouping = SharedProductFilters::resolveGrouping($this->grouping);
+            $this->groupingDraft = $this->grouping;
             $this->loadTableData();
+        }
+
+        public function openReportSettings(): void
+        {
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->grouping);
+            $this->groupingDraft = $this->grouping;
+        }
+
+        public function applyReportGrouping(): void
+        {
+            SharedProductFilters::rememberGrouping($this->groupingDraft);
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->groupingDraft);
+            $this->groupingDraft = $this->grouping;
+            $this->agencyReportViewSettings->save(grouping: $this->grouping);
+            unset($this->planGroups, $this->isFlatGroupingView);
+        }
+
+        public function cancelReportSettings(): void
+        {
+            $this->groupingDraft = $this->grouping;
+        }
+
+        public function isTypeFirstColumn(): bool
+        {
+            return $this->grouping === ChannelReportGrouping::PROJECT_TYPE->value
+                && $this->sidebarProjectId === null;
+        }
+
+        #[Computed]
+        public function isFlatGroupingView(): bool
+        {
+            return $this->sidebarProjectId !== null
+                || $this->grouping === ChannelReportGrouping::NONE->value;
+        }
+
+        /**
+         * @return list<array{label: ?string, rows: list<array{index: int, data: array}}}>
+         */
+        #[Computed]
+        public function planGroups(): array
+        {
+            $rows = [];
+            foreach ($this->tableData as $index => $row) {
+                $rows[] = [
+                    'index' => (int) $index,
+                    'data' => $row,
+                ];
+            }
+
+            if ($this->isFlatGroupingView) {
+                return [[
+                    'label' => null,
+                    'rows' => $rows,
+                ]];
+            }
+
+            $field = $this->grouping === ChannelReportGrouping::CLIENTS->value
+                ? 'client_name'
+                : 'department';
+
+            $grouped = [];
+            foreach ($rows as $item) {
+                $label = (string) ($item['data'][$field] ?? '-');
+                $grouped[$label][] = $item;
+            }
+
+            $result = [];
+            foreach ($grouped as $label => $groupRows) {
+                $result[] = [
+                    'label' => $label,
+                    'rows' => $groupRows,
+                ];
+            }
+
+            return $result;
         }
 
         public function loadTableData()
@@ -110,6 +204,7 @@ new
             }
 
             $this->loadTableData();
+            unset($this->planGroups, $this->isFlatGroupingView);
         }
 
         public function updatedYear(int $value): void

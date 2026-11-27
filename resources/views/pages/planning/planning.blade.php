@@ -82,7 +82,19 @@
 
     {{-- Шапка компонента --}}
     <div class="mb-7 flex items-center justify-between gap-3">
-        <h1>Планирование</h1>
+        <div class="flex items-center gap-2">
+            <h1>Планирование</h1>
+            <x-overlay.modal-trigger name="planning-report-settings-modal" wire:click="openReportSettings">
+                <button
+                    type="button"
+                    class="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-secondary-text transition hover:text-primary disabled:cursor-not-allowed"
+                    title="Настроить отчет"
+                    aria-label="Настроить отчет"
+                >
+                    <x-icons.settings />
+                </button>
+            </x-overlay.modal-trigger>
+        </div>
         <div class="flex items-center">
             <x-button.button icon="icons.save" label="Сохранить изменения" variant="primary"
                 loading="save" :disabled="!$hasChanges" wire:click="save" />
@@ -105,7 +117,7 @@
         <div class="relative">
             <div
                 wire:loading
-                wire:target="year,showInactive,includeVat"
+                wire:target="year,showInactive,includeVat,applyReportGrouping"
                 class="absolute inset-0 z-10"
                 style="cursor: wait"
             ></div>
@@ -114,20 +126,13 @@
     </div>
 
     {{-- Отступ до таблицы: раньше давал year-picker (margin-bottom 12px), теперь у ряда фильтров --}}
-    <div class="relative mt-3" style="min-height: 240px">
-        <div
-            wire:loading
-            wire:target="year,showInactive,includeVat"
-            class="absolute inset-0 z-10 overflow-hidden"
-            style="background-color: rgba(255, 255, 255, 0.75)"
-        >
-            <x-planning.table-skeleton style="min-height: 100%" />
-        </div>
-
-        <div
-            wire:loading.class="pointer-events-none opacity-40"
-            wire:target="year,showInactive,includeVat"
-        >
+    <x-report.table-loading-bars />
+    <div
+        class="relative mt-3"
+        style="min-height: 240px"
+        wire:loading.class="report-table-loading"
+        wire:target="year,showInactive,includeVat,applyReportGrouping,onSidebarProjectSelected,onSidebarProjectCleared,clearSidebarProjectFilter"
+    >
             @if (empty($tableData))
                 <div class="mt-20 flex flex-col items-center gap-4">
                     <span class="text-caption-text">Нет клиенто-проектов для планирования</span>
@@ -136,24 +141,50 @@
                     </div>
                 </div>
             @else
+                @php
+                    $isFlatView = $this->isFlatGroupingView;
+                    $typeFirst = $this->isTypeFirstColumn();
+                @endphp
+                <div
+                    wire:key="planning-groups-{{ $isFlatView ? 'flat' : $grouping }}"
+                    x-data="{ expandedGroups: {}, isFlat: {{ $isFlatView ? 'true' : 'false' }} }"
+                >
                 <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                     <x-data.table>
                     <x-data.table-columns>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Клиент
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Клиенто-проект
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Клиенто-проект создан
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            ID
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Тип клиенто-проекта
-                        </x-data.table-column>
+                        @if ($typeFirst)
+                            <x-data.table-column class="whitespace-nowrap">
+                                Тип клиенто-проекта
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиент
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект создан
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                ID
+                            </x-data.table-column>
+                        @else
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиент
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект создан
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                ID
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Тип клиенто-проекта
+                            </x-data.table-column>
+                        @endif
                         <x-data.table-column class="whitespace-nowrap">
                             KPI
                         </x-data.table-column>
@@ -226,38 +257,130 @@
                     </x-data.table-columns>
 
                     <x-data.table-rows>
-                        @foreach ($tableData as $projectPlan)
+                        @php
+                            $clientProjectStripe = 0;
+                        @endphp
+                        @foreach ($this->planGroups as $groupIndex => $group)
+                            @unless ($isFlatView || $group['label'] === null)
+                                @php $groupRowCount = count($group['rows']); @endphp
+                                <x-data.table-row wire:key="planning-group.{{ $groupIndex }}.summary">
+                                    @if ($typeFirst)
+                                        <x-report.group-toggle-cell
+                                            :label="$group['label']"
+                                            :group-index="$groupIndex"
+                                        />
+                                        <x-data.table-cell class="bg-table-summary-bg whitespace-nowrap font-bold">
+                                            {{ $groupRowCount }}
+                                        </x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg font-bold">
+                                            {{ $groupRowCount }}
+                                        </x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @else
+                                        <x-report.group-toggle-cell
+                                            :label="$group['label']"
+                                            :group-index="$groupIndex"
+                                        />
+                                        <x-data.table-cell class="bg-table-summary-bg font-bold">
+                                            {{ $groupRowCount }}
+                                        </x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($this->canViewApprovals)
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
+                                </x-data.table-row>
+                            @endunless
+                            @foreach ($group['rows'] as $item)
                                         @php
-                                            $rowIndex = $loop->index;
-                                            $rowBgColor = $rowIndex % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                            $rowIndex = $item['index'];
+                                            $projectPlan = $item['data'];
+                                            $rowBgColor = $clientProjectStripe % 2 === 0 ? '#F9F9F9' : '#FFFFFF';
+                                            $clientProjectStripe++;
                                         @endphp
-                                        <x-data.table-row :bg-color="$rowBgColor">
-                                            <x-data.table-cell>
-                                                <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
-                                                    wire:navigate>
-                                                    {{ $projectPlan['client_name'] }}
-                                                </a>
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects.projects.manage', [
-                                'projectId' => $projectPlan['project_id'],
-                            ]) }}" wire:navigate>
-                                                    {{ $projectPlan['project_name'] }}
-                                                </a>
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                {{ $projectPlan['project_created_at'] }}
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                №{{ $projectPlan['project_id'] }}
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                {{ $projectPlan['department'] }}
-                                            </x-data.table-cell>
+                                        <x-data.table-row
+                                            class="h-px"
+                                            :bg-color="$rowBgColor"
+                                            wire:key="planning-row.{{ $rowIndex }}"
+                                            x-bind:class="{ 'report-group-data-row-collapsed': !(isFlat || expandedGroups['group-{{ $groupIndex }}']) }"
+                                        >
+                                            @if ($typeFirst)
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['department'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
+                                                        wire:navigate>
+                                                        {{ $projectPlan['client_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects.projects.manage', [
+                                    'projectId' => $projectPlan['project_id'],
+                                ]) }}" wire:navigate>
+                                                        {{ $projectPlan['project_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['project_created_at'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    №{{ $projectPlan['project_id'] }}
+                                                </x-data.table-cell>
+                                            @else
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
+                                                        wire:navigate>
+                                                        {{ $projectPlan['client_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects.projects.manage', [
+                                    'projectId' => $projectPlan['project_id'],
+                                ]) }}" wire:navigate>
+                                                        {{ $projectPlan['project_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['project_created_at'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    №{{ $projectPlan['project_id'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['department'] }}
+                                                </x-data.table-cell>
+                                            @endif
                                             <x-data.table-cell>
                                                 {{ $projectPlan['kpi'] }}
                                             </x-data.table-cell>
-                                            <x-data.table-cell class="!p-0 h-1">
+                                            <x-data.table-cell class="!p-0 h-full">
                                                 <div class="grid auto-rows-fr h-full divide-y divide-table-cell">
                                                     @foreach ($projectPlan['parameters'] as $param)
                                                         <div
@@ -306,25 +429,23 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.3" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][1]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 1 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.1.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][1]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][1]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][1]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="1"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                {{-- Подсветка на самой ячейке: в Firefox height 100% у внутреннего блока не работает, синий прямоугольник остаётся по высоте галочки. --}}
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][1]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 1 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.1.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][1]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][1]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][1]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="1"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
 
@@ -339,25 +460,22 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.6" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][2]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 2 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.2.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][2]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][2]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][2]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="2"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][2]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 2 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.2.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][2]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][2]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][2]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="2"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
 
@@ -372,25 +490,22 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.9" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][3]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 3 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.3.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][3]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][3]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][3]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="3"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][3]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 3 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.3.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][3]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][3]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][3]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="3"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
 
@@ -405,35 +520,70 @@
                                                 :can-edit="$this->canEditPlanValues" wire:key="plan.{{ $dataEpoch }}.{{ $rowIndex }}.12" />
 
                                             @if ($this->canViewApprovals)
-                                                <x-data.table-cell class="!p-0">
-                                                    <div
-                                                        class="flex h-full min-h-[2.25rem] items-center justify-center px-2.5 py-3.5"
-                                                        x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][4]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 4 }"
-                                                        x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
-                                                        x-bind:class="{ 'bg-primary': approved }"
-                                                    >
-                                                        <div class="text-center">
-                                                            <x-planning.approval-checkbox
-                                                                wire:model.live="tableData.{{ $rowIndex }}.approvals.4.approved"
-                                                                :can-edit="$this->canEditApprovals"
-                                                                :date="$tableData[$rowIndex]['approvals'][4]['date'] ?? null"
-                                                                :approved-by-name="$tableData[$rowIndex]['approvals'][4]['approved_by_name'] ?? null"
-                                                                :approved="$tableData[$rowIndex]['approvals'][4]['approved'] ?? false"
-                                                                :row-index="$rowIndex"
-                                                                :quarter="4"
-                                                            />
-                                                        </div>
-                                                    </div>
+                                                <x-data.table-cell
+                                                    class="!p-0 text-center"
+                                                    style="vertical-align: middle"
+                                                    x-data="{ approved: {{ json_encode((bool) ($tableData[$rowIndex]['approvals'][4]['approved'] ?? false)) }}, rowIndex: {{ (int) $rowIndex }}, quarter: 4 }"
+                                                    x-on:planning-table-sync.window="approved = syncApprovalHighlight(rowIndex, quarter)"
+                                                    x-bind:class="{ 'bg-primary': approved }"
+                                                >
+                                                    <x-planning.approval-checkbox
+                                                        wire:model.live="tableData.{{ $rowIndex }}.approvals.4.approved"
+                                                        :can-edit="$this->canEditApprovals"
+                                                        :date="$tableData[$rowIndex]['approvals'][4]['date'] ?? null"
+                                                        :approved-by-name="$tableData[$rowIndex]['approvals'][4]['approved_by_name'] ?? null"
+                                                        :approved="$tableData[$rowIndex]['approvals'][4]['approved'] ?? false"
+                                                        :row-index="$rowIndex"
+                                                        :quarter="4"
+                                                    />
                                                 </x-data.table-cell>
                                             @endif
                                         </x-data.table-row>
+                            @endforeach
                         @endforeach
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.scroll-panel>
+                </div>
             @endif
-        </div>
     </div>
+
+    <x-overlay.modal name="planning-report-settings-modal" title="Настроить отчет">
+        <x-slot:body>
+            <div style="min-width: 600px">
+                <x-form.form :is-normalized="true" class="[&_.form-field]:!items-center">
+                    <x-form.form-field>
+                        <x-form.form-label>Сгруппировать отчет</x-form.form-label>
+                        <div>
+                            <x-form.select
+                                wire:model="groupingDraft"
+                                :options="[
+                                    ['label' => 'Без группировки', 'value' => 'none'],
+                                    ['label' => 'По клиентам', 'value' => 'clients'],
+                                    ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
+                                ]"
+                            />
+                        </div>
+                    </x-form.form-field>
+                </x-form.form>
+
+                <div class="mt-7 flex justify-between">
+                    <x-button
+                        icon="icons.check"
+                        label="Применить изменения для всех"
+                        variant="primary"
+                        wire:click="applyReportGrouping"
+                        x-on:click="$dispatch('modal-hide', { name: 'planning-report-settings-modal' })"
+                    />
+                    <x-button
+                        label="Отмена"
+                        wire:click="cancelReportSettings"
+                        x-on:click="$dispatch('modal-hide', { name: 'planning-report-settings-modal' })"
+                    />
+                </div>
+            </div>
+        </x-slot>
+    </x-overlay.modal>
 
     <x-overlay.modal name="planning-leave-guard" title="Выйти без сохранения?">
         <x-slot:body>

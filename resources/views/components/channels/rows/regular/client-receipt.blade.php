@@ -6,6 +6,6 @@
     </x-data.table-cell>
 @else
     <x-data.table-cell {{ $attributes }}>
-        {{ $params ? Number::currency($params, in: 'RUB', locale: 'ru') : '-' }}
+        {{ $params ? \App\Helpers\MoneyDisplay::currency($params) : '-' }}
     </x-data.table-cell>
 @endif

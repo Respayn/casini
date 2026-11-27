@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\AgencyReportViewSettingsService;
 use App\Support\SharedProductFilters;
 use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
@@ -15,6 +17,7 @@ use Src\Application\Reports\Download\DownloadReportFileQuery;
 use Src\Application\Reports\Download\DownloadReportFileQueryHandler;
 use Src\Application\Reports\GetList\GetReportsListQuery;
 use Src\Application\Reports\GetList\GetReportsListQueryHandler;
+use Src\Application\Reports\GetList\ReportListItemDto;
 use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Presentation\Livewire\Traits\WithColumnSettings;
 
@@ -42,7 +45,7 @@ new
                 ['key' => 'template', 'label' => 'Шаблон'],
                 ['key' => 'client', 'label' => 'Клиент'],
                 ['key' => 'id', 'label' => 'ID'],
-                ['key' => 'channel', 'label' => 'Канал'],
+                ['key' => 'channel', 'label' => 'Тип клиенто-проекта'],
                 ['key' => 'project', 'label' => 'Клиенто-проект'],
                 ['key' => 'period', 'label' => 'Период'],
                 ['key' => 'specialist', 'label' => 'Специалист'],
@@ -61,6 +64,16 @@ new
         public Carbon $periodFrom;
 
         public Carbon $periodTo;
+
+        /**
+         * Группировка списка: none | clients | project_type (как в Каналах).
+         * Общая для продуктов через SharedProductFilters.
+         * Для «типа» - полное имя типа клиенто-проекта (channelGroupLabel).
+         */
+        public string $grouping = 'none';
+
+        /** Черновик группировки в модалке «Настроить отчет». */
+        public string $groupingDraft = 'none';
 
         public array $columnSettings = [];
 
@@ -84,6 +97,13 @@ new
             return $user !== null && $user->can('full reports');
         }
 
+        private AgencyReportViewSettingsService $agencyReportViewSettings;
+
+        public function boot(AgencyReportViewSettingsService $agencyReportViewSettings): void
+        {
+            $this->agencyReportViewSettings = $agencyReportViewSettings;
+        }
+
         public function mount()
         {
             if (Session::has('download')) {
@@ -99,13 +119,86 @@ new
 
             $this->periodFrom = Carbon::now()->startOfMonth()->startOfDay();
             $this->periodTo = $this->periodFrom->copy();
+            $this->agencyReportViewSettings->syncSessionFromAgency();
             $this->showInactiveProjects = SharedProductFilters::resolveShowInactive($this->showInactiveProjects);
+            $this->grouping = SharedProductFilters::resolveGrouping($this->grouping);
+            $this->groupingDraft = $this->grouping;
+        }
+
+        public function openReportSettings(): void
+        {
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->grouping);
+            $this->groupingDraft = $this->grouping;
+        }
+
+        public function applyReportGrouping(): void
+        {
+            SharedProductFilters::rememberGrouping($this->groupingDraft);
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->groupingDraft);
+            $this->groupingDraft = $this->grouping;
+            $this->agencyReportViewSettings->save(grouping: $this->grouping);
+            unset($this->reportGroups, $this->isFlatGroupingView, $this->visibleColumns);
+        }
+
+        public function cancelReportSettings(): void
+        {
+            $this->groupingDraft = $this->grouping;
+        }
+
+        protected function pinnedColumnKey(): ?string
+        {
+            return SharedProductFilters::pinnedColumnField(
+                $this->grouping,
+                clientField: 'client',
+                projectTypeField: 'channel',
+            );
+        }
+
+        #[Computed]
+        public function isFlatGroupingView(): bool
+        {
+            return $this->sidebarProjectId !== null
+                || $this->grouping === ChannelReportGrouping::NONE->value;
+        }
+
+        /**
+         * @return list<array{label: ?string, rows: list<ReportListItemDto>}>
+         */
+        #[Computed]
+        public function reportGroups(): array
+        {
+            $reports = $this->reports;
+
+            if ($this->isFlatGroupingView) {
+                return [[
+                    'label' => null,
+                    'rows' => $reports,
+                ]];
+            }
+
+            $grouped = [];
+            foreach ($reports as $report) {
+                $label = $this->grouping === ChannelReportGrouping::CLIENTS->value
+                    ? $report->clientName
+                    : $report->channelGroupLabel;
+                $grouped[$label][] = $report;
+            }
+
+            $result = [];
+            foreach ($grouped as $label => $rows) {
+                $result[] = [
+                    'label' => $label,
+                    'rows' => $rows,
+                ];
+            }
+
+            return $result;
         }
 
         public function updatedShowInactiveProjects(): void
         {
             SharedProductFilters::rememberShowInactive($this->showInactiveProjects);
-            unset($this->reports);
+            unset($this->reports, $this->reportGroups, $this->isFlatGroupingView);
         }
 
         public function updatedPeriodFrom(): void
@@ -155,7 +248,7 @@ new
 
         protected function afterSidebarProjectFilterChanged(): void
         {
-            unset($this->reports);
+            unset($this->reports, $this->reportGroups, $this->isFlatGroupingView);
         }
 
         public function download(DownloadReportFileQueryHandler $queryHandler, int $reportId)
@@ -175,7 +268,7 @@ new
             $this->resetErrorBag();
 
             $command->handle(new DeleteReportCommand($reportId));
-            unset($this->reports);
+            unset($this->reports, $this->reportGroups, $this->isFlatGroupingView);
         }
 
         private function ensureCanDeleteReports(): void

@@ -11,6 +11,7 @@
     <aside
         class="sidebar-panel pointer-events-auto fixed top-0 left-0 z-20 flex h-screen max-h-screen w-[355px] min-w-[355px] max-w-[355px] flex-col bg-white pe-[30px] ps-5 pt-[39px] will-change-transform"
         x-bind:aria-hidden="! $store.sidebar.open"
+        wire:poll.3s="pollManualRefreshLock"
     >
         <div class="mb-[60px] flex flex-col gap-2">
             <a href="{{ route('channels') }}" class="flex flex-col gap-2">
@@ -32,7 +33,10 @@
             />
         </div>
 
-        <div class="mb-4">
+        <div
+            class="mb-4"
+            @if ($manualRefreshLocked) title="Пока идёт обновление данных, неактивные, НДС, период, фильтр и клиенто-проект менять нельзя" @endif
+        >
             <x-button.button
                 class="w-full"
                 variant="secondary"
@@ -148,8 +152,17 @@
                                                 >
                                                     @foreach ($client->projects as $project)
                                                         <div
-                                                            class="treeitem border-flat-border relative mt-1 flex min-h-[42px] cursor-pointer items-center gap-1 rounded-[5px] border p-[10px] first:mt-2"
-                                                            wire:click="selectProject({{ $project->id }})"
+                                                            @class([
+                                                                'treeitem border-flat-border relative mt-1 flex min-h-[42px] items-center gap-1 rounded-[5px] border p-[10px] first:mt-2',
+                                                                'cursor-pointer' => ! $manualRefreshLocked,
+                                                                'cursor-not-allowed opacity-60' => $manualRefreshLocked,
+                                                            ])
+                                                            @if (! $manualRefreshLocked)
+                                                                wire:click="selectProject({{ $project->id }})"
+                                                            @endif
+                                                            @if ($manualRefreshLocked)
+                                                                title="Пока идёт обновление данных, неактивные, НДС, период, фильтр и клиенто-проект менять нельзя"
+                                                            @endif
                                                             x-bind:class="{
                                                                 'bg-selected-project-card *:text-white': $wire.selectedProjectId ==
                                                                     {{ $project->id }}

@@ -121,9 +121,10 @@
             <div
                 x-show="refreshing() || open"
                 x-cloak
-                x-anchor.left.offset.6="$refs.refreshButton"
+                x-anchor.top-end.offset.6="$refs.refreshButton"
                 role="tooltip"
-                class="pointer-events-none z-[9999] w-max max-w-[min(16rem,calc(100vw-1.5rem))] rounded-md bg-gray-700 px-3 py-2 text-left text-sm leading-snug text-white shadow-lg"
+                class="pointer-events-none rounded-md bg-gray-700 px-3 py-2 text-left text-sm leading-snug text-white shadow-lg"
+                style="z-index: 9999; width: max-content; max-width: min(16rem, calc(100vw - 1.5rem));"
             >
                 <div x-show="refreshing()" class="leading-snug">
                     <div x-show="modeLine()" x-text="modeLine()" class="break-words"></div>

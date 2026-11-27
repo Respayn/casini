@@ -28,7 +28,7 @@
     @php
         $reportLoadingTargets = 'queryData.showInactive, queryData.includeVat, queryData.dateFrom, queryData.dateTo, applySettingsSnapshot, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
         $lockRefreshSlice = $isReportDataRefreshing && ! $isAutomaticDataRefresh;
-        $lockRefreshSliceTitle = 'Пока идёт обновление данных, НДС и период менять нельзя';
+        $lockRefreshSliceTitle = 'Пока идёт обновление данных, неактивные, НДС, период, фильтр и клиенто-проект менять нельзя';
     @endphp
 
     <div
@@ -41,9 +41,15 @@
             wire:poll.30s="pollRefreshProgress"
         @endif
     >
-        <div class="mr-3.5 flex items-center gap-2">
+        <div
+            class="mr-3.5 flex items-center gap-2"
+            @if ($lockRefreshSlice) title="{{ $lockRefreshSliceTitle }}" @endif
+        >
             <label>Неактивные клиенто-проекты:</label>
-            <x-form.checkbox wire:model.live="queryData.showInactive" />
+            <x-form.checkbox
+                wire:model.live="queryData.showInactive"
+                :disabled="$lockRefreshSlice"
+            />
         </div>
 
         <div
@@ -150,26 +156,25 @@
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
-                        @php $clientProjectStripe = 0; @endphp
+                        @php
+                            $clientProjectStripe = 0;
+                            $isFlatView = $sidebarProjectId !== null || $queryData->grouping->value === 'none';
+                            $pinnedField = $this->pinnedGroupingColumnField();
+                        @endphp
                         @foreach ($this->reportData->groups as $groupIndex => $group)
-                            {{-- Итого по группе --}}
-                            @unless (empty($group->summary))
-                                <x-data.table-row wire:key="group.{{ $groupIndex }}.name">
-                                    <x-data.table-cell colspan="100">
-                                        <div class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']">
-                                            <span class="font-bold">{{ $group->groupLabel }}</span>
-                                            <x-icons.accordion-arrow class="transition-transform duration-200"
-                                                x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }" />
-                                        </div>
-                                    </x-data.table-cell>
-                                </x-data.table-row>
+                            {{-- Итого по группе: стрелка в первой (закреплённой) колонке --}}
+                            @unless ($isFlatView || empty($group->summary))
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary">
                                     @if ($this->isRefreshGroupPending($group))
                                         <x-report.table-row-skeleton :columns="$this->visibleColumns" />
                                     @else
                                         @foreach ($this->visibleColumns as $column)
-                                            @if (in_array($column->component, ['fact', 'summary'], true))
+                                            @if ($pinnedField !== null && $column->field === $pinnedField)
+                                                <x-report.group-toggle-cell
+                                                    :label="$group->groupLabel"
+                                                    :group-index="$groupIndex"
+                                                />
+                                            @elseif (in_array($column->component, ['fact', 'summary'], true))
                                                 <x-dynamic-component
                                                     :component="'statistics.rows.summary.' . $column->component"
                                                     :params="$group->summary->get($column->field)"
@@ -192,7 +197,7 @@
                                     $clientProjectStripe++;
                                     $rowPending = $this->isRefreshRowPending((int) $row->id);
                                 @endphp
-                                @if ($queryData->grouping->value === 'none')
+                                @if ($isFlatView)
                                     <x-data.table-row
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
@@ -219,7 +224,7 @@
                                     </x-data.table-row>
                                 @else
                                     <x-data.table-row
-                                        x-show="expandedGroups['group-{{ $groupIndex }}']"
+                                        x-bind:class="{ 'report-group-data-row-collapsed': !expandedGroups['group-{{ $groupIndex }}'] }"
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
                                     >
@@ -247,26 +252,32 @@
                             @endforeach
                         @endforeach
                         {{-- Итого по таблице --}}
-                        <x-data.table-row>
-                            @if ($this->isRefreshTableSummaryPending())
-                                <x-report.table-row-skeleton :columns="$this->visibleColumns" />
-                            @else
-                                @foreach ($this->visibleColumns as $column)
-                                    @if (in_array($column->component, ['fact', 'summary'], true))
-                                        <x-dynamic-component
-                                            :component="'statistics.rows.summary.' . $column->component"
-                                            :params="$this->reportData->summary->get($column->field)"
-                                            :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
-                                        />
-                                    @else
-                                        <x-dynamic-component
-                                            :component="'statistics.rows.summary.' . $column->component"
-                                            :params="$this->reportData->summary->get($column->field)"
-                                        />
-                                    @endif
-                                @endforeach
-                            @endif
-                        </x-data.table-row>
+                        @unless ($sidebarProjectId !== null)
+                            <x-data.table-row>
+                                @if ($this->isRefreshTableSummaryPending())
+                                    <x-report.table-row-skeleton :columns="$this->visibleColumns" />
+                                @else
+                                    @foreach ($this->visibleColumns as $column)
+                                        @if ($loop->first)
+                                            <x-data.table-cell class="bg-table-summary-bg whitespace-nowrap font-bold">
+                                                Итого
+                                            </x-data.table-cell>
+                                        @elseif (in_array($column->component, ['fact', 'summary'], true))
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$this->reportData->summary->get($column->field)"
+                                                :highlight-unmet-kpi="$queryData->highlightUnmetKpi === 'Y'"
+                                            />
+                                        @else
+                                            <x-dynamic-component
+                                                :component="'statistics.rows.summary.' . $column->component"
+                                                :params="$this->reportData->summary->get($column->field)"
+                                            />
+                                        @endif
+                                    @endforeach
+                                @endif
+                            </x-data.table-row>
+                        @endunless
                     </x-data.table-rows>
                 </x-data.table>
             </x-panel.scroll-panel>
@@ -280,13 +291,40 @@
         <x-slot:body>
             <x-panel.scroll-panel style="max-height: min(25rem, calc(100vh - 14rem))">
                 <div class="flex flex-col gap-2.5" x-data x-sort="$wire.sortColumn($item, $position)">
-                    @foreach ($queryData->columns as $index => $column)
-                        <div class="flex items-center gap-2.5" wire:key="column.{{ $column->field }}"
-                            x-sort:item="'{{ $column->field }}'">
-                            <x-icons.burger class="text-secondary-text cursor-pointer" x-sort:handle />
-                            <x-form.checkbox wire:model="queryData.columns.{{ $index }}.isVisible" />
-                            <label>{{ $column->label }}</label>
-                        </div>
+                    @php $pinnedField = $this->pinnedGroupingColumnField(); @endphp
+                    @foreach ($queryData->columns->sortBy(fn ($col) => ($pinnedField !== null && $col->field === $pinnedField) ? -1 : $col->order) as $column)
+                        @php
+                            $isPinned = $pinnedField !== null && $column->field === $pinnedField;
+                            $columnIndex = $queryData->columns->search(fn ($col) => $col->field === $column->field);
+                            if ($isPinned) {
+                                $queryData->columns[$columnIndex]->isVisible = true;
+                            }
+                        @endphp
+                        @if ($isPinned)
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column->field }}"
+                            >
+                                <x-icons.burger class="text-secondary-text pointer-events-none" />
+                                <x-form.checkbox
+                                    wire:model="queryData.columns.{{ $columnIndex }}.isVisible"
+                                    :disabled="true"
+                                />
+                                <label>{{ $column->label }}</label>
+                            </div>
+                        @else
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column->field }}"
+                                x-sort:item="'{{ $column->field }}'"
+                            >
+                                <x-icons.burger class="text-secondary-text cursor-pointer" x-sort:handle />
+                                <x-form.checkbox
+                                    wire:model="queryData.columns.{{ $columnIndex }}.isVisible"
+                                />
+                                <label>{{ $column->label }}</label>
+                            </div>
+                        @endif
                     @endforeach
                 </div>
             </x-panel.scroll-panel>
@@ -352,11 +390,27 @@
                     <x-form.form-field>
                         <x-form.form-label>Сгруппировать отчет</x-form.form-label>
                         <div>
-                            <x-form.select :options="[
-        ['label' => 'Без группировки', 'value' => 'none'],
-        ['label' => 'По клиентам', 'value' => 'clients'],
-        ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
-    ]" wire:model="queryData.grouping"></x-form.select>
+                            <x-form.select
+                                wire:model="queryData.grouping"
+                                :options="[
+                                    ['label' => 'Без группировки', 'value' => 'none'],
+                                    ['label' => 'По клиентам', 'value' => 'clients'],
+                                    ['label' => 'По типу клиенто-проекта', 'value' => 'project_type'],
+                                ]"
+                            />
+                        </div>
+                    </x-form.form-field>
+
+                    <x-form.form-field>
+                        <x-form.form-label>Округлять копейки?</x-form.form-label>
+                        <div>
+                            <x-form.select
+                                wire:model="roundKopecks"
+                                :options="[
+                                    ['label' => 'Да', 'value' => 'Y'],
+                                    ['label' => 'Нет', 'value' => 'N'],
+                                ]"
+                            />
                         </div>
                     </x-form.form-field>
 
