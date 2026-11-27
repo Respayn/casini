@@ -49,25 +49,56 @@
                 <x-notifications.bell-button />
             </div>
 
-            <div x-data="{ open: false }" class="ml-6 flex items-center relative">
+            @php
+                $headerUser = Auth::user();
+                $headerFirstName = trim((string) ($headerUser->first_name ?? ''));
+                // Фамилия необязательна: пустую и пробелы не показываем.
+                $headerLastName = trim((string) ($headerUser->last_name ?? ''));
+                $headerFullName = collect([$headerFirstName, $headerLastName])
+                    ->filter(fn (string $part): bool => $part !== '')
+                    ->implode(' ');
+                if ($headerFirstName !== '' && $headerLastName !== '') {
+                    $headerInitials = mb_strtoupper(
+                        mb_substr($headerFirstName, 0, 1).mb_substr($headerLastName, 0, 1)
+                    );
+                } elseif ($headerFirstName !== '') {
+                    // Без фамилии: одна или две первые буквы имени.
+                    $headerInitials = mb_strtoupper(mb_substr($headerFirstName, 0, min(2, mb_strlen($headerFirstName))));
+                } elseif ($headerLastName !== '') {
+                    $headerInitials = mb_strtoupper(mb_substr($headerLastName, 0, min(2, mb_strlen($headerLastName))));
+                } else {
+                    $headerInitials = '?';
+                }
+                $headerRole = $headerUser->roles->first()?->display_name;
+            @endphp
+            <div x-data="{ open: false }" class="relative ml-6 flex w-[230px] max-w-[230px] items-center">
                 <!-- Клик по этой зоне открывает / закрывает меню -->
-                <div @click="open = !open" class="flex items-center cursor-pointer select-none min-w-[230px]">
-                    @if (Auth::user()->image_path)
-                        <div style="width: 40px; height: 40px;">
-                            <img class="rounded-full" src="{{ Storage::url(Auth::user()->image_path) }}" />
-                        </div>
+                <div
+                    @click="open = !open"
+                    class="flex min-w-0 w-full cursor-pointer items-center select-none"
+                    title="{{ $headerFullName }}"
+                >
+                    @if ($headerUser->image_path)
+                        <img
+                            class="h-10 w-10 shrink-0 rounded-full object-cover"
+                            src="{{ Storage::url($headerUser->image_path) }}"
+                            alt="{{ $headerFullName }}"
+                        >
                     @else
-                        <x-misc.skeleton shape="circle" size="40px" />
+                        <div
+                            class="bg-primary text-body flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold"
+                            aria-hidden="true"
+                        >{{ $headerInitials }}</div>
                     @endif
-                    <div class="ml-2.5">
-                        <div class="font-semibold">{{ Auth::user()->first_name }} {{ Auth::user()->last_name }}</div>
-                        <div class="text-xs text-gray-400">{{ Auth::user()->roles->first()?->display_name }}</div>
+                    <div class="ml-2.5 min-w-0">
+                        <div class="truncate font-semibold">{{ $headerFullName }}</div>
+                        <div class="truncate text-xs text-gray-400">{{ $headerRole }}</div>
                     </div>
                 </div>
 
                 <!-- Меню -->
                 <ul x-show="open" @click.away="open = false" x-transition
-                    class="absolute left-0 top-full mt-2 bg-white rounded-b-lg shadow-lg overflow-hidden z-50 w-full text-nowrap"
+                    class="absolute left-0 top-full z-50 mt-2 w-full overflow-hidden rounded-b-lg bg-white shadow-lg text-nowrap"
                     style="display: none;">
                     <!-- Пункт: Настройки профиля -->
                     <li>
