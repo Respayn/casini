@@ -9,6 +9,7 @@ use App\Data\TableReportData;
 use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithReportDataRefresh;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\AgencyReportViewSettingsService;
 use App\Support\SharedProductFilters;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
@@ -37,9 +38,14 @@ class extends Component
 
     private ChannelReportServiceInterface $channelReportService;
 
-    public function boot(ChannelReportServiceInterface $channelReportService)
-    {
+    private AgencyReportViewSettingsService $agencyReportViewSettings;
+
+    public function boot(
+        ChannelReportServiceInterface $channelReportService,
+        AgencyReportViewSettingsService $agencyReportViewSettings,
+    ) {
         $this->channelReportService = $channelReportService;
+        $this->agencyReportViewSettings = $agencyReportViewSettings;
     }
 
     public function mount()
@@ -48,6 +54,7 @@ class extends Component
             Auth::user()->id,
         );
         $this->queryData->clampPeriodToPresent();
+        $this->agencyReportViewSettings->syncSessionFromAgency();
         $this->applySharedProductFilters();
     }
 
@@ -268,8 +275,13 @@ class extends Component
     #[On('group-settings-applied')]
     public function applyGrouping($grouping, $roundKopecks = 'Y')
     {
+        $round = $roundKopecks !== 'N';
         SharedProductFilters::rememberGrouping((string) $grouping);
-        SharedProductFilters::rememberRoundKopecks($roundKopecks !== 'N');
+        SharedProductFilters::rememberRoundKopecks($round);
+        $this->agencyReportViewSettings->save(
+            grouping: (string) $grouping,
+            roundKopecks: $round,
+        );
         $this->queryData->grouping = ChannelReportGrouping::from(
             SharedProductFilters::normalizeGrouping((string) $grouping),
         );

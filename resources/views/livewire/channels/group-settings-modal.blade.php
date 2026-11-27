@@ -34,7 +34,7 @@
             <div class="mt-7 flex justify-between">
                 <x-button
                     icon="icons.check"
-                    label="Применить"
+                    label="Применить изменения для всех"
                     variant="primary"
                     wire:click="apply"
                 />

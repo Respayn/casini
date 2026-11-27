@@ -1,0 +1,53 @@
+<?php
+
+namespace App\Repositories;
+
+use Illuminate\Support\Facades\DB;
+
+class AgencyReportViewSettingsRepository
+{
+    private const TABLE = 'agency_report_view_settings';
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    public function get(int $agencyId): ?array
+    {
+        $settings = DB::table(self::TABLE)
+            ->where('agency_id', $agencyId)
+            ->value('settings');
+
+        if (! filled($settings)) {
+            return null;
+        }
+
+        $decoded = is_string($settings) ? json_decode($settings, true) : $settings;
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $settings
+     */
+    public function save(int $agencyId, array $settings): void
+    {
+        $payload = [
+            'settings' => json_encode($settings, JSON_UNESCAPED_UNICODE),
+            'updated_at' => now(),
+        ];
+
+        $exists = DB::table(self::TABLE)->where('agency_id', $agencyId)->exists();
+
+        if ($exists) {
+            DB::table(self::TABLE)->where('agency_id', $agencyId)->update($payload);
+
+            return;
+        }
+
+        DB::table(self::TABLE)->insert([
+            'agency_id' => $agencyId,
+            ...$payload,
+            'created_at' => now(),
+        ]);
+    }
+}

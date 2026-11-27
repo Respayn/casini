@@ -2,6 +2,7 @@
 
 use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\AgencyReportViewSettingsService;
 use App\Support\SharedProductFilters;
 use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
@@ -96,6 +97,13 @@ new
             return $user !== null && $user->can('full reports');
         }
 
+        private AgencyReportViewSettingsService $agencyReportViewSettings;
+
+        public function boot(AgencyReportViewSettingsService $agencyReportViewSettings): void
+        {
+            $this->agencyReportViewSettings = $agencyReportViewSettings;
+        }
+
         public function mount()
         {
             if (Session::has('download')) {
@@ -111,6 +119,7 @@ new
 
             $this->periodFrom = Carbon::now()->startOfMonth()->startOfDay();
             $this->periodTo = $this->periodFrom->copy();
+            $this->agencyReportViewSettings->syncSessionFromAgency();
             $this->showInactiveProjects = SharedProductFilters::resolveShowInactive($this->showInactiveProjects);
             $this->grouping = SharedProductFilters::resolveGrouping($this->grouping);
             $this->groupingDraft = $this->grouping;
@@ -127,6 +136,7 @@ new
             SharedProductFilters::rememberGrouping($this->groupingDraft);
             $this->grouping = SharedProductFilters::normalizeGrouping($this->groupingDraft);
             $this->groupingDraft = $this->grouping;
+            $this->agencyReportViewSettings->save(grouping: $this->grouping);
             unset($this->reportGroups, $this->isFlatGroupingView, $this->visibleColumns);
         }
 

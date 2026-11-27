@@ -2,6 +2,7 @@
 
 use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\AgencyReportViewSettingsService;
 use App\Support\SharedProductFilters;
 use App\Support\SidebarProjectAccess;
 use Illuminate\Support\Carbon;
@@ -63,15 +64,21 @@ new
 
         private ProjectPlanService $projectPlanService;
 
-        public function boot(ProjectPlanService $projectPlanService): void
-        {
+        private AgencyReportViewSettingsService $agencyReportViewSettings;
+
+        public function boot(
+            ProjectPlanService $projectPlanService,
+            AgencyReportViewSettingsService $agencyReportViewSettings,
+        ): void {
             $this->projectPlanService = $projectPlanService;
+            $this->agencyReportViewSettings = $agencyReportViewSettings;
         }
 
         public function mount(): void
         {
             $this->year = Carbon::now()->year;
             $this->loadedYear = $this->year;
+            $this->agencyReportViewSettings->syncSessionFromAgency();
             $this->showInactive = SharedProductFilters::resolveShowInactive($this->showInactive);
             $this->includeVat = SharedProductFilters::resolveIncludeVat($this->includeVat);
             $this->grouping = SharedProductFilters::resolveGrouping($this->grouping);
@@ -90,6 +97,7 @@ new
             SharedProductFilters::rememberGrouping($this->groupingDraft);
             $this->grouping = SharedProductFilters::normalizeGrouping($this->groupingDraft);
             $this->groupingDraft = $this->grouping;
+            $this->agencyReportViewSettings->save(grouping: $this->grouping);
             unset($this->planGroups, $this->isFlatGroupingView);
         }
 

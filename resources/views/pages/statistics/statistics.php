@@ -8,6 +8,7 @@ use App\Data\TableReportData;
 use App\Enums\ChannelReportGrouping;
 use App\Livewire\Concerns\WithReportDataRefresh;
 use App\Livewire\Concerns\WithSidebarProjectFilter;
+use App\Services\AgencyReportViewSettingsService;
 use App\Services\Statistics\StatisticsService;
 use App\Support\SharedProductFilters;
 use Illuminate\Support\Facades\Auth;
@@ -40,9 +41,14 @@ class extends Component
 
     private StatisticsService $statisticsService;
 
-    public function boot(StatisticsService $statisticsService)
-    {
+    private AgencyReportViewSettingsService $agencyReportViewSettings;
+
+    public function boot(
+        StatisticsService $statisticsService,
+        AgencyReportViewSettingsService $agencyReportViewSettings,
+    ) {
         $this->statisticsService = $statisticsService;
+        $this->agencyReportViewSettings = $agencyReportViewSettings;
     }
 
     public function mount()
@@ -52,6 +58,7 @@ class extends Component
             session('current_agency_id') ? (int) session('current_agency_id') : null,
         );
         $this->queryData->clampPeriodToPresent();
+        $this->agencyReportViewSettings->syncSessionFromAgency();
         $this->applySharedProductFilters();
         $this->roundKopecks = SharedProductFilters::resolveRoundKopecks(true) ? 'Y' : 'N';
     }
@@ -151,7 +158,12 @@ class extends Component
         );
 
         $this->roundKopecks = $this->roundKopecks === 'N' ? 'N' : 'Y';
-        SharedProductFilters::rememberRoundKopecks($this->roundKopecks !== 'N');
+        $round = $this->roundKopecks !== 'N';
+        SharedProductFilters::rememberRoundKopecks($round);
+        $this->agencyReportViewSettings->save(
+            grouping: $this->queryData->grouping->value,
+            roundKopecks: $round,
+        );
 
         $pinnedField = $this->pinnedGroupingColumnField();
         if ($pinnedField !== null) {
