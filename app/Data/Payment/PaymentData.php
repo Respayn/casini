@@ -18,7 +18,7 @@ class PaymentData extends Data
         #[Rule('required|string|max:255')]
         public string $Payer,
 
-        #[Rule('required|digits:10')]
+        #[Rule(['required', 'regex:/^(\d{10}|\d{12})$/'])]
         public string $InnPayer,
 
         #[Rule('nullable|string|max:100')]
@@ -30,12 +30,12 @@ class PaymentData extends Data
         #[Rule('required|boolean')]
         public bool $Canceled,
 
-        #[Rule('required|string')]
-        public string $Purpose,
+        #[Rule('nullable|string')]
+        public ?string $Purpose,
 
         /** @var InvoiceData[] */
-        #[Rule('required|array|min:1')]
-        public DataCollection $invoices
+        #[Rule('required_unless:Canceled,true|array|min:1')]
+        public ?DataCollection $invoices = null
     ) {}
 
     public static function collection(array $data): DataCollection

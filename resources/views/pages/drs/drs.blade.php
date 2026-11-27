@@ -1,0 +1,641 @@
+@php
+    $money = fn (float $value): string => number_format($value, 2, ',', ' ').' ₽';
+    $signedMoney = fn (float $value): string => ($value > 0 ? '+' : '').$money($value);
+    $loadingTargets = 'month, onlyNew, save, hideOperation, onSidebarProjectSelected, onSidebarProjectCleared, clearSidebarProjectFilter';
+    $isCredit = $modalMode === 'credit';
+    $calc = $this->calculation;
+    $headerClass = 'flex w-full items-center justify-center gap-2';
+@endphp
+
+<div>
+    <x-layout.sidebar-filter-hint />
+
+    {{-- Шапка --}}
+    <div class="flex flex-wrap justify-between gap-3">
+        <div class="mb-7 flex items-center gap-2">
+            <h1>ДРС</h1>
+            <span class="text-caption-text text-sm">(движение рекламных средств)</span>        </div>
+        @if ($this->canEdit)
+            <div>
+                <x-button.button
+                    icon="icons.plus"
+                    label="Прокредитовать клиента"
+                    variant="primary"
+                    wire:click="openCredit"
+                />
+            </div>
+        @endif
+    </div>
+
+    {{-- Фильтры --}}
+    <div
+        class="flex flex-wrap items-center gap-x-3 gap-y-3"
+        wire:loading.class="pointer-events-none opacity-60"
+        wire:target="{{ $loadingTargets }}"
+    >
+        <x-form.month-picker wire:model.live="month" />
+
+        <div class="flex items-center gap-2">
+            <label>{{ $onlyNew ? 'Только новые' : 'Все операции' }}</label>
+            <x-form.toggle-switch wire:model.live="onlyNew" />
+            <x-overlay.tooltip>
+                Новые: операции, которые еще никто не открывал
+            </x-overlay.tooltip>
+        </div>
+
+        <span class="text-caption-text ml-auto flex items-center gap-2 text-sm">
+            <span>
+                Последнее поступление:
+                <span class="italic">{{ $this->lastImportLabel ?? 'еще не поступали' }}</span>
+            </span>
+            <x-overlay.tooltip>
+                Часовой пояс агентства: {{ $this->timezoneLabel }}. Изменить можно в настройках агентства
+            </x-overlay.tooltip>
+        </span>
+    </div>
+
+    @if ($actionMessage)
+        <x-feedback.notice
+            class="mb-0 mt-3"
+            :variant="$actionMessageType === 'error' ? 'error' : 'info'"
+        >
+            {{ $actionMessage }}
+        </x-feedback.notice>
+    @endif
+
+    <x-report.table-loading :targets="$loadingTargets">
+        @if ($this->operations->isEmpty())
+            <div class="mt-20 flex flex-col items-center gap-4">
+                <span class="text-caption-text">За выбранный месяц операций нет</span>
+            </div>
+        @else
+            <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
+                <x-data.table>
+                    <x-data.table-columns>
+                        <x-data.table-column>
+                            <div class="{{ $headerClass }}">
+                                <span>№</span>
+                                <x-overlay.tooltip>Номер операции в банке или номер выданного кредита</x-overlay.tooltip>
+                            </div>
+                        </x-data.table-column>
+                        <x-data.table-column>
+                            <div class="{{ $headerClass }}">
+                                <span>Дата</span>
+                                <x-overlay.tooltip>Первая дата - это дата поступления платежа или выданного кредита, вторая дата - дата отправки средств в рекламный кабинет</x-overlay.tooltip>
+                            </div>
+                        </x-data.table-column>
+                        <x-data.table-column>
+                            <div class="{{ $headerClass }}">
+                                <span>Сумма</span>
+                                <x-overlay.tooltip>Первая строка - сумма поступления от клиента, вторая - сумма выданного или возвращенного кредита</x-overlay.tooltip>
+                            </div>
+                        </x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}">Детали</div></x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}">Клиент / клиенто-проект</div></x-data.table-column>
+                        <x-data.table-column>
+                            <div class="{{ $headerClass }}">
+                                <span class="text-center">Поступит в<br>рекламный кабинет</span>
+                                <x-overlay.tooltip>Сбор учтен: пополнение / 1,03</x-overlay.tooltip>
+                            </div>
+                        </x-data.table-column>
+                        @if ($this->canSeeStatus)
+                            <x-data.table-column>
+                                <div class="{{ $headerClass }}">
+                                    <span>Статус</span>
+                                    <x-overlay.tooltip>Отметьте, если платеж отправлен в рекламный кабинет</x-overlay.tooltip>
+                                </div>
+                            </x-data.table-column>
+                        @endif
+                        <x-data.table-column><div class="{{ $headerClass }}">Сбор 3%</div></x-data.table-column>
+                        <x-data.table-column><div class="{{ $headerClass }}"><span class="text-center">Сбор<br>в копилке</span></div></x-data.table-column>
+                        @if ($this->canSeeInvoice)
+                            <x-data.table-column>
+                                <div class="{{ $headerClass }}">
+                                    <span class="text-center">Счет<br>выставлен</span>
+                                    <x-overlay.tooltip>Счет из рекламного кабинета передан бухгалтеру</x-overlay.tooltip>
+                                </div>
+                            </x-data.table-column>
+                        @endif
+                        @if ($this->canDelete)
+                            <x-data.table-column><div class="{{ $headerClass }}">Действия</div></x-data.table-column>
+                        @endif
+                    </x-data.table-columns>
+
+                    <x-data.table-rows>
+                        @foreach ($this->operations as $row)
+                            @php
+                                $rowBg = match (true) {
+                                    $row->creditAmount < 0 => '#FFF5F5',
+                                    $row->creditAmount > 0 => '#F0FDF4',
+                                    default => '#FFFFFF',
+                                };
+                            @endphp
+                            <x-data.table-row
+                                wire:key="drs-row-{{ $row->id }}"
+                                :bg-color="$rowBg"
+                                class="cursor-pointer"
+                                title="Открыть операцию"
+                                wire:click="openOperation({{ $row->id }})"
+                            >
+                                <x-data.table-cell>
+                                    <div class="flex items-start gap-1" title="{{ $row->isManual ? 'Выданный кредит' : 'Поступление на счет' }}">
+                                        @if ($row->isManual)
+                                            <x-icons.send-money class="text-secondary-text size-5 shrink-0" />
+                                        @else
+                                            <x-icons.account-balance class="text-secondary-text size-5 shrink-0" />
+                                        @endif
+                                        <div class="min-w-0">
+                                            <div class="break-words">{!! str_replace('-', '-<wbr>', e($row->number)) !!}</div>
+                                            @if ($row->isNew)
+                                                <span class="bg-primary mt-1 inline-block rounded px-1.5 text-xs leading-5 text-white">новая</span>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </x-data.table-cell>
+                                <x-data.table-cell class="whitespace-nowrap">
+                                    <div>{{ $row->operationDate }}</div>
+                                    @if ($row->sentDate)
+                                        <div class="text-caption-text text-xs">{{ $row->sentDate }}</div>
+                                    @endif
+                                </x-data.table-cell>
+                                <x-data.table-cell class="whitespace-nowrap">
+                                    <div class="flex items-center gap-2">
+                                        <div>
+                                            @if ($row->bankAmount != 0)
+                                                <div class="text-green-700">{{ $money($row->bankAmount) }}</div>
+                                            @else
+                                                <div class="text-caption-text">-</div>
+                                            @endif
+                                            @if ($row->creditAmount != 0)
+                                                <div @class(['text-blue-600' => $row->creditAmount < 0, 'text-green-700' => $row->creditAmount > 0])>
+                                                    {{ $signedMoney($row->creditAmount) }}
+                                                </div>
+                                            @else
+                                                <div class="text-caption-text">-</div>
+                                            @endif
+                                        </div>
+                                        @if ($row->comment)
+                                            <x-overlay.tooltip>
+                                                <x-slot:trigger>
+                                                    <x-icons.chat class="text-secondary-text cursor-pointer" />
+                                                </x-slot:trigger>
+                                                {{ $row->comment }}
+                                            </x-overlay.tooltip>
+                                        @endif
+                                    </div>
+                                </x-data.table-cell>
+                                <x-data.table-cell class="min-w-52 text-sm">
+                                    @if ($row->paymentDetails)
+                                        <div class="break-words" title="{{ $row->paymentDetails }}">{{ \Illuminate\Support\Str::limit($row->paymentDetails, 100) }}</div>
+                                    @endif
+                                    <div class="text-caption-text mt-1">
+                                        @if ($row->advertisingSystem)
+                                            <div class="flex items-center gap-1">
+                                                <x-icons.ads-click class="text-secondary-text shrink-0" width="16" height="16" />
+                                                Канал: {{ $row->advertisingSystem }}
+                                            </div>
+                                        @endif
+                                        @if ($row->invoiceNumber)
+                                            <div>Счет: {{ $row->invoiceNumber }}</div>
+                                        @endif
+                                        @if ($row->managerName)
+                                            <div class="flex items-start gap-1">
+                                                <span class="flex h-5 shrink-0 items-center">
+                                                    <x-icons.card class="text-secondary-text h-4 w-4" />
+                                                </span>
+                                                <span class="whitespace-nowrap">Менеджер: {{ $row->managerName }}</span>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </x-data.table-cell>
+                                <x-data.table-cell>
+                                    <div class="font-semibold">{{ $row->clientName }}</div>
+                                    <div class="text-caption-text text-sm">{{ $row->projectName ?? 'Клиенто-проект не выбран' }}</div>
+                                </x-data.table-cell>
+                                <x-data.table-cell class="whitespace-nowrap text-blue-600">{{ $money($row->adCabinetAmount) }}</x-data.table-cell>
+                                @if ($this->canSeeStatus)
+                                    <x-data.table-cell class="text-center" x-on:click.stop>
+                                        <x-overlay.tooltip>
+                                            <x-slot:trigger>
+                                                <x-form.checkbox
+                                                    :checked="$row->isSentToCabinet"
+                                                    :disabled="! $this->canEditStatus"
+                                                    x-on:change="$wire.toggleStatus({{ $row->id }}, $event.target.checked)"
+                                                />
+                                            </x-slot:trigger>
+                                            {{ $row->statusChangedLabel ?? 'Еще не менялся' }}
+                                        </x-overlay.tooltip>
+                                    </x-data.table-cell>
+                                @endif
+                                <x-data.table-cell class="whitespace-nowrap text-blue-600">{{ $money($row->feeAmount) }}</x-data.table-cell>
+                                <x-data.table-cell class="text-center" x-on:click.stop>
+                                    @if ($row->feeSettledLabel)
+                                        <x-overlay.tooltip>
+                                            <x-slot:trigger>
+                                                <x-form.checkbox :checked="$row->isFeeInPiggyBank" disabled />
+                                            </x-slot:trigger>
+                                            {{ $row->feeSettledLabel }}
+                                        </x-overlay.tooltip>
+                                    @else
+                                        <div class="flex justify-center">
+                                            <x-form.checkbox
+                                                :checked="$row->isFeeInPiggyBank"
+                                                :disabled="! $this->canEdit"
+                                                x-on:change="$wire.togglePiggyBank({{ $row->id }}, $event.target.checked)"
+                                            />
+                                        </div>
+                                    @endif
+                                </x-data.table-cell>
+                                @if ($this->canSeeInvoice)
+                                    <x-data.table-cell class="text-center" x-on:click.stop>
+                                        <x-overlay.tooltip>
+                                            <x-slot:trigger>
+                                                <x-form.checkbox
+                                                    :checked="$row->isInvoiceIssued"
+                                                    :disabled="! $this->canEditInvoice"
+                                                    x-on:change="$wire.toggleInvoice({{ $row->id }}, $event.target.checked)"
+                                                />
+                                            </x-slot:trigger>
+                                            {{ $row->invoiceChangedLabel ?? 'Еще не менялся' }}
+                                        </x-overlay.tooltip>
+                                    </x-data.table-cell>
+                                @endif
+                                @if ($this->canDelete)
+                                    <x-data.table-cell class="whitespace-nowrap text-center" x-on:click.stop>
+                                        <x-button.button
+                                            icon="icons.delete"
+                                            variant="ghost"
+                                            title="Удалить из ДРС"
+                                            x-on:click="$dispatch('drs-delete-ask', { id: {{ $row->id }} })"
+                                        />
+                                    </x-data.table-cell>
+                                @endif
+                            </x-data.table-row>
+                        @endforeach
+
+                        {{-- Итого --}}
+                        <x-data.table-row>
+                            <x-data.table-cell class="font-bold" colspan="2">Итого</x-data.table-cell>
+                            <x-data.table-cell class="whitespace-nowrap font-bold">
+                                <div>{{ $money($this->totals['bank']) }}</div>
+                                <div>{{ $signedMoney($this->totals['credit']) }}</div>
+                            </x-data.table-cell>
+                            <x-data.table-cell colspan="2"></x-data.table-cell>
+                            <x-data.table-cell class="whitespace-nowrap font-bold">{{ $money($this->totals['cabinet']) }}</x-data.table-cell>
+                            @if ($this->canSeeStatus)
+                                <x-data.table-cell></x-data.table-cell>
+                            @endif
+                            <x-data.table-cell class="whitespace-nowrap font-bold">{{ $money($this->totals['fee']) }}</x-data.table-cell>
+                            <x-data.table-cell colspan="{{ 1 + (int) $this->canSeeInvoice + (int) $this->canDelete }}"></x-data.table-cell>
+                        </x-data.table-row>
+                    </x-data.table-rows>
+                </x-data.table>
+            </x-panel.scroll-panel>
+        @endif
+    </x-report.table-loading>
+
+    {{-- Окно операции / кредита --}}
+    <x-overlay.modal
+        name="drs-operation-modal"
+        pin-top
+        :title="$isCredit ? 'Прокредитовать клиента' : 'Операция № '.($form->number ?? '')"
+    >
+        <x-slot:body>
+            <div>
+            <div class="mb-3 flex w-[700px] max-w-full flex-col gap-3 pe-3">
+                @if ($this->creditDebt < 0)
+                    <x-feedback.notice variant="error" class="mb-0">
+                        Сумма задолженности {{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? 'клиента' }} составляет <span class="font-semibold">{{ $money(abs($this->creditDebt)) }}</span>
+                    </x-feedback.notice>
+                @endif
+
+                {{-- Галочки --}}
+                <div class="flex flex-wrap gap-x-3 gap-y-2">
+                    @if ($this->canSeeStatus)
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-2">
+                                <x-form.checkbox wire:model.live="form.isSentToCabinet" :disabled="! $this->canEditStatus" />
+                                Статус платежа
+                            </label>
+                            <x-overlay.tooltip>Отметьте, если платеж отправлен в рекламный кабинет</x-overlay.tooltip>
+                        </div>
+                    @endif
+                    <div class="flex items-center gap-2">
+                        @if ($form->feeSettledLabel)
+                            <x-overlay.tooltip>
+                                <x-slot:trigger>
+                                    <label class="flex items-center gap-2">
+                                        <x-form.checkbox :checked="$form->isFeeInPiggyBank" disabled />
+                                        Сбор в копилке
+                                    </label>
+                                </x-slot:trigger>
+                                {{ $form->feeSettledLabel }}
+                            </x-overlay.tooltip>
+                        @else
+                            <label class="flex items-center gap-2">
+                                <x-form.checkbox wire:model="form.isFeeInPiggyBank" :disabled="! $this->canEdit" />
+                                Сбор в копилке
+                            </label>
+                        @endif
+                        <x-overlay.tooltip>Отметьте, если сбор с рекламного бюджета был отправлен в копилку</x-overlay.tooltip>
+                    </div>
+                    @if ($this->canSeeInvoice)
+                        <div class="flex items-center gap-2">
+                            <label class="flex items-center gap-2">
+                                <x-form.checkbox wire:model="form.isInvoiceIssued" :disabled="! $this->canEditInvoice" />
+                                Счет выставлен
+                            </label>
+                            <x-overlay.tooltip>Счет из рекламного кабинета передан бухгалтеру</x-overlay.tooltip>
+                        </div>
+                    @endif
+                </div>
+            </div>
+            <x-panel.scroll-panel style="max-height: calc(100vh - {{ $this->creditDebt < 0 ? 350 : 260 }}px)">
+            <div class="flex w-[700px] max-w-full flex-col gap-3 pe-3" wire:key="drs-form-{{ $modalMode }}-{{ $form->id ?? 'new' }}">
+                <div class="flex flex-col gap-2">
+                    <label class="text-primary-text text-sm font-semibold">Комментарий</label>
+                    <textarea
+                        class="border-input-border w-full rounded-[5px] border px-1 py-0.5"
+                        rows="2"
+                        placeholder="Например, кредитная линия Яндекса..."
+                        wire:model="form.comment"
+                        @disabled(! $this->canEdit)
+                    ></textarea>
+                </div>
+
+                @if ($form->paymentDetails && ! $isCredit)
+                    <div class="flex flex-col gap-2">
+                        <label class="text-primary-text text-sm font-semibold">Назначение платежа</label>
+                        <textarea
+                            class="border-input-border bg-secondary text-input-text w-full rounded-[5px] border px-3 py-2"
+                            rows="{{ min(5, max(1, (int) ceil(mb_strlen($form->paymentDetails) / 80))) }}"
+                            disabled
+                        >{{ $form->paymentDetails }}</textarea>
+                    </div>
+                @endif
+
+                {{-- Даты --}}
+                <span class="text-caption-text mt-2 text-sm font-semibold">Откуда</span>
+                <div class="grid grid-cols-2 gap-4">
+                    @if ($isCredit)
+                        <div class="flex flex-col gap-2">
+                            <label class="text-primary-text text-sm font-semibold">Дата операции</label>
+                            <x-form.date-picker wire:model="form.operationDate" placeholder="дд.мм.гггг" :max="$this->maxDate" />
+                            @error('form.operationDate')
+                                <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                            @enderror
+                        </div>
+                    @else
+                        <x-form.input-text
+                            label="Дата операции"
+                            :value="$form->operationDate ? \Carbon\Carbon::parse($form->operationDate)->format('d.m.Y') : ''"
+                            disabled
+                        />
+                    @endif
+                    <div class="flex flex-col gap-2">
+                        <label class="text-primary-text text-sm font-semibold">Дата отправки в кабинет</label>
+                        @if ($this->canEdit)
+                            <x-form.date-picker wire:model="form.sentDate" placeholder="дд.мм.гггг" :max="$this->maxDate" />
+                            @error('form.sentDate')
+                                <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                            @enderror
+                        @else
+                            <span class="flex min-h-[42px] items-center">{{ $form->sentDate ? \Carbon\Carbon::parse($form->sentDate)->format('d.m.Y') : '' }}</span>
+                        @endif
+                    </div>
+                </div>
+
+                {{-- Суммы поступления и кредита --}}
+                <div class="grid grid-cols-2 gap-4">
+                    @unless ($isCredit)
+                        @if ($form->isManual)
+                            <x-form.input-number label="Сумма поступления" suffix="₽" placeholder="-" disabled />
+                        @else
+                            <x-form.input-number
+                                label="Сумма поступления"
+                                suffix="₽"
+                                disabled
+                                wire:model="form.bankAmount"
+                            />
+                        @endif
+                    @endunless
+                    @if ($isCredit)
+                        <x-form.input-number
+                            label="Сумма кредита *"
+                            suffix="₽"
+                            wire:model.live.blur="form.creditAmount"
+                        />
+                    @elseif ($form->isManual || ! $this->canEdit)
+                        <x-form.input-number
+                            label="Кредит"
+                            suffix="₽"
+                            allow-negative
+                            disabled
+                            wire:model="form.creditAmount"
+                        />
+                    @else
+                        <x-form.input-number
+                            label="Возврат кредита"
+                            suffix="₽"
+                            allow-negative
+                            wire:model.live.blur="form.creditAmount"
+                        />
+                    @endif
+                </div>
+
+                {{-- Клиент и детали --}}
+                <span class="text-caption-text mt-2 text-sm font-semibold">Куда</span>
+                <div class="grid grid-cols-2 gap-4">
+                    @if ($form->isManual && $this->canEdit)
+                        <x-form.select
+                            label="Клиент *"
+                            wire:model.live="form.clientId"
+                            :options="$this->clientOptions->all()"
+                            label-key="name"
+                            value-key="id"
+                            placeholder="Выберите клиента"
+                            searchable
+                        />
+                    @else
+                        <div class="flex flex-col gap-2">
+                            <label class="text-primary-text text-sm font-semibold">Клиент</label>
+                            <div class="text-input-text relative">
+                                <input
+                                    type="text"
+                                    class="border-input-border bg-secondary min-h-[42px] w-full rounded-[5px] border pe-10 ps-4"
+                                    value="{{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? '' }}"
+                                    disabled
+                                />
+                                <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                    <x-icons.arrow />
+                                </span>
+                            </div>
+                        </div>
+                    @endif
+                    <div wire:key="drs-project-{{ $form->clientId ?? 'none' }}">
+                        <x-form.select
+                            label="Клиенто-проект"
+                            wire:model="form.projectId"
+                            :options="$this->projectOptions->all()"
+                            label-key="name"
+                            value-key="id"
+                            placeholder="Без клиенто-проекта"
+                            empty-placeholder="Сначала выберите клиента"
+                            :disabled="! $this->canEdit"
+                            searchable
+                        />
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-primary-text text-sm font-semibold">{{ $isCredit ? 'Менеджер *' : 'Менеджер' }}</label>
+                        <div class="text-input-text relative">
+                            <input
+                                type="text"
+                                class="border-input-border bg-secondary min-h-[42px] w-full rounded-[5px] border pe-10 ps-4"
+                                value="{{ $this->managerOptions->firstWhere('id', $form->managerId)['name'] ?? '' }}"
+                                placeholder="{{ $form->clientId ? 'У клиента не назначен менеджер' : 'Сначала выберите клиента' }}"
+                                disabled
+                            />
+                            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
+                                <x-icons.arrow />
+                            </span>
+                        </div>
+                        @error('form.managerId')
+                            <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                        @enderror
+                    </div>
+                    <x-form.select
+                        label="Канал *"
+                        wire:model.live="form.advertisingSystem"
+                        :options="$this->advertisingSystemOptions"
+                        placeholder="Выберите рекламную систему"
+                        :disabled="! $this->canEdit"
+                        searchable
+                    />
+                </div>
+
+                {{-- Пополнение и сбор --}}
+                <span class="text-caption-text mt-2 text-sm font-semibold">Итог</span>
+                @if ($this->asksFeeDebt)
+                    <x-feedback.notice variant="error" class="mb-0">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                По <span class="font-semibold">{{ $this->clientOptions->firstWhere('id', $form->clientId)['name'] ?? 'клиенту' }}</span>
+                                есть задолженность по сбору 3% на сумму {{ $money($this->feeDebtTotal) }}, вычесть её в этом платеже?
+                            </div>
+                            <x-overlay.tooltip panel-max-width="24rem">
+                                Задолженность - это сбор 3% по прошлым платежам клиента, где не стоит галочка «Сбор в копилке».
+                                Чтобы её закрыть, нажмите «Да, учесть»: сумма вычтется из того, что поступит в кабинет, а галочка на тех платежах заблокируется.
+                                Если сбор уже отложили, откройте прошлый платеж и поставьте галочку «Сбор в копилке».
+                                «Не нужно» оставит задолженность на следующие платежи.
+                            </x-overlay.tooltip>
+                        </div>
+                        <div class="mt-2 flex gap-2">
+                            <x-button.button
+                                :icon="$feeDebtAnswered && $form->includeFeeDebt ? 'icons.check' : null"
+                                label="Да, учесть"
+                                wire:click="setIncludeFeeDebt(true)"
+                            />
+                            <x-button.button
+                                :icon="$feeDebtAnswered && ! $form->includeFeeDebt ? 'icons.check' : null"
+                                label="Не нужно"
+                                wire:click="setIncludeFeeDebt(false)"
+                            />
+                        </div>
+                    </x-feedback.notice>
+                @endif
+                @unless ($isCredit)
+                    <x-form.input-text
+                        label="Пополнение кабинета (без учета сбора)"
+                        :value="$money($form->topUpAmount)"
+                        wire:key="drs-top-up-{{ $form->topUpAmount }}"
+                        disabled
+                    />
+                    @error('form.topUpAmount')
+                        <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                    @enderror
+                @endunless
+                <div class="border-input-border bg-secondary flex flex-col gap-2 rounded-lg border p-4">
+                    <div class="flex justify-between gap-4">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-primary-text text-sm font-semibold">Поступит в кабинет</span>
+                            <span class="text-primary-text text-2xl font-semibold">{{ $money($calc['cabinet']) }}</span>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <span class="text-secondary-text text-sm">Сбор 3%</span>
+                            <span class="text-secondary-text text-sm">{{ $money($calc['fee']) }}</span>
+                        </div>
+                    </div>
+                    <span class="text-caption-text text-xs">
+                        {{ $money(max(0, round($form->topUpAmount, 2))) }} - {{ $money($calc['fee']) }} = {{ $money($calc['cabinet']) }}
+                    </span>
+                </div>
+
+                @error('form')
+                    <span class="text-warning-red text-[12px]">{{ $message }}</span>
+                @enderror
+            </div>
+            </x-panel.scroll-panel>
+            </div>
+
+            <div
+                class="mt-4 flex justify-between"
+                x-data="{
+                    get dirty() {
+                        const snapshot = $wire.formSnapshot ?? {};
+                        const form = $wire.form ?? {};
+                        return Object.keys(snapshot).some((key) => String(form[key] ?? '') !== String(snapshot[key] ?? ''));
+                    },
+                    get filled() {
+                        const form = $wire.form ?? {};
+                        if (! form.clientId || ! $wire.feeDebtAnswered) return false;
+                        if ({{ $this->canEdit ? 'true' : 'false' }} && ! form.advertisingSystem) return false;
+                        if ($wire.modalMode !== 'credit') return true;
+                        const credit = Number(String(form.creditAmount ?? '').replace(/[^\d,.-]/g, '').replace(',', '.'));
+                        return credit !== 0 && ! Number.isNaN(credit) && !! form.managerId;
+                    },
+                }"
+                x-bind:class="{ 'invisible': ! dirty }"
+            >
+                @if ($this->canEdit || $this->canEditStatus || $this->canEditInvoice)
+                    <x-button.button
+                        :label="$isCredit ? 'Выдать кредит' : 'Сохранить'"
+                        variant="primary"
+                        wire:click="save"
+                        x-bind:disabled="! filled"
+                        wire:loading.attr="disabled"
+                        wire:target="save"
+                    />
+                @endif
+                <x-button.button
+                    label="Отменить"
+                    x-on:click="$dispatch('modal-hide', { name: 'drs-operation-modal' })"
+                />
+            </div>
+        </x-slot>
+    </x-overlay.modal>
+
+    @if ($this->canDelete)
+        <x-overlay.modal name="drs-delete-confirm" title="Вы уверены?">
+            <x-slot:body>
+                <div
+                    x-data="{ id: null }"
+                    x-on:drs-delete-ask.window="id = $event.detail.id; $dispatch('modal-show', { name: 'drs-delete-confirm' })"
+                >
+                    <p class="text-primary-text">Операция будет удалена из ДРС.</p>
+                    <div class="mt-6 flex justify-between gap-4">
+                        <x-button.button
+                            icon="icons.delete"
+                            label="Удалить"
+                            variant="primary"
+                            x-on:click="$wire.hideOperation(id); $dispatch('modal-hide', { name: 'drs-delete-confirm' })"
+                        />
+                        <x-button.button
+                            label="Отменить"
+                            x-on:click="$dispatch('modal-hide', { name: 'drs-delete-confirm' })"
+                        />
+                    </div>
+                </div>
+            </x-slot>
+        </x-overlay.modal>
+    @endif
+</div>

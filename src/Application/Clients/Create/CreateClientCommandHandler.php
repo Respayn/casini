@@ -20,7 +20,9 @@ class CreateClientCommandHandler
             $command->name,
             $command->managerId,
             $command->inn,
-            $command->initialBalance
+            $command->initialBalance,
+            $command->chargesAdFee,
+            $command->adFeeChangedAt
         );
 
         return $this->clientRepository->save($client);

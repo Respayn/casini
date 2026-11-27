@@ -1,0 +1,395 @@
+<?php
+
+namespace Tests\Feature\Services;
+
+use App\Data\Payment\DrsOperationFormData;
+use App\Data\Payment\InvoiceData;
+use App\Data\Payment\PaymentData;
+use App\Enums\AdvertisingSystem;
+use App\Enums\FeeType;
+use App\Enums\PaymentSource;
+use App\Enums\PermissionGroup;
+use App\Models\Client;
+use App\Models\Payment;
+use App\Models\PaymentOperation;
+use App\Models\User;
+use App\Services\PaymentService;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Models\Permission;
+use Tests\TestCase;
+
+class PaymentServiceDrsTest extends TestCase
+{
+    use DatabaseTransactions;
+
+    private const CAN_ALL = ['edit' => true, 'status' => true, 'invoice' => true];
+
+    public function test_1c_resend_keeps_user_fields_and_applies_fee_by_default(): void
+    {
+        $service = app(PaymentService::class);
+        $service->processPayments([$this->paymentData('TEST-DRS-1', 77500)]);
+
+        $operation = $this->operationByNumber('TEST-DRS-1');
+        $this->assertSame(77500.0, $operation->cabinet_top_up_amount);
+        $this->assertSame(2257.28, $operation->fee_amount);
+        $this->assertSame(75242.72, $operation->ad_cabinet_amount);
+
+        $operation->update(['comment' => 'проверка', 'opened_at' => now()]);
+        $service->processPayments([$this->paymentData('TEST-DRS-1', 77500)]);
+
+        $this->assertSame('проверка', $operation->fresh()->comment);
+        $this->assertSame(1, PaymentOperation::query()->where('payment_id', $operation->payment_id)->count());
+    }
+
+    public function test_credit_creates_debt_and_return_reduces_it(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $service->processPayments([$this->paymentData('TEST-DRS-2', 415000)]);
+        $clientId = $this->operationByNumber('TEST-DRS-2')->payment->client_id;
+        Client::query()->whereKey($clientId)->update(['manager_id' => $user->id]);
+
+        $credit = $service->newCreditForm();
+        $credit->clientId = $clientId;
+        $credit->creditAmount = 100000;
+        $credit->topUpAmount = 100000;
+        $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $service->createCredit($user, $credit, self::CAN_ALL);
+
+        $this->assertSame(-100000.0, $service->getClientCreditDebt($clientId));
+
+        $operation = $this->operationByNumber('TEST-DRS-2');
+        $form = $service->openOperation($user, $operation->id);
+        $this->assertInstanceOf(DrsOperationFormData::class, $form);
+        $form->creditAmount = 80000;
+        $form->topUpAmount = 415000 - 80000;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $form->isSentToCabinet = true;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+
+        $operation->refresh();
+        $this->assertSame(325242.72, $operation->ad_cabinet_amount);
+        $this->assertTrue($operation->is_sent_to_cabinet);
+        $this->assertNotNull($operation->ad_cabinet_sent_date);
+        $this->assertSame($user->id, $operation->status_changed_by);
+        $this->assertSame(-20000.0, $service->getClientCreditDebt($clientId));
+    }
+
+    public function test_top_up_is_bank_amount_minus_credit_return(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $service->processPayments([$this->paymentData('TEST-DRS-6', 77500)]);
+        $operation = $this->operationByNumber('TEST-DRS-6');
+
+        $form = $service->openOperation($user, $operation->id);
+        $form->creditAmount = 5000;
+        $form->topUpAmount = 30000;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+
+        $this->assertSame(72500.0, $operation->fresh()->cabinet_top_up_amount);
+    }
+
+    public function test_hidden_operation_keeps_1c_payment(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $service->processPayments([$this->paymentData('TEST-DRS-3', 1000)]);
+        $operation = $this->operationByNumber('TEST-DRS-3');
+
+        $service->hideOperation($user, $operation->id);
+
+        $this->assertSoftDeleted($operation);
+        $this->assertNotNull(Payment::query()->find($operation->payment_id));
+    }
+
+    public function test_fee_follows_client_fee_type_not_form(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $service->processPayments([$this->paymentData('TEST-DRS-4', 10300)]);
+        $operation = $this->operationByNumber('TEST-DRS-4');
+
+        $form = $service->openOperation($user, $operation->id);
+        $form->feeIncluded = false;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+
+        $operation->refresh();
+        $this->assertTrue($operation->fee_included);
+        $this->assertSame(300.0, $operation->fee_amount);
+    }
+
+    public function test_fee_debt_follows_piggy_bank_and_settled_payments_are_locked(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create(['name' => 'Тест ДРС копилка', 'manager_id' => $user->id]);
+        $credit = function (bool $includeFeeDebt) use ($service, $user, $client): PaymentOperation {
+            $form = $service->newCreditForm();
+            $form->clientId = $client->id;
+            $form->creditAmount = 10300;
+            $form->advertisingSystem = AdvertisingSystem::Yandex->value;
+            $form->includeFeeDebt = $includeFeeDebt;
+            $service->createCredit($user, $form, self::CAN_ALL);
+
+            return PaymentOperation::query()->with('payment')->latest('id')->firstOrFail();
+        };
+
+        $first = $credit(false);
+        $second = $credit(false);
+        $this->assertSame(600.0, $service->getClientFeeDebt($client->id));
+
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', true);
+        $this->assertSame(300.0, $service->getClientFeeDebt($client->id));
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', false);
+
+        $settling = $credit(true);
+        $this->assertSame(600.0, $settling->included_fee_debt);
+        $this->assertSame($settling->id, $first->fresh()->fee_settled_in_operation_id);
+        $this->assertSame($settling->id, $second->fresh()->fee_settled_in_operation_id);
+        // Учтенные 600 ₽ второй раз не просятся: в долге только сбор самой третьей операции
+        $this->assertSame(300.0, $service->getClientFeeDebt($client->id));
+
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', true);
+        $this->assertFalse($first->fresh()->is_fee_in_piggy_bank);
+        $this->assertStringContainsString(
+            'учтен в операции №'.$settling->payment->number,
+            $service->openOperation($user, $first->id)->feeSettledLabel
+        );
+
+        $third = $credit(false);
+        $form = $service->openOperation($user, $second->id);
+        $form->includeFeeDebt = true;
+        $form->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+        $this->assertNull($settling->fresh()->fee_settled_in_operation_id, 'операции не блокируют друг друга');
+        $this->assertSame($second->id, $third->fresh()->fee_settled_in_operation_id);
+
+        $form = $service->openOperation($user, $settling->id);
+        $form->includeFeeDebt = false;
+        $service->saveOperation($user, $form, self::CAN_ALL);
+
+        $this->assertNull($first->fresh()->fee_settled_in_operation_id);
+        $service->toggleFlag($user, $first->id, 'is_fee_in_piggy_bank', true);
+        $this->assertTrue($first->fresh()->is_fee_in_piggy_bank);
+    }
+
+    public function test_credits_and_bank_payments_have_separate_numbering(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $bankNumber = (string) (Payment::withTrashed()->where('source', PaymentSource::MANUAL)->get()
+            ->max(fn (Payment $payment) => (int) $payment->number) + 1);
+
+        $credit = $service->newCreditForm();
+        $credit->clientId = Client::query()->create(['name' => 'Тест ДРС нумерация', 'manager_id' => $user->id])->id;
+        $credit->creditAmount = 1000;
+        $credit->topUpAmount = 1000;
+        $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
+        $service->createCredit($user, $credit, self::CAN_ALL);
+
+        $manual = Payment::query()->where('source', PaymentSource::MANUAL)->latest('id')->first();
+        $this->assertSame($bankNumber, $manual->number);
+
+        $service->processPayments([$this->paymentData($bankNumber, 5000)]);
+        $service->processPayments([$this->paymentData($bankNumber, 5000)]);
+
+        $this->assertSame(1, Payment::query()->where('number', $bankNumber)->where('source', PaymentSource::FROM_1C)->count());
+        $this->assertSame(1000.0, $manual->operations()->first()->cabinet_top_up_amount);
+
+        $service->createCredit($user, $credit, self::CAN_ALL);
+        $this->assertSame((string) ((int) $bankNumber + 1), Payment::query()->where('source', PaymentSource::MANUAL)->latest('id')->value('number'));
+    }
+
+    public function test_full_access_sees_operations_of_other_managers(): void
+    {
+        $service = app(PaymentService::class);
+        $service->processPayments([$this->paymentData('TEST-DRS-5', 5000)]);
+        $operation = $this->operationByNumber('TEST-DRS-5');
+        $operation->payment->client->update(['manager_id' => User::factory()->create()->id]);
+
+        $user = User::factory()->create();
+        $visibleIds = fn () => $service->getMonthOperations($user->fresh(), now(), null, false)->pluck('id');
+        $this->assertNotContains($operation->id, $visibleIds());
+
+        $user->givePermissionTo(Permission::findOrCreate('full '.PermissionGroup::ADVERTISING_FUNDS_MOVEMENT->value));
+        $this->assertContains($operation->id, $visibleIds());
+    }
+
+    public function test_client_without_fee_keeps_fee_before_change_date(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create([
+            'name' => 'Тест ДРС без сбора',
+            'manager_id' => $user->id,
+            'ad_fee_type' => FeeType::NONE,
+            'ad_fee_changed_at' => today(),
+        ]);
+
+        foreach ([today()->subDay(), today()] as $date) {
+            $credit = $service->newCreditForm();
+            $credit->clientId = $client->id;
+            $credit->operationDate = $date->toDateString();
+            $credit->creditAmount = 10300;
+            $credit->topUpAmount = 10300;
+            $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
+            $service->createCredit($user, $credit, self::CAN_ALL);
+        }
+
+        $fees = PaymentOperation::query()
+            ->whereHas('payment', fn ($query) => $query->where('client_id', $client->id))
+            ->orderBy('id')
+            ->pluck('fee_amount')
+            ->all();
+        $this->assertSame([300.0, 0.0], $fees);
+    }
+
+    public function test_google_ads_credit_has_no_fee_and_no_fee_debt(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create([
+            'name' => 'Тест ДРС Google Ads',
+            'manager_id' => $user->id,
+            'ad_fee_type' => FeeType::THREE_PERCENT,
+        ]);
+
+        $credit = $service->newCreditForm();
+        $credit->clientId = $client->id;
+        $credit->creditAmount = 10300;
+        $credit->topUpAmount = 10300;
+        $credit->advertisingSystem = AdvertisingSystem::Google->value;
+        $service->createCredit($user, $credit, self::CAN_ALL);
+
+        $operation = PaymentOperation::query()
+            ->whereHas('payment', fn ($query) => $query->where('client_id', $client->id))
+            ->firstOrFail();
+        $this->assertSame(0.0, $operation->fee_amount);
+        $this->assertSame(10300.0, $operation->ad_cabinet_amount);
+        $this->assertSame(0.0, $service->getClientFeeDebt($client->id));
+    }
+
+    public function test_credit_with_future_dates_is_rejected(): void
+    {
+        $user = User::factory()->create();
+        $service = app(PaymentService::class);
+        $client = Client::query()->create(['name' => 'Тест ДРС будущая дата', 'manager_id' => $user->id]);
+        $tomorrow = $service->agencyToday()->addDay()->toDateString();
+
+        $credit = $service->newCreditForm();
+        $credit->clientId = $client->id;
+        $credit->operationDate = $tomorrow;
+        $credit->sentDate = $tomorrow;
+        $credit->creditAmount = 10300;
+        $credit->advertisingSystem = AdvertisingSystem::Yandex->value;
+
+        try {
+            $service->createCredit($user, $credit, self::CAN_ALL);
+            $this->fail('Кредит с будущей датой не должен создаваться');
+        } catch (ValidationException $e) {
+            $this->assertArrayHasKey('form.operationDate', $e->errors());
+            $this->assertArrayHasKey('form.sentDate', $e->errors());
+        }
+    }
+
+    public function test_1c_api_accepts_sao_payload(): void
+    {
+        $user = User::factory()->create();
+        $number = 'TEST-DRS-API-'.uniqid();
+        $inn = sprintf('%012d', crc32($number));
+        $payment = [
+            'PaymentNumber' => $number,
+            'PaymentDate' => today()->toIso8601String(),
+            'Payer' => 'ИП Тест ДРС',
+            'InnPayer' => substr($inn, 0, 4).'-'.substr($inn, 4),
+            'ContractNumber' => null,
+            'Total' => 5000,
+            'Canceled' => false,
+            'Purpose' => '',
+            'invoices' => [
+                ['order' => 2, 'invoiceNumber' => 'СЧ-2', 'invoiceDate' => today()->toIso8601String(), 'sum' => 5000],
+            ],
+        ];
+        $send = fn (array $data) => $this->postJson('/api/processOperations', [
+            'login' => $user->login,
+            'password' => 'password',
+            'data' => $data,
+        ]);
+
+        $send([])->assertOk();
+        $send([$payment])->assertOk();
+
+        $operation = $this->operationByNumber($number);
+        $this->assertSame($inn, $operation->payment->client->inn);
+        $this->assertSame(2, $operation->order);
+
+        $send([['PaymentNumber' => $number, 'PaymentDate' => $payment['PaymentDate'], 'Payer' => 'ИП Тест ДРС',
+            'InnPayer' => $inn, 'Total' => 0, 'Canceled' => true, 'Purpose' => '']])->assertOk();
+
+        $this->assertSoftDeleted($operation->payment);
+    }
+
+    public function test_1c_payment_number_is_unique_within_year(): void
+    {
+        $service = app(PaymentService::class);
+        $number = 'TEST-DRS-YEAR-'.uniqid();
+        $lastYear = new \DateTimeImmutable('-1 year');
+
+        $service->processPayments([$this->paymentData($number, 1000, $lastYear)]);
+        $service->processPayments([$this->paymentData($number, 2000)]);
+
+        $payments = Payment::query()->where('number', $number)->where('source', PaymentSource::FROM_1C)->get();
+        $this->assertCount(2, $payments);
+
+        $service->processPayments([PaymentData::from([
+            'PaymentNumber' => $number,
+            'PaymentDate' => new \DateTimeImmutable('today'),
+            'Payer' => 'Тест ДРС',
+            'InnPayer' => '1234567890',
+            'ContractNumber' => null,
+            'Total' => 0,
+            'Canceled' => true,
+            'Purpose' => '',
+        ])]);
+
+        $left = Payment::query()->where('number', $number)->where('source', PaymentSource::FROM_1C)->get();
+        $this->assertCount(1, $left);
+        $this->assertSame($lastYear->format('Y'), $left->first()->received_date->format('Y'));
+    }
+
+    private function operationByNumber(string $number): PaymentOperation
+    {
+        return PaymentOperation::query()
+            ->whereHas('payment', fn ($query) => $query->where('number', $number))
+            ->with('payment')
+            ->firstOrFail();
+    }
+
+    private function paymentData(string $number, float $sum, \DateTimeImmutable $date = new \DateTimeImmutable('today')): PaymentData
+    {
+        $client = Client::query()->firstOrCreate(
+            ['inn' => sprintf('%010d', crc32($number) % 10000000000)],
+            ['name' => 'Тест ДРС '.$number]
+        );
+
+        return PaymentData::from([
+            'PaymentNumber' => $number,
+            'PaymentDate' => $date,
+            'Payer' => $client->name,
+            'InnPayer' => $client->inn,
+            'ContractNumber' => null,
+            'Total' => $sum,
+            'Canceled' => false,
+            'Purpose' => 'Оплата рекламы',
+            'invoices' => InvoiceData::collection([[
+                'invoice_number' => 'СЧ-'.$number,
+                'invoice_date' => $date,
+                'sum' => $sum,
+            ]]),
+        ]);
+    }
+}

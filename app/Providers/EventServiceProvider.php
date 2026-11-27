@@ -8,6 +8,7 @@ use App\Events\Notifications\ChannelsBonusCalculated;
 use App\Events\Notifications\ChannelsInstrumentStopped;
 use App\Events\Notifications\ChannelsIntegrationSettingsChanged;
 use App\Events\Notifications\ClientsDirectoryChanged;
+use App\Events\Notifications\FundsIncomeUnprocessed;
 use App\Events\Notifications\FundsReceived;
 use App\Events\Notifications\IntegrationSyncFailed;
 use App\Events\Notifications\PlanningApprovalRequired;
@@ -19,6 +20,7 @@ use App\Listeners\Notifications\CreateChannelsBonusCalculatedNotification;
 use App\Listeners\Notifications\CreateChannelsInstrumentStoppedNotification;
 use App\Listeners\Notifications\CreateChannelsIntegrationSettingsChangedNotification;
 use App\Listeners\Notifications\CreateClientsDirectoryChangedNotification;
+use App\Listeners\Notifications\CreateFundsIncomeUnprocessedNotification;
 use App\Listeners\Notifications\CreateFundsReceivedNotification;
 use App\Listeners\Notifications\CreateIntegrationSyncFailedNotification;
 use App\Listeners\Notifications\CreatePlanningApprovalRequiredNotification;
@@ -39,6 +41,9 @@ class EventServiceProvider extends ServiceProvider
         ],
         FundsReceived::class => [
             CreateFundsReceivedNotification::class,
+        ],
+        FundsIncomeUnprocessed::class => [
+            CreateFundsIncomeUnprocessedNotification::class,
         ],
         ChannelManagerChanged::class => [
             CreateChannelManagerChangedNotification::class,

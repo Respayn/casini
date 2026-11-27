@@ -268,7 +268,7 @@
                         @foreach(\App\Enums\AdvertisingSystem::cases() as $advertisingSystem)
                             <x-data.table-row>
                                 <x-data.table-cell>
-                                    {{ $advertisingSystem->value }}
+                                    {{ $advertisingSystem->label() }}
                                 </x-data.table-cell>
                             </x-data.table-row>
                         @endforeach

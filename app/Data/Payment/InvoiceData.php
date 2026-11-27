@@ -19,9 +19,11 @@ class InvoiceData extends Data
         public \DateTimeImmutable $invoiceDate,
 
         #[Rule('required|numeric|min:0')]
-        public float $sum
-    ) {
-    }
+        public float $sum,
+
+        #[Rule('nullable|integer|min:1')]
+        public ?int $order = null
+    ) {}
 
     public static function collection(array $data): DataCollection
     {

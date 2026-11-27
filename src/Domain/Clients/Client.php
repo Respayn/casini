@@ -2,6 +2,9 @@
 
 namespace Src\Domain\Clients;
 
+use DateTimeImmutable;
+use InvalidArgumentException;
+
 class Client
 {
     private function __construct(
@@ -9,21 +12,29 @@ class Client
         private string $name,
         private int $managerId,
         private string $inn,
-        private float $initialBalance
-    ) {}
+        private float $initialBalance,
+        private bool $chargesAdFee = true,
+        private ?DateTimeImmutable $adFeeChangedAt = null
+    ) {
+        $this->assertAdFeeSettings();
+    }
 
     public static function create(
         string $name,
         int $managerId,
         string $inn,
-        float $initialBalance = 0.0
+        float $initialBalance = 0.0,
+        bool $chargesAdFee = true,
+        ?DateTimeImmutable $adFeeChangedAt = null
     ) {
         return new self(
             id: null,
             name: $name,
             managerId: $managerId,
             inn: $inn,
-            initialBalance: $initialBalance
+            initialBalance: $initialBalance,
+            chargesAdFee: $chargesAdFee,
+            adFeeChangedAt: $adFeeChangedAt
         );
     }
 
@@ -32,14 +43,18 @@ class Client
         string $name,
         int $managerId,
         string $inn,
-        float $initialBalance
+        float $initialBalance,
+        bool $chargesAdFee = true,
+        ?DateTimeImmutable $adFeeChangedAt = null
     ): Client {
         return new self(
             id: $id,
             name: $name,
             managerId: $managerId,
             inn: $inn,
-            initialBalance: $initialBalance
+            initialBalance: $initialBalance,
+            chargesAdFee: $chargesAdFee,
+            adFeeChangedAt: $adFeeChangedAt
         );
     }
 
@@ -47,12 +62,17 @@ class Client
         string $name,
         int $managerId,
         string $inn,
-        float $initialBalance
+        float $initialBalance,
+        bool $chargesAdFee = true,
+        ?DateTimeImmutable $adFeeChangedAt = null
     ) {
         $this->name = $name;
         $this->managerId = $managerId;
         $this->inn = $inn;
         $this->initialBalance = $initialBalance;
+        $this->chargesAdFee = $chargesAdFee;
+        $this->adFeeChangedAt = $adFeeChangedAt;
+        $this->assertAdFeeSettings();
     }
 
     public function getId(): ?int
@@ -78,5 +98,27 @@ class Client
     public function getInitialBalance(): float
     {
         return $this->initialBalance;
+    }
+
+    public function chargesAdFee(): bool
+    {
+        return $this->chargesAdFee;
+    }
+
+    /**
+     * С этой даты сбор 3% в ДРС не взимается; до нее операции считаются со сбором.
+     */
+    public function getAdFeeChangedAt(): ?DateTimeImmutable
+    {
+        return $this->adFeeChangedAt;
+    }
+
+    private function assertAdFeeSettings(): void
+    {
+        if ($this->chargesAdFee) {
+            $this->adFeeChangedAt = null;
+        } elseif ($this->adFeeChangedAt === null) {
+            throw new InvalidArgumentException('Для клиента без сбора нужна дата изменения расчета сбора');
+        }
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\FeeType;
 use App\Enums\PermissionGroup;
 use App\Services\ClientService;
 use App\Services\UserService;
@@ -7,6 +8,7 @@ use App\Support\ClientsAndProjectsPermissions;
 use App\Support\SystemSettingsSectionPermissions;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -15,6 +17,7 @@ use Src\Application\Clients\Create\CreateClientCommand;
 use Src\Application\Clients\Create\CreateClientCommandHandler;
 use Src\Application\Clients\Update\UpdateClientCommand;
 use Src\Application\Clients\Update\UpdateClientCommandHandler;
+use Src\Domain\Clients\ClientRepositoryInterface;
 
 new class extends Component
 {
@@ -26,7 +29,14 @@ new class extends Component
 
     public int $managerId;
 
-    public float $initialBalance;
+    public ?float $initialBalance = null;
+
+    public string $adFeeType = 'three_percent';
+
+    public ?string $adFeeChangedAt = null;
+
+    /** Поля окна на момент открытия: кнопки показываем, только если есть изменения */
+    public array $snapshot = [];
 
     public ?string $deleteError = null;
 
@@ -51,6 +61,7 @@ new class extends Component
 
         $this->reset();
         $this->deleteError = null;
+        $this->takeSnapshot();
         $this->dispatch('modal-show', name: 'client-modal');
     }
 
@@ -65,7 +76,25 @@ new class extends Component
         $this->initialBalance = $initialBalance;
         $this->managerId = $managerId;
         $this->deleteError = null;
+
+        $client = app(ClientRepositoryInterface::class)->findById($id);
+        $this->adFeeType = ($client->chargesAdFee() ? FeeType::THREE_PERCENT : FeeType::NONE)->value;
+        $this->adFeeChangedAt = $client->getAdFeeChangedAt()?->format('Y-m-d');
+        $this->takeSnapshot();
+
         $this->dispatch('modal-show', name: 'client-modal');
+    }
+
+    private function takeSnapshot(): void
+    {
+        $this->snapshot = [
+            'name' => $this->name ?? '',
+            'inn' => $this->inn ?? '',
+            'managerId' => $this->managerId ?? null,
+            'initialBalance' => $this->initialBalance,
+            'adFeeType' => $this->adFeeType,
+            'adFeeChangedAt' => $this->adFeeChangedAt,
+        ];
     }
 
     #[Computed]
@@ -90,7 +119,7 @@ new class extends Component
     #[Computed]
     public function confirmButtonLabel()
     {
-        return $this->id === null ? 'Создать' : 'Сохранить';
+        return $this->id === null ? 'Создать клиента' : 'Сохранить';
     }
 
     #[Computed]
@@ -106,6 +135,15 @@ new class extends Component
             ])
             ->values()
             ->all();
+    }
+
+    #[Computed]
+    public function adFeeTypeOptions(): array
+    {
+        return array_map(
+            fn (FeeType $type) => ['label' => $type->label(), 'value' => $type->value],
+            FeeType::cases()
+        );
     }
 
     private function formatManagerName($manager): string
@@ -127,7 +165,9 @@ new class extends Component
                 'unique:clients,inn,'.($this->id ?: 'null'),
             ],
             'managerId' => 'required|exists:users,id',
-            'initialBalance' => 'required|numeric',
+            'initialBalance' => 'nullable|numeric',
+            'adFeeType' => ['required', Rule::enum(FeeType::class)],
+            'adFeeChangedAt' => 'required_if:adFeeType,'.FeeType::NONE->value.'|nullable|date|before_or_equal:today',
         ], [
             'name.required' => 'Название клиента обязательно',
             'name.max' => 'Название клиента не может быть длиннее 255 символов',
@@ -136,24 +176,34 @@ new class extends Component
             'inn.unique' => 'Данный ИНН уже используется',
             'managerId.required' => 'Выберите менеджера',
             'managerId.exists' => 'Менеджер не найден',
-            'initialBalance.required' => 'Начальная статистика взаиморасчетов обязательна',
             'initialBalance.numeric' => 'Начальная статистика взаиморасчетов должна быть числом',
+            'adFeeChangedAt.required_if' => 'Укажите дату изменения расчета сбора',
+            'adFeeChangedAt.before_or_equal' => 'Дата изменения расчета сбора не может быть в будущем',
         ]);
+
+        $chargesAdFee = $this->adFeeType === FeeType::THREE_PERCENT->value;
+        $adFeeChangedAt = $chargesAdFee || ! $this->adFeeChangedAt
+            ? null
+            : new DateTimeImmutable($this->adFeeChangedAt);
 
         if ($this->id === null) {
             $createCommand->handle(new CreateClientCommand(
                 name: $this->name,
                 inn: $this->inn,
-                initialBalance: $this->initialBalance,
+                initialBalance: $this->initialBalance ?? 0.0,
                 managerId: $this->managerId,
+                chargesAdFee: $chargesAdFee,
+                adFeeChangedAt: $adFeeChangedAt,
             ));
         } else {
             $updateCommand->handle(new UpdateClientCommand(
                 id: $this->id,
                 name: $this->name,
                 inn: $this->inn,
-                initialBalance: $this->initialBalance,
+                initialBalance: $this->initialBalance ?? 0.0,
                 managerId: $this->managerId,
+                chargesAdFee: $chargesAdFee,
+                adFeeChangedAt: $adFeeChangedAt,
             ));
         }
 
