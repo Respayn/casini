@@ -120,18 +120,53 @@
                     <x-data.table>
                     <x-data.table-columns>
                         @foreach ($this->visibleColumns as $column)
+                            @php
+                                $headerLabel = (string) $column->label;
+                                $headerTitle = $headerLabel;
+                                $headerUnit = null;
+                                if (preg_match('/^(.*?)\s*(\([^)]+\))\s*$/u', $headerLabel, $headerParts)) {
+                                    $headerTitle = trim($headerParts[1]);
+                                    $headerUnit = $headerParts[2];
+                                }
+                                $wrapHeader = $headerUnit !== null || mb_strlen($headerLabel) > 22;
+                            @endphp
                             <x-data.table-column
                                 @class([
-                                    'whitespace-nowrap border',
+                                    'border',
+                                    'whitespace-nowrap' => ! $wrapHeader,
                                     'min-w-28' => $column->field === 'tool',
                                 ])
                                 style="border-color: var(--color-table-cell)"
+                                :wrap="$wrapHeader"
+                                :stacked="$wrapHeader"
                             >
-                                <span>{{ $column->label }}</span>
-                                @if ($column->tooltip !== null)
-                                    <x-overlay.tooltip>
-                                        {{ $column->tooltip }}
-                                    </x-overlay.tooltip>
+                                @if ($wrapHeader)
+                                    <div @class([
+                                        'mx-auto text-center leading-tight',
+                                        'max-w-[9rem]' => $headerUnit === null,
+                                    ])>
+                                        <div @class([
+                                            'inline-flex items-start justify-center gap-1',
+                                            'whitespace-nowrap' => $headerUnit !== null,
+                                        ])>
+                                            <span>{{ $headerTitle }}</span>
+                                            @if ($column->tooltip !== null)
+                                                <x-overlay.tooltip>
+                                                    {{ $column->tooltip }}
+                                                </x-overlay.tooltip>
+                                            @endif
+                                        </div>
+                                        @if ($headerUnit !== null)
+                                            <div class="whitespace-nowrap">{{ $headerUnit }}</div>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span>{{ $headerLabel }}</span>
+                                    @if ($column->tooltip !== null)
+                                        <x-overlay.tooltip>
+                                            {{ $column->tooltip }}
+                                        </x-overlay.tooltip>
+                                    @endif
                                 @endif
                             </x-data.table-column>
                         @endforeach
