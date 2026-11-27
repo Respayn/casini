@@ -114,7 +114,7 @@
                             @foreach ($group['rows'] as $report)
                             <x-data.table-row
                                 wire:key="report-row.{{ $report->reportId }}"
-                                x-show="isFlat || expandedGroups['group-{{ $groupIndex }}']"
+                                x-bind:class="{ 'report-group-data-row-collapsed': !(isFlat || expandedGroups['group-{{ $groupIndex }}']) }"
                             >
                                 @foreach ($this->visibleColumns as $column)
                                     @switch($column['key'])

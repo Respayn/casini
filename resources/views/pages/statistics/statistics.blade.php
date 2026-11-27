@@ -218,7 +218,7 @@
                                     </x-data.table-row>
                                 @else
                                     <x-data.table-row
-                                        x-show="expandedGroups['group-{{ $groupIndex }}']"
+                                        x-bind:class="{ 'report-group-data-row-collapsed': !expandedGroups['group-{{ $groupIndex }}'] }"
                                         wire:key="row.{{ $row->id }}"
                                         :bg-color="$rowBgColor"
                                     >

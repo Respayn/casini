@@ -328,7 +328,7 @@
                                             class="h-px"
                                             :bg-color="$rowBgColor"
                                             wire:key="planning-row.{{ $rowIndex }}"
-                                            x-show="isFlat || expandedGroups['group-{{ $groupIndex }}']"
+                                            x-bind:class="{ 'report-group-data-row-collapsed': !(isFlat || expandedGroups['group-{{ $groupIndex }}']) }"
                                         >
                                             @if ($typeFirst)
                                                 <x-data.table-cell>

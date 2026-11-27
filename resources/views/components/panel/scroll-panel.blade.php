@@ -73,8 +73,9 @@
                     this.mutationObserver.observe(this.$refs.content, {
                         childList: true,
                         subtree: true,
-                        attributes: false,
-                        charactedData: true
+                        attributes: true,
+                        attributeFilter: ['class', 'style', 'hidden'],
+                        characterData: true,
                     });
 
                     this.resizeObserver = new ResizeObserver(() => {
@@ -226,6 +227,15 @@
             position: sticky;
             top: 0;
             z-index: 2;
+        }
+
+        /*
+         * Свёрнутые строки группы: visibility: collapse убирает высоту строки,
+         * но оставляет её в расчёте ширины колонок - таблица не прыгает при раскрытии.
+         * display: none (x-show) так не умеет.
+         */
+        .scrollpanel-content > table > tbody > tr.report-group-data-row-collapsed {
+            visibility: collapse;
         }
 
         .scrollpanel-bar {
