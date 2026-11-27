@@ -8,7 +8,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\On;
-use Livewire\Attributes\Session;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Src\Planning\Application\ProjectPlanService;
@@ -34,8 +33,8 @@ new
 
         /**
          * Группировка таблицы: none | clients | project_type (как в Каналах).
+         * Общая для продуктов через SharedProductFilters.
          */
-        #[Session(key: 'planning_report_grouping')]
         public string $grouping = 'none';
 
         /** Черновик группировки в модалке «Настроить отчет». */
@@ -75,21 +74,22 @@ new
             $this->loadedYear = $this->year;
             $this->showInactive = SharedProductFilters::resolveShowInactive($this->showInactive);
             $this->includeVat = SharedProductFilters::resolveIncludeVat($this->includeVat);
-            $this->sanitizeGrouping();
+            $this->grouping = SharedProductFilters::resolveGrouping($this->grouping);
             $this->groupingDraft = $this->grouping;
             $this->loadTableData();
         }
 
         public function openReportSettings(): void
         {
-            $this->sanitizeGrouping();
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->grouping);
             $this->groupingDraft = $this->grouping;
         }
 
         public function applyReportGrouping(): void
         {
-            $this->groupingDraft = $this->normalizeGrouping($this->groupingDraft);
-            $this->grouping = $this->groupingDraft;
+            SharedProductFilters::rememberGrouping($this->groupingDraft);
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->groupingDraft);
+            $this->groupingDraft = $this->grouping;
             unset($this->planGroups, $this->isFlatGroupingView);
         }
 
@@ -98,18 +98,10 @@ new
             $this->groupingDraft = $this->grouping;
         }
 
-        private function sanitizeGrouping(): void
+        public function isTypeFirstColumn(): bool
         {
-            $this->grouping = $this->normalizeGrouping($this->grouping);
-        }
-
-        private function normalizeGrouping(string $value): string
-        {
-            return match ($value) {
-                ChannelReportGrouping::CLIENTS->value,
-                ChannelReportGrouping::PROJECT_TYPE->value => $value,
-                default => ChannelReportGrouping::NONE->value,
-            };
+            return $this->grouping === ChannelReportGrouping::PROJECT_TYPE->value
+                && $this->sidebarProjectId === null;
         }
 
         #[Computed]

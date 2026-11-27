@@ -141,7 +141,10 @@
                     </div>
                 </div>
             @else
-                @php $isFlatView = $this->isFlatGroupingView; @endphp
+                @php
+                    $isFlatView = $this->isFlatGroupingView;
+                    $typeFirst = $this->isTypeFirstColumn();
+                @endphp
                 <div
                     wire:key="planning-groups-{{ $isFlatView ? 'flat' : $grouping }}"
                     x-data="{ expandedGroups: {}, isFlat: {{ $isFlatView ? 'true' : 'false' }} }"
@@ -149,21 +152,39 @@
                 <x-panel.scroll-panel style="max-height: calc(100vh - 300px); padding-bottom: 16px">
                     <x-data.table>
                     <x-data.table-columns>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Клиент
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Клиенто-проект
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Клиенто-проект создан
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            ID
-                        </x-data.table-column>
-                        <x-data.table-column class="whitespace-nowrap">
-                            Тип клиенто-проекта
-                        </x-data.table-column>
+                        @if ($typeFirst)
+                            <x-data.table-column class="whitespace-nowrap">
+                                Тип клиенто-проекта
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиент
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект создан
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                ID
+                            </x-data.table-column>
+                        @else
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиент
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Клиенто-проект создан
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                ID
+                            </x-data.table-column>
+                            <x-data.table-column class="whitespace-nowrap">
+                                Тип клиенто-проекта
+                            </x-data.table-column>
+                        @endif
                         <x-data.table-column class="whitespace-nowrap">
                             KPI
                         </x-data.table-column>
@@ -242,30 +263,32 @@
                         @foreach ($this->planGroups as $groupIndex => $group)
                             @unless ($isFlatView || $group['label'] === null)
                                 @php $groupRowCount = count($group['rows']); @endphp
-                                <x-data.table-row wire:key="planning-group.{{ $groupIndex }}.name">
-                                    <x-data.table-cell class="report-group-header-cell" colspan="100">
-                                        <div
-                                            class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
-                                        >
-                                            <span class="font-bold">{{ $group['label'] }}</span>
-                                            <x-icons.arrow
-                                                class="transition-transform duration-200"
-                                                x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }"
-                                            />
-                                        </div>
-                                    </x-data.table-cell>
-                                </x-data.table-row>
                                 <x-data.table-row wire:key="planning-group.{{ $groupIndex }}.summary">
-                                    <x-data.table-cell class="bg-table-summary-bg whitespace-nowrap font-bold">
-                                        Итого: {{ $groupRowCount }}
-                                    </x-data.table-cell>
-                                    <x-data.table-cell class="bg-table-summary-bg font-bold">
-                                        Итого: {{ $groupRowCount }}
-                                    </x-data.table-cell>
-                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
-                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
-                                    <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @if ($typeFirst)
+                                        <x-report.group-toggle-cell
+                                            :label="$group['label']"
+                                            :group-index="$groupIndex"
+                                        />
+                                        <x-data.table-cell class="bg-table-summary-bg whitespace-nowrap font-bold">
+                                            {{ $groupRowCount }}
+                                        </x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg font-bold">
+                                            {{ $groupRowCount }}
+                                        </x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @else
+                                        <x-report.group-toggle-cell
+                                            :label="$group['label']"
+                                            :group-index="$groupIndex"
+                                        />
+                                        <x-data.table-cell class="bg-table-summary-bg font-bold">
+                                            {{ $groupRowCount }}
+                                        </x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                        <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
+                                    @endif
                                     <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
                                     <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
                                     <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
@@ -307,28 +330,53 @@
                                             wire:key="planning-row.{{ $rowIndex }}"
                                             x-show="isFlat || expandedGroups['group-{{ $groupIndex }}']"
                                         >
-                                            <x-data.table-cell>
-                                                <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
-                                                    wire:navigate>
-                                                    {{ $projectPlan['client_name'] }}
-                                                </a>
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects.projects.manage', [
-                                'projectId' => $projectPlan['project_id'],
-                            ]) }}" wire:navigate>
-                                                    {{ $projectPlan['project_name'] }}
-                                                </a>
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                {{ $projectPlan['project_created_at'] }}
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                №{{ $projectPlan['project_id'] }}
-                                            </x-data.table-cell>
-                                            <x-data.table-cell>
-                                                {{ $projectPlan['department'] }}
-                                            </x-data.table-cell>
+                                            @if ($typeFirst)
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['department'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
+                                                        wire:navigate>
+                                                        {{ $projectPlan['client_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects.projects.manage', [
+                                    'projectId' => $projectPlan['project_id'],
+                                ]) }}" wire:navigate>
+                                                        {{ $projectPlan['project_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['project_created_at'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    №{{ $projectPlan['project_id'] }}
+                                                </x-data.table-cell>
+                                            @else
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects') }}"
+                                                        wire:navigate>
+                                                        {{ $projectPlan['client_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    <a class="text-primary underline" href="{{ route('system-settings.clients-and-projects.projects.manage', [
+                                    'projectId' => $projectPlan['project_id'],
+                                ]) }}" wire:navigate>
+                                                        {{ $projectPlan['project_name'] }}
+                                                    </a>
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['project_created_at'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    №{{ $projectPlan['project_id'] }}
+                                                </x-data.table-cell>
+                                                <x-data.table-cell>
+                                                    {{ $projectPlan['department'] }}
+                                                </x-data.table-cell>
+                                            @endif
                                             <x-data.table-cell>
                                                 {{ $projectPlan['kpi'] }}
                                             </x-data.table-cell>

@@ -71,6 +71,14 @@ class extends Component
     {
         $this->queryData->showInactive = SharedProductFilters::resolveShowInactive($this->queryData->showInactive);
         $this->queryData->includeVat = SharedProductFilters::resolveIncludeVat($this->queryData->includeVat);
+        $this->queryData->grouping = ChannelReportGrouping::from(
+            SharedProductFilters::resolveGrouping($this->queryData->grouping->value),
+        );
+    }
+
+    public function pinnedGroupingColumnField(): ?string
+    {
+        return SharedProductFilters::pinnedColumnField($this->queryData->grouping->value);
     }
 
     protected function afterSidebarProjectFilterChanged(): void
@@ -126,42 +134,95 @@ class extends Component
             $this->rebuildQueryDataForPeriod();
         }
 
+        SharedProductFilters::rememberGrouping($this->queryData->grouping->value);
+        $this->queryData->grouping = ChannelReportGrouping::from(
+            SharedProductFilters::normalizeGrouping($this->queryData->grouping->value),
+        );
+
+        $pinnedField = $this->pinnedGroupingColumnField();
+        if ($pinnedField !== null) {
+            $this->queryData->columns->each(function (TableReportColumnData $col) use ($pinnedField): void {
+                if ($col->field === $pinnedField) {
+                    $col->isVisible = true;
+                }
+            });
+        }
+
         $this->originalQueryData = null;
-        unset($this->reportData);
+        unset($this->reportData, $this->visibleColumns);
     }
 
     #[Renderless]
     public function sortColumn($item, $position)
     {
-        $column = $this->queryData->columns->first(
-            fn ($v) => $v->field === $item,
-        );
-        $oldPosition = $column->order;
-
-        if ($oldPosition === $position) {
+        $pinnedField = $this->pinnedGroupingColumnField();
+        if ($pinnedField !== null && $item === $pinnedField) {
             return;
         }
 
-        $this->queryData->columns->each(function ($col) use (
-            $oldPosition,
-            $position,
-        ) {
-            if ($col->order == $oldPosition) {
-                $col->order = $position;
-            } elseif (
-                $oldPosition < $position &&
-                $col->order > $oldPosition &&
-                $col->order <= $position
-            ) {
-                $col->order--;
-            } elseif (
-                $oldPosition > $position &&
-                $col->order >= $position &&
-                $col->order < $oldPosition
-            ) {
-                $col->order++;
+        if ($pinnedField === null) {
+            $column = $this->queryData->columns->first(
+                fn ($v) => $v->field === $item,
+            );
+            $oldPosition = $column->order;
+
+            if ($oldPosition === $position) {
+                return;
             }
-        });
+
+            $this->queryData->columns->each(function ($col) use (
+                $oldPosition,
+                $position,
+            ) {
+                if ($col->order == $oldPosition) {
+                    $col->order = $position;
+                } elseif (
+                    $oldPosition < $position &&
+                    $col->order > $oldPosition &&
+                    $col->order <= $position
+                ) {
+                    $col->order--;
+                } elseif (
+                    $oldPosition > $position &&
+                    $col->order >= $position &&
+                    $col->order < $oldPosition
+                ) {
+                    $col->order++;
+                }
+            });
+
+            $this->queryData->columns = $this->queryData->columns->sortBy(
+                fn (TableReportColumnData $col) => $col->order,
+            );
+
+            return;
+        }
+
+        $movable = $this->queryData->columns
+            ->filter(fn (TableReportColumnData $col) => $col->field !== $pinnedField)
+            ->sortBy(fn (TableReportColumnData $col) => $col->order)
+            ->values();
+
+        $fromIndex = $movable->search(
+            fn (TableReportColumnData $col) => $col->field === $item,
+        );
+        if ($fromIndex === false) {
+            return;
+        }
+
+        $toIndex = max(0, min((int) $position, $movable->count() - 1));
+        if ($fromIndex === $toIndex) {
+            return;
+        }
+
+        $slots = $movable->pluck('order')->sort()->values();
+        $moved = $movable->pull($fromIndex);
+        $movable = $movable->values();
+        $movable->splice($toIndex, 0, [$moved]);
+
+        foreach ($movable->values() as $index => $col) {
+            $col->order = $slots[$index];
+        }
 
         $this->queryData->columns = $this->queryData->columns->sortBy(
             fn (TableReportColumnData $col) => $col->order,
@@ -171,12 +232,30 @@ class extends Component
     #[Computed]
     public function visibleColumns()
     {
-        return $this->queryData->columns->filter(function (
-            TableReportColumnData $col,
-            $key,
-        ) {
-            return $col->isVisible;
-        });
+        $columns = $this->queryData->columns
+            ->filter(fn (TableReportColumnData $col) => $col->isVisible)
+            ->sortBy(fn (TableReportColumnData $col) => $col->order)
+            ->values();
+
+        $pinnedField = $this->pinnedGroupingColumnField();
+        if ($pinnedField === null) {
+            return $columns;
+        }
+
+        $pinned = $this->queryData->columns->first(
+            fn (TableReportColumnData $col) => $col->field === $pinnedField,
+        );
+
+        if ($pinned === null) {
+            return $columns;
+        }
+
+        $pinned->isVisible = true;
+
+        return $columns
+            ->reject(fn (TableReportColumnData $col) => $col->field === $pinnedField)
+            ->prepend($pinned)
+            ->values();
     }
 
     #[Computed]

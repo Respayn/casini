@@ -4,5 +4,5 @@
     class="bg-table-summary-bg"
     {{ $attributes }}
 >
-    <span class="font-bold">Итого: {{ $params['count'] }}</span>
+    <span class="font-bold">{{ $params['count'] }}</span>
 </x-data.table-cell>

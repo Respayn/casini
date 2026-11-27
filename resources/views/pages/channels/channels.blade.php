@@ -134,34 +134,28 @@
                         @php
                             $clientProjectStripe = 0;
                             $isFlatView = $sidebarProjectId !== null || $queryData->grouping->value === 'none';
+                            $pinnedField = $this->pinnedGroupingColumnField();
                         @endphp
                         @foreach ($this->reportData->groups as $groupIndex => $group)
-                            {{-- Итого по группе --}}
+                            {{-- Итого по группе: стрелка в первой (закреплённой) колонке --}}
                             @unless ($isFlatView || empty($group->summary))
-                                <x-data.table-row wire:key="group.{{ $groupIndex }}.name">
-                                    <x-data.table-cell colspan="100">
-                                        <div
-                                            class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
-                                        >
-                                            <span class="font-bold">{{ $group->groupLabel }}</span>
-                                            <x-icons.arrow
-                                                class="transition-transform duration-200"
-                                                x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }"
-                                            />
-                                        </div>
-                                    </x-data.table-cell>
-                                </x-data.table-row>
                                 <x-data.table-row wire:key="group.{{ $groupIndex }}.summary" data-channels-group-summary>
                                     @if ($this->isRefreshGroupPending($group))
                                         <x-report.table-row-skeleton :columns="$this->visibleColumns" />
                                     @else
                                         @foreach ($this->visibleColumns as $column)
-                                            <x-dynamic-component
-                                                :component="'channels.rows.summary.' . $column->component"
-                                                :params="$group->summary->get($column->field)"
-                                                :bold="true"
-                                            />
+                                            @if ($pinnedField !== null && $column->field === $pinnedField)
+                                                <x-report.group-toggle-cell
+                                                    :label="$group->groupLabel"
+                                                    :group-index="$groupIndex"
+                                                />
+                                            @else
+                                                <x-dynamic-component
+                                                    :component="'channels.rows.summary.' . $column->component"
+                                                    :params="$group->summary->get($column->field)"
+                                                    :bold="true"
+                                                />
+                                            @endif
                                         @endforeach
                                     @endif
                                 </x-data.table-row>
@@ -216,11 +210,17 @@
                                     <x-report.table-row-skeleton :columns="$this->visibleColumns" />
                                 @else
                                     @foreach ($this->visibleColumns as $column)
-                                        <x-dynamic-component
-                                            :component="'channels.rows.summary.' . $column->component"
-                                            :params="$this->reportData->summary->get($column->field)"
-                                            :bold="true"
-                                        />
+                                        @if ($loop->first)
+                                            <x-data.table-cell class="bg-table-summary-bg whitespace-nowrap font-bold">
+                                                Итого
+                                            </x-data.table-cell>
+                                        @else
+                                            <x-dynamic-component
+                                                :component="'channels.rows.summary.' . $column->component"
+                                                :params="$this->reportData->summary->get($column->field)"
+                                                :bold="true"
+                                            />
+                                        @endif
                                     @endforeach
                                 @endif
                             </x-data.table-row>
@@ -243,19 +243,43 @@
                     x-data
                     x-sort="$wire.sortColumn($item, $position)"
                 >
-                    @foreach ($queryData->columns as $index => $column)
-                        <div
-                            class="flex items-center gap-2.5"
-                            wire:key="column.{{ $column->field }}"
-                            x-sort:item="'{{ $column->field }}'"
-                        >
-                            <x-icons.burger
-                                class="text-secondary-text cursor-pointer"
-                                x-sort:handle
-                            />
-                            <x-form.checkbox wire:model="queryData.columns.{{ $index }}.isVisible" />
-                            <label>{{ $column->label }}</label>
-                        </div>
+                    @php $pinnedField = $this->pinnedGroupingColumnField(); @endphp
+                    @foreach ($queryData->columns->sortBy(fn ($col) => ($pinnedField !== null && $col->field === $pinnedField) ? -1 : $col->order) as $column)
+                        @php
+                            $isPinned = $pinnedField !== null && $column->field === $pinnedField;
+                            $columnIndex = $queryData->columns->search(fn ($col) => $col->field === $column->field);
+                            if ($isPinned) {
+                                $queryData->columns[$columnIndex]->isVisible = true;
+                            }
+                        @endphp
+                        @if ($isPinned)
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column->field }}"
+                            >
+                                <x-icons.burger class="text-secondary-text pointer-events-none" />
+                                <x-form.checkbox
+                                    wire:model="queryData.columns.{{ $columnIndex }}.isVisible"
+                                    :disabled="true"
+                                />
+                                <label>{{ $column->label }}</label>
+                            </div>
+                        @else
+                            <div
+                                class="flex items-center gap-2.5"
+                                wire:key="column.{{ $column->field }}"
+                                x-sort:item="'{{ $column->field }}'"
+                            >
+                                <x-icons.burger
+                                    class="text-secondary-text cursor-pointer"
+                                    x-sort:handle
+                                />
+                                <x-form.checkbox
+                                    wire:model="queryData.columns.{{ $columnIndex }}.isVisible"
+                                />
+                                <label>{{ $column->label }}</label>
+                            </div>
+                        @endif
                     @endforeach
                 </div>
             </x-panel.scroll-panel>
@@ -278,5 +302,8 @@
 
     <x-report.refresh-all-confirm-modal />
 
-    <livewire:channels.group-settings-modal :initial-grouping="$queryData->grouping" />
+    <livewire:channels.group-settings-modal
+        wire:key="group-settings-{{ $queryData->grouping->value }}"
+        :initial-grouping="$queryData->grouping"
+    />
 </x-report.refresh-navigation-guard>

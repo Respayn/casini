@@ -86,32 +86,24 @@
                         @endforeach
                     </x-data.table-columns>
                     <x-data.table-rows>
+                        @php $pinnedField = $this->pinnedColumnKey(); @endphp
                         @foreach ($this->reportGroups as $groupIndex => $group)
                             @unless ($isFlatView || $group['label'] === null)
                                 @php $groupRowCount = count($group['rows']); @endphp
-                                <x-data.table-row wire:key="reports-group.{{ $groupIndex }}.name">
-                                    <x-data.table-cell class="report-group-header-cell" colspan="100">
-                                        <div
-                                            class="flex cursor-pointer items-center gap-2"
-                                            x-on:click="expandedGroups['group-{{ $groupIndex }}'] = !expandedGroups['group-{{ $groupIndex }}']"
-                                        >
-                                            <span class="font-bold">{{ $group['label'] }}</span>
-                                            <x-icons.arrow
-                                                class="transition-transform duration-200"
-                                                x-bind:class="{ 'rotate-180': expandedGroups['group-{{ $groupIndex }}'] }"
-                                            />
-                                        </div>
-                                    </x-data.table-cell>
-                                </x-data.table-row>
                                 <x-data.table-row wire:key="reports-group.{{ $groupIndex }}.summary">
                                     @foreach ($this->visibleColumns as $column)
-                                        @if (in_array($column['key'], ['client', 'project'], true))
+                                        @if ($pinnedField !== null && $column['key'] === $pinnedField)
+                                            <x-report.group-toggle-cell
+                                                :label="$group['label']"
+                                                :group-index="$groupIndex"
+                                            />
+                                        @elseif (in_array($column['key'], ['client', 'project'], true))
                                             <x-data.table-cell @class([
                                                 'bg-table-summary-bg',
                                                 'font-bold',
                                                 'whitespace-nowrap' => $column['key'] === 'client',
                                             ])>
-                                                Итого: {{ $groupRowCount }}
+                                                {{ $groupRowCount }}
                                             </x-data.table-cell>
                                         @else
                                             <x-data.table-cell class="bg-table-summary-bg">-</x-data.table-cell>
@@ -227,7 +219,10 @@
     @endif
     </x-report.table-loading>
 
-    <x-column-settings-modal :columns="$columnSettings" />
+    <x-column-settings-modal
+        :columns="$this->columnSettingsForModal()"
+        :pinned-key="$this->pinnedColumnKey()"
+    />
 
     <x-overlay.modal name="reports-report-settings-modal" title="Настроить отчет">
         <x-slot:body>

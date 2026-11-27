@@ -8,7 +8,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Livewire\Attributes\Computed;
-use Livewire\Attributes\Session as LivewireSession;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Src\Application\Reports\Delete\DeleteReportCommand;
@@ -17,6 +16,7 @@ use Src\Application\Reports\Download\DownloadReportFileQuery;
 use Src\Application\Reports\Download\DownloadReportFileQueryHandler;
 use Src\Application\Reports\GetList\GetReportsListQuery;
 use Src\Application\Reports\GetList\GetReportsListQueryHandler;
+use Src\Application\Reports\GetList\ReportListItemDto;
 use Src\Domain\Reports\ReportRepositoryInterface;
 use Src\Presentation\Livewire\Traits\WithColumnSettings;
 
@@ -66,9 +66,9 @@ new
 
         /**
          * Группировка списка: none | clients | project_type (как в Каналах).
+         * Общая для продуктов через SharedProductFilters.
          * Для «типа» - полное имя типа клиенто-проекта (channelGroupLabel).
          */
-        #[LivewireSession(key: 'reports_list_grouping')]
         public string $grouping = 'none';
 
         /** Черновик группировки в модалке «Настроить отчет». */
@@ -112,21 +112,22 @@ new
             $this->periodFrom = Carbon::now()->startOfMonth()->startOfDay();
             $this->periodTo = $this->periodFrom->copy();
             $this->showInactiveProjects = SharedProductFilters::resolveShowInactive($this->showInactiveProjects);
-            $this->sanitizeGrouping();
+            $this->grouping = SharedProductFilters::resolveGrouping($this->grouping);
             $this->groupingDraft = $this->grouping;
         }
 
         public function openReportSettings(): void
         {
-            $this->sanitizeGrouping();
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->grouping);
             $this->groupingDraft = $this->grouping;
         }
 
         public function applyReportGrouping(): void
         {
-            $this->groupingDraft = $this->normalizeGrouping($this->groupingDraft);
-            $this->grouping = $this->groupingDraft;
-            unset($this->reportGroups, $this->isFlatGroupingView);
+            SharedProductFilters::rememberGrouping($this->groupingDraft);
+            $this->grouping = SharedProductFilters::normalizeGrouping($this->groupingDraft);
+            $this->groupingDraft = $this->grouping;
+            unset($this->reportGroups, $this->isFlatGroupingView, $this->visibleColumns);
         }
 
         public function cancelReportSettings(): void
@@ -134,18 +135,13 @@ new
             $this->groupingDraft = $this->grouping;
         }
 
-        private function sanitizeGrouping(): void
+        protected function pinnedColumnKey(): ?string
         {
-            $this->grouping = $this->normalizeGrouping($this->grouping);
-        }
-
-        private function normalizeGrouping(string $value): string
-        {
-            return match ($value) {
-                ChannelReportGrouping::CLIENTS->value,
-                ChannelReportGrouping::PROJECT_TYPE->value => $value,
-                default => ChannelReportGrouping::NONE->value,
-            };
+            return SharedProductFilters::pinnedColumnField(
+                $this->grouping,
+                clientField: 'client',
+                projectTypeField: 'channel',
+            );
         }
 
         #[Computed]
@@ -156,7 +152,7 @@ new
         }
 
         /**
-         * @return list<array{label: ?string, rows: list<\Src\Application\Reports\GetList\ReportListItemDto>}>
+         * @return list<array{label: ?string, rows: list<ReportListItemDto>}>
          */
         #[Computed]
         public function reportGroups(): array
